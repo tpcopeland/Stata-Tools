@@ -17,17 +17,7 @@
 | Pearson's chi-squared test: chi2 = 41.24, p \< 0.001 |  |  |  |
 | OR = 0.80 (95% CI: 0.75, 0.86) |  |  |  |
 
-### Table 3. Correlation Matrix
-
-|  | Age at cohort entry (years) | C-reactive protein (mg/L) | Prior hospitalizations |
-| --- | --- | --- | --- |
-| Age at cohort entry (years) | 1.00 |  |  |
-| C-reactive protein (mg/L) | -0.01 | 1.00 |  |
-| Prior hospitalizations | 0.00 | 0.01 | 1.00 |
-
-*\* p\<0.05, \*\* p\<0.01, \*\*\* p\<0.001*
-
-### Table 4. First Six Analysis Records
+### Table 3. First Six Analysis Records
 
 | Person identifier | Age at cohort entry (years) | Treatment group | Female sex | Cardiovascular event |
 | --- | --- | --- | --- | --- |

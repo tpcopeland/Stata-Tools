@@ -1,4 +1,4 @@
-*! _desctab_misscell Version 2.6.4  2026/10/12
+*! _desctab_misscell Version 1.0.0  2026/10/13
 *! Text of one desctab missingsummary cell in the level rows' cell format
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

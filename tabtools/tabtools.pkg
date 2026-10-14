@@ -17,7 +17,6 @@ d   hrcomptab      - Compatibility wrapper for comptab rate-scaffold mode
 d   comptab        - Vertical model composites and rate-interlocked tables
 d   survtab        - Kaplan-Meier survival estimates and medians
 d   crosstab       - Cross-tabulation with association measures
-d   corrtab        - Correlation matrix with significance stars
 d   puttab         - Style an in-memory dataset, frame, or matrix as one sheet
 d   stacktab       - Assemble multi-sheet composite Excel tables from blocks
 d   tabtools_tips  - Quick reference and worked recipes
@@ -113,8 +112,6 @@ f survtab.ado
 f survtab.sthlp
 f crosstab.ado
 f crosstab.sthlp
-f corrtab.ado
-f corrtab.sthlp
 f puttab.ado
 f puttab.sthlp
 f stacktab.ado

@@ -126,14 +126,10 @@ else {
 **# A1/A2 scope: every other public command already returned 0. These are
 **# guards against the same tail-shaped defect appearing elsewhere.
 * =========================================================================
-foreach _cmd in corrtab crosstab puttab regtab survtab {
+foreach _cmd in crosstab puttab regtab survtab {
     local ++test_count
     capture noisily {
-        if "`_cmd'" == "corrtab" {
-            sysuse auto, clear
-            corrtab price mpg weight
-        }
-        else if "`_cmd'" == "crosstab" {
+        if "`_cmd'" == "crosstab" {
             sysuse auto, clear
             crosstab foreign rep78
         }
@@ -257,41 +253,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL `test_count': A5 crosstab CSV shape (rc=`=_rc')"
-    local ++fail_count
-}
-
-* --- corrtab, including the generated star legend (A5 rider)
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    local _csv "`outdir'/_sr_a5_corrtab.csv"
-    capture erase "`_csv'"
-    corrtab price mpg weight, star(0.05 0.01) csv("`_csv'") ///
-        title("`_sr_t'") footnote("`_sr_f'")
-    quietly import delimited using "`_csv'", clear varnames(nonames) ///
-        stringcols(_all) bindquote(strict) encoding(utf8)
-    local _t1 = v1[1]
-    assert `"`_t1'"' == "`_sr_t'"
-    * The legend is generated, not user-supplied; the console, the workbook and
-    * the Markdown file all carry it and the CSV used to drop it, so a CSV could
-    * ship "0.54**" with nothing explaining the mark.
-    local _fn = v1[_N]
-    assert strpos(`"`_fn'"', "`_sr_f'") == 1
-    * 1.15.0: this assertion used to read "p<.05" and so PINNED the legend
-    * defect it was standing next to -- corrtab printed "p<0.05" for its default
-    * thresholds and "p<.05" for the identical thresholds passed through star(),
-    * because the default is a literal string while star() has been through
-    * numlist. The claim this test exists to make is that the generated legend
-    * REACHES the CSV, not which of two spellings it arrives in.
-    assert strpos(`"`_fn'"', "p<0.05") > 0
-    assert strtrim(v1[_N - 1]) != ""
-}
-if _rc == 0 {
-    display as result "  PASS `test_count': A5 corrtab CSV shape + star legend"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL `test_count': A5 corrtab CSV shape/legend (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -24,7 +24,6 @@
         demo_comptab.xlsx    (7 sheets) - comptab + source frames + flat frame
         demo_effecttab.xlsx  (5 sheets) - effecttab ATE + margins + cformat
         demo_stratetab.xlsx  (2 sheets) - stratetab rates + cformat
-        demo_corrtab.xlsx    (3 sheets) - corrtab Pearson + Spearman
         demo_crosstab.xlsx   (8 sheets) - crosstab variants + small cells
         demo_survtab.xlsx    (3 sheets) - survtab KM + RMST
         demo_hrcomptab.xlsx  (1 sheet)  - hrcomptab composite
@@ -112,7 +111,6 @@ local xlsx_regtab_models "`pkg_dir'/demo_regtab_models.xlsx"
 local xlsx_comptab   "`pkg_dir'/demo_comptab.xlsx"
 local xlsx_effecttab "`pkg_dir'/demo_effecttab.xlsx"
 local xlsx_stratetab "`pkg_dir'/demo_stratetab.xlsx"
-local xlsx_corrtab   "`pkg_dir'/demo_corrtab.xlsx"
 local xlsx_crosstab  "`pkg_dir'/demo_crosstab.xlsx"
 local xlsx_survtab   "`pkg_dir'/demo_survtab.xlsx"
 local xlsx_hrcomptab "`pkg_dir'/demo_hrcomptab.xlsx"
@@ -130,7 +128,7 @@ local do_main = 1
 
 * Erase prior demo artifacts before regenerating the full documentation set.
 if `do_main' {
-    foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab ratetab outtab tabcell {
+    foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab crosstab survtab hrcomptab puttab stacktab ratetab outtab tabcell {
         capture erase "`xlsx_`_f''"
     }
     capture erase "`pkg_dir'/demo_tabtools.xlsx"
@@ -379,14 +377,6 @@ noisily regtab, stats(n ll aic bic r2)
 
 log off demo
 restore
-
-**# Console: corrtab display
-log on demo
-
-noisily corrtab index_age crp prior_hosp, ///
-    star(0.05 0.01 0.001)
-
-log off demo
 
 **# Console: crosstab display
 log on demo
@@ -694,16 +684,12 @@ noisily crosstab treated female, or label digits(2) ///
     title("Table 2. Treatment by Sex") ///
     markdown("`markdown_report_export'") mdappend
 
-noisily corrtab index_age crp prior_hosp, star(0.05 0.01 0.001) ///
-    title("Table 3. Correlation Matrix") ///
-    markdown("`markdown_report_export'") mdappend
-
 preserve
 keep id index_age treated female cv_event
 keep in 1/6
 noisily puttab id index_age treated female cv_event, ///
     varlabels ///
-    title("Table 4. First Six Analysis Records") ///
+    title("Table 3. First Six Analysis Records") ///
     markdown("`markdown_report_export'") mdappend
 restore
 
@@ -719,22 +705,19 @@ tempname _md_fh
 file open `_md_fh' using "`markdown_report'", read text
 local _has_table1 0
 local _has_crosstab 0
-local _has_corrtab 0
 local _has_puttab 0
 local _has_pipe_table 0
 file read `_md_fh' _md_line
 while r(eof) == 0 {
     if strpos(`"`_md_line'"', "### Table 1. Baseline Characteristics") local _has_table1 1
     if strpos(`"`_md_line'"', "### Table 2. Treatment by Sex") local _has_crosstab 1
-    if strpos(`"`_md_line'"', "### Table 3. Correlation Matrix") local _has_corrtab 1
-    if strpos(`"`_md_line'"', "### Table 4. First Six Analysis Records") local _has_puttab 1
+    if strpos(`"`_md_line'"', "### Table 3. First Six Analysis Records") local _has_puttab 1
     if strpos(`"`_md_line'"', "| --- |") local _has_pipe_table 1
     file read `_md_fh' _md_line
 }
 file close `_md_fh'
 assert `_has_table1' == 1
 assert `_has_crosstab' == 1
-assert `_has_corrtab' == 1
 assert `_has_puttab' == 1
 assert `_has_pipe_table' == 1
 
@@ -1379,27 +1362,6 @@ capture erase "`pkg_dir'/_strate_cv_m.dta"
 capture erase "`pkg_dir'/_strate_sh_m.dta"
 capture erase "`pkg_dir'/_strate_cv_f.dta"
 capture erase "`pkg_dir'/_strate_sh_f.dta"
-
-
-**# Sheet 30: Correlation -- Pearson with stars (lower triangle)
-use `analysis', clear
-corrtab index_age crp prior_hosp, ///
-    xlsx("`xlsx_corrtab'") sheet("Correlation") ///
-    title("Table 13. Pearson Correlation Matrix") ///
-    star(0.05 0.01 0.001)
-
-**# Sheet 31: Correlation Spearman -- Spearman with p-values
-corrtab index_age crp prior_hosp, ///
-    xlsx("`xlsx_corrtab'") sheet("Correlation Spear") ///
-    title("Table 14. Spearman Rank Correlation Matrix") ///
-    spearman pvalues
-
-**# Sheet 32: Correlation Full -- Pearson full matrix (all cells)
-* Demonstrates: corrtab full option showing complete matrix instead of triangle
-corrtab index_age crp prior_hosp, ///
-    xlsx("`xlsx_corrtab'") sheet("Correlation Full") ///
-    title("Table 15. Pearson Correlation Matrix (Full)") ///
-    full star(0.05 0.01 0.001)
 
 
 **# Sheet 33: Cross-Tabulation -- 2x2 with Fisher's exact + OR
@@ -2300,7 +2262,7 @@ display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.log"
 display as result "  `pkg_dir'/console_output.md"
 display as result "  `markdown_report'"
-foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab ratetab outtab tabcell {
+foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab crosstab survtab hrcomptab puttab stacktab ratetab outtab tabcell {
     capture confirm file "`xlsx_`_f''"
     if _rc {
         display as error "Expected demo artifact not found: `xlsx_`_f''"

@@ -82,7 +82,6 @@ capture noisily {
     mata: mata set matastrict off
     sysuse auto, clear
     quietly crosstab foreign rep78
-    quietly corrtab price mpg weight
     quietly puttab make price in 1/3 using "`od'/r1.xlsx", sheet("A")
     quietly stacktab using "`od'/r1.xlsx", sheet("B") blocks(sheet(A)) sheetreplace
     quietly table1_tc, by(foreign) vars(price contn \ rep78 cat) excel("`od'/r1t.xlsx")
@@ -378,7 +377,7 @@ if _rc != 0 {
     local ++fail_count
 }
 
-foreach cmd in corrtab crosstab table1_tc puttab stacktab regtab effecttab ///
+foreach cmd in crosstab table1_tc puttab stacktab regtab effecttab ///
     survtab stratetab comptab {
     capture noisily {
         local bad ""
@@ -386,11 +385,7 @@ foreach cmd in corrtab crosstab table1_tc puttab stacktab regtab effecttab ///
             mata: st_local("s", st_global("R929_S`k'"))
             local x "`od'/sh_`cmd'_`k'.xlsx"
             capture erase "`x'"
-            if "`cmd'" == "corrtab" {
-                sysuse auto, clear
-                quietly corrtab price mpg, xlsx("`x'") sheet(`"`macval(s)'"')
-            }
-            else if "`cmd'" == "crosstab" {
+            if "`cmd'" == "crosstab" {
                 sysuse auto, clear
                 quietly crosstab foreign rep78, xlsx("`x'") sheet(`"`macval(s)'"')
             }

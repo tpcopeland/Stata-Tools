@@ -1,4 +1,4 @@
-*! stratetab Version 2.6.4  2026/10/12
+*! stratetab Version 1.0.0  2026/10/13
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -151,7 +151,7 @@ if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" {
     local xlsx `"`macval(excel)'"'
 }
 * Session destinations (tabtools set workbook/markdown) apply only when
-* sheet() asks for a sheet; an explicit option wins (as in corrtab). The
+* sheet() asks for a sheet; an explicit option wins (as in regtab). The
 * first write to the session workbook starts it over: _tabtools_xlsx_write
 * calls _tabtools_set_sinks xlsxstart for every write.
 if `"`macval(sheet)'"' != "" {

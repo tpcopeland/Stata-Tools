@@ -7,7 +7,6 @@
 {viewerjumpto "Also see" "crosstab##alsosee"}{...}
 {viewerjumpto "Author" "crosstab##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
-{vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "tabulate twoway" "help tabulate twoway"}{...}
 {title:Title}
 
@@ -370,7 +369,7 @@ frequencies. {it:Biometrics} 11: 375-386. doi:10.2307/3001775.{p_end}
 {marker alsosee}{title:Also see}
 
 {psee}
-{helpb tabtools}, {helpb corrtab},
+{helpb tabtools},
 {helpb tabtools_tips}, {helpb tabulate twoway}
 {p_end}
 

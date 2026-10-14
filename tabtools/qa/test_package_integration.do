@@ -77,46 +77,6 @@ end
 **# FIX 1: frame() rejects pre-existing frames
 * ============================================================
 
-* --- 1.1 corrtab: frame() rejects existing frame ---
-capture noisily {
-    sysuse auto, clear
-    capture frame drop victim
-    frame create victim
-    capture corrtab price mpg weight, frame(victim)
-    assert _rc == 110
-}
-local _test_rc = _rc
-capture frame drop victim
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.1 corrtab frame() rejects existing frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.1 corrtab frame() rejects existing frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.1"
-}
-
-* --- 1.2 corrtab: frame() succeeds when frame does not exist ---
-capture noisily {
-    sysuse auto, clear
-    capture frame drop fresh_corr
-    corrtab price mpg weight, frame(fresh_corr)
-    capture confirm frame fresh_corr
-    assert _rc == 0
-}
-local _test_rc = _rc
-capture frame drop fresh_corr
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.2 corrtab frame() works for new frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.2 corrtab frame() works for new frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.2"
-}
-
 * --- 1.3 table1_tc: frame() rejects existing frame ---
 capture noisily {
     sysuse auto, clear
@@ -932,9 +892,9 @@ tabtools set clear
 
 * =========================================================================
 
-**# Migrated: digits() across crosstab/survtab/corrtab
+**# Migrated: digits() across crosstab/survtab
 
-**# F1: digits() for crosstab, survtab, and corrtab
+**# F1: digits() for crosstab and survtab
 * =========================================================================
 
 * --- F1.1: crosstab digits(3) ---
@@ -1003,35 +963,6 @@ else {
     local ++fail_count
 }
 capture frame drop _f1_2
-
-* --- F1.4: corrtab digits(4) ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    capture frame drop _f1_4
-    corrtab price mpg weight, digits(4) frame(_f1_4)
-    frame _f1_4 {
-        * Off-diagonal cells have actual correlations; row 4 is first off-diag in c2
-        local cell = c2[4]
-        local dot_pos = strpos("`cell'", ".")
-        assert `dot_pos' > 0
-        local after_dot = substr("`cell'", `dot_pos' + 1, .)
-        * Strip trailing stars and whitespace
-        local after_dot : subinstr local after_dot "*" "", all
-        local after_dot = strtrim("`after_dot'")
-        local n_dec = strlen("`after_dot'")
-        assert `n_dec' == 4
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: F1.4 — corrtab digits(4) formats correctly"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: F1.4 — corrtab digits(4) failed (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop _f1_4
 
 * --- F1.5: digits validation (out of range) ---
 local ++n_total
@@ -1355,27 +1286,6 @@ else {
     local ++fail_count
 }
 capture frame drop _u2_5
-
-* --- U2.6: frame(name, replace) for corrtab ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    capture frame drop _u2_6
-    corrtab price mpg weight, frame(_u2_6)
-    corrtab price mpg weight, spearman frame(_u2_6, replace)
-    frame _u2_6 {
-        assert _N > 0
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: U2.6 — corrtab frame(name, replace) works"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: U2.6 — corrtab frame(name, replace) failed (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop _u2_6
 
 * --- U2.9: frame(name, replace) for table1_tc ---
 local ++n_total
@@ -1771,25 +1681,25 @@ else {
 
 * =========================================================================
 
-**# Migrated: corrtab/comptab gaps + excel() synonym across commands
+**# Migrated: crosstab/comptab gaps + excel() synonym across commands
 
-**# SECTION 6: corrtab/comptab — minor gaps
+**# SECTION 6: crosstab/comptab — minor gaps
 * ============================================================
 
-* Test: corrtab footnote
+* Test: crosstab footnote
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, xlsx("`output_dir'/_cov_corrtab_footnote.xlsx") ///
-        sheet("footnote") footnote("Pearson correlation coefficients")
-    confirm file "`output_dir'/_cov_corrtab_footnote.xlsx"
+    crosstab foreign rep78, xlsx("`output_dir'/_cov_crosstab_footnote.xlsx") ///
+        sheet("footnote") footnote("Counts of cars by origin and repair record")
+    confirm file "`output_dir'/_cov_crosstab_footnote.xlsx"
     assert "`r(methods)'" != ""
 }
 if _rc == 0 {
-    display as result "  PASS: corrtab footnote()"
+    display as result "  PASS: crosstab footnote()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: corrtab footnote() (error `=_rc')"
+    display as error "  FAIL: crosstab footnote() (error `=_rc')"
     local ++fail_count
 }
 
@@ -1884,21 +1794,20 @@ else {
     local ++fail_count
 }
 
-* Test: corrtab excel() synonym
+* Test: crosstab excel() synonym
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, excel("`output_dir'/_cov_excel_corr.xlsx") sheet("excel")
-    confirm file "`output_dir'/_cov_excel_corr.xlsx"
-    matrix _cov_corr_N = r(N)
-    assert !missing(_cov_corr_N[1, 1])
-    assert _cov_corr_N[1, 1] > 0
+    crosstab foreign rep78, excel("`output_dir'/_cov_excel_cross.xlsx") sheet("excel")
+    confirm file "`output_dir'/_cov_excel_cross.xlsx"
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: corrtab excel() synonym"
+    display as result "  PASS: crosstab excel() synonym"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: corrtab excel() synonym (error `=_rc')"
+    display as error "  FAIL: crosstab excel() synonym (error `=_rc')"
     local ++fail_count
 }
 
@@ -1951,19 +1860,19 @@ else {
     local ++fail_count
 }
 
-* Test: corrtab data preservation
+* Test: crosstab data preservation
 capture noisily {
     sysuse auto, clear
     local _n1 = _N
-    corrtab price mpg weight, xlsx("`output_dir'/_cov_corr_preserve.xlsx") sheet("preserve")
+    crosstab foreign rep78, xlsx("`output_dir'/_cov_cross_preserve.xlsx") sheet("preserve")
     assert _N == `_n1'
 }
 if _rc == 0 {
-    display as result "  PASS: corrtab data preservation"
+    display as result "  PASS: crosstab data preservation"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: corrtab data preservation (error `=_rc')"
+    display as error "  FAIL: crosstab data preservation (error `=_rc')"
     local ++fail_count
 }
 
@@ -2040,25 +1949,24 @@ else {
 }
 
 
-**## 2c. corrtab respects custom colors
+**## 2c. crosstab respects custom colors
 capture noisily {
     tabtools set headercolor "255 0 0"
     tabtools set zebracolor "255 255 0"
     sysuse auto, clear
-    capture erase "`output_dir'/_regfix_corrtab_custom.xlsx"
-    corrtab price mpg weight, xlsx("`output_dir'/_regfix_corrtab_custom.xlsx") ///
-        headershade zebra star(0.05)
-    confirm file "`output_dir'/_regfix_corrtab_custom.xlsx"
-    matrix _regfix_corr_N = r(N)
-    assert !missing(_regfix_corr_N[1, 1])
-    assert _regfix_corr_N[1, 1] > 0
+    capture erase "`output_dir'/_regfix_crosstab_custom.xlsx"
+    crosstab foreign rep78, xlsx("`output_dir'/_regfix_crosstab_custom.xlsx") ///
+        headershade zebra
+    confirm file "`output_dir'/_regfix_crosstab_custom.xlsx"
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: corrtab accepts custom headercolor/zebracolor"
+    display as result "  PASS: crosstab accepts custom headercolor/zebracolor"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: corrtab custom colors (error `=_rc')"
+    display as error "  FAIL: crosstab custom colors (error `=_rc')"
     local ++fail_count
 }
 tabtools set clear
@@ -2086,25 +1994,6 @@ program define _review_build_comptab_frame
 end
 
 **# Tests
-
-capture noisily {
-    set varabbrev on
-    clear
-    set obs 10
-    gen double x = _n
-    gen double y = _n
-    capture corrtab x y, lower upper
-    assert _rc == 198
-    assert "`c(varabbrev)'" == "on"
-}
-if _rc == 0 {
-    display as result "  PASS: corrtab validation error restores varabbrev"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: corrtab validation error restores varabbrev (rc=`=_rc')"
-    local ++fail_count
-}
 
 capture noisily {
     set varabbrev on
@@ -2193,37 +2082,6 @@ else {
 }
 capture frame drop rb_src
 capture frame drop rb_out
-
-capture noisily {
-    set varabbrev on
-    sysuse auto, clear
-    capture frame drop rb_star_desc
-    capture frame drop rb_star_asc
-    quietly corrtab price mpg weight length, full star(0.1 0.05 0.01) ///
-        frame(rb_star_desc, replace)
-    local desc_methods `"`r(methods)'"'
-    quietly corrtab price mpg weight length, full star(0.01 0.05 0.1) ///
-        frame(rb_star_asc, replace)
-    local asc_methods `"`r(methods)'"'
-    assert `"`desc_methods'"' == `"`asc_methods'"'
-    assert strpos(`"`desc_methods'"', "* p<.1") > 0 | ///
-        strpos(`"`desc_methods'"', "* p<0.1") > 0
-    assert strpos(`"`desc_methods'"', "** p<.05") > 0 | ///
-        strpos(`"`desc_methods'"', "** p<0.05") > 0
-    assert strpos(`"`desc_methods'"', "*** p<.01") > 0 | ///
-        strpos(`"`desc_methods'"', "*** p<0.01") > 0
-    assert "`c(varabbrev)'" == "on"
-}
-if _rc == 0 {
-    display as result "  PASS: corrtab star() thresholds normalize order and restore varabbrev"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: corrtab star() threshold-order contract (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop rb_star_desc
-capture frame drop rb_star_asc
 
 capture noisily {
     set varabbrev on

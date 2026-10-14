@@ -16,7 +16,7 @@
 * R7  outtab refuses an exposure that takes one value in the sample
 * R8  ratetab and survtab note days-scaled analysis time; no note once
 *     stset has scale()
-* R9  crosstab and corrtab p-values follow the package rule: "P for trend <
+* R9  crosstab p-values follow the package rule: "P for trend <
 *     0.001" and "p = 0.065", two decimals from 0.10
 * R10 review of the 2.6.2 change set: the overall margin of two margins calls
 *     with different at() reads "Margin", not one call's scenario; an
@@ -415,7 +415,7 @@ else {
     local ++fail_count
 }
 
-**# R9: crosstab and corrtab p-values follow the package rule
+**# R9: crosstab p-values follow the package rule
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -436,18 +436,9 @@ capture noisily {
     _fx_csv "`f'b.csv"
     frame _fx: quietly count if strtrim(v1) == "`want'"
     assert r(N) == 1
-    * corrtab: a p-value from 0.10 prints two decimals (pwcorr oracle)
-    quietly pwcorr price headroom, sig
-    matrix S = r(sig)
-    local p = S[2, 1]
-    assert `p' >= 0.10 & `p' <= 0.99
-    corrtab price headroom, pvalues csv("`f'c.csv")
-    _fx_csv "`f'c.csv"
-    frame _fx: quietly count if strpos(v2, "(" + strtrim(string(`p', "%5.2f")) + ")") > 0
-    assert r(N) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: R9 crosstab/corrtab p-value text by the package rule"
+    display as result "  PASS: R9 crosstab p-value text by the package rule"
     local ++pass_count
 }
 else {

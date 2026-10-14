@@ -1,4 +1,4 @@
-*! _regtab_classes Version 2.6.4  2026/10/12
+*! _regtab_classes Version 1.0.0  2026/10/13
 *! regtab block: constraint classes collect could not record, per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

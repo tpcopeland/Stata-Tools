@@ -150,9 +150,9 @@ else {
 }
 
 **# R3: generated notes stay separate paragraphs of a paragraph footnote
-* The smallcells notice (desctab/crosstab) and corrtab's star legend were
+* The smallcells notice (desctab/crosstab) was
 * glued onto the user's last paragraph in every sink. With " \ " in the
-* footnote, each is its own paragraph (row / CSV line / Markdown paragraph).
+* footnote, it is its own paragraph (row / CSV line / Markdown paragraph).
 local ++test_count
 capture noisily {
     local csv "`output_dir'/rv230_r3.csv"
@@ -172,19 +172,6 @@ capture noisily {
     mata: st_local("d2", strofreal(sum(_L :== "D2.,,,")))
     mata: st_local("sc", strofreal(sum(substr(_L, 1, 16) :== "Counts below 3 a")))
     assert `d2' == 1 & `sc' == 1
-    corrtab mpg price weight, footnote("C1. \ C2.") csv("`csv'") markdown("`md'")
-    _rv_lines "`csv'"
-    mata: st_local("c2", strofreal(sum(_L :== "C2.,,,")))
-    mata: st_local("lg", strofreal(sum(substr(_L, 1, 9) :== char(34) + "* p<0.05")))
-    assert `c2' == 1 & `lg' == 1
-    _rv_lines "`md'"
-    mata: st_local("c2", strofreal(sum(_L :== "*C2.*")))
-    assert `c2' == 1
-    * one-paragraph footnotes keep the 2.2.0 join
-    corrtab mpg price weight, footnote("Plain.") csv("`csv'")
-    _rv_lines "`csv'"
-    mata: st_local("pl", strofreal(sum(substr(_L, 1, 16) :== char(34) + "Plain. * p<0.05")))
-    assert `pl' == 1
 }
 if _rc == 0 {
     display as result "  PASS: R3 generated notes are their own paragraphs"

@@ -213,7 +213,7 @@ end
 
 * All three sinks carry the title (T) and the footnote (F). `flat' names
 * the global holding the note the CSV and Markdown files carry when it is not
-* F alone (corrtab joins its star legend to the footnote there).
+* F alone.
 capture program drop _fu_sinks_have
 program define _fu_sinks_have
     version 17.0
@@ -538,8 +538,6 @@ local T = "F3 title " + char(96) + "dose" + char(39) + " " + char(36) + "TT_F3_S
 local F = "F3 note " + char(96) + "arm" + char(39) + " " + char(36) + "TT_F3_SENTINEL" + char(39) + "s end"
 mata: st_global("FU_T", st_local("T"))
 mata: st_global("FU_F", st_local("F"))
-* corrtab's flat sinks: the footnote, then its generated star legend
-mata: st_global("FU_FS", st_local("F") + "; * p<0.05, ** p<0.01, *** p<0.001")
 
 * regtab
 capture noisily {
@@ -618,24 +616,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: F3 crosstab title/footnote (rc=`=_rc')"
-    local ++fail_count
-}
-
-* corrtab
-capture noisily {
-    local stem "`output_dir'/fu_f3_corrtab"
-    _fu_clear_stem "`stem'"
-    sysuse auto, clear
-    quietly corrtab price mpg weight, xlsx("`stem'.xlsx") sheet("F3") csv("`stem'.csv") markdown("`stem'.md") ///
-        title(`"`macval(T)'"') footnote(`"`macval(F)'"')
-    _fu_sinks_have "`stem'" "F3" FS
-}
-if _rc == 0 {
-    display as result "  PASS: F3 corrtab title/footnote intact in xlsx, CSV and Markdown"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: F3 corrtab title/footnote (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -1410,7 +1390,6 @@ capture frame drop _fu9e
 global TT_F3_SENTINEL
 global FU_T
 global FU_F
-global FU_FS
 global FU_TOOLS
 local test_count = `pass_count' + `fail_count'
 display ""

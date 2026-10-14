@@ -5,7 +5,7 @@
 *   C1  a variable label, a value label and a collected label holding a
 *       $global (of a global that exists), a balanced backtick-quote pair, an
 *       unbalanced backtick and double quotes reach the frame, xlsx, CSV and
-*       Markdown as typed, in corrtab, desctab, table1_tc, regtab, effecttab
+*       Markdown as typed, in desctab, table1_tc, regtab, effecttab
 *       (margins and teffects), crosstab, survtab, stratetab and hrcomptab
 *       (comptab composing a rate frame with a model frame by label)
 *   C2  an occupied, invalid or current frame() (and eplotframe()) is refused
@@ -355,29 +355,6 @@ end
 
 **# C1 macro-safe labels
 
-* C1a corrtab: variable labels in header and stub
-capture noisily {
-    local stem "$CA_OUT/ca_c1_corrtab"
-    _ca_clear_stem "`stem'"
-    _ca_c1_data
-    capture frame drop ca_c1f
-    corrtab x u y, xlsx("`stem'.xlsx") sheet("C1") csv("`stem'.csv") ///
-        markdown("`stem'.md") frame(ca_c1f)
-    foreach w in L U {
-        _ca_sinks_have "`stem'" "C1" `w'
-        _ca_frame_has ca_c1f `w'
-    }
-    capture frame drop ca_c1f
-}
-if _rc == 0 {
-    display as result "  PASS: C1a corrtab labels literal in frame, xlsx, CSV and Markdown"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: C1a corrtab labels (rc=`=_rc')"
-    local ++fail_count
-}
-
 * C1b desctab and C1c table1_tc: variable, category and group value labels
 foreach cmd in desctab table1_tc {
     local tid = cond("`cmd'" == "desctab", "C1b", "C1c")
@@ -633,7 +610,6 @@ program define _ca_c2_call
     args cmd fs stem
     local sinks `"xlsx("`stem'.xlsx") sheet("New") csv("`stem'.csv") markdown("`stem'.md")"'
     sysuse auto, clear
-    if "`cmd'" == "corrtab" corrtab price mpg, `sinks' frame(`fs')
     if "`cmd'" == "crosstab" crosstab foreign rep78, `sinks' frame(`fs')
     if "`cmd'" == "survtab" {
         quietly generate double t = mpg
@@ -679,7 +655,7 @@ quietly generate byte d = price > 5000
 quietly stset t, failure(d)
 quietly strate foreign, output("$CA_OUT/ca_c2_strate", replace)
 
-foreach cmd in corrtab crosstab survtab desctab table1_tc regtab regtab_ep ///
+foreach cmd in crosstab survtab desctab table1_tc regtab regtab_ep ///
     effecttab effecttab_ep comptab comptab_ep stratetab stacktab {
     capture noisily {
         local stem "$CA_OUT/ca_c2_`cmd'"

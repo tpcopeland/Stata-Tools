@@ -5,7 +5,7 @@
 * one row per paragraph in CSV, and one italic paragraph each in Markdown.
 * A footnote without the token is written exactly as before. Checked for
 * commands whose Excel footnote goes through _tabtools_xlsx_apply_styles
-* (desctab, crosstab, corrtab, regtab, survtab); puttab and stacktab are
+* (desctab, crosstab, regtab, survtab); puttab and stacktab are
 * covered in their own v230 suites. Read back with openpyxl.
 
 clear all
@@ -92,7 +92,7 @@ else {
     local ++fail_count
 }
 
-**# crosstab and corrtab
+**# crosstab
 local ++test_count
 * stata-dev-ignore: rc-only-test — the content oracle is the _wr_pair/_v_line call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in this file and _qa_v230_helpers.do); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
@@ -103,15 +103,13 @@ capture noisily {
         markdown("`md'")
     _wr_pair "`book'" "C" "C one." "C two."
     _v_line "`md'" "*C one.*" 1
-    corrtab mpg price weight, xlsx("`book'") sheet("R") footnote("R one. \ R two.")
-    _wr_pair "`book'" "R" "R one." "R two."
 }
 if _rc == 0 {
-    display as result "  PASS: crosstab/corrtab footnote paragraphs"
+    display as result "  PASS: crosstab footnote paragraphs"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: crosstab/corrtab footnote paragraphs (rc=`=_rc')"
+    display as error "  FAIL: crosstab footnote paragraphs (rc=`=_rc')"
     local ++fail_count
 }
 

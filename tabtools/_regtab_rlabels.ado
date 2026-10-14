@@ -1,4 +1,4 @@
-*! _regtab_rlabels Version 2.6.4  2026/10/12
+*! _regtab_rlabels Version 1.0.0  2026/10/13
 *! hand result levels to a layout under their own names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

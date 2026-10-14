@@ -697,7 +697,7 @@ else {
 * --- 7.12: Sheet name validation ---
 capture {
     sysuse auto, clear
-    corrtab price mpg weight, ///
+    crosstab foreign rep78, ///
         xlsx("`output_dir'/test_sheet_validation.xlsx") ///
         sheet("This sheet name is way too long for Excel limit")
 }
@@ -713,7 +713,7 @@ else {
 * Test: Sheet name with invalid chars rejected
 capture {
     sysuse auto, clear
-    corrtab price mpg weight, ///
+    crosstab foreign rep78, ///
         xlsx("`output_dir'/test_sheet_invalid.xlsx") ///
         sheet("Bad[name]")
 }
@@ -729,7 +729,7 @@ else {
 * Test: Sheet name with colon rejected
 capture {
     sysuse auto, clear
-    corrtab price mpg weight, ///
+    crosstab foreign rep78, ///
         xlsx("`output_dir'/test_sheet_colon.xlsx") ///
         sheet("Bad:Name")
 }
@@ -746,7 +746,7 @@ else {
 capture noisily {
     sysuse auto, clear
     capture erase "`output_dir'/test_sheet_apostrophe.xlsx"
-    corrtab price mpg weight, ///
+    crosstab foreign rep78, ///
         xlsx("`output_dir'/test_sheet_apostrophe.xlsx") ///
         sheet("O'Brien")
     confirm file "`output_dir'/test_sheet_apostrophe.xlsx"
@@ -771,7 +771,7 @@ capture noisily {
     sysuse auto, clear
     local _bad_apostrophe "`output_dir'/test_sheet_boundary_apostrophe.xlsx"
     capture erase "`_bad_apostrophe'"
-    capture noisily corrtab price mpg weight, ///
+    capture noisily crosstab foreign rep78, ///
         xlsx("`_bad_apostrophe'") sheet("'Leading")
     assert _rc == 198
     capture confirm file "`_bad_apostrophe'"
@@ -828,8 +828,8 @@ capture noisily {
     local _casebook "`output_dir'/test_sheet_case.xlsx"
     capture erase "`_casebook'"
     sysuse auto, clear
-    corrtab price mpg weight, xlsx("`_casebook'") sheet("Table")
-    corrtab price mpg weight, xlsx("`_casebook'") sheet("table")
+    crosstab foreign rep78, xlsx("`_casebook'") sheet("Table")
+    crosstab foreign rep78, xlsx("`_casebook'") sheet("table")
     import excel using "`_casebook'", describe
     assert r(N_worksheet) == 1
     _tabtools_xlsx_read using "`_casebook'", sheet("TABLE")
@@ -1057,13 +1057,14 @@ capture noisily {
     local bad_root "`output_dir'/__missing_backend_dir__"
     sysuse auto, clear
     return clear
-    capture noisily corrtab price mpg weight, xlsx("`bad_root'/corrtab.xlsx")
+    capture noisily crosstab foreign rep78, xlsx("`bad_root'/crosstab.xlsx")
     local rc = _rc
     assert `rc' != 0
     tempname C
-    matrix `C' = r(C)
-    assert colsof(`C') == 3
-    capture confirm file "`bad_root'/corrtab.xlsx"
+    matrix `C' = r(table)
+    assert colsof(`C') == 5
+    assert r(N) == 69
+    capture confirm file "`bad_root'/crosstab.xlsx"
     assert _rc != 0
 }
 if _rc == 0 {
@@ -1718,32 +1719,6 @@ else {
 }
 
 * =========================================================================
-**# WX4: corrtab long-label headers expand all data columns
-* =========================================================================
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    label variable price "Vehicle price in USD"
-    label variable mpg "Fuel economy miles per gallon"
-    label variable weight "Vehicle curb weight"
-    label variable length "Vehicle length inches"
-    capture erase "`output_dir'/_wx_corrtab.xlsx"
-    corrtab price mpg weight length, xlsx("`output_dir'/_wx_corrtab.xlsx") ///
-        sheet("Corr") title("Correlation Matrix")
-
-    _wx_assert "`output_dir'/_wx_corrtab.txt" ///
-        `"`python_cmd' "`checker'" "`output_dir'/_wx_corrtab.xlsx" --sheet "Corr" --col-width-at-least C 24 --col-width-at-least D 24 --col-width-at-least E 24 --col-width-at-least F 24 --result-file "`output_dir'/_wx_corrtab.txt" --quiet"'
-}
-if _rc == 0 {
-    display as result "  PASS: WX4 - corrtab long-label widths"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: WX4 - corrtab long-label widths (rc=`=_rc')"
-    local ++fail_count
-}
-
-* =========================================================================
 **# WX5: table1_tc data columns widen for longer summaries
 * =========================================================================
 local ++n_total
@@ -2030,7 +2005,7 @@ if `fail_count' > 0 {
     display as error "  Failed: `fail_count' / `n_total'"
 }
 
-foreach f in _wx_regtab.txt _wx_regtab_tight.txt _wx_effecttab.txt _wx_comptab.txt _wx_corrtab.txt _wx_table1.txt _wx_crosstab.txt _wx_survtab.txt _wx_hrcomptab.txt _wx_regtab_label.txt _wx_regtab_lw.txt _wx_comptab_label.txt {
+foreach f in _wx_regtab.txt _wx_regtab_tight.txt _wx_effecttab.txt _wx_comptab.txt _wx_table1.txt _wx_crosstab.txt _wx_survtab.txt _wx_hrcomptab.txt _wx_regtab_label.txt _wx_regtab_lw.txt _wx_comptab_label.txt {
     capture erase "`output_dir'/`f'"
 }
 
@@ -2073,12 +2048,6 @@ capture noisily {
         by(highrep) xlsx("`output_dir'/_console_contract_table1.xlsx") ///
         sheet("Table1") title("Console_Table1")
     confirm file "`output_dir'/_console_contract_table1.xlsx"
-
-    sysuse auto, clear
-    capture erase "`output_dir'/_console_contract_corrtab.xlsx"
-    corrtab price mpg weight, pvalues xlsx("`output_dir'/_console_contract_corrtab.xlsx") ///
-        sheet("Corr") title("Console_Corrtab")
-    confirm file "`output_dir'/_console_contract_corrtab.xlsx"
 
     sysuse auto, clear
     capture erase "`output_dir'/_console_contract_crosstab.xlsx"
@@ -2158,7 +2127,7 @@ capture noisily {
 
 
     local expected_titles ///
-        Console_Table1 Console_Corrtab Console_Crosstab Console_Diagtab ///
+        Console_Table1 Console_Crosstab Console_Diagtab ///
         Console_Survtab Console_Regtab Console_Desctab Console_Effecttab ///
         Console_Stratetab Console_Comptab Console_Hrcomptab
 
@@ -2188,7 +2157,7 @@ capture noisily {
     }
     file close `fh'
 
-    assert `border_lines' >= 22
+    assert `border_lines' >= 20
     local title_index = 0
     foreach title of local expected_titles {
         local ++title_index
@@ -2267,7 +2236,7 @@ quietly tabtools set clear
 local invalid_ok = 1
 
 local invalid_color "999 999 999"
-local direct_cmds "table1_tc regtab effecttab comptab corrtab stratetab hrcomptab"
+local direct_cmds "table1_tc regtab effecttab comptab crosstab stratetab hrcomptab"
 
 capture erase "`output_dir'/_color_table1.xlsx"
 sysuse auto, clear
@@ -2330,18 +2299,18 @@ if `rc' != 198 | `file_exists' {
 }
 capture erase "`output_dir'/_color_comptab.xlsx"
 
-capture erase "`output_dir'/_color_corrtab.xlsx"
+capture erase "`output_dir'/_color_crosstab.xlsx"
 sysuse auto, clear
-capture corrtab price mpg weight, xlsx("`output_dir'/_color_corrtab.xlsx") ///
+capture crosstab foreign rep78, xlsx("`output_dir'/_color_crosstab.xlsx") ///
     headershade headercolor("`invalid_color'")
 local rc = _rc
-capture confirm file "`output_dir'/_color_corrtab.xlsx"
+capture confirm file "`output_dir'/_color_crosstab.xlsx"
 local file_exists = (_rc == 0)
 if `rc' != 198 | `file_exists' {
-    display as error "  FAIL [corrtab]: expected rc=198 and no workbook; rc=`rc' file=`file_exists'"
+    display as error "  FAIL [crosstab]: expected rc=198 and no workbook; rc=`rc' file=`file_exists'"
     local invalid_ok = 0
 }
-capture erase "`output_dir'/_color_corrtab.xlsx"
+capture erase "`output_dir'/_color_crosstab.xlsx"
 
 clear
 set obs 2
@@ -2495,7 +2464,7 @@ capture noisily {
     quietly net install tabtools, from("`pkg_dir'") replace
 
     foreach cmd in tabtools table1_tc desctab regtab effecttab stratetab ///
-        hrcomptab comptab survtab crosstab corrtab {
+        hrcomptab comptab survtab crosstab {
         which `cmd'
     }
     which _tabtools_smallcells
@@ -2531,7 +2500,7 @@ else {
 capture noisily {
     tabtools set clear
     tabtools
-    assert r(n_commands) == 17
+    assert r(n_commands) == 16
     assert strpos("`r(commands)'", "table1_tc") > 0
     assert strpos("`r(commands)'", "desctab") > 0
     assert strpos("`r(commands)'", "regtab") > 0
@@ -2574,22 +2543,6 @@ capture noisily {
     assert `"`r(methods)'"' != ""
     matrix contract_cross_m = r(table)
     assert rowsof(contract_cross_m) > 0
-
-    local xlsx "`output_dir'/contract_corrtab.xlsx"
-    capture erase "`xlsx'"
-    capture frame drop contract_corr
-    sysuse auto, clear
-    corrtab price mpg weight, spearman lower pvalues ///
-        xlsx("`xlsx'") sheet("Corr") frame(contract_corr, replace)
-    confirm file "`xlsx'"
-    assert `"`r(xlsx)'"' == `"`xlsx'"'
-    assert "`r(sheet)'" == "Corr"
-    assert "`r(frame)'" == "contract_corr"
-    assert `"`r(methods)'"' != ""
-    matrix contract_corr_c = r(C)
-    matrix contract_corr_n = r(N)
-    assert colsof(contract_corr_c) == 3
-    assert contract_corr_n[1,1] > 0
 
     local xlsx "`output_dir'/contract_survtab.xlsx"
     capture erase "`xlsx'"
@@ -3348,10 +3301,10 @@ else {
     local ++fail_count
 }
 
-**# corrtab appends to an existing Markdown report
+**# crosstab appends to an existing Markdown report
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, spearman pvalues markdown("`md_cross'") mdappend title("Correlations")
+    crosstab foreign rep78, markdown("`md_cross'") mdappend title("Correlations")
     assert "`r(markdown)'" == "`md_cross'"
     assert !missing(r(markdown_rows))
     assert r(markdown_rows) > 0
@@ -3844,25 +3797,6 @@ if !`has_checker' {
         preserve
         import excel "`output_dir'/_xl_native_crosstab.xlsx", sheet("XT") cellrange(A1:A1) clear
         assert A[1] == "Cross-tab"
-        restore
-    }
-    if _rc == 0 {
-        local ++pass_count
-    }
-    else {
-        local ++fail_count
-    }
-
-    * corrtab
-    local ++n_total
-    capture noisily {
-        sysuse auto, clear
-        capture erase "`output_dir'/_xl_native_corrtab.xlsx"
-        corrtab price mpg weight, xlsx("`output_dir'/_xl_native_corrtab.xlsx") ///
-            sheet("Corr") title("Correlations")
-        preserve
-        import excel "`output_dir'/_xl_native_corrtab.xlsx", sheet("Corr") cellrange(A1:A1) clear
-        assert A[1] == "Correlations"
         restore
     }
     if _rc == 0 {
@@ -4602,69 +4536,21 @@ else {
 capture erase "`output_dir'/_xl_x2.txt"
 
 * =========================================================================
-**# SECTION 8: corrtab Excel
+**# SECTION 8: crosstab footnote Excel
 * =========================================================================
 
-* --- XL8.1: corrtab structure ---
+* --- XL8.1: crosstab footnote row is italic ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
-    capture erase "`output_dir'/_xl_corrtab.xlsx"
-    corrtab price mpg weight length, xlsx("`output_dir'/_xl_corrtab.xlsx") ///
-        sheet("Corr") title("Correlation Matrix")
+    gen byte highmpg = mpg > 20
+    capture erase "`output_dir'/_xl_crossfn.xlsx"
+    crosstab highmpg foreign, xlsx("`output_dir'/_xl_crossfn.xlsx") ///
+        sheet("Cross") title("Cross-tab") footnote("Source: auto data.")
 
-    shell python3 "`checker'" "`output_dir'/_xl_corrtab.xlsx" --sheet "Corr" ///
-        --min-rows 6 --min-cols 5 ///
-        --cell-contains A1 "Correlation Matrix" ///
-        --has-borders ///
-        --bold-row-all 2 ///
-        --merged-row 1 ///
-        --result-file "`output_dir'/_xl_cr1.txt" --quiet
-    file open _fh using "`output_dir'/_xl_cr1.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL8.1 — corrtab structure (title, bold header, borders)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: XL8.1 — corrtab structure (rc=`=_rc')"
-    local ++fail_count
-}
-capture erase "`output_dir'/_xl_cr1.txt"
-
-* --- XL8.2: corrtab diagonal is 1.00 and star footnote ---
-local ++n_total
-capture noisily {
-    * Diagonal values should be 1.00
-    shell python3 "`checker'" "`output_dir'/_xl_corrtab.xlsx" --sheet "Corr" ///
-        --cell-contains C3 "1.00" ///
-        --cell-contains D4 "1.00" ///
-        --cell-contains E5 "1.00" ///
-        --cell-contains F6 "1.00" ///
-        --contains "p<0.05" --contains "p<0.01" --contains "p<0.001" ///
-        --result-file "`output_dir'/_xl_cr2.txt" --quiet
-    file open _fh using "`output_dir'/_xl_cr2.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL8.2 — corrtab diagonal=1.00, star footnote present"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: XL8.2 — corrtab diagonal/footnote (rc=`=_rc')"
-    local ++fail_count
-}
-capture erase "`output_dir'/_xl_cr2.txt"
-
-* --- XL8.3: corrtab footnote is italic ---
-local ++n_total
-capture noisily {
-    shell python3 "`checker'" "`output_dir'/_xl_corrtab.xlsx" --sheet "Corr" ///
+    shell python3 "`checker'" "`output_dir'/_xl_crossfn.xlsx" --sheet "Cross" ///
+        --cell-contains A1 "Cross-tab" ///
+        --contains "Source: auto data." ///
         --italic-row 7 ///
         --result-file "`output_dir'/_xl_cr3.txt" --quiet
     file open _fh using "`output_dir'/_xl_cr3.txt", read text
@@ -4673,11 +4559,11 @@ capture noisily {
     assert "`_line'" == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: XL8.3 — corrtab footnote row is italic"
+    display as result "  PASS: XL8.1 — crosstab footnote row is italic"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: XL8.3 — corrtab italic footnote (rc=`=_rc')"
+    display as error "  FAIL: XL8.1 — crosstab italic footnote (rc=`=_rc')"
     local ++fail_count
 }
 capture erase "`output_dir'/_xl_cr3.txt"
@@ -4981,7 +4867,7 @@ capture erase "`output_dir'/_xl_ar1.txt"
 * --- XL18.1: all xlsx files have non-empty content ---
 local ++n_total
 local xl18_pass = 1
-foreach cmd in regtab effecttab survtab crosstab corrtab comptab {
+foreach cmd in regtab effecttab survtab crosstab comptab {
     capture confirm file "`output_dir'/_xl_`cmd'.xlsx"
     if _rc != 0 {
         display as error "  FAIL: XL18.1 — _xl_`cmd'.xlsx does not exist"
@@ -5001,7 +4887,7 @@ foreach cmd in regtab effecttab survtab crosstab corrtab comptab {
     capture erase "`output_dir'/_xl_batch_`cmd'.txt"
 }
 if `xl18_pass' == 1 {
-    display as result "  PASS: XL18.1 — all 7 command xlsx files pass structure check"
+    display as result "  PASS: XL18.1 — all 5 command xlsx files pass structure check"
     local ++pass_count
 }
 else {

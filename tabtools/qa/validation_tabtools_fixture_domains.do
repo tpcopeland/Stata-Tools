@@ -16,16 +16,6 @@ program define _tt_domain_setup
     capture frame drop domain_frame
     generate byte g=group<=2
 end
-program define _tt_domain_corr_check
-    tempname cc nn
-    matrix `cc'=r(C)
-    matrix `nn'=r(N)
-    assert rowsof(`cc')==2 & colsof(`cc')==2
-    assert !missing(`cc'[1,2]) & abs(`cc'[1,2]-1)<1e-12 & `nn'[1,2]==40
-    frame domain_frame: assert _N==4 & strpos(c2[4],"1")==1
-    matrix drop `cc' `nn'
-    frame drop domain_frame
-end
 program define _tt_domain_cross_check
     args kind
     tempname tt
@@ -97,44 +87,6 @@ end
 local tests 0
 local pass 0
 local fail 0
-
-**# corrtab_star
-local ++tests
-capture noisily {
-    * expect: EXACT
-    qa_fx_a7_labelled, clear seed(37)
-    qa_option_domain, command(corrtab x id, full star(@v@) frame(domain_frame)) inside("0.0000001;0.05;0.9999999;0.001 0.01 0.05") outside("0;1;0.1 0.1;0.1 0.2 0.3 0.4") setup(_tt_domain_setup) check(_tt_domain_corr_check)
-    assert r(n_cells)==8 & r(n_violations)==0
-}
-local outcome=_rc
-capture frame drop domain_frame
-if `outcome' {
-    local ++fail
-    display as error "FAIL: corrtab_star rc=" `outcome'
-}
-else {
-    local ++pass
-    display as result "PASS: corrtab_star"
-}
-
-**# corrtab_digits
-local ++tests
-capture noisily {
-    * expect: EXACT
-    qa_fx_a7_labelled, clear seed(37)
-    qa_option_domain, command(corrtab x id, full digits(@v@) frame(domain_frame)) inside("-1;0;6") outside("-2;7;3.5;.;.a") setup(_tt_domain_setup) check(_tt_domain_corr_check)
-    assert r(n_cells)==8 & r(n_violations)==0
-}
-local outcome=_rc
-capture frame drop domain_frame
-if `outcome' {
-    local ++fail
-    display as error "FAIL: corrtab_digits rc=" `outcome'
-}
-else {
-    local ++pass
-    display as result "PASS: corrtab_digits"
-}
 
 **# crosstab_level
 local ++tests

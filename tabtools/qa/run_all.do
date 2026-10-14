@@ -93,11 +93,10 @@ if `install_rc' {
 
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
-local test_files "validation_tabtools_fixture_contract.do validation_tabtools_fixture_descriptive.do validation_tabtools_fixture_models.do validation_tabtools_fixture_catalogue_primitives.do validation_tabtools_fixture_numeric_primitives.do test_tabtools_fixture_files.do test_tabtools_fixture_path_macros.do test_tabtools_fixture_rreturns.do test_tabtools_fixture_publication.do validation_tabtools_fixture_domains.do test_corrtab_fixture_stars.do validation_corrtab_fixture_inputs.do test_corrtab_fixture_legacy.do validation_tabtools_fixture_fonts.do validation_tabtools_fixture_strings.do validation_tabtools_fixture_remaining.do test_survtab_fixture_state.do"
+local test_files "validation_tabtools_fixture_contract.do validation_tabtools_fixture_descriptive.do validation_tabtools_fixture_models.do validation_tabtools_fixture_catalogue_primitives.do validation_tabtools_fixture_numeric_primitives.do test_tabtools_fixture_files.do test_tabtools_fixture_path_macros.do test_tabtools_fixture_rreturns.do test_tabtools_fixture_publication.do validation_tabtools_fixture_domains.do validation_tabtools_fixture_fonts.do validation_tabtools_fixture_strings.do validation_tabtools_fixture_remaining.do test_survtab_fixture_state.do"
 local test_files "`test_files' test_ci_level_provenance.do"
 local test_files "`test_files' test_column_widths.do"
 local test_files "`test_files' test_comptab.do"
-local test_files "`test_files' test_corrtab.do"
 local test_files "`test_files' test_crosstab.do"
 local test_files "`test_files' test_desctab.do"
 local test_files "`test_files' test_deep_audit_core.do"
@@ -124,7 +123,6 @@ local test_files "`test_files' test_table1_tc.do"
 local test_files "`test_files' test_tabtools.do"
 local test_files "`test_files' test_tabtools_errors.do"
 local test_files "`test_files' test_tabtools_documentation_examples.do"
-local test_files "`test_files' test_tabtools_oracle.do"
 local test_files "`test_files' test_tabtools_tips.do"
 local test_files "`test_files' test_tabtools_v1163.do"
 local test_files "`test_files' test_tabtools_v202.do"
@@ -222,7 +220,6 @@ local test_files "`test_files' test_ratetab_rateratio_refusal.do"
 local test_files "`test_files' test_clarity_final_2026_10_12.do"
 
 local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
-local validation_files "`validation_files' validation_corrtab.do"
 local validation_files "`validation_files' validation_crosstab.do"
 local validation_files "`validation_files' validation_effecttab.do"
 local validation_files "`validation_files' validation_package.do"

@@ -2,9 +2,9 @@
 
 # rangematch — Range joins for interval data
 
-**Version 1.5.13** | 2026-10-12
+**Version 1.0.0** | 2026-10-13
 
-[![version](https://img.shields.io/badge/version-1.5.13-1a5f91?style=flat-square)](#version-history) [![Stata 16.1+](https://img.shields.io/badge/Stata-16.1%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16.1+](https://img.shields.io/badge/Stata-16.1%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -468,32 +468,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.5.13** (2026-10-12): `using` and `saving()` paths containing a `$` that cannot start a global reference, such as `\\server\share$\...`, work again; 1.5.12 refused every `$`. `$$name` and a `$` before a non-ASCII letter are now refused like `$name`.
-- **1.5.12** (2026-10-12): A backend that fails to compile is retried on the next call and reports the same error, instead of failing with `r(3499)`. The help adds `rangejoin` migration notes. A `` ` `` or global reference in any argument is refused with r(198) without stranding the workspace frames. See `help rangematch` for detail.
-- **1.5.11** (2026-10-12): The first `rangematch` call in a Stata session no longer echoes the full Mata backend source (about 2,500 lines) into the Results window and any open log while the backend compiles. A backend that fails to compile still stops with its return code, now under a one-line "failed to compile" message instead of the Mata diagnostic.
-
-<details>
-<summary>Earlier versions</summary>
-
-- **1.5.10** (2026-10-12): `tolerance()` now judges whether a master interval is empty on its widened bounds (`low - t`, `high + t`), so an interval inverted only by decimal noise (`low = 0.1 + 0.2`, `high = 0.3`) matches as documented instead of matching nothing; in overlap mode this applies to the master interval, while using intervals are still judged on their recorded bounds. `tolerance(0)` behaviour is unchanged. A missing (open) bound now removes its side's restriction exactly: under `closed(left|right|none)` a key equal to the largest (or smallest) storable double was excluded by a strict comparison against the internal stand-in for infinity, and in overlap mode an interval starting at `c(maxdouble)` with an open end, or one with an open start ending at the smallest storable double, was judged empty or missed its open-ended counterpart. A `tolerance()` shift that runs past the double range is now treated as an open bound rather than clamped, so a strict closure no longer drops a key at that limit.
-- **1.5.9** (2026-10-04): Under `nosort`, the sweep backend now breaks tied using keys on the original using row, so tied rows no longer reorder between runs (the pairs were always correct). A master value-label definition attached to no variable is now carried on the memory and `frame()` routes (`saving()` stores only attached definitions).
-- **1.5.8** (2026-09-30): The caller's `matastrict` setting is restored after the first backend compilation, including on a compilation error.
-- **1.5.7** (2026-09-29): `keepusing()` is expanded in the using source's own variable order; a frame-source range such as `keepusing(a-c)` over `a key c` silently dropped `key`, and a file-source `keepusing(_all)` or `keepusing(*)` with `by()` failed `r(103)`. `overlap(u u)` (degenerate point intervals) no longer crashes with `r(3300)`, and a repeated `by()` variable no longer fails `r(111)`.
-- **1.5.6** (2026-09-09): `distance()` rejects matched rows whose master key is missing or whose signed difference leaves Stata's double range. Clarified nearest-match selection, overlapping missing-row counts, failed-save recovery, and float-precision advice.
-- **1.5.5** (2026-09-02): Three `rc=0` wrong-result paths closed. A scalar offset whose sum with a finite key leaves the double range (e.g. `rangematch key 8e307 8e307 ...`) was read as an open bound and matched every row; it now aborts. Value-label collision allocation now respects names that are attached but undefined, in both directions and on every output route (a dangling master label could decode as "master only" or acquire a using variable's meanings). A `distance()` outside the double range stored missing, the unmatched marker; it now aborts. Also: `prefix()`/`suffix()` reject leading and trailing whitespace, `seed()` documents its seed-state token, and in-place output replacement runs under `nobreak` after staging the finished output.
-- **1.5.4** (2026-08-28): Faster large joins with unchanged syntax and results: pair indices are ordered before payload materialization, and contiguous point-match and overlap windows are emitted in vectorized blocks.
-- **1.5.3** (2026-08-13): `prefix()`/`suffix()` are validated only for the names they are applied to, so a non-colliding 31-32 character using name is carried under its own name instead of failing `rc=198`; illegal characters are still screened up front, and a genuine collision that exceeds 32 characters says so. An affix containing a space is rejected: it was split into two words and shifted carried variables onto the wrong names at `rc=0`.
-- **1.5.2** (2026-08-10): A using filename is resolved to the file `use` reads before it is confirmed, and `r(using)` reports that file; the `.dta` fallback applies only to extensionless names. The help documents what `r()` holds after a failed run, and its contracts for missing bounds, `keepusing()`, unmatched inverted master intervals, and explicit extensions were corrected.
-- **1.5.1** (2026-08-09): The empty-master/empty-using `by()` full-outer join returns an empty result instead of failing.
-- **1.5.0** (2026-07-25): Consistent Stata sample-percentile definition for p50/p90/p99; `r(N_empty_groups)` means using-row presence in both modes.
-- **1.4.1** (2026-07-18): Clamped extreme tolerance shifts, extended float-precision warnings, and tightened output and session-state contracts.
-- **1.4.0** (2026-07-17): Fixed provenance, interval-validity, frame-safety, missing-policy, value-label, output-routing, and overlap-sweep defects.
-- **1.3.0** (2026-07-01): Added reproducible random tie-breaking with `ties(random)` and `seed()`, plus inverted using-interval diagnostics.
-- **1.2.0** (2026-06-30): Added symmetric using-side `missing()` handling and float-precision warnings.
-- **1.1.0** (2026-06-25): Added interval-overlap mode.
-- **1.0.0** (2026-05-12): Initial release with frame workspaces, binary-search matching, unmatched controls, nearest matching, diagnostics, and output routing.
-
-</details>
+- **1.0.0** (2026-10-13): Initial SSC release.
 
 ## Author
 

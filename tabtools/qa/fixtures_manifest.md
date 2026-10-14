@@ -4,7 +4,7 @@
 
 | Files | Owner and regeneration | Consumer |
 |---|---|---|
-| `data/crossval_tabtools_r_results.csv` | `crossval_tabtools_companion.R`; deterministic base R formulas | `crossval_tabtools.do` CV1–CV18 and CV20 |
+| `data/crossval_tabtools_r_results.csv` | `crossval_tabtools_companion.R`; deterministic base R formulas | `crossval_tabtools.do` CV2–CV18 and CV20 |
 | `data/crossval_smd_data.csv` | `crossval_tabtools_companion.R`, seed 42 | Continuous-SMD command bridges |
 | `data/crossval_cat_smd_data.csv` | `crossval_tabtools_companion.R`, seed 123 | Categorical-SMD command bridge |
 | `data/crossval_ess_data.csv` | `crossval_tabtools_companion.R`, seed 99 | Kish-ESS command bridge |

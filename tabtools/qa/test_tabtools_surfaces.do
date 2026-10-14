@@ -6,15 +6,15 @@
 * Cells (each can fail; the audit finding each would have caught is named):
 *   parity    one published value per command, identical in r(), the frame,
 *             CSV, the workbook and the console, against an independent
-*             oracle (native correlate, tabulate, teffects e(b), regress,
+*             oracle (tabulate, teffects e(b), regress,
 *             sts/stci, the rate design, the source workbook):
-*             corrtab, crosstab, desctab (F02: the test on the displayed
+*             crosstab, desctab (F02: the test on the displayed
 *             Missing coding), effecttab, puttab, regtab, stacktab,
 *             stratetab, survtab, tabtools
 *   hostile   qa_hostile_missing (desctab F02, crosstab), qa_hostile_codes
-*             (desctab F04), qa_shift_invariance (desctab F05 SD, corrtab),
+*             (desctab F04), qa_shift_invariance (desctab F05 SD),
 *             qa_hostile_times (survtab F01 RMST SE)
-*   strings   the qa_hostile_strings corpus through title() of all ten
+*   strings   the qa_hostile_strings corpus through title() of all nine
 *             commands with a text sink (read back from workbook cell A1),
 *             stacktab columnmerge() headers (F09) and puttab sheet() (F10)
 *   lifecycle regtab after fit A -> fit B -> restore A (qa_lifecycle)
@@ -105,10 +105,6 @@ program define _ttsf_run
     mata: st_local("tl", st_global("TTSF_TITLE"))
     capture erase "`x'"
     global TTSF_SHEET ""
-    if "`cmd'" == "corrtab" {
-        sysuse auto, clear
-        corrtab price mpg weight, title(`"`macval(tl)'"') xlsx("`x'")
-    }
     if "`cmd'" == "crosstab" {
         sysuse auto, clear
         gen byte expensive = price > 6000
@@ -176,29 +172,6 @@ program define _ttsf_cell
 end
 
 **# Surface parity
-
-**## SP-corrtab correlation: r(C), frame, CSV, workbook, console = native correlate
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    quietly correlate price mpg
-    scalar ttsf_want = r(rho)
-    tempfile lg
-    log using `"`lg'"', text replace name(_ttsfl)
-    corrtab price mpg weight, frame(ttsf_f, replace) csv("$TTSF_DIR/c.csv") ///
-        xlsx("$TTSF_DIR/c.xlsx")
-    matrix ttsf_C = r(C)
-    log close _ttsfl
-    qa_surface_parity, expect(scalar(ttsf_want)) name(corr price mpg) ///
-        result(el(ttsf_C,2,1)) frame(ttsf_f c2 4) csv("$TTSF_DIR/c.csv" 3 2) ///
-        xlsx("$TTSF_DIR/c.xlsx" Correlation C4) ///
-        log(`"`lg'"') logregex("Mileage \(mpg\) +(-[0-9.]+)")
-    * hostile: a shifted origin leaves the correlation unchanged
-    qa_shift_invariance price, command(corrtab price mpg) returns(el(r(C),2,1)) tol(1e-10)
-}
-_ttsf_result `=_rc' "SP-corrtab one correlation in r(), frame, CSV, workbook, console; shift-invariant"
-local pass_count = `pass_count' + r(pass)
-if !r(pass) local failed "`failed' SP-corrtab"
 
 **## SP-crosstab the test on the displayed coding (missing codes shown separately)
 local ++test_count
@@ -502,7 +475,7 @@ program define _ttsf_hs
     quietly _ttsf_run $TTSF_CMD "`x'"
     _ttsf_cell "`x'" "$TTSF_SHEET" A1
 end
-foreach cmd in comptab corrtab crosstab desctab effecttab puttab regtab ///
+foreach cmd in comptab crosstab desctab effecttab puttab regtab ///
     stacktab stratetab survtab {
     local ++test_count
     capture noisily {

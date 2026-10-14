@@ -178,40 +178,6 @@ else {
 capture erase "`xlsx'"
 
 local ++test_count
-local scenario "corrtab_wide_full_pvalues_xlsx"
-local budget = `default_budget'
-local obs = 20000
-local xlsx "`work_dir'/`scenario'.xlsx"
-timer clear 2
-capture noisily {
-    _bench_dataset, obs(`obs') groups(4)
-    capture erase "`xlsx'"
-    timer on 2
-    corrtab x1-x40, full pvalues xlsx("`xlsx'") sheet("Corr") ///
-        title("Benchmark: 40-variable correlation matrix")
-    timer off 2
-    confirm file "`xlsx'"
-}
-local rc = _rc
-capture timer off 2
-capture quietly timer list 2
-if _rc == 0 local elapsed = r(t2)
-else local elapsed = .
-local status "PASS"
-if `rc' != 0 | missing(`elapsed') | `elapsed' > `budget' local status "FAIL"
-file write `benchfh' "`scenario'" _tab %12.6f (`elapsed') _tab %9.0f (`budget') ///
-    _tab %9.0f (`obs') _tab "`status'" _tab %9.0f (`rc') _n
-if "`status'" == "PASS" {
-    display as result "  PASS: `scenario' (`: display %9.6f `elapsed'' sec)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: `scenario' rc=`rc' elapsed=`: display %9.6f `elapsed'' budget=`budget'"
-    local ++fail_count
-}
-capture erase "`xlsx'"
-
-local ++test_count
 local scenario "regtab_five_model_xlsx"
 local budget = `default_budget'
 local obs = 50000

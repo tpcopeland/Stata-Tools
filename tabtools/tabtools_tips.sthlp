@@ -58,7 +58,7 @@ Common option combinations for each command. {p_end}
 {title:Choosing commands}
 
 {pstd}{bf:Dedicated builders:} use {bf:table1_tc}, {bf:desctab},
-{bf:crosstab}, {bf:corrtab}, {bf:survtab}, {bf:stratetab},
+{bf:crosstab}, {bf:survtab}, {bf:stratetab},
 {bf:regtab}, and {bf:effecttab} when the command owns the
 analysis-to-table contract for your workflow.{p_end}
 
@@ -139,13 +139,6 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {phang2}{cmd:crosstab exposure outcome, or label xlsx(cross.xlsx) title("Exposure vs Outcome")}{p_end}
 {phang2}{cmd:crosstab smoking cancer, rr rd trend} {it:// risk ratio, risk diff, trend test}{p_end}
 {phang2}{cmd:crosstab exposure outcome, exact or} {it:// force Fisher's exact test}{p_end}
-
-{hline}
-{title:corrtab}
-
-{phang2}{cmd:corrtab age bmi sbp dbp, xlsx(corr.xlsx) title("Correlations") lower}{p_end}
-{phang2}{cmd:corrtab age bmi sbp, spearman pvalues} {it:// Spearman with p-values}{p_end}
-{phang2}{cmd:corrtab age bmi sbp, full digits(3) star(0.1 0.05 0.01)} {it:// custom stars}{p_end}
 
 {hline}
 {title:comptab}
@@ -325,18 +318,12 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {cmd:title("Table 2. Survival Estimates by Treatment")}
 {cmd:median riskset difference font(Arial) fontsize(9) borderstyle(academic)}{p_end}
 
-{title:16. Correlation matrix with significance stars}
-{phang2}{cmd:sysuse auto, clear}{p_end}
-{phang2}{cmd:corrtab price mpg weight length displacement, spearman lower}
-{cmd:xlsx(correlations.xlsx) sheet("Table 4") title("Spearman Correlations")}
-{cmd:star(0.001 0.01 0.05) digits(2) font(Arial) fontsize(9) borderstyle(academic) zebra}{p_end}
-
-{title:17. Direct access to the consolidated descriptive engine}
+{title:16. Direct access to the consolidated descriptive engine}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:desctab price mpg weight rep78, by(foreign) xlsx(desc_events.xlsx) sheet("Descriptive")}
 {cmd:title("Characteristics by origin")}{p_end}
 
-{title:18. Style a raw in-memory table with puttab}
+{title:17. Style a raw in-memory table with puttab}
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:regress price mpg weight i.foreign}{p_end}
 {phang2}{cmd:matrix T = r(table)'}{p_end}
@@ -346,7 +333,7 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {phang2}{cmd:    title("First Ten Cars") varlabels font(Arial) fontsize(9) ///}{p_end}
 {phang2}{cmd:    borderstyle(academic) zebra}{p_end}
 
-{title:19. Emit-then-assemble pipeline}
+{title:18. Emit-then-assemble pipeline}
 {phang2}{cmd:clear}{p_end}
 {phang2}{cmd:input str18 term double ahr str16 ci}{p_end}
 {phang2}{cmd:"Any HRT use" 0.82 "0.70, 0.96"}{p_end}
@@ -368,7 +355,7 @@ that use illustrative research variable and dataset names ({cmd:edss4_tv},
 {pstd}{helpb tabtools} - overview and settings{p_end}
 {pstd}{helpb table1_tc}, {helpb desctab}, {helpb regtab}, {helpb effecttab},
 {helpb stratetab}, {helpb survtab}, {helpb crosstab},
-{helpb corrtab}, {helpb comptab}, {helpb hrcomptab}, {helpb puttab},
+{helpb comptab}, {helpb hrcomptab}, {helpb puttab},
 {helpb stacktab} - command-specific help{p_end}
 
 {marker author}{...}

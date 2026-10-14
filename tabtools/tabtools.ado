@@ -1,4 +1,4 @@
-*! tabtools Version 2.6.4  2026/10/12
+*! tabtools Version 1.0.0  2026/10/13
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -412,7 +412,7 @@ program define tabtools, rclass
         }
 
         // Define commands by category
-        local cmd_descriptive "table1_tc desctab crosstab corrtab"
+        local cmd_descriptive "table1_tc desctab crosstab"
         local cmd_models "regtab effecttab tabcell outtab"
         local cmd_rates "stratetab ratetab"
         local cmd_survival "survtab"
@@ -476,7 +476,6 @@ program define tabtools, rclass
                 display as result "  table1_tc    " as text "- Table 1 with automatic statistical tests"
                 display as result "  desctab      " as text "- Consolidated descriptive Table 1 engine"
                 display as result "  crosstab     " as text "- Cross-tabulation with association measures"
-                display as result "  corrtab      " as text "- Correlation matrix with significance"
                 display as text ""
             }
 
@@ -650,10 +649,6 @@ program define _tabtools_detail, nclass
             display as result "  crosstab" as text "     Cross-tabulation with row/column percentages"
             display as text "               and association measures. Supports chi-square,"
             display as text "               Fisher's exact, odds ratios, and risk ratios."
-            display as text ""
-            display as result "  corrtab" as text "      Correlation matrix with significance stars or"
-            display as text "               p-values. Supports Pearson and Spearman. Exports"
-            display as text "               lower, upper, or full triangle to Excel."
             display as text ""
         }
 

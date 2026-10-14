@@ -334,7 +334,7 @@ capture noisily {
     sysuse auto, clear
     quietly collect: regress price mpg
     foreach c in "desctab, vars(price contn \ mpg contn)" "crosstab foreign rep78," ///
-        "corrtab price mpg weight," "table1_tc, vars(price contn) by(foreign)" "regtab," {
+        "table1_tc, vars(price contn) by(foreign)" "regtab," {
         sysuse auto, clear
         tempfile lg
         capture log close _c12l

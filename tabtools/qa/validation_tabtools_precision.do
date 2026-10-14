@@ -47,44 +47,6 @@ def _tt_copied_numeric_text(path,sheet,values,start,col):
     wb.close()
 end
 
-**# corrtab precise centered-product truth and reordered named columns
-local ++tests
-capture noisily {
-    qa_fx_a7_labelled, clear seed(37)
-    keep if id<=5
-    generate double precise_y=.
-    replace x=0.12345678912345 in 1
-    replace precise_y=0.33333333312344998 in 1
-    replace x=0.99999998099999998 in 2
-    replace precise_y=1.9000000000000001e-08 in 2
-    replace x=1.2345678912345e-12 in 3
-    replace precise_y=0.77777777123449998 in 3
-    replace x=2.3456789012344998 in 4
-    replace precise_y=1.0000000187 in 4
-    replace x=0.98765432198765002 in 5
-    replace precise_y=0.12345678912345 in 5
-    * Expected r = 0.32190395135656833 (to 17 digits): Pearson r of the five pairs above by centered products in
-    * 50-digit decimal arithmetic in Python (independent of Stata and corrtab), computed 2026-10-06
-    quietly corrtab x precise_y, full digits(6)
-    tempname C
-    matrix `C'=r(C)
-    assert !missing(`C'[1,2]) & abs(`C'[1,2]-0.32190395135656835)<1e-12
-    quietly corrtab precise_y x, full digits(6)
-    matrix `C'=r(C)
-    * same truth as above with the columns swapped (r is symmetric)
-    assert !missing(`C'[2,1]) & abs(`C'[2,1]-0.32190395135656835)<1e-12
-    qa_metamorphic unsorted, command(corrtab x precise_y, full) returns(r(C) r(N)) tol(1e-12)
-
-}
-if _rc {
-    local ++fail
-    display as error "FAIL: corrtab precise centered-product truth and reordered named columns; rc=" _rc
-}
-else {
-    local ++pass
-    display as result "PASS: corrtab precise centered-product truth and reordered named columns"
-}
-
 **# crosstab nonterminating effects and frequency scaling
 local ++tests
 capture noisily {

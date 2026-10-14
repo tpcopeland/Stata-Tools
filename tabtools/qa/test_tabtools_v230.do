@@ -5,7 +5,7 @@
 *   - every call that uses a session setting echoes it in the log;
 *   - the first write to a session target after -tabtools set- replaces the
 *     file, later writes add sheets / append; re-setting re-arms the replace;
-*   - desctab/table1_tc/crosstab/corrtab use the session workbook/markdown
+*   - desctab/table1_tc/crosstab use the session workbook/markdown
 *     only when sheet() is given.
 * Workbooks are read back with import excel/describe and openpyxl.
 
@@ -256,7 +256,7 @@ else {
     local ++fail_count
 }
 
-**# desctab/table1_tc/crosstab/corrtab: session targets only with sheet()
+**# desctab/table1_tc/crosstab: session targets only with sheet()
 local ++test_count
 capture noisily {
     local book "`output_dir'/tt230_cmds.xlsx"
@@ -269,7 +269,6 @@ capture noisily {
     * no sheet(): console/frame only, nothing written
     table1_tc, by(foreign) vars(rep78 cat) frame(tt230_f, replace)
     crosstab rep78 foreign
-    corrtab mpg price
     confirm new file "`book'"
     confirm new file "`md'"
     tabtools query
@@ -278,13 +277,12 @@ capture noisily {
     table1_tc, by(foreign) vars(rep78 cat) sheet("T1") title("Table 1")
     assert `"`r(xlsx)'"' == "`book'" | `"`r(xlsx)'"' == ""
     crosstab rep78 foreign, sheet("CT")
-    corrtab mpg price, sheet("CR")
     desctab mpg, by(foreign) sheet("D")
     _tt230_sheets "`book'"
-    assert `"`r(sheets)'"' == "T1 CT CR D"
+    assert `"`r(sheets)'"' == "T1 CT D"
     _v_line "`md'" "### Table 1" 1
     _v_grep "`md'" "^\| --- "
-    assert r(n) == 4
+    assert r(n) == 3
     * an explicit excel() still wins
     local other "`output_dir'/tt230_cmds_other.xlsx"
     capture erase "`other'"
@@ -292,17 +290,17 @@ capture noisily {
     _tt230_sheets "`other'"
     assert `"`r(sheets)'"' == "Own"
     _tt230_sheets "`book'"
-    assert `"`r(sheets)'"' == "T1 CT CR D"
+    assert `"`r(sheets)'"' == "T1 CT D"
 }
 local _rc_save = _rc
 capture frame drop tt230_f
 tabtools set clear
 if `_rc_save' == 0 {
-    display as result "  PASS: desctab/table1_tc/crosstab/corrtab use session targets only with sheet()"
+    display as result "  PASS: desctab/table1_tc/crosstab use session targets only with sheet()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: session targets in desctab/crosstab/corrtab (rc=`_rc_save')"
+    display as error "  FAIL: session targets in desctab/crosstab (rc=`_rc_save')"
     local ++fail_count
 }
 

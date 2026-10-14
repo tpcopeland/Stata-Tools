@@ -153,26 +153,6 @@ program define _ttss_result, rclass
     return scalar pass = (`rc' == 0)
 end
 
-**# corrtab
-local ++test_count
-capture noisily {
-    _ttss_auto
-    _ttss_plant
-    qa_state_snapshot, tag(corr_ok) predict(xb)
-    mata: _ttss_g0 = _ttss_globals()
-    corrtab price mpg weight
-    qa_state_compare, tag(corr_ok) allow(r global)
-    _ttss_gcheck
-    _ttss_plant
-    qa_state_snapshot, tag(corr_bad) predict(xb)
-    capture corrtab price
-    assert _rc == 102
-    qa_state_compare, tag(corr_bad)
-}
-_ttss_result `=_rc' "corrtab leaves caller state intact (success + r(102))"
-local pass_count = `pass_count' + r(pass)
-if !r(pass) local failed "`failed' corrtab"
-
 **# crosstab
 local ++test_count
 capture noisily {

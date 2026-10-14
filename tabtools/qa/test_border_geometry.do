@@ -1,6 +1,6 @@
 * test_border_geometry.do - boxed border layout and puttab hlines()/vlines()/boldrows()
 *
-* 2.2.0: puttab, corrtab, crosstab and survtab draw the suite's boxed layout
+* 2.2.0: puttab, crosstab and survtab draw the suite's boxed layout
 * under the default, thin and medium border styles -- a box around the table
 * body (header row + data rows), the header row closed by its rules, and a
 * rule right of the row-label column -- as regtab/desctab/stratetab already
@@ -295,41 +295,6 @@ else {
     local ++fail_count
 }
 
-**# corrtab: box under thin/medium, none under academic
-* Layout: title row 1, header row 2 (B..E), data rows 3..5, star note row 6.
-local ++test_count
-capture noisily {
-    local book "`output_dir'/bg_corrtab.xlsx"
-    capture erase "`book'"
-    sysuse auto, clear
-    corrtab price mpg weight, xlsx("`book'") sheet("thin") title("T")
-    _bg_facts "`book'" "thin"
-    _bg_has left thin "B2 B3 B4 B5"
-    _bg_has right thin "B2 B3 B4 B5 E2 E3 E4 E5"
-    _bg_none right "C3 D4"
-    _bg_none left "B6 B1"
-
-    corrtab price mpg weight, xlsx("`book'") sheet("med") borderstyle(medium)
-    _bg_facts "`book'" "med"
-    _bg_has left medium "B2 B5"
-    _bg_has right medium "B2 B5 E2 E5"
-
-    corrtab price mpg weight, xlsx("`book'") sheet("acad") borderstyle(academic)
-    _bg_facts "`book'" "acad"
-    _bg_count left
-    assert r(n) == 0
-    _bg_count right
-    assert r(n) == 0
-}
-if _rc == 0 {
-    display as result "  PASS: corrtab boxed layout by border style"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: corrtab boxed layout (rc=`=_rc')"
-    local ++fail_count
-}
-
 **# crosstab: box through the measure row, row-label rule stops at Total
 * Layout: header row 2, rep78 rows 3..7, Total row 8, Fisher's exact row 9
 * (merged across the table, so no row-label rule there).
@@ -348,6 +313,11 @@ capture noisily {
     _bg_has right thin "E2 E3 E8 E9"
     _bg_has right thin "B2 B3 B4 B5 B6 B7 B8"
     _bg_none right "B9 C5"
+
+    crosstab rep78 foreign, xlsx("`book'") sheet("med") borderstyle(medium) label
+    _bg_facts "`book'" "med"
+    _bg_has left medium "B2 B8"
+    _bg_has right medium "B2 B8 E2 E8"
 
     crosstab rep78 foreign, xlsx("`book'") sheet("acad") borderstyle(academic)
     _bg_facts "`book'" "acad"

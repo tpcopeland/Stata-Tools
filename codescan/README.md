@@ -2,9 +2,9 @@
 
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.3.4** | 2026-10-13
+**Version 1.0.0** | 2026-10-13
 
-[![version](https://img.shields.io/badge/version-4.3.4-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -432,132 +432,9 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-### 4.3.4 (2026-10-13)
+### 1.0.0 (2026-10-13)
 
-- Empty conditions are now reported in one summary note (`(note: 13 conditions matched 0 observations: pvd cvd ...)`) instead of one note per condition, which made wrappers such as `comorbidity` print a dozen lines. The same information, with the names listed; a single empty condition keeps the singular wording, and a long list wraps at word boundaries.
-
-### 4.3.3 (2026-10-12)
-
-- Label text now displays literally in the console table, the `detail` table, and `graph` bar labels. These interpreted SMCL markup, so `label(dm2 "{bf:Bold}")` printed bold "Bold" and the 21-character console cut counted the markup. Braces are now escaped for display only; variable labels, the export `label` column, and `save()` codefiles are unchanged.
-- Documentation: help Example 4 now glosses the excluded code `E116` correctly as "type 2 diabetes mellitus with other specified complications" (it said "unspecified hypoglycaemia", which is ICD-10 `E16.2`). The `label()` entry now says that label text is carried verbatim and shows how to pass a label held in a macro with compound quotes.
-
-### 4.3.2 (2026-10-12)
-
-- `label()` text and codefile `label` values are now passed through verbatim. Compound-quoted text, the usual way to pass a label held in a macro (``label(dm2 `"`lbl'"')``), failed with `r(132)` "too few quotes"; a backtick or `$` in the text was expanded or broke the parse. Variable labels, the console table, the `detail` table, graph bar labels, the export `label` column, and `save()` codefiles now carry the text exactly as typed. Text containing a double quote is still refused with `r(198)`. A codefile `label` value may now contain a backquote or `$` (previously refused), so a label written by `save()` reads back through `codefile()`; the other codefile fields keep the refusal.
-- Documentation: `collapse` omits ids that have no analyzed row (because of `if`/`in`, a missing `id()` or date, or the window), and the `r(summary)` prevalence denominator excludes them too. The help and README now state this and show how to get a cohort denominator. The README date limits now list the non-daily formats that windows reject. Help Example 2 now shows the lookback window excluding a matching code. The `codescan_describe` help gains the bug-report and up-to-date-release lines.
-
-### 4.3.1 (2026-10-12)
-
-- `codescan_describe` no longer crashes with `r(198)` on codes Stata reads as operator or factor syntax (`E11.A`, `i.x`, `1[A`); such codes, and ones like `A#B` that Stata silently rewrote, get an alias row name, with the exact value in `r(top_code_#)`.
-- In `mode(regex)`, a pattern or exclusion that begins with an unquantified space or ends with a space now prints a note: the space is matched literally, so `" I10"` silently matched nothing in regex mode while prefix mode (which trims) matched `I10`. Regex whitespace is still significant (`" *I21"` is unchanged). Codefile `name` and `label` fields are trimmed.
-- The regex anchor is now the non-capturing `^(?:...)`; backreferences such as `"(A)\1"` never matched before.
-- Unquoted `|` and `~` in `define()` no longer need surrounding spaces (`define(dm2 "E11"|htn "I10")`).
-- Codefile rows that are blank in every column (trailing `,,,` rows from a spreadsheet) are ignored; row numbers in codefile errors refer to the file.
-- `saving()` rejects a `.csv`, `.tsv`, `.txt`, `.xlsx`, or `.xls` extension instead of writing a Stata dataset named, say, `rules.csv`.
-- After a failed late output rolls the data back, `r(newvars)` and `r(frame)` are empty and `r(collapsed)` and `r(merged)` are 0; the analytic results are kept.
-- `codescan_describe, save()`: the draft writes a `match` column and records `mode(regex)` when a chapter pattern is a regex, so `mode(prefix)` refuses it rather than matching nothing; a missing output directory is refused before the table prints. Singular counts and header spacing in the display are fixed.
-
-<details>
-<summary>Earlier versions</summary>
-
-### 4.3.0 (2026-10-04)
-
-- **Behaviour change:** row-level condition variables are now missing (`.`) on rows outside the analysis sample (excluded by `if`/`in`, a missing date, or the time window), instead of 0. They follow the same three-state contract as `unmatched()` and `merge`, so `summarize` and `count if !missing()` agree with the reported prevalence and `r(N)`. `collapse` and `merge` output is unchanged.
-- Fix a crash on a one-observation dataset with an empty or `.` code cell: the scanner died with a raw Mata `r(3301)`.
-- Reject, under `nodots` in `mode(regex)`, an inclusion or exclusion that requires a literal period (`\.` or `[.]`). Such a pattern can never match undotted data and returned a silent zero cohort (or a silently inert exclusion); the any-character `.` is still accepted.
-- `codescan_describe` returns `r(top_code_#)` and `r(chapter_#)` byte for byte. Non-UTF-8 codes (for example Latin-1 extracts) came back as U+FFFD, a code absent from the data. The `save()` draft keeps the raw chapter character and regex-escapes metacharacters, so a `.` or `$` chapter no longer drafts a match-everything or invalid rule.
-- `save()` writes a `match` column recording `mode()`, `nocase`, and `nodots`, and `codefile()` refuses a call whose options differ: reloading a `mode(prefix)` rule such as `"E1.1"` in the default regex mode silently widened the cohort. Codefiles without the column are accepted as before.
-- Output files aliased through a symbolic link or a case-insensitive filesystem are refused before any work; previously the later writer silently replaced the earlier one's file.
-- `format()` now also applies to the multi-window sensitivity table.
-
-### 4.2.5 (2026-09-30)
-
-Preserve native `S_FN` and `S_FNDATE` caller macros across internal file operations, including merge output and refusal. Capture and restore exact native macro bytes through Mata.
-
-### 4.2.4 (2026-09-29)
-
-- Convert numeric codes exactly under `tostring`, in both `codescan` and `codescan_describe`. Stata's `tostring, force` wrote `1234567890123` as `1.23457e+12` and a float `401.9` as `401.8999939`, so the code silently failed its pattern at rc=0 and `codescan_describe` inventoried codes that do not exist. Each value is now written as the shortest decimal text that reads back as the stored number.
-- Reject a `%tw`/`%tm`/`%tq`/`%th`/`%ty`/`%tb` `date()` or `refdate()` when `lookback()`/`lookforward()` is used, and read the date unit after a left-alignment `-`. A `%tm` date passed the daily-date guard, so `lookback(365)` spanned 365 months at rc=0, and `%-tc` slipped the datetime check.
-- Honour an explicit `format()` in `export(.csv)`. The CSV wrote the prevalence at full precision whatever `format()` said; without `format()` it still does.
-- Keep the data's sort order declared after `merge`. The row order was restored but `: sortedby` came back empty, so a following `by id:` failed with `r(5)`.
-
-### 4.2.3 (2026-09-09)
-
-- Reject conflicting output paths before scanning, so `export()`, `save()`, and `saving()` cannot overwrite one another's results.
-- Preserve literal code text in `codescan_describe` output and returned identities; reject codefile fields containing global-macro references before they can silently change rules or labels.
-- Clarify frame and file-output constraints, correct the runnable slot-counting example, and restore the demo's graph scheme after errors.
-
-### 4.2.2 (2026-09-06)
-
-- Reject `frame()` naming the current frame at option validation. `frame(default) replace` in the default frame passed validation and then failed at commit time with `r(119)` ("may not drop current frame"), after the scan and every export had already run — the destination was never reachable, but the user paid for the whole analysis to find out. The name `default` is still accepted from any other frame, where dropping it is legal.
-- Stop the merge path from discarding recoverable rows on an error. Between the internal `save` and the collapse-to-patient-level that `merge` performs, the caller's rows live only in a tempfile; an error in that window with no snapshot active reached the cleanup zone with collapsed data in memory and dropped the outputs against it, restoring nothing. The rows are now restored from the tempfile first, and the drop is skipped if that restore also fails.
-- Drop `codescan`'s internal tempvars before `frame put`, so the output frame carries only the deliverable rather than relying on Stata's end-of-program tempvar sweep to tidy it afterwards. `saving()` already dropped them; the two writers now share one list.
-- Reject an output name that differs from a scanned variable, `id()`, `date()`, or `refdate()` only by case. Condition `DM2` over a scanned `dm2` created a second, near-identical variable at rc=0; the folded-uniqueness rule already applied among condition names and now reaches the data boundary too.
-- Fix a `codefile()` value containing a backquote, or a double quote immediately followed by an apostrophe, corrupting option parsing. Every field read from a codefile is round-tripped through Stata compound quotes, which that sequence terminates, so the call died at `r(199)` reporting `too few quotes` against an unrelated line and named neither the file, the row, nor the column. Such a value is now refused up front with the offending column and row; a double quote on its own round-trips correctly and is still accepted. The regex validator also now passes its arguments through `st_local` rather than interpolating them into the `mata:` call.
-- Document `r(chapter_#)` in the README `codescan_describe` stored-results table and in the `codescan_describe.ado` header; both were already in `codescan_describe.sthlp`.
-- Add `replace` to the `codescan.sthlp` examples that write `dm_rules.csv` and `codescan_results.xlsx`, so both rerun as written.
-
-### 4.2.1 (2026-09-02)
-
-- Fix a regex assertion keyed to a non-ASCII character defining cohort membership without matching a code. The zero-width guard probes printable ASCII leading characters when the option is parsed, so `define(hit "(?=å)")` passed validation and then flagged every code beginning `å` at rc=0 while consuming nothing. Inclusion and exclusion matching now also reject a zero-length match on the code value that exposes it, and the call is rolled back. Patterns that consume a non-ASCII character, such as `define(hit "å")`, are unaffected.
-- Fix `codefile()` silently resolving a schema whose columns differ only by case. A file carrying both `name` and `Name`, or `pattern` and `PATTERN`, had one of them chosen by physical spelling and storage order and the other ignored, so the same file could define a different cohort. Each of `name`, `pattern`, `label`, and `exclusion` must now be supplied by exactly one column; an ambiguous schema is rejected and the conflicting columns are named. A single case variant, such as `NAME`, still resolves as before.
-- Fix `save()` leaving a definition codefile behind after a failed call. The CSV was written during option handling, so a scan that then failed — an empty analysis sample, a failing `graph()`, `export()`, or `saving()` — left a file and a success message that read as a completed operation. The filename is still validated up front; the write now commits only after every other output has succeeded.
-- Trim over-wide `{synopt}` descriptions in both help files so the tables no longer wrap in the Viewer, and state the `save(filename [, replace])` overwrite rule in the `codescan_describe` Options prose.
-
-### 4.2.0 (2026-08-28)
-
-- Scan engine fused into a single pass. The scanner previously traversed every cell twice — once to collect distinct code values, once to apply the classification — and the hash probe per cell dominated the runtime. Distinct values are now classified on first sight and applied from the cache in the same traversal, with the per-cell sample/empty guards and `nodots`/`nocase` transforms hoisted into vectorized whole-column operations. On 1M rows x 20 slots x 5 conditions: row-level scan 53s to 21s, `collapse` and `merge` with date summaries 58-59s to 29-30s. Results are byte-identical — indicators, counts, `matched_code`, and `detail` attribution are unchanged, verified against the previous engine across regex, prefix, `nocase`, `nodots`, and `countmode` configurations.
-
-### 4.1.5 (2026-08-19)
-
-- Fix false-positive prefix matches on multibyte UTF-8 characters (e.g. Nordic ICD codes with `Å`, `Ä`, `Ö`) when `level()` truncated to a byte boundary instead of a character boundary.
-- Fix `export()` silently truncating `pattern` and `exclusion` columns at 80 characters; now uses `str244` matching `save()`.
-- Fix `codescan_describe` deferring `save()` extension validation until after the full scan; now rejects non-`.csv` filenames before any work.
-- Fix `graph` bar label format ignoring user-specified `format()` option.
-- Fix duplicate "no observations" error message in `codescan_describe`.
-
-### 4.1.4 (2026-08-13)
-
-- `collapse` no longer discards its own result when a later side effect fails. A failing `export()`, `saving()`, or `graph` used to leave the caller with a dataset holding nothing but `id()`: the rows were already gone to the collapse, and the error path then dropped every indicator. Dropping the outputs is a rollback only while the pre-call data is still there to roll back to, so it is now skipped once `collapse` has consumed the data. The `preserve`, `frame()`, `merge`, and row-level paths are unchanged and still roll back in full.
-- `codescan_describe` no longer loses a code or chapter identity in `r(top_codes)` and `r(chapters)`. A row name that cannot survive Stata's macro-expanded `matrix rownames` — one beginning or ending with a space, or containing `"`, `$`, a backquote, or `:` — was silently replaced by Stata's positional default (`r1`, `r2`), so a chapter of `" "` or `":"` came back unidentifiable. Such rows now receive a bounded `_cs_code_#` / `_cs_chapter_#` alias. The previous guard tested length only.
-- New `r(chapter_#)` returns the exact leading character for each `r(chapters)` row, in row order, mirroring the existing `r(top_code_#)`. It is the reliable way to read a chapter identity when a row was aliased.
-
-### 4.1.3 (2026-08-10)
-
-- `codescan_describe` now restores `varabbrev` and honors `save()` when the selected observations contain no codes; the resulting draft CSV contains the documented four-column header and no data rows.
-- `saving()` with an extension-less filename now applies `.dta` before the overwrite check, so the refusal happens up front instead of after `export()` and `graph` have already written their files.
-
-### 4.1.2 (2026-08-09)
-
-- `codescan_describe` now handles code values longer than Stata's 32-character matrix row-name limit by using bounded row-name aliases while returning each exact displayed code in `r(top_code_#)`.
-
-### 4.1.1 (2026-08-05)
-
-- Clears prior `r()` contents before publishing a successful call, so an omitted `detail` option cannot leak `r(detail_allslots)` or `r(varcounts)`; corrected matching, window, saving, codefile, co-occurrence, and stored-result documentation.
-
-### 4.1.0 (2026-07-25)
-
-- Made `codescan_describe` ordering deterministic by breaking frequency ties alphabetically, including at the `top()` cutoff and in chapter-based draft codefiles.
-- Corrected `r(detail_allslots)` under `countmode`, rejected explicit negative `lookforward()` and zero `level()` inputs, and rejected dotted prefix patterns when `nodots` would make them impossible to match.
-- Widened `matched_code()` to the widest scanned fixed string up to `str2045`, rejected repeated lookback windows, and added a note when row-level outputs are discarded by `collapse`.
-
-### 4.0.1 (2026-07-18)
-
-- Fixed `saving()` under `merge` so internal temporary variables are not written, made the Mata engine reload after `mata clear`, rejected case-variant duplicate names, and added a clear guard for datetime window variables.
-
-### 4.0.0 (2026-07-17)
-
-- Removed confidence intervals from the console, matrices, and exports; prevalence and the other stored results were unchanged apart from the removed CI fields.
-
-### 3.0.0 (2026-07-17)
-
-- Added transactional output handling, three-state `unmatched()`, richer labels and exports, `allslots`, and `countmode`; malformed or empty-matching regex rules now error instead of producing silent cohorts.
-
-### 2.0.0 (2026-06-19)
-
-- Removed the former comorbidity-scoring features; `codescan` is now a pure wide-format code-field scanner.
-
-</details>
+- Initial SSC release.
 
 ## Author
 

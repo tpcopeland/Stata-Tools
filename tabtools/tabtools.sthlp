@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.6.4  12oct2026}{...}
+{* *! version 1.0.0  13oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -13,7 +13,6 @@
 {vieweralsosee "table1_tc" "help table1_tc"}{...}
 {vieweralsosee "desctab" "help desctab"}{...}
 {vieweralsosee "crosstab" "help crosstab"}{...}
-{vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {vieweralsosee "comptab" "help comptab"}{...}
@@ -116,7 +115,6 @@ guide and end-to-end worked recipes.
 {synopt:{helpb table1_tc}}Table 1 with automatic statistical tests and SMDs{p_end}
 {synopt:{helpb desctab}}Consolidated descriptive engine used by {cmd:table1_tc}{p_end}
 {synopt:{helpb crosstab}}Cross-tabulation with association measures{p_end}
-{synopt:{helpb corrtab}}Correlation matrix with significance stars{p_end}
 
 {pstd}
 {bf:Models}
@@ -307,7 +305,7 @@ nothing; and a file already written as a session target in this Stata session
 is never replaced, even after {cmd:tabtools set clear}, so switching from A to B
 and back to A keeps A's tables. Every command that
 uses a session key echoes the resolved value in the log. {helpb desctab},
-{helpb table1_tc}, {helpb crosstab}, {helpb corrtab}, {helpb regtab},
+{helpb table1_tc}, {helpb crosstab}, {helpb regtab},
 {helpb effecttab}, {helpb comptab}, {helpb hrcomptab}, {helpb survtab}, and
 {helpb stratetab} use a session workbook or Markdown file only when {opt sheet()}
 is given. When {opt sheet()} is given and there is neither {opt xlsx()} nor a
@@ -625,7 +623,7 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.6.4, 2026-10-12{p_end}
+{pstd}Version 1.0.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -29,9 +29,9 @@ def _tt_font_check():
     w=load_workbook(_tt_font_output)
     s=w['package_summary']
     assert s['A1'].value=='Known font'
-    if _tt_font_command=='corrtab':
-        assert s['C3'].value=='1.00' and s['D3'].value=='1.00***'
-        cells=('B3','C3','D3','B4','C4','D4')
+    if _tt_font_command=='crosstab':
+        assert s['B2'].value=='group' and s['C3'].value=='5 (25.0%)' and s['E3'].value=='10'
+        cells=('B2','C2','D2','E2','B3','C3','D3','E3')
     else:
         assert s['C4'].value=='5.5±3.0' and s['D4'].value=='15.5±3.0'
         cells=('B4','C4','D4','E4','F4')
@@ -49,17 +49,17 @@ _tt_font_module.check=_tt_font_check
 sys.modules['_tt_font_oracle']=_tt_font_module
 end
 
-**# corrtab nominal font domain
+**# crosstab nominal font domain
 local ++tests
 local root ""
 capture noisily {
     qa_fx_a7_files, clear seed(37) perturb(stale_sheet)
     local root `"`r(root)'"'
     local output `"`r(path_xlsx)'"'
-    python: _tt_font_root=Path(Macro.getLocal('root')); _tt_font_output=Path(Macro.getLocal('output')); _tt_font_command='corrtab'; _tt_font_before=_tt_font_unrelated()
+    python: _tt_font_root=Path(Macro.getLocal('root')); _tt_font_output=Path(Macro.getLocal('output')); _tt_font_command='crosstab'; _tt_font_before=_tt_font_unrelated()
     qa_fx_a7_labelled, clear seed(37)
     * expect: EXACT
-    qa_option_domain, command(corrtab x id, full font("@v@") xlsx(`"`macval(output)'"') sheet(package_summary) title("Known font")) inside(";Arial;Courier New;Ångström 研究") setup(_tt_font_setup) check(python: __import__('_tt_font_oracle').check())
+    qa_option_domain, command(crosstab group y, font("@v@") xlsx(`"`macval(output)'"') sheet(package_summary) title("Known font")) inside(";Arial;Courier New;Ångström 研究") setup(_tt_font_setup) check(python: __import__('_tt_font_oracle').check())
     assert r(n_cells)==4 & r(n_violations)==0
 }
 local outcome=_rc
@@ -69,11 +69,11 @@ if `"`macval(root)'"'!="" {
 }
 if `outcome' {
     local ++fail
-    display as error "FAIL: corrtab font domain rc=" `outcome'
+    display as error "FAIL: crosstab font domain rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: corrtab font domain"
+    display as result "PASS: crosstab font domain"
 }
 
 **# desctab nominal font domain

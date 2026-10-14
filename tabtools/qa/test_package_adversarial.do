@@ -60,7 +60,7 @@ end
 **# Install Surface and Helper Auto-Load
 capture noisily {
     foreach cmd in tabtools table1_tc regtab effecttab stratetab hrcomptab ///
-        comptab survtab crosstab corrtab {
+        comptab survtab crosstab {
         which `cmd'
     }
     which _tabtools_smallcells
@@ -90,9 +90,9 @@ capture noisily {
     tabtools set clear
 
     tabtools
-    assert r(n_commands) == 17
+    assert r(n_commands) == 16
     assert "`r(commands)'" == ///
-        "table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+        "table1_tc desctab crosstab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
 
     set varabbrev on
     capture tabtools nonsense
@@ -227,54 +227,6 @@ else {
     display as error "  FAIL: crosstab adversarial inputs (rc=`=_rc')"
     local ++fail_count
 }
-
-**# corrtab
-capture noisily {
-    clear
-    input double x y z
-    1 1 1
-    2 2 .
-    3 3 .
-    4 4 4
-    5 . 5
-    . 6 6
-    end
-
-    set varabbrev on
-    capture corrtab x y z, lower upper
-    assert _rc == 198
-    assert c(varabbrev) == "on"
-
-    capture corrtab x y z, pvalues star(0.05)
-    assert _rc == 198
-    assert c(varabbrev) == "on"
-
-    capture corrtab x y z, star(0 0.05)
-    assert _rc == 198
-
-    capture corrtab x y z if 0
-    assert _rc == 2000
-
-    capture frame drop corr_adv
-    corrtab x y z, full frame(corr_adv, replace)
-    matrix N = r(N)
-    assert N[1,1] == 5
-    assert N[1,2] == 4
-    assert N[1,3] == 3
-    assert N[2,3] == 3
-    assert N[3,3] == 4
-    assert c(varabbrev) == "on"
-    set varabbrev off
-}
-if _rc == 0 {
-    display as result "  PASS: corrtab conflicts and pairwise-missing N matrix"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: corrtab conflicts and pairwise-missing N matrix (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop corr_adv
 
 **# regtab
 capture noisily {
@@ -627,37 +579,6 @@ else {
     local ++fail_count
 }
 
-* S4: corrtab with only 2 variables (minimum)
-capture noisily {
-    sysuse auto, clear
-    corrtab price mpg, xlsx("`output_dir'/_stress_corr_min.xlsx") sheet("min")
-    assert rowsof(r(C)) == 2
-}
-if _rc == 0 {
-    display as result "  PASS: S4 corrtab minimum 2 variables"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: S4 corrtab minimum 2 variables (error `=_rc')"
-    local ++fail_count
-}
-
-* S5: corrtab with many variables (10+)
-capture noisily {
-    sysuse auto, clear
-    corrtab price mpg weight length displacement headroom trunk turn gear_ratio, ///
-        xlsx("`output_dir'/_stress_corr_many.xlsx") sheet("many") lower
-    assert rowsof(r(C)) == 9
-}
-if _rc == 0 {
-    display as result "  PASS: S5 corrtab 9 variables"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: S5 corrtab 9 variables (error `=_rc')"
-    local ++fail_count
-}
-
 * S6: crosstab with single category in one variable
 capture noisily {
     sysuse auto, clear
@@ -883,17 +804,17 @@ else {
     local ++fail_count
 }
 
-* S20: corrtab display output without xlsx (console only)
+* S20: crosstab display output without xlsx (console only)
 capture noisily {
     sysuse auto, clear
- corrtab price mpg weight
+    crosstab foreign rep78
 }
 if _rc == 0 {
-    display as result "  PASS: S20 corrtab console-only display"
+    display as result "  PASS: S20 crosstab console-only display"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: S20 corrtab console-only display (error `=_rc')"
+    display as error "  FAIL: S20 crosstab console-only display (error `=_rc')"
     local ++fail_count
 }
 
@@ -1111,29 +1032,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: crosstab export-failure returns (rc=`=_rc')"
-    local ++fail_count
-}
-
-**## corrtab returns correlation matrices after xlsx() failure
-capture noisily {
-    sysuse auto, clear
-    return clear
-    capture noisily corrtab price mpg weight, ///
-        xlsx("`bad_root'/corrtab.xlsx")
-    local rc = _rc
-    assert `rc' != 0
-    tempname C N
-    matrix `C' = r(C)
-    matrix `N' = r(N)
-    assert colsof(`C') == 3
-    assert `N'[1,1] > 0
-}
-if _rc == 0 {
-    display as result "  PASS: corrtab preserves r() after export failure"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: corrtab export-failure returns (rc=`=_rc')"
     local ++fail_count
 }
 

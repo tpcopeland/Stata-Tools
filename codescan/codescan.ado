@@ -1,4 +1,4 @@
-*! codescan Version 4.3.4  2026/10/13
+*! codescan Version 1.0.0  2026/10/13
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

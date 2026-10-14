@@ -1,4 +1,4 @@
-*! regtab Version 2.6.4  2026/10/12
+*! regtab Version 1.0.0  2026/10/13
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -104,7 +104,7 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string) models(string) c
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
 * Session destinations (tabtools set workbook/markdown) apply only when
-* sheet() asks for a sheet; an explicit option wins. The same rule as corrtab,
+* sheet() asks for a sheet; an explicit option wins. The same rule as
 * crosstab, desctab, and puttab. The first write to the session workbook
 * erases it: _tabtools_xlsx_write runs _tabtools_set_sinks xlsxstart on its
 * target, and the Markdown writer clears its own flag.

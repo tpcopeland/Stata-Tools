@@ -377,57 +377,38 @@ else {
     local ++fail_count
 }
 
-**# 8. Generated legends reach every sink
-* corrtab printed its star legend to the console and the workbook but passed
-* only the user footnote to Markdown, so a Markdown file could contain
-* "0.54***" with nothing explaining the mark.
+**# 8. Footnote joining reaches the Markdown sink punctuation-safely
+* Markdown must carry the user footnote as typed: a footnote ending in a
+* period must not gain ".;" from any appended annotation.
 
 local ++test_count
 capture noisily {
-    local md_corr "`outdir'/_ir_md_corr.md"
-    capture erase "`md_corr'"
+    local md_fn "`outdir'/_ir_md_regtab_fn.md"
+    capture erase "`md_fn'"
     sysuse auto, clear
-    corrtab price mpg weight turn, markdown("`md_corr'")
-
-    * The rendered table uses stars, so the file must carry the legend.
-    local _has_star = 0
-    local _has_legend = 0
-    tempname cfh
-    file open `cfh' using "`md_corr'", read text
-    file read `cfh' _line
-    while r(eof) == 0 {
-        if strpos(`"`macval(_line)'"', "*") > 0 & strpos(`"`macval(_line)'"', "|") > 0 ///
-            local _has_star = 1
-        * The Markdown writer escapes < (as \<) so "p<0.05" is literal text.
-        if strpos(`"`macval(_line)'"', "p\<") > 0 local _has_legend = 1
-        file read `cfh' _line
-    }
-    file close `cfh'
-    assert `_has_star' == 1
-    assert `_has_legend' == 1
-
-    * A user footnote ending in a period must not gain ".;".
-    local md_corr2 "`outdir'/_ir_md_corr2.md"
-    capture erase "`md_corr2'"
-    corrtab price mpg weight turn, footnote("Pairwise complete observations.") ///
-        markdown("`md_corr2'")
+    collect clear
+    quietly collect: regress price mpg weight turn
+    regtab, stars footnote("Pairwise complete observations.") markdown("`md_fn'")
     local _bad_punct = 0
+    local _has_note = 0
     tempname c2fh
-    file open `c2fh' using "`md_corr2'", read text
+    file open `c2fh' using "`md_fn'", read text
     file read `c2fh' _line
     while r(eof) == 0 {
         if strpos(`"`macval(_line)'"', ".;") > 0 local _bad_punct = 1
+        if strpos(`"`macval(_line)'"', "Pairwise complete observations.") > 0 local _has_note = 1
         file read `c2fh' _line
     }
     file close `c2fh'
     assert `_bad_punct' == 0
+    assert `_has_note' == 1
 }
 if _rc == 0 {
-    display as result "  PASS 8: corrtab star legend reaches Markdown and joins punctuation-safely"
+    display as result "  PASS 8: regtab footnote reaches Markdown and joins punctuation-safely"
     local ++pass_count
 }
 else {
-    display as error "  FAIL 8: generated-annotation parity (rc=`=_rc')"
+    display as error "  FAIL 8: Markdown footnote parity (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -462,7 +443,7 @@ else {
     local ++fail_count
 }
 
-**# 11. corrtab never renders a formatted negative zero
+**# 11. regtab never renders a formatted negative zero
 
 local ++test_count
 capture noisily {
@@ -480,11 +461,14 @@ capture noisily {
     7 5
     8 3.995
     end
-    quietly pwcorr a b
-    assert r(C)[2,1] < 0
-    assert abs(r(C)[2,1]) < 0.005
+    quietly regress b a
+    assert _b[a] < 0
+    assert abs(_b[a]) < 0.005
+    local _zero = 0
     tempname frnz
-    corrtab a b, digits(2) frame(`frnz')
+    collect clear
+    quietly collect: regress b a
+    regtab, digits(2) frame(`frnz')
     frame `frnz' {
         quietly ds
         foreach v of varlist `r(varlist)' {
@@ -492,13 +476,17 @@ capture noisily {
             if !_rc {
                 quietly count if regexm(strtrim(`v'), "^-0\.0+($|[^1-9])")
                 assert r(N) == 0
+                quietly count if strtrim(`v') == "0.00"
+                local _zero = `_zero' + r(N)
             }
         }
     }
+    * the tiny negative coefficient rendered as plain 0.00, not -0.00
+    assert `_zero' >= 1
     capture frame drop `frnz'
 }
 if _rc == 0 {
-    display as result "  PASS 11: corrtab normalizes formatted negative zero"
+    display as result "  PASS 11: regtab normalizes formatted negative zero"
     local ++pass_count
 }
 else {

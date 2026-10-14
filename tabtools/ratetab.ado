@@ -1,4 +1,4 @@
-*! ratetab Version 2.6.4  2026/10/12
+*! ratetab Version 1.0.0  2026/10/13
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -42,7 +42,7 @@ capture program drop ratetab
 program define ratetab, rclass
     version 17.0
     * Refusals before ratetab posts its own results leave the caller's r()
-    * as it was (the package rule; corrtab, crosstab, desctab do the same).
+    * as it was (the package rule; crosstab and desctab do the same).
     tempname _caller_r
     _return hold `_caller_r'
     local _own_r_posted 0

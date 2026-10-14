@@ -16,10 +16,6 @@
 *! under-declares. test_smallcells.do's "raw-leak attack" greps the CSV and
 *! Markdown for the literal raw values, so it cannot see a value that is
 *! arithmetically recoverable rather than textually present.
-*!
-*! R7 pins the corrtab star-legend inconsistency: identical thresholds printed
-*! two different legends depending on whether they came from the default or
-*! from star().
 
 clear all
 set processors 1
@@ -314,35 +310,6 @@ capture noisily {
     assert _rc == 0
 }
 _rv_record "percent-only display refused with smallcells(), explicit and implicit" `=_rc' `pass_count' `fail_count'
-
-**# R7: corrtab star legend does not depend on how the thresholds arrived
-
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    capture frame drop rv7a
-    capture frame drop rv7b
-    quietly corrtab price mpg weight, frame(rv7a)
-    local _default_methods `"`r(methods)'"'
-    quietly corrtab price mpg weight, star(0.05 0.01 0.001) frame(rv7b)
-    local _explicit_methods `"`r(methods)'"'
-
-    * Same thresholds, same table: one legend.
-    assert `"`_default_methods'"' == `"`_explicit_methods'"'
-    assert strpos(`"`_default_methods'"', "p<0.05") > 0
-    assert strpos(`"`_default_methods'"', "p<0.01") > 0
-    assert strpos(`"`_default_methods'"', "p<0.001") > 0
-    * The bare-point form is what the defect produced.
-    assert strpos(`"`_explicit_methods'"', "p<.05") == 0
-    assert strpos(`"`_explicit_methods'"', "p<.01") == 0
-    assert strpos(`"`_explicit_methods'"', "p<.001") == 0
-
-    * A threshold set that is not the default renders the same way.
-    quietly corrtab price mpg weight, star(0.1 0.05 0.01)
-    assert strpos(`"`r(methods)'"', "p<0.1") > 0
-    assert strpos(`"`r(methods)'"', "p<.1,") == 0
-}
-_rv_record "corrtab star legend is identical for default and explicit thresholds" `=_rc' `pass_count' `fail_count'
 
 **# Summary
 

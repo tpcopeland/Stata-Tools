@@ -581,40 +581,6 @@ else {
 **# VC9: Invariant checks — sanity bounds
 * =========================================================================
 
-* --- VC9.2: corrtab all values in [-1,1] ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    capture frame drop _vc_bounds
-    corrtab price mpg weight length, frame(_vc_bounds) digits(4)
-
-    local _vc92_bad = 0
-    frame _vc_bounds {
-        forvalues i = 3/`=_N - 1' {
-            forvalues j = 2/5 {
-                capture {
-                    local cell = subinstr(strtrim(c`j'[`i']), "*", "", .)
-                    local val = real("`cell'")
-                    if `val' < . {
-                        assert `val' >= -1.001 & `val' <= 1.001
-                    }
-                }
-                if _rc local _vc92_bad = 1
-            }
-        }
-    }
-    if `_vc92_bad' error 9
-}
-if _rc == 0 {
-    display as result "  PASS: VC9.2 — corrtab all values in [-1, 1]"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: VC9.2 — corrtab bounds violation (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop _vc_bounds
-
 * --- VC9.3: survtab survival probabilities in [0%, 100%] ---
 local ++n_total
 capture noisily {

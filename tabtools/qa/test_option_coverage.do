@@ -59,22 +59,6 @@ program define _oc_record
 end
 
 * =====================================================================
-**# corrtab: zebracolor
-* =====================================================================
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    corrtab price mpg weight, xlsx("`out'/corrtab.xlsx") sheet("S") zebra zebracolor("240 245 250")
-    confirm file "`out'/corrtab.xlsx"
-}
-_oc_record "corrtab" `=_rc'
-if `_oc_ok' local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' corrtab"
-}
-
-* =====================================================================
 **# crosstab: excel, footnote, font, headercolor, headershade, zebracolor
 * =====================================================================
 local ++test_count

@@ -1,5 +1,4 @@
 scenario	command	status	gate	xlsx	sheet	N_rows	N_cols	methods_present	summary_file	note
-corrtab_spearman_lower	corrtab	PASS	stored-only	qa/baseline/workbooks/corrtab_spearman_lower.xlsx	Corr			1	qa/baseline/summaries/corrtab_spearman_lower.tsv	Spearman lower triangle with p-values
 crosstab_2x2_chi2	crosstab	PASS	regenerated	qa/baseline/workbooks/crosstab_2x2_chi2.xlsx	Cross2x2			1	qa/baseline/summaries/crosstab_2x2_chi2.tsv	2x2 with chi-squared row
 crosstab_3x3_chi2	crosstab	PASS	stored-only	qa/baseline/workbooks/crosstab_3x3_chi2.xlsx	Cross3x3			1	qa/baseline/summaries/crosstab_3x3_chi2.tsv	3x3 with chi-squared row
 effecttab_single_model	effecttab	PASS	stored-only	qa/baseline/workbooks/effecttab_single_model.xlsx	Single	5	5	1	qa/baseline/summaries/effecttab_single_model.tsv	Single-model treatment effects

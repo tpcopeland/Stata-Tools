@@ -86,7 +86,7 @@ capture noisily {
     assert _N == 6
     local got ""
     mata: st_local("got", _rm_mata_version())
-    assert "`got'" == "1.5.13"
+    assert "`got'" == "1.0.0"
 }
 if _rc {
     local ++FAIL

@@ -92,9 +92,10 @@ else {
 * Test: tabtools category filter
 capture noisily {
     tabtools, category(descriptive)
-    assert r(n_commands) == 4
+    assert r(n_commands) == 3
+    assert `"`r(commands)'"' == "table1_tc desctab crosstab"
     assert strpos("`r(commands)'", "desctab") > 0
-    assert strpos("`r(commands)'", "corrtab") > 0
+    assert strpos("`r(commands)'", "corrtab") == 0
     assert strpos("`r(commands)'", "hrcomptab") == 0
 }
 if _rc == 0 {
@@ -106,7 +107,7 @@ else {
     local ++fail_count
 }
 
-* Test: tabtools general category excludes corrtab
+* Test: tabtools general category excludes corrtab (removed)
 capture noisily {
     tabtools, category(general)
     assert r(n_commands) == 2
@@ -616,7 +617,7 @@ capture noisily {
     capture erase "`_bad_xlsx'"
     global TABTOOLS_BORDER "weird"
     sysuse auto, clear
-    capture noisily corrtab price mpg weight, xlsx("`_bad_xlsx'") sheet("BadBorder")
+    capture noisily crosstab foreign rep78, xlsx("`_bad_xlsx'") sheet("BadBorder")
     local _cmd_rc = _rc
     capture confirm file "`_bad_xlsx'"
     local _file_rc = _rc
@@ -1012,14 +1013,14 @@ else {
 **## 5a. tabtools returns 14 current commands
 capture noisily {
     tabtools
-    assert r(n_commands) == 17
+    assert r(n_commands) == 16
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools returns n_commands = 17"
+    display as result "  PASS: tabtools returns n_commands = 16"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools n_commands != 17 (error `=_rc')"
+    display as error "  FAIL: tabtools n_commands != 16 (error `=_rc')"
     local ++fail_count
 }
 
@@ -1100,7 +1101,7 @@ if _rc != 0 {
     local t5e_pass = 0
 }
 else {
-    foreach cmd in table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips {
+    foreach cmd in table1_tc desctab crosstab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips {
         if strpos("`cmds'", "`cmd'") > 0 {
             display as result "  PASS [5e.`cmd']: `cmd' in r(commands)"
         }
@@ -1109,9 +1110,17 @@ else {
             local t5e_pass = 0
         }
     }
+    * corrtab was removed from the package and must not be listed
+    if strpos("`cmds'", "corrtab") == 0 {
+        display as result "  PASS [5e.corrtab]: corrtab absent from r(commands)"
+    }
+    else {
+        display as error "  FAIL [5e.corrtab]: removed command corrtab still in r(commands)"
+        local t5e_pass = 0
+    }
 }
 if `t5e_pass' == 1 {
-    display as result "  PASS: all 14 current commands in r(commands)"
+    display as result "  PASS: all 16 current commands in r(commands)"
     local ++pass_count
 }
 else {
@@ -1121,9 +1130,6 @@ else {
 
 
 * Cleanup
-capture erase "`output_dir'/_regfix_corrtab_pw.xlsx"
-capture erase "`output_dir'/_regfix_corrtab_sp.xlsx"
-capture erase "`output_dir'/_regfix_corrtab_complete.xlsx"
 capture erase "`output_dir'/_regfix_custom_table1.xlsx"
 capture erase "`output_dir'/_regfix_custom_fill.txt"
 capture erase "`output_dir'/_regfix_stratetab_badsheet.xlsx"

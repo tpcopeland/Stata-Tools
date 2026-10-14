@@ -50,7 +50,7 @@ capture noisily {
         stratetab.ado stratetab.sthlp hrcomptab.ado hrcomptab.sthlp ///
         comptab.ado comptab.sthlp survtab.ado survtab.sthlp ///
         crosstab.ado crosstab.sthlp ///
-        corrtab.ado corrtab.sthlp tabtools_tips.ado tabtools_tips.sthlp {
+        tabtools_tips.ado tabtools_tips.sthlp {
         confirm file "`pkg_dir'/`f'"
         * existence alone would pass on a truncated/empty stub file
         assert strlen(fileread("`pkg_dir'/`f'")) > 0
@@ -144,6 +144,14 @@ capture noisily {
     local n_pkg : word count `pkg_files'
     local n_dist : word count `dist_files'
     assert `n_pkg' == `n_dist'
+
+    * corrtab was removed before the first SSC release and must not ship
+    assert !`: list posof "corrtab.ado" in pkg_files'
+    assert !`: list posof "corrtab.sthlp" in pkg_files'
+    capture confirm file "`pkg_dir'/corrtab.ado"
+    assert _rc != 0
+    capture confirm file "`pkg_dir'/corrtab.sthlp"
+    assert _rc != 0
 }
 if _rc == 0 {
     display as result "  PASS: .pkg manifest matches shipped ado/sthlp files"
@@ -167,6 +175,7 @@ capture noisily {
     file open `_program_contract_fh' using "`_program_contract_status'", read text
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
+    * 121 programs since corrtab was removed for the 1.0.0 release; before that,
     * 122 programs since 2.6.4 added _desctab_misscell (Missing-row cell);
     * 121 programs since 2.6.3 added _tabtools_export_hint (export hint);
     * 120 programs since 2.6.2 added _tabtools_collect_atmatrix,
@@ -185,7 +194,7 @@ capture noisily {
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=122 class_missing=0 wrapper_missing=0"
+        "PASS programs=121 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"
@@ -293,7 +302,7 @@ else {
 * The package now has one universal Stata 17 baseline.  This gate checks that
 * every public command agrees with that advertised requirement.
 capture noisily {
-    local all_commands "tabtools tabtools_tips table1_tc desctab regtab effecttab comptab hrcomptab survtab crosstab corrtab stratetab puttab stacktab"
+    local all_commands "tabtools tabtools_tips table1_tc desctab regtab effecttab comptab hrcomptab survtab crosstab stratetab puttab stacktab"
 
     local matrix_bad = 0
     foreach c of local all_commands {
@@ -575,7 +584,7 @@ else {
 * stata-dev-ignore: rc-only-test — installation probe: whether each public command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     foreach cmd in tabtools table1_tc regtab effecttab stratetab hrcomptab ///
-        comptab survtab crosstab corrtab {
+        comptab survtab crosstab {
         which `cmd'
     }
 }
@@ -735,11 +744,10 @@ else {
     local failed_tests "`failed_tests' readme_comptab"
 }
 
-**## README example: crosstab and corrtab run as displayed
+**## README example: crosstab runs as displayed
 capture noisily {
     sysuse auto, clear
     capture erase "crosstab.xlsx"
-    capture erase "corrtab.xlsx"
     generate byte expensive = (price > 6000)
     crosstab expensive foreign, or label ///
         xlsx(crosstab.xlsx) ///
@@ -747,21 +755,15 @@ capture noisily {
     confirm file "crosstab.xlsx"
     assert !missing(r(N))
     assert r(N) > 0
-    corrtab price mpg weight length, xlsx(corrtab.xlsx) ///
-        lower title("Correlation Matrix")
-    confirm file "corrtab.xlsx"
-    matrix _rel_corr_N = r(N)
-    assert !missing(_rel_corr_N[1, 1])
-    assert _rel_corr_N[1, 1] > 0
 }
 if _rc == 0 {
-    display as result "  PASS: README crosstab/corrtab example runs unchanged"
+    display as result "  PASS: README crosstab example runs unchanged"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: README crosstab/corrtab example (error `=_rc')"
+    display as error "  FAIL: README crosstab example (error `=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' readme_crosstab_corrtab"
+    local failed_tests "`failed_tests' readme_crosstab"
 }
 
 **## README example: survtab and stratetab run as displayed
@@ -825,11 +827,9 @@ else {
 **## tabtools.sthlp example returns expected filtered command list
 capture noisily {
     tabtools, category(descriptive)
-    assert r(n_commands) == 4
-    assert strpos("`r(commands)'", "table1_tc") > 0
-    assert strpos("`r(commands)'", "desctab") > 0
-    assert strpos("`r(commands)'", "crosstab") > 0
-    assert strpos("`r(commands)'", "corrtab") > 0
+    assert r(n_commands) == 3
+    assert `"`r(commands)'"' == "table1_tc desctab crosstab"
+    assert strpos("`r(commands)'", "corrtab") == 0
 }
 if _rc == 0 {
     display as result "  PASS: tabtools.sthlp category example behaves as documented"
@@ -870,8 +870,8 @@ else {
 **# Migrated: public command inventory
 
 
-local public_cmds "tabtools table1_tc desctab regtab effecttab tabcell outtab stratetab ratetab hrcomptab comptab survtab crosstab corrtab puttab stacktab tabtools_tips"
-local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+local public_cmds "tabtools table1_tc desctab regtab effecttab tabcell outtab stratetab ratetab hrcomptab comptab survtab crosstab puttab stacktab tabtools_tips"
+local advertised_cmds "table1_tc desctab crosstab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
 
 **# Public Inventory
 
@@ -885,7 +885,7 @@ capture noisily {
     }
 
     local n_public : word count `public_ado'
-    assert `n_public' == 17
+    assert `n_public' == 16
 
     foreach cmd of local public_cmds {
         local ado_file "`cmd'.ado"
@@ -896,7 +896,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: source tree has exact 17-command public inventory"
+    display as result "  PASS: source tree has exact 16-command public inventory"
     local ++pass_count
 }
 else {
@@ -959,7 +959,7 @@ else {
 
 capture noisily {
     tabtools
-    assert r(n_commands) == 17
+    assert r(n_commands) == 16
     local commands " `r(commands)' "
     foreach cmd of local advertised_cmds {
         assert strpos("`commands'", " `cmd' ") > 0
@@ -1085,7 +1085,7 @@ else {
 }
 capture noisily {
     tempfile checkout_out data_out
-    shell grep -cF 'repository-checkout workflow' "`pkg_dir'/README.md" > "`checkout_out'" 2>/dev/null
+    shell grep -cF 'from a repository checkout' "`pkg_dir'/README.md" > "`checkout_out'" 2>/dev/null
     shell grep -cF '_data/' "`pkg_dir'/README.md" > "`data_out'" 2>/dev/null
     tempname fh
     file open `fh' using "`checkout_out'", read text
@@ -1141,7 +1141,7 @@ log close _doc_contracts
 **# Migrated: release manifest + installed-user contracts
 
 local public_commands tabtools table1_tc desctab regtab effecttab stratetab ///
-    hrcomptab comptab survtab crosstab corrtab puttab stacktab ///
+    hrcomptab comptab survtab crosstab puttab stacktab ///
     tabtools_tips
 local helper_files _tabtools_common.ado _tabtools_xlsx_write.ado ///
     _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
@@ -1634,7 +1634,7 @@ else {
         local required_xlsx ///
             demo_table1.xlsx demo_desctab.xlsx demo_regtab.xlsx ///
             demo_regtab_models.xlsx demo_comptab.xlsx demo_effecttab.xlsx ///
-            demo_stratetab.xlsx demo_corrtab.xlsx demo_crosstab.xlsx ///
+            demo_stratetab.xlsx demo_crosstab.xlsx ///
             demo_survtab.xlsx demo_hrcomptab.xlsx demo_puttab.xlsx ///
             demo_stacktab.xlsx demo_ratetab.xlsx demo_outtab.xlsx ///
             demo_tabcell.xlsx
@@ -1709,13 +1709,34 @@ else {
         * (80 -> 82) and fe700833 (77 -> 102) would have.
         display as text "  demo: `n_workbooks' workbooks, `actual_sheets' sheets regenerated, `tracked_sheets' tracked"
         assert `actual_sheets' == `tracked_sheets'
-        tempfile readme_hit
-        shell grep -F "`n_workbooks' workbooks (`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
-        tempname readmefh
-        file open `readmefh' using "`readme_hit'", read text
-        file read `readmefh' readme_line
-        assert r(eof) == 0
-        file close `readmefh'
+        * The README's demo table states one sheet count per workbook
+        * (a row beginning with the demo path and "N sheets"). Each must equal the sheet
+        * count of the regenerated workbook, and the table must list exactly
+        * the regenerated workbooks.
+        local readme_wb_total 0
+        foreach f of local xlsx_files {
+            quietly import excel using "`demo_dir'/`f'", describe
+            local _ns = r(N_worksheet)
+            tempfile readme_hit
+            shell grep -cE "[|] .demo/`f'. [|] `_ns' sheet" "`pkg_dir'/README.md" > "`readme_hit'"
+            tempname readmefh
+            file open `readmefh' using "`readme_hit'", read text
+            file read `readmefh' readme_line
+            file close `readmefh'
+            if real(strtrim("`readme_line'")) != 1 {
+                display as error "  README demo table: `f' should state `_ns' sheet(s)"
+            }
+            assert real(strtrim("`readme_line'")) == 1
+            local ++readme_wb_total
+        }
+        assert `readme_wb_total' == `n_workbooks'
+        tempfile readme_rows
+        shell grep -cE "^[|] .demo/demo_[a-z0-9_]+[.]xlsx. [|]" "`pkg_dir'/README.md" > "`readme_rows'"
+        tempname readmefh2
+        file open `readmefh2' using "`readme_rows'", read text
+        file read `readmefh2' readme_rows_line
+        file close `readmefh2'
+        assert real(strtrim("`readme_rows_line'")) == `n_workbooks'
 
         tempfile demo_compare_status
         shell python3 "`demo_compare'" "`tracked_demo_dir'" "`demo_dir'" ///
@@ -1834,7 +1855,7 @@ capture noisily {
 
     preserve
     import delimited "`manifest_file'", varnames(1) stringcols(_all) clear
-    assert _N >= 14
+    assert _N >= 13
     forvalues i = 1/`=_N' {
         assert status[`i'] == "PASS"
         assert xlsx[`i'] != ""

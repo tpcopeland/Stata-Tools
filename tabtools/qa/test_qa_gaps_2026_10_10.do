@@ -20,7 +20,7 @@
 *     output, a strate-shaped file with no rows
 * N4  stacktab, comptab, hrcomptab null case: a frame that does not exist and
 *     an empty frame; comptab names the caller's frame in its error
-* N5  corrtab and outtab null case: an all-missing variable
+* N5  outtab null case: an all-missing variable
 *
 * Run from tabtools/qa.
 
@@ -369,20 +369,18 @@ else {
     local ++fail_count
 }
 
-**# N5: corrtab and outtab null case: all-missing input
+**# N5: outtab null case: all-missing input
 local ++test_count
 capture noisily {
     sysuse auto, clear
     generate double allmiss = .
     generate byte ev = price > 6000
     * null case: an all-missing variable leaves no usable observation
-    capture corrtab price allmiss
-    assert _rc == 2000
     capture outtab ev, exposure(allmiss)
     assert _rc == 2000
 }
 if _rc == 0 {
-    display as result "  PASS: N5 corrtab/outtab refuse all-missing input"
+    display as result "  PASS: N5 outtab refuses all-missing input"
     local ++pass_count
 }
 else {

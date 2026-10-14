@@ -1,4 +1,4 @@
-*! _codescan_engine Version 4.3.4  2026/10/13
+*! _codescan_engine Version 1.0.0  2026/10/13
 *! codescan Mata scanning engine (single-pass memoized scan, co-occurrence, sensitivity)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: Mata function library for codescan
@@ -9,6 +9,7 @@
 * after mata: mata clear / discard without re-running its own executing .ado.
 * =============================================================================
 
+version 16.0
 mata:
 // F7: cheap liveness ping. codescan calls this in a capture at start-up; if it
 // is gone (mata: mata clear / discard dropped the engine while leaving the ado

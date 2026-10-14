@@ -185,7 +185,7 @@ capture noisily {
     assert `"`r(sheets)'"' == "One Two"
     _st231_sheets "`other'"
     assert `"`r(sheets)'"' == "Mine"
-    * no sheet(): the session workbook is not touched (as corrtab)
+    * no sheet(): the session workbook is not touched
     stratetab, using("`f1'") outcomes(1)
     assert `"`r(xlsx)'"' == ""
     _st231_sheets "`book'"

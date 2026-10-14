@@ -371,29 +371,6 @@ else {
     local ++fail_count
 }
 
-* corrtab (already enforced csv's extension on 2.1.11; guard test)
-capture noisily {
-    local wb "`output_dir'/osm_corrtab_book.xlsx"
-    local ok "`output_dir'/osm_corrtab_ok"
-    foreach e in xlsx csv md {
-        capture erase "`ok'.`e'"
-    }
-    sysuse auto, clear
-    quietly corrtab price mpg weight, xlsx("`ok'.xlsx") csv("`ok'.csv") markdown("`ok'.md")
-    confirm file "`ok'.csv"
-    _osm_seed_book "`wb'"
-    _osm_refused "`wb'" corrtab price mpg weight, xlsx("`wb'") csv("`wb'")
-    _osm_book_intact "`wb'"
-}
-if _rc == 0 {
-    display as result "  PASS: O1 corrtab refuses xlsx() and csv() on one workbook"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: O1 corrtab collision (rc=`=_rc')"
-    local ++fail_count
-}
-
 * desctab, and table1_tc through its excel() spelling
 capture noisily {
     local wb "`output_dir'/osm_desctab_book.xlsx"
@@ -506,7 +483,7 @@ else {
     local ++fail_count
 }
 
-* csv() must name a .csv file in every command (corrtab/puttab/stacktab
+* csv() must name a .csv file in every command (puttab/stacktab
 * already required it; the others accepted any extension).
 capture noisily {
     local bad "`output_dir'/osm_bad_ext.txt"

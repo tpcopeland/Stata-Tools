@@ -19,10 +19,6 @@ quietly net install tabtools, from("`pkg_dir'") replace
 local ++tests
 capture noisily {
     sysuse auto, clear
-    corrtab price mpg weight, spearman pvalues
-    matrix _doc_pairwise_N = r(N)
-    assert rowsof(_doc_pairwise_N) == 3
-    assert colsof(_doc_pairwise_N) == 3
     crosstab rep78 foreign, label
     assert !missing(r(N))
     assert r(N) > 0

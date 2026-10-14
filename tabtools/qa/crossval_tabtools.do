@@ -7,7 +7,6 @@
 * (i.e., not delegated to built-in Stata commands)
 *
 * Formulas cross-validated:
-*   1.  Correlation p-values (t-approximation)        — corrtab.ado
 *   7.  SMD continuous (root-mean variance formula)      — table1_tc.ado
 *   8.  SMD continuous (all public weighting paths)      — table1_tc.ado
 *   9.  SMD categorical (Yang & Dalton)                 — table1_tc.ado
@@ -130,85 +129,6 @@ forvalues i = 1/`n_metrics' {
 }
 display as result "Loaded `n_loaded'/`n_metrics' R benchmark values"
 restore
-
-* ============================================================
-**# CV1: Correlation p-values (t-approximation)
-* ============================================================
-* Formula: t = r * sqrt((n-2) / (1-r^2)), p = 2*ttail(n-2, |t|)
-* This is the manual formula used in corrtab.ado lines 108-109, 131-132
-
-* CV1a: r=0.7, n=50
-local ++test_count
-capture noisily {
-    local r_t `r_corr_t_stat'
-    local r_p `r_corr_p_val'
-
-    * Stata computation (same formula as corrtab.ado)
-    local _r = 0.7
-    local _n = 50
-    local _t = `_r' * sqrt((`_n' - 2) / (1 - (`_r')^2))
-    local _p = 2 * ttail(`_n' - 2, abs(`_t'))
-
-    assert abs(`_t' - `r_t') < 1e-8
-    assert abs(`_p' - `r_p') < 1e-10
-}
-if _rc == 0 {
-    display as result "  PASS: CV1a correlation t-stat and p-value (r=0.7, n=50)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: CV1a correlation t-stat and p-value"
-    local ++fail_count
-    local failed_tests "`failed_tests' CV1a"
-}
-
-* CV1b: r=-0.4686, n=74
-local ++test_count
-capture noisily {
-    local r_t2 `r_corr_t_stat2'
-    local r_p2 `r_corr_p_val2'
-
-    local _r = -0.4686
-    local _n = 74
-    local _t = `_r' * sqrt((`_n' - 2) / (1 - (`_r')^2))
-    local _p = 2 * ttail(`_n' - 2, abs(`_t'))
-
-    assert abs(`_t' - `r_t2') < 1e-8
-    assert abs(`_p' - `r_p2') < 1e-10
-}
-if _rc == 0 {
-    display as result "  PASS: CV1b correlation t-stat and p-value (r=-0.4686, n=74)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: CV1b correlation t-stat and p-value"
-    local ++fail_count
-    local failed_tests "`failed_tests' CV1b"
-}
-
-* CV1c: r=0.95, n=30 (strong correlation)
-local ++test_count
-capture noisily {
-    local r_t3 `r_corr_t_stat3'
-    local r_p3 `r_corr_p_val3'
-
-    local _r = 0.95
-    local _n = 30
-    local _t = `_r' * sqrt((`_n' - 2) / (1 - (`_r')^2))
-    local _p = 2 * ttail(`_n' - 2, abs(`_t'))
-
-    assert abs(`_t' - `r_t3') < 1e-8
-    assert abs(`_p' - `r_p3') < 1e-10
-}
-if _rc == 0 {
-    display as result "  PASS: CV1c correlation t-stat and p-value (r=0.95, n=30)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: CV1c correlation t-stat and p-value"
-    local ++fail_count
-    local failed_tests "`failed_tests' CV1c"
-}
 
 * ============================================================
 **# CV2: Diagnostic accuracy — point estimates
@@ -1139,48 +1059,11 @@ else {
 }
 
 * ============================================================
-**# CV1-CV17 public-command bridges
+**# CV2-CV17 public-command bridges
 * The preceding calculations remain low-level formula checks. These bridges
 * prove that the same formula families are reached through shipped commands,
 * numeric frames, and stored results rather than duplicated test locals alone.
 * ============================================================
-
-local ++test_count
-capture noisily {
-    clear
-    set obs 50
-    generate double x = _n - 25.5
-    generate double z = x^2
-    quietly summarize z, meanonly
-    replace z = z - r(mean)
-    quietly summarize x
-    replace x = x / r(sd)
-    quietly summarize z
-    replace z = z / r(sd)
-    generate double y = 0.30*x + sqrt(1 - 0.30^2)*z
-    quietly pwcorr x y
-    matrix _cv1_c = r(C)
-    local _cv1_r = _cv1_c[1,2]
-    local _cv1_p = 2*ttail(48, abs(`_cv1_r'*sqrt(48/(1-`_cv1_r'^2))))
-    capture frame drop _cv1_public
-    corrtab x y, full pvalues digits(6) frame(_cv1_public, replace)
-    frame _cv1_public: local _cv1_cell = c2[4]
-    local _cv1_open = strpos(`"`_cv1_cell'"', "(")
-    local _cv1_close = strpos(`"`_cv1_cell'"', ")")
-    local _cv1_shown = real(substr(`"`_cv1_cell'"', `_cv1_open' + 1, ///
-        `_cv1_close' - `_cv1_open' - 1))
-    assert abs(`_cv1_shown' - `_cv1_p') < 0.00051
-    capture frame drop _cv1_public
-}
-if _rc == 0 {
-    display as result "  PASS: CV1 public corrtab frame reaches the p-value formula"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: CV1 public corrtab formula bridge"
-    local ++fail_count
-    local failed_tests "`failed_tests' CV1_public"
-}
 
 local ++test_count
 capture noisily {

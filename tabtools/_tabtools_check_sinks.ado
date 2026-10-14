@@ -1,4 +1,4 @@
-*! _tabtools_check_sinks Version 2.6.4  2026/10/12
+*! _tabtools_check_sinks Version 1.0.0  2026/10/13
 *! Refuse output options that name the same file, before anything is written
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -11,7 +11,7 @@
 * directory, collapsing ./ and dir/.., unifying \ and /, expanding a leading
 * ~/, and ignoring case (Windows and macOS file systems are case-insensitive,
 * so a case-only difference is refused everywhere rather than only there).
-* csv() must also name a .csv file, the contract corrtab, puttab and stacktab
+* csv() must also name a .csv file, the contract puttab and stacktab
 * already enforced; that alone keeps csv() off the .xlsx and Markdown paths.
 *
 * Usage: _tabtools_check_sinks, [xlsx(path) csv(path) markdown(path)

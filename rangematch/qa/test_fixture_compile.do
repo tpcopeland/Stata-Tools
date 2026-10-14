@@ -43,17 +43,26 @@ foreach strict in off on {
     local ++tests
     capture noisily {
         qa_state_snapshot, tag(compile_error)
+        * The provoked compile diagnostic is expected; keep it out of the lane
+        * log, whose scanner reads it as a failure. compile_rc is asserted below.
+        capture log off
+        capture log off fxcompile
         capture noisily do "`broken1'"
         local compile_rc=_rc
+        capture log on fxcompile
+        capture log on
         di "ORACLE compile fault _rangematch_mata strict=`strict' rc=`compile_rc'"
         assert `compile_rc'==3000
         assert c(matastrict)=="`strict'"
         qa_state_compare, tag(compile_error)
     }
-    if _rc==0 local ++pass
+    local body_rc=_rc
+    capture log on fxcompile
+    capture log on
+    if `body_rc'==0 local ++pass
     else {
         local ++fail
-        di as error "FAIL compile fault _rangematch_mata strict=`strict' rc=`=_rc'"
+        di as error "FAIL compile fault _rangematch_mata strict=`strict' rc=`body_rc'"
     }
 }
 di "RESULT: test_fixture_compile tests=`tests' pass=`pass' fail=`fail' skip=0"

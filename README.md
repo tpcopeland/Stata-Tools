@@ -129,14 +129,14 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 | Package | What it does | Version |
 | --- | --- | --- |
 | [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.1-1a5f91?style=flat-square) |
-| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.3.4-1a5f91?style=flat-square) |
+| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [compress_tc](compress_tc) | Shrink string-heavy datasets: strL conversion, then `compress` | ![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square) |
 | [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`dataprobe`), a QA ledger (`dataqa`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.10.1-1a5f91?style=flat-square) |
 | [datefix](datefix) | Convert imported date strings to Stata dates, detecting day/month order and reporting values that fail | ![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square) |
 | [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.2.10-1a5f91?style=flat-square) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
 | [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
-| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.13-1a5f91?style=flat-square) |
+| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 
 ### Cohorts, registries, and time-varying data
 
@@ -167,7 +167,7 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 | [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.1.0-1a5f91?style=flat-square) |
 | [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
 | [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square) |
-| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.6.4-1a5f91?style=flat-square) |
+| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 
 ### Graphics
 

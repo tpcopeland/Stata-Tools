@@ -138,6 +138,9 @@ tempfile u
 _v1512_data, using(`"`u'"')
 
 **# T1 and T2: two calls against the broken backend, matastrict off and on
+* Each provoked call runs with the unnamed lane log suspended: the expected
+* compile diagnostic would otherwise read as a lane failure. The named capture
+* logs keep recording, and every message is asserted from them.
 foreach strict in off on {
     capture mata: mata drop _rm_mata_version()
     mata: mata set matastrict `strict'
@@ -149,8 +152,10 @@ foreach strict in off on {
         assert "`r(fn)'" == "`broken_dir'/_rangematch_mata.ado"
         tempfile lg
         log using `"`lg'"', text replace name(v1512) nomsg
+        capture log off
         capture noisily rangematch key lo hi using `"`u'"'
         local rc1 = _rc
+        capture log on
         log close v1512
         display as text "strict=`strict' call 1 rc=`rc1'"
         assert `rc1' == 3000
@@ -167,6 +172,7 @@ foreach strict in off on {
         assert _N == 2 & c(k) == 2
     }
     local body_rc = _rc
+    capture log on
     capture log close v1512
     capture adopath - "`broken_dir'"
     if `body_rc' {
@@ -183,8 +189,10 @@ foreach strict in off on {
         adopath ++ "`broken_dir'"
         tempfile lg2
         log using `"`lg2'"', text replace name(v1512b) nomsg
+        capture log off
         capture noisily rangematch key lo hi using `"`u'"'
         local rc2 = _rc
+        capture log on
         log close v1512b
         display as text "strict=`strict' call 2 rc=`rc2'"
         assert `rc2' == 3000
@@ -196,6 +204,7 @@ foreach strict in off on {
         assert _N == 2 & c(k) == 2
     }
     local body_rc = _rc
+    capture log on
     capture log close v1512b
     capture adopath - "`broken_dir'"
     if `body_rc' {
@@ -214,8 +223,10 @@ local ++TESTS
 capture noisily {
     tempfile lg3
     log using `"`lg3'"', text replace name(v1512c) nomsg
+    capture log off
     capture noisily run "`broken_dir'/_rangematch_mata.ado" verbose
     local rc3 = _rc
+    capture log on
     log close v1512c
     assert `rc3' == 3000
     mata: _v1512_scan(st_local("lg3"), "v1512_x")
@@ -225,6 +236,7 @@ capture noisily {
     assert c(matastrict) == "off"
 }
 local body_rc = _rc
+capture log on
 capture log close v1512c
 if `body_rc' {
     local ++FAIL
@@ -245,7 +257,7 @@ capture noisily {
     assert _N == 6
     local got ""
     mata: st_local("got", _rm_mata_version())
-    assert "`got'" == "1.5.13"
+    assert "`got'" == "1.0.0"
 }
 if _rc {
     local ++FAIL

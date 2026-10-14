@@ -266,16 +266,6 @@ else {
 
 local ++test_count
 sysuse auto, clear
-capture frame drop deep_corr6
-corrtab price mpg weight, digits(6) frame(deep_corr6, replace)
-local corr_ok = 0
-frame deep_corr6 {
-    foreach v of varlist c* {
-        count if `v' == "1.000000"
-        local corr_ok = `corr_ok' | r(N) > 0
-    }
-}
-
 capture frame drop deep_desc6
 desctab price, vars(price contn %12.6f) frame(deep_desc6, replace)
 local desc_shell = 0
@@ -309,7 +299,6 @@ frame deep_surv6 {
     local surv_shell = r(N)
 }
 capture noisily {
-    assert `corr_ok'
     assert `desc_shell' == 0
     assert `cross_ok'
     assert `surv_shell' == 0

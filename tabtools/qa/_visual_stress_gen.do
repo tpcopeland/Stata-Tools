@@ -23,10 +23,10 @@ discard
 tabtools set clear
 
 local stems table1_tc regtab desctab crosstab crosstab_fisher crosstab_rr ///
-    corrtab effecttab hrcomptab comptab comptab_full1 comptab_full2 ///
+    effecttab hrcomptab comptab comptab_full1 comptab_full2 ///
     stratetab survtab puttab puttab_A puttab_B stacktab ///
     stress_table1_long_unicode stress_crosstab_many_groups ///
-    stress_corrtab_extreme stress_puttab_overwrite
+    stress_puttab_overwrite
 foreach s of local stems {
     capture erase "`out'/`s'.xlsx"
     capture erase "`out'/`s'.csv"
@@ -159,26 +159,6 @@ if `_vs_ok' local ++pass_count
 else {
     local ++fail_count
     local failed "`failed' crosstab"
-}
-
-**# corrtab
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    corrtab price mpg weight length, full title("Correlation matrix") ///
-        xlsx("`out'/corrtab.xlsx") sheet("Full") ///
-        csv("`out'/corrtab.csv") markdown("`out'/corrtab.md") ///
-        headershade zebra
-    confirm file "`out'/corrtab.xlsx"
-    confirm file "`out'/corrtab.csv"
-    confirm file "`out'/corrtab.md"
-    file write `mh' "corrtab`tab'happy`tab'`out'/corrtab.xlsx`tab'Full`tab'`out'/corrtab.csv`tab'`out'/corrtab.md" _n
-}
-_vs_record "corrtab happy export" `=_rc'
-if `_vs_ok' local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' corrtab"
 }
 
 **# effecttab
@@ -436,32 +416,6 @@ if `_vs_ok' local ++pass_count
 else {
     local ++fail_count
     local failed "`failed' stress_crosstab"
-}
-
-**# stress: perfect/extreme correlations
-local ++test_count
-capture noisily {
-    clear
-    set obs 80
-    gen double x = _n
-    gen double y = x
-    gen double z = -x
-    gen double tiny = 1e-12 * _n
-    label variable tiny "Tiny value scale 1e-12"
-    corrtab x y z tiny, full digits(3) title("Stress: perfect and tiny correlations") ///
-        xlsx("`out'/stress_corrtab_extreme.xlsx") sheet("Extreme") ///
-        csv("`out'/stress_corrtab_extreme.csv") ///
-        markdown("`out'/stress_corrtab_extreme.md") headershade zebra
-    confirm file "`out'/stress_corrtab_extreme.xlsx"
-    confirm file "`out'/stress_corrtab_extreme.csv"
-    confirm file "`out'/stress_corrtab_extreme.md"
-    file write `mh' "corrtab`tab'stress_extreme`tab'`out'/stress_corrtab_extreme.xlsx`tab'Extreme`tab'`out'/stress_corrtab_extreme.csv`tab'`out'/stress_corrtab_extreme.md" _n
-}
-_vs_record "stress corrtab extreme values" `=_rc'
-if `_vs_ok' local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' stress_corrtab"
 }
 
 **# stress: existing sheet overwrite leaves no stale rows

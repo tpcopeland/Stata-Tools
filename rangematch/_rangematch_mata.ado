@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.13  2026/10/12
+*! _rangematch_mata Version 1.0.0  2026/10/13
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -2448,7 +2448,7 @@ void _rm_generate_distance(
 // later failure and the next call skipped the reload and died with r(3499).
 string scalar _rm_mata_version()
 {
-    return("1.5.13")
+    return("1.0.0")
 }
 
 end

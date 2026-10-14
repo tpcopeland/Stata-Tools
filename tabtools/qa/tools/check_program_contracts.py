@@ -100,6 +100,8 @@ def main() -> int:
     args = parser.parse_args()
 
     program_count, class_missing, wrapper_missing = audit(args.pkg_dir)
+    # 121 since the removal of corrtab (first SSC release, 1.0.0); the history
+    # below is the count when each helper was added, before that removal.
     # 122 since 2.6.4: _desctab_misscell (the Missing-row cell of desctab).
     # 121 since 2.6.3: _tabtools_export_hint (the failed-export hint).
     # 120 since 2.6.2: _tabtools_collect_atmatrix, _tabtools_st_timescale, and
@@ -127,7 +129,7 @@ def main() -> int:
     # 75 since 2.1.18: _tabtools_xlsx_deferred_styles (direct-XML cell styles).
     # 74 since the codex audit of 2026-09-26 (C8): stacktab's substring
     # suboption scanner _stacktab_get_subopt was replaced by a Mata tokenizer.
-    passed = program_count == 122 and not class_missing and not wrapper_missing
+    passed = program_count == 121 and not class_missing and not wrapper_missing
     verdict = "PASS" if passed else "FAIL"
     summary = (
         f"{verdict} programs={program_count} class_missing={len(class_missing)} "

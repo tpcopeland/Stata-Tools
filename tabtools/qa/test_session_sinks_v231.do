@@ -177,14 +177,13 @@ else {
 capture tabtools set clear
 capture log close _ss231n
 
-**# corrtab and crosstab print the same note; desctab refuses (r(498))
+**# crosstab prints the same note; desctab refuses (r(498))
 local ++test_count
 capture noisily {
     tabtools set clear
     sysuse auto, clear
     tempfile _note2
     quietly log using "`_note2'", text replace name(_ss231m)
-    corrtab price mpg weight, sheet("C")
     crosstab foreign rep78, sheet("X")
     capture desctab price mpg, by(foreign) sheet("D")
     local _drc = _rc
@@ -192,10 +191,10 @@ capture noisily {
     assert `_drc' == 498
     mata: st_local("_hit", strofreal(sum(strpos(cat(st_local("_note2")), ///
         "(tabtools: sheet() ignored; no xlsx() and no session workbook)") :> 0)))
-    assert `_hit' == 2
+    assert `_hit' == 1
 }
 if _rc == 0 {
-    display as result "  PASS: E5 corrtab/crosstab note; desctab refuses"
+    display as result "  PASS: E5 crosstab note; desctab refuses"
     local ++pass_count
 }
 else {
