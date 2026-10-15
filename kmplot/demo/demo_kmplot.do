@@ -58,6 +58,16 @@ if _rc {
     exit 601
 }
 set scheme white_tableau
+
+**# logdoc
+* The landmark transcript is converted with logdoc. The demo uses whatever
+* logdoc the user has installed and never installs or removes any package.
+capture which logdoc
+if _rc {
+    display as error "logdoc not found; install it (net install logdoc, from(<Stata-Tools>/logdoc)) before regenerating the demo"
+    capture set scheme `old_scheme'
+    exit 601
+}
 assert "`c(scheme)'" == "white_tableau"
 capture log close _all
 
@@ -214,8 +224,6 @@ log close demo
 capture graph close _all
 
 **## Convert console log to markdown via logdoc
-capture ado uninstall logdoc
-quietly net install logdoc, from("`pkg_root'/../logdoc") replace
 logdoc using "`pkg_dir'/console_landmarks.log", ///
     output("`pkg_dir'/console_landmarks.md") format(md) replace quiet
 

@@ -2,9 +2,9 @@
 
 # kmplot — Kaplan-Meier curves with risk tables
 
-**Version 1.4.3** | 2026-10-13
+**Version 1.0.0** | 2026-10-15
 
-[![version](https://img.shields.io/badge/version-1.4.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Options](#options)** · **[Gallery](#gallery)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -57,7 +57,7 @@ net install kmplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 `kmplot` reads the current `stset` definition and plots a step-function Kaplan-Meier estimate for the analysis sample; no separate model-fitting command is required.
 
 - The default graph is survival, `S(t)`. Add `failure` to plot cumulative failure, `1 - S(t)`.
-- Add `by(varname)` for one curve per group; numeric and string grouping variables are supported, and value labels are used when available.
+- Add `by(varname)` for one curve per group; numeric and string grouping variables are supported, and value labels are used when available (unlabelled numeric levels show as `varname=value` in the variable's display format).
 - Add `ci` for confidence intervals. The default is a shaded log-log interval; `cistyle(line)` draws dashed interval lines, and `citransform(log)` or `citransform(plain)` changes the transformation.
 - Add `risktable` for a number-at-risk table, `landmark()` for fixed-time estimates, `median` for median reference lines, and `censor` for censoring marks. Risk tables place the time axis above a separating rule, use larger default text, count subjects in multiple-record data, and honor active `stset` weights.
 - Add `pvalue` with `by()` when at least two groups are present to display the Stata log-rank p-value; invalid p-value requests exit with return code 198.
@@ -298,33 +298,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.4.3** (2026-10-13): `medianannotate` with `by()` now reads `Median: Placebo: 8; Drug A: 22; Drug B: 33` (groups that never reach the median show `NR`) instead of the unlabelled `Placebo: 8  Drug A: 22  Drug B: 33`; a single curve still reads `Median: x`. A `by()` value label containing a double quote no longer stops the run with r(198) at the console summary.
-- **1.4.2** (2026-10-12): The default `pvaluepos(bottomright)` p-value text no longer sits on or under the time axis (it was anchored at y = 0.02 and drawn below that point, so a risk-table layout struck it through with the axis line). Every `pvaluepos()` keyword now anchors the text 5% inside the drawn y range, taken from the plotted curves, bands, and median lines plus any numeric `ylabel()` list, so a custom `ylabel()` such as `ylabel(0(.2).6)` no longer drops the top positions off the axis, where Stata did not draw them. `r(pvalue_y)` and `r(pvalue_x)` now hold the coordinates used for every position, not only `pvalueat()`, and the new `r(pvalue_placement)` holds the placement.
-- **1.4.1** (2026-10-12): Confidence bands and CI lines no longer stop one interval early where a curve reaches 0 (1 with `failure`); as in `sts graph, ci`, they carry the last bounds to the time the curve ends, while returned and saved bounds stay missing there. `riskheight()` now requires `risktable` (it had no effect with `risksaving()` alone), and `r(riskheight)` is stored only when a risk table is drawn. The help file documents the fixed `< 0.001` p-value floor and that `r(lpattern)` holds the supplied pattern list, if any.
-
-<details>
-<summary>Earlier versions</summary>
-
-- **1.4.0** (2026-10-12): Default colors are now the Okabe-Ito palette, which stays distinguishable under simulated red-green color-vision deficiency (the previous default put cranberry and forest green next to each other); quoted RGB colors now work in `colors()`. `level()` defaults to `c(level)` and follows Stata's 10–99.99 rule. Fractional weighted risk-table counts are printed to one decimal place. Confidence bounds are missing wherever the estimate is exactly 1 or 0, under every transform, as in `sts list`. Added `medianformat()`, with a `%9.0g` default replacing the fixed `%6.1f`. Medians on tied data now match `stci` and R `survival`: where the curve is exactly 0.5 but stored a rounding error above it, 1.3.1 reported the next event time instead of the start of that plateau. Saved standard errors are missing where the estimate has reached 0, as in `sts list`, and an opacity given in `colors()` no longer disables the confidence-band colour. The help file gains a References section and a runnable delayed-entry example.
-- **1.3.1** (2026-09-30): Preserve continuous-time landmark/risk requests and shaded-band coordinates; limit landmarks to supported follow-up unless survival reaches zero; retain censor markers beyond 32,740 observations; handle quoted annotations, comma-containing titles and output paths; allow probability-weighted point estimates and counts while refusing unsupported inference.
-- **1.3.0** (2026-08-21): Rebuilt the risk-table layout. Group labels now occupy the risk table's y-axis label column instead of sitting inside the plotting region, so the main plot's time origin returns to its own y axis while the two time axes stay aligned; the label gutter, the row-label gap and the right-hand reserve are derived from the rendered text rather than from fixed margins. Risk-table counts and event counts are formatted with thousands separators.
-- **1.2.11** (2026-08-21): Added a dedicated left gutter and wider label gap so risk-table group labels do not overlap the vertical table title or time-zero counts. Superseded by 1.3.0: the shared plotregion margin it used to keep the panels aligned also pushed the main plot's time origin away from the y axis.
-- **1.2.10** (2026-08-21): Reloaded the installed risk-table helper on each call so an older in-memory helper cannot reintroduce misalignment or missing-size warnings after an update.
-- **1.2.9** (2026-08-21): Matched the main and risk-table panel geometry so endpoint columns remain aligned across Stata graph schemes and leave room for rightmost counts.
-- **1.2.8** (2026-08-21): Added a scheme-specific risk-table margin calibration for Stata's `stcolor` scheme.
-- **1.2.7** (2026-08-21): Aligned risk-table time labels and counts with the main plot's x-axis positions, enlarged row labels, and moved the risk-table title outward.
-- **1.2.6** (2026-08-11): Placed the x-axis title directly below its values, added a solid separator above the risk table, and enlarged default risk-table text.
-- **1.2.5** (2026-08-11): Isolated internal graph names and failure cleanup, fixed custom-color recycling and risk-table median annotations, supported dotted export paths, and made landmark lookup exact for continuous event times and large samples.
-- **1.2.4** (2026-08-11): Corrected subject-level, weighted, delayed-entry, and group-transition risk-table counts; excluded contiguous same-group records from censoring; and rejected ineffective dependent-option combinations.
-- **1.2.3** (2026-08-05): Corrected p-value requirements and stored-result conditions, documented `note()` precedence with `medianannotate`, and aligned help abbreviations with the parser.
-- **1.2.2** (2026-08-05): Corrected the documented export-return contract, completed prose for graph appearance, label, and output options, and repaired Viewer-width overflow in the help synopsis and stored-results table.
-- **1.2.1** (2026-07-10): Added stepped confidence bands, automatic risk-table height, `saving()` without `ci`, and a p-value/CI-level demo panel; removed risk-table gridlines and improved combined-figure spacing.
-- **1.2.0** (2026-06-26): Added `level()`, `riskheight()`, `landmark()`, `saving()`, `risksaving()`, p-value display controls, richer `r()` metadata and matrices, delayed-entry risk-table support, cumulative-failure terminology, and method notes.
-- **1.0.3** (2026-06-25): Replaced internal graph-working variables with `tempvar`s, restored preserved data on error paths, guarded `export()` paths, and preserved analytical returns across export failures.
-- **1.0.2** (2026-04-22): Refactored the varabbrev wrapper to cover syntax, validation, and main logic; fixed literal-quote rendering in user-supplied title options; and guarded export success messages with file confirmation.
-- **1.0.1** (2026-04-10): Initial Stata-Tools release with Kaplan-Meier, cumulative-failure, risk-table, censoring, median-line, and export support.
-
-</details>
+- **1.0.0** (2026-10-15): Initial release.
 
 ## Author
 

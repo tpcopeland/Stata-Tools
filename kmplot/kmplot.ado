@@ -1,4 +1,4 @@
-*! kmplot Version 1.4.3  2026/10/13
+*! kmplot Version 1.0.0  2026/10/15
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -397,20 +397,35 @@ program define kmplot, rclass
             * Get group labels
             local bylbl : value label `by'
             quietly levelsof `by', local(bylevels)
+            * Unlabelled numeric levels are shown in the variable's display
+            * format, so a float 0.1 reads "x=.1" rather than its binary
+            * expansion; if that format would merge two levels, every label
+            * keeps the full-precision value instead.
+            capture confirm numeric variable `by'
+            local by_numeric = (_rc == 0)
+            local byfmt : format `by'
             local g = 0
+            local lbl_merge = 0
             foreach lev of local bylevels {
                 local ++g
+                local grpfull`g' "`by'=`lev'"
                 if "`bylbl'" != "" {
                     local grplbl`g' : label `bylbl' `lev'
                 }
+                else if `by_numeric' {
+                    local levtxt = strtrim(string(`lev', "`byfmt'"))
+                    local grplbl`g' "`by'=`levtxt'"
+                    forvalues h = 1/`=`g' - 1' {
+                        if `"`grplbl`h''"' == `"`grplbl`g''"' local lbl_merge = 1
+                    }
+                }
                 else {
-                    capture confirm numeric variable `by'
-                    if _rc == 0 {
-                        local grplbl`g' "`by'=`lev'"
-                    }
-                    else {
-                        local grplbl`g' "`lev'"
-                    }
+                    local grplbl`g' "`lev'"
+                }
+            }
+            if `lbl_merge' {
+                forvalues h = 1/`g' {
+                    local grplbl`h' "`grpfull`h''"
                 }
             }
         }
@@ -537,7 +552,7 @@ program define kmplot, rclass
             }
             if "`censor'" != "" & `censorthin' > 1 {
                 tempvar _ccnt
-                bysort `grpid' (_t) : gen double `_ccnt' = ///
+                quietly bysort `grpid' (_t) : gen double `_ccnt' = ///
                     sum(`km_cens') if `km_cens' == 1
                 quietly replace `km_cens' = 0 ///
                     if `km_cens' == 1 & mod(`_ccnt', `censorthin') != 0
@@ -610,7 +625,7 @@ program define kmplot, rclass
                 graphname(`_kmplot_risk_graph') ///
                 `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' ///
                 `rt_height_opt' `rt_flags' ///
-                callerversion("1.4.3") toptimeaxis
+                callerversion("1.0.0") toptimeaxis
             matrix `risktable_mat' = r(risktable)
             local has_risktable_mat = 1
             local risk_timepoints "`r(timepoints)'"
@@ -1209,7 +1224,7 @@ program define kmplot, rclass
                     local export_as_opt "as(`_export_suffix')"
                 }
             }
-            capture noisily graph export `"`export_file'"', ///
+            capture noisily quietly graph export `"`export_file'"', ///
                 name(`name') `export_as_opt' `export_opts'
             local _kmplot_side_rc = _rc
             if `_kmplot_side_rc' == 0 {
@@ -1289,10 +1304,10 @@ program define kmplot, rclass
             label variable anchor "Time-zero anchor row"
             order group group_label time estimate se lower upper censor anchor
             if lower(`"`curve_opts'"') == "replace" {
-                capture noisily save `"`curve_file'"', replace
+                capture noisily quietly save `"`curve_file'"', replace
             }
             else {
-                capture noisily save `"`curve_file'"'
+                capture noisily quietly save `"`curve_file'"'
             }
             local _curve_save_rc = _rc
             if `_kmplot_side_rc' == 0 & `_curve_save_rc' != 0 {
@@ -1351,10 +1366,10 @@ program define kmplot, rclass
             label variable censored "Cumulative censoring exits"
             order group group_label time at_risk events censored
             if lower(`"`risk_opts'"') == "replace" {
-                capture noisily save `"`risk_file'"', replace
+                capture noisily quietly save `"`risk_file'"', replace
             }
             else {
-                capture noisily save `"`risk_file'"'
+                capture noisily quietly save `"`risk_file'"'
             }
             local _risk_save_rc = _rc
             if `_kmplot_side_rc' == 0 & `_risk_save_rc' != 0 {

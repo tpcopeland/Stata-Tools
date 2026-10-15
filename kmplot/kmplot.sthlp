@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.3  13oct2026}{...}
+{* *! version 1.0.0  15oct2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -124,7 +124,9 @@ risk table and the style of the median reference lines are fixed.
 
 {phang}{opt by(varname)} specifies a grouping variable for stratified KM
 curves. Both numeric and string variables are supported. Value labels are
-used automatically if defined.{p_end}
+used automatically if defined; unlabelled numeric levels are shown as
+{it:varname}={it:value} in the variable's display format (in full
+precision if that format would make two levels look alike).{p_end}
 
 {phang}{opt failure} plots cumulative failure (1 minus KM) instead of
 the survival function. The y-axis title changes to "Cumulative failure"
@@ -513,7 +515,7 @@ confidence interval, and the log-rank test.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.3, 2026-10-13{p_end}
+{pstd}Version 1.0.0, 2026-10-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
