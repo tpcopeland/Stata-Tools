@@ -13,9 +13,9 @@ title: "workflow"
 ```
 
 ```stata
-. noisily rangematch event_date exposure_start exposure_end using "`adverse_events'",
->     by(patient_id) keepusing(event_id event_date event_type severity)
->     generate(match_status) masterid(exposure_row) usingid(event_row)
+. noisily rangematch event_date exposure_start exposure_end using "`adverse_events'", ///
+>     by(patient_id) keepusing(event_id event_date event_type severity) ///
+>     generate(match_status) masterid(exposure_row) usingid(event_row) ///
 >     frame(exposure_events) replace stats
 ```
 
@@ -26,7 +26,7 @@ title: "workflow"
     Matched                                           4
     ---------------------------------------------------
     Total output                                      4
-    Output frame                           exposure_events
+    Output frame                        exposure_events
 
     Match density                Value
     ---------------------------------------------------
@@ -43,7 +43,7 @@ title: "workflow"
 ```
 
 ```stata
-. noisily frame exposure_events: list patient_id drug exposure_start exposure_end
+. noisily frame exposure_events: list patient_id drug exposure_start exposure_end ///
 >     event_id event_date event_type severity match_status, sepby(patient_id) noobs
 ```
 

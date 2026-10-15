@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  13oct2026}{...}
+{* *! version 1.0.0  15oct2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -930,7 +930,7 @@ command to produce output. Counts alone do not establish that output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-13{p_end}
+{pstd}Version 1.0.0, 2026-10-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

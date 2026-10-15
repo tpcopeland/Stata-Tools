@@ -155,7 +155,7 @@ log using "`demo_dir'/benchmark.log", replace text name(benchmark) nomsg
 * # Benchmark: rangematch versus rangejoin
 
 display as text "Shared syntax benchmark: key lo hi using file, by(group)."
-display as text "rangematch uses unmatched(none) and nosort so both commands emit matched pairs without a final order guarantee."
+display as text "rangematch runs with unmatched(none) nosort: matched pairs only, in no guaranteed order."
 display as text "Times include pair generation and output materialization."
 
 quietly {

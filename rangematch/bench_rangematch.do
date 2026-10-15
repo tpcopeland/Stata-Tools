@@ -129,8 +129,11 @@ capture noisily {
         local expected = `groups' * ///
             (`n_per_using' * (2 * `halfwidth' + 1) - `halfwidth' * (`halfwidth' + 1))
 
+        local s_nmaster = strtrim(string(`nmaster', "%20.0fc"))
+        local s_nusing = strtrim(string(`nusing', "%20.0fc"))
+        local s_expected = strtrim(string(`expected', "%20.0fc"))
         display as text _newline "Scenario: `scenario' " ///
-            "(master=`nmaster', using=`nusing', groups=`groups', halfwidth=`halfwidth', expected=`expected')"
+            "(master=`s_nmaster', using=`s_nusing', groups=`groups', halfwidth=`halfwidth', expected=`s_expected')"
 
         tempfile master using
 

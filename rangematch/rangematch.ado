@@ -1,4 +1,4 @@
-*! rangematch Version 1.0.0  2026/10/13
+*! rangematch Version 1.0.0  2026/10/15
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -41,11 +41,16 @@ program define _rangematch_display_counts
         if `"`dryrun'"' != "" {
             display as text "    (data unchanged)"
         }
+        * Text values end at column 55, the right edge of the %12.0fc counts.
+        * A value wider than 12 characters starts left of column 44 instead,
+        * but always leaves two spaces after its label.
         if `"`frame'"' != "" {
-            display as text "    Output frame" _col(44) as result "`frame'"
+            local _vcol = max(19, 56 - udstrlen("`frame'"))
+            display as text "    Output frame" _col(`_vcol') as result "`frame'"
         }
         if `"`saving'"' != "" {
-            display as text "    Output file" _col(44) as result `"`saving'"'
+            local _vcol = max(18, 56 - udstrlen(`"`saving'"'))
+            display as text "    Output file" _col(`_vcol') as result `"`saving'"'
         }
     }
     local rc = _rc
@@ -65,13 +70,16 @@ program define _rangematch_display_stats
             NEMPTYgroups(real) NMASTERgroups(real) [ BY(string) ]
 
         if `maxmatches' > `densitywarn' {
+            local _s_max = strtrim(string(`maxmatches', "%20.0fc"))
             display as error ///
-                "warning: one master row matched `maxmatches' using rows; consider maxpairs(), by(), or nearest()"
+                "warning: one master row matched `_s_max' using rows; consider maxpairs(), by(), or nearest()"
         }
         if `"`by'"' != "" & `nmastergroups' > 0 ///
                 & `nemptygroups' > (`nmastergroups' / 2) {
+            local _s_empty = strtrim(string(`nemptygroups', "%20.0fc"))
+            local _s_groups = strtrim(string(`nmastergroups', "%20.0fc"))
             display as error ///
-                "warning: `nemptygroups' of `nmastergroups' by-groups had no using rows; check by() coding"
+                "warning: `_s_empty' of `_s_groups' by-groups had no using rows; check by() coding"
         }
 
         display as text ""
@@ -119,8 +127,9 @@ program define _rangematch_display_timing
         display as text "    Match" ///
             _col(44) as result %12.3fc `matchtime'
         if `materializetime' >= . {
+            * Text value ends at column 55, like the %12.3fc times.
             display as text "    Materialize" ///
-                _col(44) as result "     (skipped)"
+                _col(47) as result "(skipped)"
         }
         else {
             display as text "    Materialize" ///
@@ -353,10 +362,11 @@ program define _rangematch_load_using, sclass
         local large_using_warn_threshold = 10000000
         if `N_using_pre' > `large_using_warn_threshold' ///
                 & "`by'" == "" & `"`keepusing'"' == "" {
+            local _s_nu = strtrim(string(`N_using_pre', "%20.0fc"))
             display as error ///
-                "warning: using data contain `N_using_pre' rows and no by() or keepusing() was specified"
+                "warning: using data contain `_s_nu' rows and no by() or keepusing() was specified;"
             display as error ///
-                "consider by() to partition matching or keepusing() to limit carried variables"
+                "         consider by() to partition matching or keepusing() to limit carried variables"
         }
 
         if `"`keepusing'"' != "" {
@@ -920,7 +930,7 @@ program define _rangematch_warn_float
         display as error ///
             "warning: `lab' {bf:`var'} is stored as float with values beyond 2^24;"
         display as error ///
-            "         boundary matches may be imprecise -- reload original values as double or use tolerance()"
+            "         boundary matches may be imprecise; reload original values as double or use tolerance()"
     }
 end
 
@@ -1715,10 +1725,11 @@ program define rangematch, rclass
             if !missing(`ulo') & !missing(`uhi') & `ulo' > `uhi'
         local N_using_inverted = r(N)
         if `N_using_inverted' > 0 {
+            local _s_inv = strtrim(string(`N_using_inverted', "%20.0fc"))
             display as error ///
-                "warning: `N_using_inverted' using interval(s) have {bf:`ulo'} > {bf:`uhi'} (inverted bounds);"
+                "warning: `_s_inv' using interval(s) have {bf:`ulo'} > {bf:`uhi'} (inverted bounds);"
             display as error ///
-                "         an inverted interval is empty, so these match nothing -- validate using-interval order upstream"
+                "         an inverted interval is empty, so these match nothing; validate using-interval order upstream"
         }
     }
 
@@ -1996,10 +2007,15 @@ program define rangematch, rclass
     * Call Mata backend
     * -------------------------------------------------------------------
     if "`verbose'" != "" {
-        display as text "Master observations: " as result `N_master'
-        display as text "Using observations:  " as result `N_using'
-        display as text "By-groups:           " as result ///
-            cond("`by'" != "", "yes (`by')", "none")
+        display as text "    Master observations" _col(44) as result %12.0fc `N_master'
+        display as text "    Using observations" _col(44) as result %12.0fc `N_using'
+        * Every value in this block ends at column 55, the right edge of the
+        * %12.0fc counts above. A value wider than 12 characters starts left of
+        * column 44 rather than overflowing the edge, but always leaves two
+        * spaces after its label (column 16 here).
+        local _rm_bg_val = cond("`by'" != "", "yes (`by')", "none")
+        local _rm_bg_col = max(16, 56 - udstrlen("`_rm_bg_val'"))
+        display as text "    By-groups" _col(`_rm_bg_col') as result "`_rm_bg_val'"
     }
 
     local _rm_show_progress = ("`verbose'" != "" & `N_master' > 100000)
@@ -2248,10 +2264,10 @@ program define rangematch, rclass
     else if `"`saving_file'"' != "" {
         restore
         if "`saving_replace'" != "" {
-            frame __rm_out: save `"`saving_file'"', replace
+            frame __rm_out: quietly save `"`saving_file'"', replace
         }
         else {
-            frame __rm_out: save `"`saving_file'"'
+            frame __rm_out: quietly save `"`saving_file'"'
         }
         * Report the file that was actually written. `save' appends .dta only
         * when the name has no extension, so saving("out") creates "out.dta"

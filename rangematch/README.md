@@ -2,7 +2,7 @@
 
 # rangematch — Range joins for interval data
 
-**Version 1.0.0** | 2026-10-13
+**Version 1.0.0** | 2026-10-15
 
 [![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16.1+](https://img.shields.io/badge/Stata-16.1%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
@@ -78,7 +78,7 @@ Each exposure window kept the one event inside it. Events outside every window (
     Matched                                           4
     ---------------------------------------------------
     Total output                                      4
-    Output frame                           exposure_events
+    Output frame                        exposure_events
 
     Match density                Value
     ---------------------------------------------------
@@ -468,7 +468,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.0.0** (2026-10-13): Initial SSC release.
+- **1.0.0** (2026-10-15): Initial SSC release.
 
 ## Author
 
