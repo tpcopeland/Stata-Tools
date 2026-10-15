@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  13oct2026}{...}
+{* *! version 1.0.0  15oct2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -1089,11 +1089,12 @@ because nothing was left behind.
 {cmd:r()} is posted before {cmd:graph}, {cmd:export()}, {cmd:save()},
 {cmd:saving()}, and {cmd:frame()} run, so the analytic results ({cmd:r(N)},
 {cmd:r(summary)}, and the rest) survive when one of those outputs fails. If the
-failure rolls the data back -- with {cmd:preserve}, or when the created
-variables are removed -- the results that describe the data in memory say
-so: {cmd:r(newvars)} and {cmd:r(frame)} are empty and {cmd:r(collapsed)} and
-{cmd:r(merged)} are 0. After {cmd:collapse} without {cmd:preserve}, the
-collapsed data are kept and {cmd:r()} still describes them. {cmd:r(n_excluded_missingdate)} is returned
+failure rolls the data back, the results that describe the data in memory
+say so: {cmd:r(newvars)} and {cmd:r(frame)} are empty and {cmd:r(collapsed)}
+and {cmd:r(merged)} are 0. A failed output always rolls the data back,
+including after {cmd:collapse} without {cmd:preserve}: the data in memory are
+the data as they were before the call, and the error code is returned.
+{cmd:r(n_excluded_missingdate)} is returned
 only when a window was requested, and counts the rows dropped for a missing
 {cmd:date()} or {cmd:refdate()}.
 
@@ -1137,7 +1138,7 @@ than a changing numerator.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-13{p_end}
+{pstd}Version 1.0.0, 2026-10-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -1,4 +1,4 @@
-*! codescan_describe Version 1.0.0  2026/10/13
+*! codescan_describe Version 1.0.0  2026/10/15
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -140,7 +140,7 @@ program define codescan_describe, rclass
 
     tempname top_codes chapters
     if `total_codes' == 0 {
-        display as text _n "codescan describe: `nvars' variable" ///
+        display as text _n "codescan_describe: `nvars' variable" ///
             cond(`nvars' > 1, "s", "") ", 0 unique codes, 0 total entries"
         matrix `top_codes' = J(1, 3, 0)
         matrix colnames `top_codes' = frequency percent cumul_pct
@@ -154,7 +154,7 @@ program define codescan_describe, rclass
     * %10.0fc padded "7 total entries" out to "         7 total entries".
     local _hdr_codes = strtrim(string(`total_codes', "%15.0fc"))
     local _hdr_entries = strtrim(string(`total_entries', "%15.0fc"))
-    display as text _n "codescan describe: `nvars' variable" ///
+    display as text _n "codescan_describe: `nvars' variable" ///
         cond(`nvars' > 1, "s", "") ", " as result "`_hdr_codes'" ///
         as text " unique code" cond(`total_codes' == 1, "", "s") ", " ///
         as result "`_hdr_entries'" ///
@@ -366,7 +366,7 @@ program define codescan_describe, rclass
             restore
             local _did_preserve = 0
             noisily display as text ///
-                `"(draft codefile saved to `_save_fn' -- edit condition names and patterns before use)"'
+                `"(draft codefile saved to `_save_fn'; edit condition names and patterns before use)"'
         }
         local _side_rc = _rc
     }

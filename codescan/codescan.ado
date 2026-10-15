@@ -1,4 +1,4 @@
-*! codescan Version 1.0.0  2026/10/13
+*! codescan Version 1.0.0  2026/10/15
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1055,7 +1055,7 @@ program define codescan, rclass
         quietly count if `touse' & (missing(`date') | missing(`refdate'))
         local _n_excl_missdate = r(N)
         if `_n_excl_missdate' > 0 {
-            display as text "(note: `_n_excl_missdate' row(s) excluded from the time window for missing date()/refdate())"
+            display as text "(note: `_n_excl_missdate' row" cond(`_n_excl_missdate' == 1, "", "s") " excluded from the time window for missing date()/refdate())"
         }
         quietly replace `touse' = 0 if missing(`date') | missing(`refdate')
     }
@@ -1127,6 +1127,18 @@ program define codescan, rclass
             if _rc == 0 local _collides = 1
         }
         if `_collides' {
+            preserve
+            local _internal_preserve = 1
+        }
+    }
+    * In-place collapse consumes the caller's rows. When a fallible side effect
+    * (graph, export(), saving(), save()) runs after it, a failure would leave
+    * the caller holding the collapsed table with a nonzero rc. Snapshot first
+    * so the cleanup zone restores the pre-call data, as merge already does,
+    * and the original rc still propagates. COMMIT discards the snapshot.
+    if "`collapse'" != "" & !`_did_preserve' & !`_internal_preserve' {
+        if "`graph'" != "" | `"`export'"' != "" | `"`saving'"' != "" | ///
+            `"`save'"' != "" {
             preserve
             local _internal_preserve = 1
         }
@@ -1776,15 +1788,20 @@ program define codescan, rclass
     * (encounters) with a match, not the share of persons.
     if "`collapse'" != "" | "`merge'" != "" {
         local _unit_lbl "`id' values"
+        local _hdr_unit = "`id' value" + cond(`N_display' == 1, "", "s")
     }
     else {
         local _unit_lbl "observations"
+        local _hdr_unit = "observation" + cond(`N_display' == 1, "", "s")
     }
 
+    * Counts are formatted then trimmed, as in codescan_describe: a fixed
+    * %10.0fc padded "N = 4" out to "N =          4" mid-sentence.
+    local _hdr_N = strtrim(string(`N_display', "%15.0fc"))
     display as text _n "codescan: `n_conditions' condition" ///
         cond(`n_conditions' > 1, "s", "") ", `nvars' variable" ///
-        cond(`nvars' > 1, "s", "") ", N = " as result %10.0fc `N_display' ///
-        as text " `_unit_lbl'"
+        cond(`nvars' > 1, "s", "") ", N = " as result "`_hdr_N'" ///
+        as text " `_hdr_unit'"
 
     if `has_lookback' & `has_lookfwd' {
         display as text "Window: `_lookback_primary' days before to `_lookfwd' days after `refdate' (inclusive)"
@@ -1903,9 +1920,10 @@ program define codescan, rclass
     * is built from the latter — so a table showing only the hit total invites
     * reading a hit count as a case count.
     if "`countmode'" != "" {
-        display as text _n "  Hits = total matching code slots; Units>0 = `_unit_lbl'" ///
-            " with at least one hit."
-        display as text "  Prevalence is built from Units>0."
+        * Report footnotes are one SMCL paragraph each, wrapped by Stata at
+        * the line width, never split by hand.
+        display as text _n "{p 2 2 2}Hits = total matching code slots; Units>0 = `_unit_lbl'" ///
+            " with at least one hit. Prevalence is built from Units>0.{p_end}"
     }
 
     matrix colnames `summary' = count prevalence total_hits positive_units
@@ -1925,14 +1943,6 @@ program define codescan, rclass
         quietly sort `_msb_keys' `_merge_input_order'
     }
 
-    if "`collapse'" != "" {
-        display as text _n "  Collapsed to " as result %10.0fc `N_collapsed' ///
-            as text " unique `id' values"
-    }
-    if "`merge'" != "" {
-        display as text _n "  Merged patient-level indicators for " ///
-            as result %10.0fc `N_unique_ids' as text " unique `id' values"
-    }
 
     * Multi-window sensitivity display (W4)
     if `_has_sensitivity' {
@@ -2005,17 +2015,12 @@ program define codescan, rclass
             display as result %9.0fc el(`sensitivity_n', 1, `_wi') _continue
         }
         display ""
-        display as text "  (N is the number of " _continue
-        if "`collapse'" != "" | "`merge'" != "" {
-            display as text "`id' values" _continue
-        }
-        else {
-            display as text "observations" _continue
-        }
-        display as text " with at least one row in the window;"
-        display as text "   a denominator that changes across windows means the" ///
-            " population entering each"
-        display as text "   window differs, not only the ascertainment length.)"
+        if "`collapse'" != "" | "`merge'" != "" local _sens_unit "`id' values"
+        else local _sens_unit "observations"
+        display as text "{p 2 3 2}(N is the number of `_sens_unit' with at least" ///
+            " one row in the window; a denominator that changes across windows" ///
+            " means the population entering each window differs, not only the" ///
+            " ascertainment length.){p_end}"
     }
 
     * Detail display: per-variable match contribution
@@ -2025,25 +2030,24 @@ program define codescan, rclass
         * scan, so under collapse/merge these totals are row-level and will not
         * equal the patient-level "Matches" column in the summary above.
         if "`collapse'" != "" | "`merge'" != "" {
-            display as text "  (row-level contributions; the summary above is" ///
-                " patient-level)"
+            display as text "{p 2 3 2}(row-level contributions; the summary" ///
+                " above is patient-level){p_end}"
         }
         if "`allslots'" != "" | "`countmode'" != "" {
-            display as text "  (every matching slot counted; a row with the same" ///
-                " condition in two variables adds to both)"
+            display as text "{p 2 3 2}(every matching slot counted; a row with" ///
+                " the same condition in two variables adds to both){p_end}"
             if "`allslots'" == "" {
-                display as text "  (countmode always counts every slot, so" ///
-                    " allslots would change nothing here)"
+                display as text "{p 2 3 2}(countmode always counts every slot," ///
+                    " so allslots would change nothing here){p_end}"
             }
         }
         else {
             * I5: name the attribution rule where the numbers are read, not only
             * in the help. Reordering varlist moves rows between columns here
             * while leaving the cohort untouched.
-            display as text "  (each row counted once per condition, against the" ///
-                " FIRST matching variable in"
-            display as text "   varlist order; add allslots to count every" ///
-                " matching slot instead)"
+            display as text "{p 2 3 2}(each row counted once per condition," ///
+                " against the FIRST matching variable in varlist order; add" ///
+                " allslots to count every matching slot instead){p_end}"
         }
         forvalues i = 1/`n_conditions' {
             * Escape SMCL braces so the label prints literally.
@@ -2077,19 +2081,61 @@ program define codescan, rclass
 
     * Co-occurrence display
     if "`cooccurrence'" != "" {
-        display as text _n "  Co-occurrence:"
-        display as text _col(24) _continue
+        * Size each column from its own condition name (minimum 9) so a name
+        * of 9+ characters cannot run into its neighbour; the row-label
+        * column widens for the longest name.
+        local cooc_c0 = 24
         forvalues j = 1/`n_conditions' {
-            display as text %9s "`def_name_`j''" _continue
+            local cooc_w`j' = max(9, ustrlen("`def_name_`j''") + 2)
+            local cooc_c0 = max(`cooc_c0', ustrlen("`def_name_`j''") + 5)
+        }
+        display as text _n "  Co-occurrence:"
+        display as text _col(`cooc_c0') _continue
+        forvalues j = 1/`n_conditions' {
+            display as text %`cooc_w`j''s "`def_name_`j''" _continue
         }
         display ""
         forvalues i = 1/`n_conditions' {
-            display as text "  `def_name_`i''" _col(24) _continue
+            display as text "  `def_name_`i''" _col(`cooc_c0') _continue
             forvalues j = 1/`n_conditions' {
-                display as result %9.0fc el(`cooc', `i', `j') _continue
+                display as result %`cooc_w`j''.0fc el(`cooc', `i', `j') _continue
             }
             display ""
         }
+    }
+
+    * =========================================================================
+    * STATUS LINES
+    * =========================================================================
+    * House style for every status/confirmation line: unindented, one
+    * parenthesised lowercase sentence, a second clause after "; ", the group
+    * set off from the report by one blank line. Lines are buffered in _st_*
+    * and printed only after every side effect (export, saving, save(),
+    * frame) has succeeded, so a failed write never follows a claim. Under preserve or
+    * frame() the caller's data is restored, so the line says where the
+    * result went instead of claiming the data in memory was collapsed.
+    local _st_n = 0
+    if "`collapse'" != "" | "`merge'" != "" {
+        if "`collapse'" != "" {
+            local _hdr_Nk = strtrim(string(`N_collapsed', "%15.0fc"))
+        }
+        else {
+            local _hdr_Nk = strtrim(string(`N_unique_ids', "%15.0fc"))
+        }
+        if "`preserve'" == "" {
+            if "`collapse'" != "" local _st_what "data collapsed to"
+            else local _st_what "patient-level indicators merged for"
+            local _st_tail ""
+        }
+        else {
+            if "`collapse'" != "" local _st_what "results collapsed to"
+            else local _st_what "patient-level indicators merged for"
+            if "`frame'" != "" local _st_tail " in frame `frame'; data in memory unchanged"
+            else local _st_tail "; data in memory unchanged"
+        }
+        local ++_st_n
+        local _st_pl = cond("`_hdr_Nk'" == "1", "", "s")
+        local _st_`_st_n' `"(`_st_what' `_hdr_Nk' unique `id' value`_st_pl'`_st_tail')"'
     }
 
     * =========================================================================
@@ -2312,7 +2358,8 @@ program define codescan, rclass
         local _export_restore_rc = _rc
         if `_export_restore_rc' & `_export_rc' == 0 exit `_export_restore_rc'
         if `_export_rc' exit `_export_rc'
-        display as text _n `"  Results exported to `_export_fn'"'
+        local ++_st_n
+        local _st_`_st_n' `"(results exported to `_export_fn')"'
     }
 
     * =========================================================================
@@ -2356,7 +2403,8 @@ program define codescan, rclass
         else {
             quietly save `"`_saving_fn'"'
         }
-        display as text `"  (dataset saved to `_saving_fn')"'
+        local ++_st_n
+        local _st_`_st_n' `"(dataset saved to `_saving_fn')"'
     }
 
     * =========================================================================
@@ -2405,7 +2453,8 @@ program define codescan, rclass
         local _savedef_restore_rc = _rc
         if `_savedef_restore_rc' & `_savedef_rc' == 0 exit `_savedef_restore_rc'
         if `_savedef_rc' exit `_savedef_rc'
-        display as text `"(define() saved to `_save_fn')"'
+        local ++_st_n
+        local _st_`_st_n' `"(define() saved to `_save_fn')"'
     }
 
     * =========================================================================
@@ -2443,6 +2492,17 @@ program define codescan, rclass
         * anything for the cleanup zone to drop.
         local _outputs_created = 0
         return local newvars ""
+    }
+
+    if "`_st_n'" != "" & "`_st_n'" != "0" {
+        display ""
+        forvalues _sk = 1/`_st_n' {
+            * {p 0 1 2}: wraps at word boundaries with a 1-space hanging
+            * indent, so a line near the width never strands a lone ")".
+            * Braces are escaped so file paths display literally.
+            mata: st_local("_st_line", _codescan_smcl_literal(st_local("_st_`_sk'")))
+            display as text `"{p 0 1 2}`macval(_st_line)'{p_end}"'
+        }
     }
 
     * =========================================================================
@@ -2495,11 +2555,11 @@ program define codescan, rclass
         * back to. Once collapse has run without a snapshot, it is not: the rows
         * are already gone, so the drop cannot restore anything and instead
         * destroys the run's only surviving product, handing back a dataset
-        * holding nothing but id(). Every fallible side effect here (graph,
-        * export, saving) runs AFTER the analysis is complete and r() is posted,
-        * so the collapsed result is analytical payload — it survives a failed
-        * side effect for the same reason r() does. The snapshot paths are
-        * unaffected: preserve and frame() still restore in full.
+        * holding nothing but id(). A requested fallible side effect (graph,
+        * export(), saving(), save()) now takes an internal snapshot before the
+        * collapse, so that case rolls back above; this guard covers only an
+        * unexpected failure after a snapshot-free collapse. preserve and
+        * frame() restore in full as before.
         local _outputs_gone = `_rolled_back'
         if !`_rolled_back' & !`_data_collapsed' & "`_outputs'" != "" & `_outputs_created' {
             capture noisily _codescan_cleanup_outputs, outputs("`_outputs'") ///

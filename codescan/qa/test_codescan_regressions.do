@@ -22,7 +22,8 @@
 *   T18: level() is inert in mode(regex) — patterns not truncated (1.1.4)
 *   T20: countmode+merge screens merged-in missing counts from the summary (2.0.6)
 *   T21: strL scan variables rejected up front with rc 109 in both commands (2.0.6)
-*   T22: r() survives saving() to an unwritable path (return-before-side-effect)
+*   T22: r() survives saving() to an unwritable path (return-before-side-effect);
+*        the data roll back to the caller's rows
 *   T23: graph tempfile round-trip leaves r() populated and restores indicators
 *   T24: empty alternation branch (E11|, |E11, E11||E12, (E11|)) rejected 198 (2.0.7)
 *   T25: duplicate/overlapping varlist rejected 198 in both commands (2.0.7)
@@ -36,8 +37,9 @@
 *        exceed Stata's 32-character row-name limit (4.1.2, deep review)
 *   T39: an extension-less saving() is authorized against the .dta name `save'
 *        actually writes, and the refusal lands BEFORE export() (4.1.3, review)
-*   T40: a failed export()/saving()/graph after collapse leaves the collapsed
-*        RESULT in memory, not a dataset holding only id() (4.1.4, review)
+*   T40: a failed export()/saving()/save()/graph after in-place collapse
+*        restores the caller's pre-call data exactly and returns the error
+*        (4.1.4 kept the collapsed result; 1.0.0 SSC review rolls it back)
 *   T41: describe row names that cannot survive `matrix rownames' are aliased
 *        rather than silently replaced by r1/r2, and r(chapter_#) carries the
 *        exact leading character (4.1.4, review)
@@ -118,6 +120,8 @@ capture noisily {
     quietly save `_dataOK'
 
     _make_v101_data
+    tempfile _dataPre
+    quietly save `_dataPre'
     capture codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
         export("`_nodir'/out.csv")
     local _export_rc = _rc
@@ -137,7 +141,9 @@ capture noisily {
     assert mreldif(_Smry, _SmryOK) < 1e-12
     matrix drop _Smry _SmryOK
 
-    * ...and the data left in memory must be the collapsed result, unchanged.
+    * ...and the data left in memory must be the caller's PRE-CALL data: a
+    * failed side effect rolls back in-place collapse too (1.0.0 SSC review;
+    * 4.1.4 kept the collapsed result here).
     *
     * `cf _all using' ALONE IS NOT ENOUGH, and reading it as a guard here was
     * how the 4.1.4 collapse defect survived: cf iterates over the variables in
@@ -150,7 +156,7 @@ capture noisily {
     quietly describe, varlist
     local _t1_have `"`r(varlist)'"'
     preserve
-    quietly use `_dataOK', clear
+    quietly use `_dataPre', clear
     quietly describe, varlist
     local _t1_want `"`r(varlist)'"'
     restore
@@ -159,9 +165,9 @@ capture noisily {
     assert `"`_t1_missing'"' == ""
     assert `"`_t1_extra'"' == ""
     unab _t1_vars : _all
-    describe using `_dataOK', varlist
+    describe using `_dataPre', varlist
     assert "`_t1_vars'" == "`r(varlist)'"
-    cf _all using `_dataOK'
+    cf _all using `_dataPre'
 }
 if _rc == 0 {
     display as result "  PASS T1: r() present after unwritable export path"
@@ -847,13 +853,15 @@ else {
 * ============================================================
 * T22: r() survives saving() to an unwritable path (2.0.6)
 * ============================================================
-* saving() posts r() before the save side effect and does not touch memory,
-* so a failed save must still leave r() and the collapsed dataset intact —
-* the same return-before-side-effect contract exercised for export() in T1/T2.
+* saving() posts r() before the save side effect, so a failed save must still
+* leave the analytic r() intact — the return-before-side-effect contract
+* exercised for export() in T1/T2. Since the 1.0.0 SSC review the data are
+* rolled back to the caller's rows, and r(collapsed) says so.
 
 local ++test_count
 capture noisily {
     _make_v101_data
+    local _t22_N0 = _N
     capture codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
         saving(/nonexistent_dir_codescan_v101/out.dta, replace)
     local _saving_rc = _rc
@@ -861,14 +869,16 @@ capture noisily {
     assert `_saving_rc' != 0
     * Whether saving succeeded or failed, r() must be present and correct.
     assert r(n_conditions) == 2
-    assert r(collapsed) == 1
+    assert r(collapsed) == 0
     assert `"`=r(conditions)'"' == "dm2 htn"
     matrix _SmrySv = r(summary)
     assert rowsof(_SmrySv) == 2
     assert colsof(_SmrySv) == 4
     matrix drop _SmrySv
-    * The collapse ran and left patient-level data in memory (5 pids).
-    assert _N == 5
+    * The caller's row-level data are back in memory.
+    assert _N == `_t22_N0'
+    capture confirm variable dm2
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T22: r() present after unwritable saving() path"
@@ -1662,21 +1672,17 @@ else {
     local ++fail_count
 }
 
-**# T40: collapse keeps its result when a side effect fails (4.1.4, review)
+**# T40: a failed side effect after collapse restores the caller's data
 
 * ============================================================
-* T40: a failed side effect must not delete the collapsed result
+* T40: a failed side effect after in-place collapse rolls back in full
 * ============================================================
-* collapse has already consumed the caller's rows by the time export(),
-* saving() and graph run, so "drop the planned outputs" is no longer a
-* rollback — there is nothing left to roll back TO. On 4.1.3 the error path
-* dropped them anyway and handed back a dataset holding NOTHING BUT id():
-* every indicator, every _first/_last/_count/_nrows summary, gone.
-*
-* Proven red on 4.1.3: `ds' after the failed call returned "pid" alone for all
-* three side effects. The r() surface was already covered (T1/T22/T23); what
-* was uncovered is the DATA left in memory, which T1's `cf _all' could not see
-* (see the note there — cf is blind to a variable dropped from memory).
+* History: on 4.1.3 the error path dropped the planned outputs after collapse
+* and handed back a dataset holding NOTHING BUT id(). 4.1.4 kept the collapsed
+* result instead. The 1.0.0 SSC review made the contract match merge and
+* preserve: a failed command leaves the caller's data as it was before the
+* call (an internal snapshot is taken whenever a fallible side effect is
+* requested), and the original error code propagates.
 *
 * Asserted per side effect, because each has its own failure path.
 
@@ -1686,42 +1692,35 @@ assert _rc != 0
 
 local ++test_count
 capture noisily {
-    * Baseline: the same analysis with no side effect at all.
+    * Baseline: the caller's data before any call.
     _make_v101_data
-    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse countrows
-    quietly describe, varlist
-    local _t40_want `"`r(varlist)'"'
-    * The baseline must actually carry the outputs, or every assertion below
-    * is satisfied by an empty expectation.
-    foreach _v in pid dm2 htn dm2_nrows htn_nrows {
-        local _t40_has : list _v in _t40_want
-        assert `_t40_has'
-    }
-    tempfile _t40_ok
-    quietly save `_t40_ok'
+    tempfile _t40_pre
+    quietly save `_t40_pre'
+    local _t40_N0 = _N
 
-    * Each side effect, made to fail, must leave that same variable set behind.
     foreach _t40_opt in "export(`_t40_nodir'/o.csv)" ///
                         "export(`_t40_nodir'/o.xlsx)" ///
                         "saving(`_t40_nodir'/o.dta)" ///
+                        "save(`_t40_nodir'/o.csv)" ///
                         "graph export(`_t40_nodir'/o.csv)" {
         _make_v101_data
         capture codescan dx1, define(dm2 "E11" | htn "I10") id(pid) collapse ///
             countrows `_t40_opt'
-        * The side effect must genuinely have failed, or the case is vacuous.
-        assert _rc != 0
-
-        quietly describe, varlist
-        local _t40_have `"`r(varlist)'"'
-        local _t40_missing : list _t40_want - _t40_have
-        local _t40_extra   : list _t40_have - _t40_want
-        assert `"`_t40_missing'"' == ""
-        assert `"`_t40_extra'"' == ""
+        local _t40_rc = _rc
+        * Read r() now: cf and describe below overwrite it.
+        local _t40_col = r(collapsed)
+        local _t40_nv `"`r(newvars)'"'
+        * The side effect must genuinely have failed, with its own rc.
+        assert `_t40_rc' != 0
+        * Data exactly as before the call: rows, variables, values.
+        assert _N == `_t40_N0'
+        cf _all using `_t40_pre'
         unab _t40_vars : _all
-        describe using `_t40_ok', varlist
+        describe using `_t40_pre', varlist
         assert "`_t40_vars'" == "`r(varlist)'"
-        * ...and the values must be the collapsed result, not zeros.
-        cf _all using `_t40_ok'
+        * r() reports nothing left in memory.
+        assert `_t40_col' == 0
+        assert `"`_t40_nv'"' == ""
     }
 
     * Mirror: the snapshot paths still roll back IN FULL, so the fix did not
@@ -1752,7 +1751,7 @@ capture noisily {
     assert r(min) == 99 & r(max) == 99
 }
 if _rc == 0 {
-    display as result "  PASS T40: collapsed result survives a failed side effect"
+    display as result "  PASS T40: failed side effect after collapse restores the data"
     local ++pass_count
 }
 else {
