@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.8  2026/10/07
+*! _finegray_mata Version 1.3.8  2026/10/15
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -5402,8 +5402,8 @@ void _finegray_engine(
         errprintf("  across that gap, and the fit consults a weight inside it (a cause\n")
         errprintf("  event or a retained competing exit before the gap closes)\n")
         errprintf("  affected weight strata: %s\n", st_local("_fg_posstrata"))
-        errprintf("  use a later time origin, drop the subjects observed before the gap,\n")
-        errprintf("  or coarsen strata()/truncstrata()\n")
+        errprintf("  drop the subjects observed before the gap or coarsen strata()/truncstrata();\n")
+        errprintf("  moving the time origin later changes the estimand (see help finegray_methods)\n")
         exit(error(459))
     }
 

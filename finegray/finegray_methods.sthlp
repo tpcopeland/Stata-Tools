@@ -853,9 +853,15 @@ observation gap, or a competing event before the gap closes whose subject
 would be retained. Such a cause event lies outside the identifiable region
 the package estimates, so it is refused whether or not the published
 b_g/S_g form happens to be finite there (it can be, when later censoring
-keeps S_g positive). The message names the count and the affected strata; a later time origin,
-dropping the subjects observed before the gap, or a coarser stratification
-are the remedies. Version 1.3.3 refused every fit in which any member of
+keeps S_g positive). The message names the count and the affected strata.
+Two remedies leave the estimand unchanged in the remaining data: a coarser
+stratification, which keeps every subject, or dropping the subjects observed
+before the gap, which restricts the analysis to the identifiable region and
+should be reported as such. Moving the time origin later is not a remedy of
+the same kind. Starting everyone's follow-up at a common later time, for
+example, conditions on being event-free at that time, so the coefficients
+then describe the subdistribution hazard among those still free of either
+event, not in the original cohort. Version 1.3.3 refused every fit in which any member of
 any weight cell had H_u(X_i-) = 0, consulted or not.
 
 {pstd}

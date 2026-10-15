@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.8  07oct2026}{...}
+{* *! version 1.3.8  15oct2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -1088,7 +1088,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.8, 2026-10-07{p_end}
+{pstd}Version 1.3.8, 2026-10-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
