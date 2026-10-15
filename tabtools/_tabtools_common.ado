@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.0.0  2026/10/13
+*! _tabtools_common Version 1.0.0  2026/10/15
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -805,18 +805,18 @@ program _tabtools_format_p, rclass
         local _pmin = 10^(-`pdp')
         local _pmax = 1 - 10^(-`highpdp')
         if `pvalue' < `_pmin' {
-            local _num = strtrim(string(`_pmin', "%21.`pdp'f"))
+            local _num = strtrim(ustrregexra(string(`_pmin', "%21.`pdp'f"), "-(?=[0.,]+\z)", ""))
             local _out "<`_num'"
             local _phrase "p < `_num'"
         }
         else if `pvalue' > `_pmax' & `pvalue' < 1 {
-            local _num = strtrim(string(`_pmax', "%21.`highpdp'f"))
+            local _num = strtrim(ustrregexra(string(`_pmax', "%21.`highpdp'f"), "-(?=[0.,]+\z)", ""))
             local _out ">`_num'"
             local _phrase "p > `_num'"
         }
         else {
-            if `pvalue' < 0.10 local _out = strtrim(string(`pvalue', "%21.`pdp'f"))
-            else local _out = strtrim(string(`pvalue', "%21.`highpdp'f"))
+            if `pvalue' < 0.10 local _out = strtrim(ustrregexra(string(`pvalue', "%21.`pdp'f"), "-(?=[0.,]+\z)", ""))
+            else local _out = strtrim(ustrregexra(string(`pvalue', "%21.`highpdp'f"), "-(?=[0.,]+\z)", ""))
             if substr("`_out'", 1, 1) == "." local _out "0`_out'"
             local _phrase "p = `_out'"
         }
@@ -927,7 +927,7 @@ program _tabtools_helpers_ready, nclass
         * from an older copy of this file must load it again
         mata: st_local("_sep_ready", strofreal(findexternal("_tt_sep_parse()") != NULL))
         if !`_sep_ready' exit 111
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_companion_id _tabtools_require_helpers"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_companion_id _tabtools_require_helpers _tabtools_export_done"
     }
 
     local _pair_helper "_tabtools_companion_id"
@@ -1006,6 +1006,50 @@ end
 * Returns: r(name)    parsed frame name
 *          r(replace) 1 if the replace sub-option was given, else 0
 *          r(exists)  1 if a frame of that name exists right now, else 0
+
+* =============================================================================
+* _tabtools_export_done: the completion line of an xlsx export
+* =============================================================================
+* Every table command reports a finished workbook the same way:
+*   Exported <r> rows × <c> cols to <file>, sheet <sheet>
+* where <r> x <c> is the sheet's final used range as Excel sees it (title,
+* header, body, notes and footnotes included), read back from the file after
+* the workbook is closed. The caller's r() is held and restored.
+*
+* Usage: _tabtools_export_done using `"`file'"', sheet(`"`macval(sheet)'"')
+
+capture program drop _tabtools_export_done
+program _tabtools_export_done, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    tempname _ed_hold
+    local _ed_held = 0
+    capture noisily {
+    syntax using/ , SHEET(string)
+    _return hold `_ed_hold'
+    local _ed_held = 1
+    capture quietly import excel using `"`using'"', describe
+    local _ed_rc = _rc
+    local _ed_nr .
+    local _ed_nc .
+    if !`_ed_rc' mata: _tt_export_dims(st_local("sheet"))
+    _return restore `_ed_hold'
+    local _ed_held = 0
+    if `_ed_rc' exit `_ed_rc'
+    if missing(`_ed_nr') | missing(`_ed_nc') {
+        display as error `"sheet "`macval(sheet)'" not found in `using' after export"'
+        exit 601
+    }
+    display as text "Exported " as result "`_ed_nr'" as text " rows × " ///
+        as result "`_ed_nc'" as text " cols to " as result `"`using'"' ///
+        as text ", sheet " as result `"`macval(sheet)'"'
+    }
+    local _rc_outer = _rc
+    if `_ed_held' capture _return restore `_ed_hold'
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
 
 capture program drop _tabtools_frame_preflight
 program _tabtools_frame_preflight, rclass
@@ -1159,11 +1203,39 @@ capture mata: mata drop _tt_companion_id()
 capture mata: mata drop _tt_collect_ci_level_json()
 capture mata: mata drop _tt_sep_parse()
 capture mata: mata drop _tt_sep_optarg()
+capture mata: mata drop _tt_export_dims()
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
 local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
+
+// Used range of the worksheet named sheet (Excel matches names without
+// regard to case) from the r() of -import excel, describe-: "A1:H6" is
+// 6 rows x 8 columns. Sets locals _ed_nr and _ed_nc; leaves them missing
+// when the sheet is absent.
+void _tt_export_dims(string scalar sheet)
+{
+    real scalar i, n, k, nc, nr
+    string scalar rng, cell, col
+
+    n = st_numscalar("r(N_worksheet)")
+    for (i = 1; i <= n; i++) {
+        if (ustrlower(st_global("r(worksheet_" + strofreal(i) + ")")) != ustrlower(sheet)) continue
+        rng = st_global("r(range_" + strofreal(i) + ")")
+        k = strpos(rng, ":")
+        cell = (k ? substr(rng, k + 1, .) : rng)
+        col = ustrregexra(cell, "[0-9]", "")
+        nr = strtoreal(ustrregexra(cell, "[A-Za-z]", ""))
+        nc = 0
+        for (k = 1; k <= strlen(col); k++) {
+            nc = nc * 26 + strpos("ABCDEFGHIJKLMNOPQRSTUVWXYZ", substr(strupper(col), k, 1))
+        }
+        st_local("_ed_nr", strofreal(nr))
+        st_local("_ed_nc", strofreal(nc))
+        return
+    }
+}
 
 // tempfile names are reusable after program return. A persistent invocation
 // sequence distinguishes calls; a live-frame scan also protects mata clear.
@@ -1187,7 +1259,7 @@ string scalar _tt_companion_id(string scalar filetoken)
     do {
         if (*sequence >= 9007199254740991) _error(3498)
         *sequence = *sequence + 1
-        candidate = filetoken + ":" + strtrim(strofreal(*sequence, "%21.0f"))
+        candidate = filetoken + ":" + strtrim(ustrregexra(strofreal(*sequence, "%21.0f"), "-(?=[0.,]+\z)", ""))
         collision = 0
         // st_framedir() is a column vector: every frame, not the first
         for (i = 1; i <= length(frames); i++) {

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 1.0.0  2026/10/13
+*! _tabtools_xlsx_write Version 1.0.0  2026/10/15
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -140,7 +140,7 @@ string matrix _tt_cur_strmat(string scalar varlist)
             fmt = st_varformat(vars[j])
             for (i = 1; i <= N; i++) {
                 if (ncol[i] < .) {
-                    scol[i] = strtrim(strofreal(ncol[i], fmt))
+                    scol[i] = strtrim(ustrregexra(strofreal(ncol[i], fmt), "-(?=[0.,]+\z)", ""))
                 }
             }
             out[, j] = scol

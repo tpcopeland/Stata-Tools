@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.0  2026/10/13
+*! crosstab Version 1.0.0  2026/10/15
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -68,7 +68,7 @@ capture noisily {
     gettoken rowvar colvar : varlist
     * The level as shown: at most 15 significant digits, so 99.9 never prints
     * as the double's 17-digit 99.90000000000001; r(ci_level) stays numeric.
-    local _level_txt = strtrim(string(`level', "%21.15g"))
+    local _level_txt = strtrim(ustrregexra(string(`level', "%21.15g"), "-(?=[0.,]+\z)", ""))
 
     capture confirm numeric variable `rowvar'
     if _rc {
@@ -559,7 +559,7 @@ capture noisily {
                     mask(`_sc_cell_code') smallcells(`smallcells')
                 local _cell_str `"`r(display)'"'
             }
-            else local _cell_str = string(`_freq_val', "%11.0fc")
+            else local _cell_str = ustrregexra(string(`_freq_val', "%11.0fc"), "-(?=[0.,]+\z)", "")
             if "`colpct'" != "" & !`_sc_pct_blocked' {
                 if `_col_total' > 0 {
                     _tabtools_fmt_pct, value(`_freq_val' / `_col_total' * 100) format(%21.`digits'f)
@@ -590,7 +590,7 @@ capture noisily {
                 mask(`_sc_row_code') smallcells(`smallcells')
             qui replace c`out_ncols' = strtrim(`"`r(display)'"') in `row'
         }
-        else qui replace c`out_ncols' = string(`_row_total', "%11.0fc") in `row'
+        else qui replace c`out_ncols' = ustrregexra(string(`_row_total', "%11.0fc"), "-(?=[0.,]+\z)", "") in `row'
     }
 
     * Total row
@@ -606,7 +606,7 @@ capture noisily {
                 mask(`_sc_col_code') smallcells(`smallcells')
             qui replace c`_col' = strtrim(`"`r(display)'"') in `row'
         }
-        else qui replace c`_col' = string(`_colsum'[1,`c'], "%11.0fc") in `row'
+        else qui replace c`_col' = ustrregexra(string(`_colsum'[1,`c'], "%11.0fc"), "-(?=[0.,]+\z)", "") in `row'
     }
     local _sc_safe_N = `_total_n'
     if `_sc_totalmask' > 0 {
@@ -615,7 +615,7 @@ capture noisily {
         qui replace c`out_ncols' = strtrim(`"`r(display)'"') in `row'
         local _sc_safe_N = r(value)
     }
-    else qui replace c`out_ncols' = string(`_total_n', "%11.0fc") in `row'
+    else qui replace c`out_ncols' = ustrregexra(string(`_total_n', "%11.0fc"), "-(?=[0.,]+\z)", "") in `row'
 
     * Track first measure row for formatting
     local _first_measure_row = `row' + 1
@@ -639,7 +639,7 @@ capture noisily {
         qui replace c1 = `"`_test_name': `_p_phrase'"' in `row'
     }
     else {
-        local _chi2_str = string(`_chi2', "%6.2f")
+        local _chi2_str = ustrregexra(string(`_chi2', "%6.2f"), "-(?=[0.,]+\z)", "")
         qui replace c1 = `"`_test_name': chi2 = `_chi2_str', `_p_phrase'"' in `row'
     }
 
@@ -651,7 +651,7 @@ capture noisily {
             qui replace c1 = "OR = Suppressed" in `row'
             local ++_sc_nderived
         }
-        else qui replace c1 = "OR = " + strtrim(string(`_or', "%21.`digits'f")) + " (`_level_txt'% CI: " + strtrim(string(`_or_lo', "%21.`digits'f")) + ", " + strtrim(string(`_or_hi', "%21.`digits'f")) + ")" in `row'
+        else qui replace c1 = "OR = " + strtrim(ustrregexra(string(`_or', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + " (`_level_txt'% CI: " + strtrim(ustrregexra(string(`_or_lo', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + ", " + strtrim(ustrregexra(string(`_or_hi', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + ")" in `row'
     }
     if !missing(`_rr') {
         local row = `row' + 1
@@ -660,7 +660,7 @@ capture noisily {
             qui replace c1 = "RR = Suppressed" in `row'
             local ++_sc_nderived
         }
-        else qui replace c1 = "RR = " + strtrim(string(`_rr', "%21.`digits'f")) + " (`_level_txt'% CI: " + strtrim(string(`_rr_lo', "%21.`digits'f")) + ", " + strtrim(string(`_rr_hi', "%21.`digits'f")) + ")" in `row'
+        else qui replace c1 = "RR = " + strtrim(ustrregexra(string(`_rr', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + " (`_level_txt'% CI: " + strtrim(ustrregexra(string(`_rr_lo', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + ", " + strtrim(ustrregexra(string(`_rr_hi', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + ")" in `row'
     }
     if !missing(`_rd') {
         local row = `row' + 1
@@ -669,7 +669,7 @@ capture noisily {
             qui replace c1 = "RD = Suppressed" in `row'
             local ++_sc_nderived
         }
-        else qui replace c1 = "RD = " + strtrim(string(`_rd', "%21.`=`digits'+2'f")) + " (`_level_txt'% CI: " + strtrim(string(`_rd_lo', "%21.`=`digits'+2'f")) + ", " + strtrim(string(`_rd_hi', "%21.`=`digits'+2'f")) + ")" in `row'
+        else qui replace c1 = "RD = " + strtrim(ustrregexra(string(`_rd', "%21.`=`digits'+2'f"), "-(?=[0.,]+\z)", "")) + " (`_level_txt'% CI: " + strtrim(ustrregexra(string(`_rd_lo', "%21.`=`digits'+2'f"), "-(?=[0.,]+\z)", "")) + ", " + strtrim(ustrregexra(string(`_rd_hi', "%21.`=`digits'+2'f"), "-(?=[0.,]+\z)", "")) + ")" in `row'
     }
     if !missing(`_p_trend') {
         local row = `row' + 1
@@ -711,7 +711,8 @@ capture noisily {
 
 **# Console Display
     noisily _tabtools_console_display `out_ncols' `"`macval(title)'"'
-    if `_sc_active' noisily display as text "`_sc_note'"
+    * An SMCL paragraph wraps the note at word boundaries, not mid-word.
+    if `_sc_active' noisily display as text `"{p 0 0 2}`_sc_note'{p_end}"'
 
 **# CSV Export
     if "`csv'" != "" {
@@ -977,7 +978,7 @@ capture noisily {
             exit 601
         }
         local _xlsx_ok 1
-        noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
+        noisily _tabtools_export_done using `"`xlsx'"', sheet(`"`macval(sheet)'"')
     }
 
     restore

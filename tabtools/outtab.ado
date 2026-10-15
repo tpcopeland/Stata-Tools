@@ -1,4 +1,4 @@
-*! outtab Version 1.0.0  2026/10/13
+*! outtab Version 1.0.0  2026/10/15
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -396,7 +396,7 @@ program define outtab, rclass
             mata: st_varlabel("c1", st_local("_glab1") + ", events/N (%)")
             mata: st_varlabel("c2", st_local("_glab2") + ", events/N (%)")
             forvalues _k = 1/`_K' {
-                local _lab `"`macval(_mlab`_k')', `macval(ratiolabel)' (`=strtrim(string(`level', "%9.0g"))'% CI)"'
+                local _lab `"`macval(_mlab`_k')', `macval(ratiolabel)' (`=strtrim(ustrregexra(string(`level', "%9.0g"), "-(?=[0.,]+\z)", ""))'% CI)"'
                 mata: st_varlabel("c`=2 + `_k''", st_local("_lab"))
             }
             mata: st_varlabel("rowlabel", " ")

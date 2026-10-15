@@ -283,7 +283,7 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {phang3}{cmd:riskset difference zebra}{p_end}
 
 {pstd}{bf:Example 2: Cumulative incidence with RMST}{p_end}
-{phang2}{cmd:. survtab, times(10 20 30) by(drug) reverse rmst(30) ///}{p_end}
+{phang2}{cmd:. survtab, times(10 20 30) by(drug) reverse rmst(20) ///}{p_end}
 {phang3}{cmd:xlsx(survival.xlsx) sheet("CI") ///}{p_end}
 {phang3}{cmd:title("Cumulative Incidence") timeunit(months)}{p_end}
 

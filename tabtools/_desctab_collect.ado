@@ -1,4 +1,4 @@
-*! _desctab_collect Version 1.0.0  2026/10/13
+*! _desctab_collect Version 1.0.0  2026/10/15
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -438,6 +438,8 @@ program define _desctab_collect, rclass
                             quietly count if `_tt_exp' != e(sample)
                             if r(N) == 0 & `_tt_dfm' == 1 {
                                 local tstat : display %6.2f -1 * `Tmat'[3,2]
+                                * a statistic that rounds to zero prints unsigned, at the same width
+                                local tstat = ustrregexra(`"`tstat'"', "-(?=[0.,]+\z)", " ")
                                 local p`i' = 2 * ttail(`df2', abs(`Tmat'[3,2]))
                                 local _used_ttest 1
                                 local test`i' "Ind. t test"
@@ -457,6 +459,8 @@ program define _desctab_collect, rclass
                             if r(N) == 0 & `df1' == `nglevels' - 1 {
                                 local p`i' = Ftail(`df1', `df2', `_tt_f')
                                 local f : display %6.2f `_tt_f'
+                                * a statistic that rounds to zero prints unsigned, at the same width
+                                local f = ustrregexra(`"`f'"', "-(?=[0.,]+\z)", " ")
                                 local _used_anova 1
                                 local test`i' "ANOVA"
                                 if "`typ'" == "contln" local test`i' "ANOVA, logged data"
@@ -483,6 +487,8 @@ program define _desctab_collect, rclass
                             if _rc == 0 {
                                 local p`i' = chi2tail(r(df), r(chi2_adj))
                                 local chi2 : display %6.2f r(chi2_adj)
+                                * a statistic that rounds to zero prints unsigned, at the same width
+                                local chi2 = ustrregexra(`"`chi2'"', "-(?=[0.,]+\z)", " ")
                                 local df = r(df)
                                 local _used_kw 1
                                 local test`i' "Kruskal-Wallis"
@@ -495,6 +501,8 @@ program define _desctab_collect, rclass
                                 local z = r(z)
                                 local p`i' = 2 * normal(-abs(`z'))
                                 local z : display %6.2f `z'
+                                * a statistic that rounds to zero prints unsigned, at the same width
+                                local z = ustrregexra(`"`z'"', "-(?=[0.,]+\z)", " ")
                                 local _used_wilcoxon 1
                                 local test`i' "Wilcoxon rank-sum"
                                 local statistic`i' "Z=`z'"
@@ -509,6 +517,8 @@ program define _desctab_collect, rclass
                             if _rc == 0 {
                                 local p`i' = chi2tail(r(df), r(chi2_adj))
                                 local chi2 : display %6.2f r(chi2_adj)
+                                * a statistic that rounds to zero prints unsigned, at the same width
+                                local chi2 = ustrregexra(`"`chi2'"', "-(?=[0.,]+\z)", " ")
                                 local df = r(df)
                                 local _used_kw 1
                                 local test`i' "Kruskal-Wallis"
@@ -521,6 +531,8 @@ program define _desctab_collect, rclass
                                 local z = r(z)
                                 local p`i' = 2 * normal(-abs(`z'))
                                 local z : display %6.2f `z'
+                                * a statistic that rounds to zero prints unsigned, at the same width
+                                local z = ustrregexra(`"`z'"', "-(?=[0.,]+\z)", " ")
                                 local _used_wilcoxon 1
                                 local test`i' "Wilcoxon rank-sum"
                                 local statistic`i' "Z=`z'"
@@ -550,6 +562,8 @@ program define _desctab_collect, rclass
                         if _rc == 0 {
                             local p`i' = r(p)
                             local chi2 : display %6.2f r(chi2)
+                            * a statistic that rounds to zero prints unsigned, at the same width
+                            local chi2 = ustrregexra(`"`chi2'"', "-(?=[0.,]+\z)", " ")
                             local df = (r(r) - 1) * (r(c) - 1)
                             local _used_chi2 1
                             local test`i' "Chi-square"
@@ -572,6 +586,8 @@ program define _desctab_collect, rclass
                         if _rc == 0 {
                             local p`i' = r(p)
                             local chi2 : display %6.2f r(chi2)
+                            * a statistic that rounds to zero prints unsigned, at the same width
+                            local chi2 = ustrregexra(`"`chi2'"', "-(?=[0.,]+\z)", " ")
                             local df = (r(r) - 1) * (r(c) - 1)
                             local _used_chi2 1
                             local test`i' "Chi-square"
@@ -1093,7 +1109,7 @@ program define _desctab_collect, rclass
                 local _cell `"`r(display)'"'
                 quietly replace _scmask_`_lv' = `_sc_code' in `row'
             }
-            else local _cell = "N=" + string(`_nval', "`nformat'")
+            else local _cell = "N=" + ustrregexra(string(`_nval', "`nformat'"), "-(?=[0.,]+\z)", "")
             quietly replace `stub'`_lv' = `"`_cell'"' in `row'
             quietly replace N_`_lv' = `_nval' in `row'
         }
@@ -1114,7 +1130,7 @@ program define _desctab_collect, rclass
                     local _cell "Suppressed"
                     quietly replace _scmask_`_lv' = 3 in `row'
                 }
-                else local _cell = "ESS=" + string(`_ess', "`nformat'")
+                else local _cell = "ESS=" + ustrregexra(string(`_ess', "`nformat'"), "-(?=[0.,]+\z)", "")
                 quietly replace `stub'`_lv' = `"`_cell'"' in `row'
             }
             local ++sortorder
@@ -1189,14 +1205,14 @@ program define _desctab_collect, rclass
                     }
                     else if `_a' < . {
                         if inlist("`typ'", "contn", "contln") {
-                            local _cola = string(`_a', "`fmt1'")
-                            if "`typ'" == "contn" local _colb = `"`sdleft'"' + string(`_b', "`fmt2'") + `"`sdright'"'
-                            else local _colb = `"`gsdleft'"' + string(`_b', "`fmt2'") + `"`gsdright'"'
+                            local _cola = ustrregexra(string(`_a', "`fmt1'"), "-(?=[0.,]+\z)", "")
+                            if "`typ'" == "contn" local _colb = `"`sdleft'"' + ustrregexra(string(`_b', "`fmt2'"), "-(?=[0.,]+\z)", "") + `"`sdright'"'
+                            else local _colb = `"`gsdleft'"' + ustrregexra(string(`_b', "`fmt2'"), "-(?=[0.,]+\z)", "") + `"`gsdright'"'
                             local _cell = `"`_cola'"' + `"`_colb'"'
                         }
                         else {
-                            local _cola = string(`_a', "`fmt1'")
-                            local _colb = "(" + string(`_b', "`fmt2'") + `"`iqrmiddle'"' + string(`_c', "`fmt2'") + ")"
+                            local _cola = ustrregexra(string(`_a', "`fmt1'"), "-(?=[0.,]+\z)", "")
+                            local _colb = "(" + ustrregexra(string(`_b', "`fmt2'"), "-(?=[0.,]+\z)", "") + `"`iqrmiddle'"' + ustrregexra(string(`_c', "`fmt2'"), "-(?=[0.,]+\z)", "") + ")"
                             local _cell = `"`_cola' "' + `"`_colb'"'
                         }
                     }
@@ -1276,7 +1292,7 @@ program define _desctab_collect, rclass
                         quietly replace N_`_lv' = `_grpN' in `row'
                         continue
                     }
-                    local _nstr = string(`_cnt', "`nformat'")
+                    local _nstr = ustrregexra(string(`_cnt', "`nformat'"), "-(?=[0.,]+\z)", "")
                     if "`slashN'" == "slashN" {
                         local _sc_dcode 0
                         if `_smallcells_active' local _sc_dcode = `sc_denmask'[`i', `_gi']
@@ -1286,7 +1302,7 @@ program define _desctab_collect, rclass
                             local _sc_denstr `"`r(display)'"'
                             quietly replace _scmask_`_lv' = `_sc_dcode' in `row'
                         }
-                        else local _sc_denstr = string(`_grpN', "`nformat'")
+                        else local _sc_denstr = ustrregexra(string(`_grpN', "`nformat'"), "-(?=[0.,]+\z)", "")
                         local _nstr = "`_nstr'" + "/" + "`_sc_denstr'"
                     }
                     * A published percentage releases its own denominator -- the
@@ -1423,7 +1439,7 @@ program define _desctab_collect, rclass
                             quietly replace _scmask_`_lv' = `_sc_code' in `row'
                             continue
                         }
-                        local _nstr = string(`_cnt', "`nformat'")
+                        local _nstr = ustrregexra(string(`_cnt', "`nformat'"), "-(?=[0.,]+\z)", "")
                         if "`slashN'" == "slashN" {
                             local _sc_dcode 0
                             if `_smallcells_active' {
@@ -1441,7 +1457,7 @@ program define _desctab_collect, rclass
                                 local _sc_denstr `"`r(display)'"'
                                 quietly replace _scmask_`_lv' = `_sc_dcode' in `row'
                             }
-                            else local _sc_denstr = string(`_sc_den', "`nformat'")
+                            else local _sc_denstr = ustrregexra(string(`_sc_den', "`nformat'"), "-(?=[0.,]+\z)", "")
                             local _nstr = "`_nstr'" + "/" + "`_sc_denstr'"
                         }
                         * See the companion note above: a published percentage

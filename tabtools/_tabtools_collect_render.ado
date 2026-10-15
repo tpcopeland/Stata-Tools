@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 1.0.0  2026/10/13
+*! _tabtools_collect_render Version 1.0.0  2026/10/15
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1359,7 +1359,7 @@ string scalar _tt_collect_sum_items(
     }
 
     if (hits == 0) return("")
-    return(strtrim(strofreal(total, "%21.16g")))
+    return(strtrim(ustrregexra(strofreal(total, "%21.16g"), "-(?=[0.,]+\z)", "")))
 }
 
 string scalar _tt_collect_ci(

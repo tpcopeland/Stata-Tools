@@ -218,7 +218,7 @@ save `analysis'
 capture log close demo
 capture erase "`console_log'"
 foreach legacy_log in console_survtab.smcl console_tabtools.smcl console_regtab.smcl ///
-    console_corrtab.smcl console_crosstab.smcl {
+    console_crosstab.smcl {
     capture erase "`pkg_dir'/`legacy_log'"
 }
 

@@ -1,4 +1,4 @@
-*! desctab Version 1.0.0  2026/10/13 - Consolidated descriptive Table 1 engine
+*! desctab Version 1.0.0  2026/10/15 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -1061,17 +1061,17 @@ program define desctab, rclass
         if _rc quietly gen p = .  // Create p-value variable if it doesn't exist
 
         // Format p-values according to their magnitude and specified decimal places
-        qui gen pvalue=string(p, "%`=`highpdp'+2'.`highpdp'f") if !missing(p)  // Standard format for high p-values
-        qui replace pvalue=string(p, "%`=`pdp'+2'.`pdp'f") if p<0.10  // More decimal places for low p-values
+        qui gen pvalue=ustrregexra(string(p, "%`=`highpdp'+2'.`highpdp'f"), "-(?=[0.,]+\z)", "") if !missing(p)  // Standard format for high p-values
+        qui replace pvalue=ustrregexra(string(p, "%`=`pdp'+2'.`pdp'f"), "-(?=[0.,]+\z)", "") if p<0.10  // More decimal places for low p-values
 
         // Preserve direction when rounding would otherwise understate p.
         local pmax = 1 - 10^(-`highpdp')
-        qui replace pvalue=">" + string(`pmax', "%`=`highpdp'+2'.`highpdp'f") ///
+        qui replace pvalue=">" + ustrregexra(string(`pmax', "%`=`highpdp'+2'.`highpdp'f"), "-(?=[0.,]+\z)", "") ///
             if p>`pmax' & p<1 & !missing(p)
 
         // Handle very small p-values
         local pmin=10^-`pdp'  // Minimum p-value to show numerically
-        qui replace pvalue="<" + string(`pmin', "%`=`pdp'+2'.`pdp'f") if p<`pmin'  // Show as <0.001 etc.
+        qui replace pvalue="<" + ustrregexra(string(`pmin', "%`=`pdp'+2'.`pdp'f"), "-(?=[0.,]+\z)", "") if p<`pmin'  // Show as <0.001 etc.
 
         lab var pvalue "p-value"  // Label p-value column
         if "`smallcells'" != "" quietly replace pvalue = "Suppressed" if `_sc_anyderived'
@@ -1081,7 +1081,7 @@ program define desctab, rclass
     if `has_smd' {
         capture confirm variable smd_val
         if !_rc {
-            qui gen smd_str = string(abs(smd_val), "%5.3f") if !missing(smd_val)
+            qui gen smd_str = ustrregexra(string(abs(smd_val), "%5.3f"), "-(?=[0.,]+\z)", "") if !missing(smd_val)
             if "`smallcells'" != "" quietly replace smd_str = "Suppressed" if `_sc_anyderived'
             mata: st_varlabel("smd_str", st_local("_smd_header"))
         }
@@ -1451,7 +1451,7 @@ program define desctab, rclass
                 gen double `_hp_pct' = round(`_hp_var' / `_hden', 0.001) * 100 ///
                     if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
                 replace `_hp_pct' = 100 * `_hp_var' / `_hden' ///
-                    if !missing(`_hp_pct') & inlist(string(`_hp_pct', "%9.1f"), "0.0", "100.0")
+                    if !missing(`_hp_pct') & inlist(ustrregexra(string(`_hp_pct', "%9.1f"), "-(?=[0.,]+\z)", ""), "0.0", "100.0")
                 _tabtools_fmt_pct `_hp_pct', format(%9.1f) generate(`_hp_txt')
                 * stata-dev-ignore: unchecked-commit — appends a percentage to an existing header cell; a zero denominator or missing numerator correctly matches no row and leaves the header unchanged
                 replace `_hcol' = `_hcol' + " " + "(" + `_hp_txt' + ///
@@ -1654,7 +1654,8 @@ program define desctab, rclass
     /* Display the table */
     qui ds factor_sep _* N_* m_*, not
     list `r(varlist)', sepby(factor_sep) noobs noheader table  // Show table with separators between variables
-    if "`smallcells'" != "" display as text "`_sc_note'"
+    * An SMCL paragraph wraps the note at word boundaries, not mid-word.
+    if "`smallcells'" != "" display as text `"{p 0 0 2}`_sc_note'{p_end}"'
     drop factor_sep  // Clean up
 
     /* Generate data description string */
@@ -1778,7 +1779,7 @@ program define desctab, rclass
     qui ds N_* m_*
     foreach v of varlist `r(varlist)' {
         // Convert numeric counts to formatted strings
-        qui gen z`v' = string(`v', "`nformat'") if !missing(`v'), after(`v')
+        qui gen z`v' = ustrregexra(string(`v', "`nformat'"), "-(?=[0.,]+\z)", "") if !missing(`v'), after(`v')
         qui drop `v'
         qui rename z`v' `v'
     }
@@ -2431,6 +2432,7 @@ program define desctab, rclass
                 exit 601
             }
             local _xlsx_ok 1
+            noisily _tabtools_export_done using `"`excel'"', sheet(`"`macval(sheet)'"')
 
             * Restore the sink-neutral table so csv(), markdown(), and frame()
             * see the same shape they would without xlsx().

@@ -1,4 +1,4 @@
-*! _tabtools_smallcells_render Version 1.0.0  2026/10/13
+*! _tabtools_smallcells_render Version 1.0.0  2026/10/15
 *! Render safe disclosure-control strings and numeric extended missings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -22,7 +22,7 @@ program define _tabtools_smallcells_render, rclass
         if "`format'" == "" local format "%12.0fc"
 
         if `mask' == 0 {
-            local rendered = string(`value', "`format'")
+            local rendered = ustrregexra(string(`value', "`format'"), "-(?=[0.,]+\z)", "")
             return local display "`rendered'"
             return scalar value = `value'
         }

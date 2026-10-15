@@ -27,6 +27,7 @@
 >    |
   +----------------------------------------------------------------------------
 > ---+
+Exported 9 rows × 7 cols to output/dt240_g1.xlsx, sheet T
 CSV exported to output/dt240_g1.csv
 Markdown exported to output/dt240_g1.md
 Dapa: Data are presented as mean±SD for continuous measures, and No. (%) for ca
@@ -257,6 +258,7 @@ bold G6
   |    y                    44      25              |
   |    z                    25      40              |
   +-------------------------------------------------+
+Exported 10 rows × 5 cols to output/dt240_g2.xlsx, sheet T
 CSV exported to output/dt240_g2.csv
 Markdown exported to output/dt240_g2.md
 Dapa: Weighted data are presented as mean±SD for continuous measures, and % for
@@ -427,6 +429,7 @@ bold E7
 >        |
   +----------------------------------------------------------------------------
 > -------+
+Exported 10 rows × 7 cols to output/dt240_g3.xlsx, sheet T
 CSV exported to output/dt240_g3.csv
 Markdown exported to output/dt240_g3.md
 Dapa: Crude and weighted data are presented as mean±SD for continuous measures,
@@ -663,6 +666,7 @@ bold G7
   |    y                        3 (38)   3 (30)           |
   |    z                        2 (25)   4 (40)           |
   +-------------------------------------------------------+
+Exported 9 rows × 5 cols to output/dt240_g4.xlsx, sheet T
 CSV exported to output/dt240_g4.csv
 Markdown exported to output/dt240_g4.md
 Dapa: Data are presented as mean±SD for continuous measures, and No. (%) for ca

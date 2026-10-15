@@ -1,4 +1,4 @@
-*! survtab Version 1.0.0  2026/10/13
+*! survtab Version 1.0.0  2026/10/15
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -230,7 +230,7 @@ capture noisily {
     local _ci_alpha = (100 - `level') / 200
     * The level as shown: at most 15 significant digits, so 99.9 never prints
     * as the double's 17-digit 99.90000000000001; r(ci_level) stays numeric.
-    local _level_txt = strtrim(string(`level', "%21.15g"))
+    local _level_txt = strtrim(ustrregexra(string(`level', "%21.15g"), "-(?=[0.,]+\z)", ""))
     local _ci_z = invnormal(1 - `_ci_alpha')
 
     * Validate boldp
@@ -407,7 +407,7 @@ capture noisily {
             if `_time' > `_g_support' local _g_beyond "`_g_beyond' `_time'"
         }
         if "`_g_beyond'" != "" {
-            local _g_support_s = strtrim(string(`_g_support', "%12.0g"))
+            local _g_support_s = strtrim(ustrregexra(string(`_g_support', "%12.0g"), "-(?=[0.,]+\z)", ""))
             local _g_entry `"`macval(glabel_`g')':`_g_beyond' (last follow-up `_g_support_s')"'
             if `"`macval(_beyond)'"' == "" local _beyond : copy local _g_entry
             else {
@@ -630,7 +630,7 @@ capture noisily {
     qui replace c1 = "" in `row'
     forvalues g = 1/`n_groups' {
         local col = 1 + `g'
-        qui replace c`col' = `"`macval(glabel_`g')' (N=`gn_`g'')"' in `row'
+        qui replace c`col' = `"`macval(glabel_`g')' (N=`=ustrregexra(string(`gn_`g'', "%15.0fc"), "-(?=[0.,]+\z)", "")')"' in `row'
     }
     local _diff_col = 0
     local _p_col = 0
@@ -654,7 +654,7 @@ capture noisily {
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
             if !missing(`med_g`g'') {
-                qui replace c`col' = strtrim(string(`med_g`g'', "%21.`digits'f")) in `row'
+                qui replace c`col' = strtrim(ustrregexra(string(`med_g`g'', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) in `row'
             }
             else {
                 qui replace c`col' = "NR" in `row'
@@ -664,7 +664,7 @@ capture noisily {
         if "`difference'" != "" & `n_groups' == 2 {
             if !missing(`med_g1') & !missing(`med_g2') {
                 local _md = `med_g1' - `med_g2'
-                qui replace c`_diff_col' = strtrim(string(`_md', "%21.`digits'f")) in `row'
+                qui replace c`_diff_col' = strtrim(ustrregexra(string(`_md', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) in `row'
             }
         }
 
@@ -680,8 +680,8 @@ capture noisily {
             if !missing(`med_lo_g`g'') | !missing(`med_hi_g`g'') {
                 local _mlo "NR"
                 local _mhi "NR"
-                if !missing(`med_lo_g`g'') local _mlo = strtrim(string(`med_lo_g`g'', "%21.`digits'f"))
-                if !missing(`med_hi_g`g'') local _mhi = strtrim(string(`med_hi_g`g'', "%21.`digits'f"))
+                if !missing(`med_lo_g`g'') local _mlo = strtrim(ustrregexra(string(`med_lo_g`g'', "%21.`digits'f"), "-(?=[0.,]+\z)", ""))
+                if !missing(`med_hi_g`g'') local _mhi = strtrim(ustrregexra(string(`med_hi_g`g'', "%21.`digits'f"), "-(?=[0.,]+\z)", ""))
                 qui replace c`col' = "(`_mlo', `_mhi')" in `row'
             }
         }
@@ -694,7 +694,7 @@ capture noisily {
         qui replace c1 = "Events / N" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
-            qui replace c`col' = string(`events_g`g'', "%11.0fc") + " / " + string(`atrisk_g`g'', "%11.0fc") in `row'
+            qui replace c`col' = ustrregexra(string(`events_g`g'', "%11.0fc"), "-(?=[0.,]+\z)", "") + " / " + ustrregexra(string(`atrisk_g`g'', "%11.0fc"), "-(?=[0.,]+\z)", "") in `row'
         }
     }
 
@@ -746,10 +746,10 @@ capture noisily {
                     local _se_d = sqrt(`_se1'^2 + `_se2'^2) * 100
                     local _lo = `_d_pct' - `_ci_z' * `_se_d'
                     local _hi = `_d_pct' + `_ci_z' * `_se_d'
-                    qui replace c`_diff_col' = strtrim(string(`_d_pct', "%21.`digits'f")) + " (" + strtrim(string(`_lo', "%21.`digits'f")) + ", " + strtrim(string(`_hi', "%21.`digits'f")) + ")" in `row'
+                    qui replace c`_diff_col' = strtrim(ustrregexra(string(`_d_pct', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + " (" + strtrim(ustrregexra(string(`_lo', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + ", " + strtrim(ustrregexra(string(`_hi', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) + ")" in `row'
                 }
                 else {
-                    qui replace c`_diff_col' = strtrim(string(`_d_pct', "%21.`digits'f")) in `row'
+                    qui replace c`_diff_col' = strtrim(ustrregexra(string(`_d_pct', "%21.`digits'f"), "-(?=[0.,]+\z)", "")) in `row'
                 }
             }
         }
@@ -759,29 +759,29 @@ capture noisily {
     if `has_rmst' {
         local row = `row' + 1
         qui set obs `row'
-        local _rmst_str = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
+        local _rmst_str = cond(mod(`rmst', 1) == 0, ustrregexra(string(`rmst', "%3.0f"), "-(?=[0.,]+\z)", ""), ustrregexra(string(`rmst', "%5.1f"), "-(?=[0.,]+\z)", ""))
         qui replace c1 = "RMST (`_rmst_str'-`tu_short'), `tu_short' (`_level_txt'% CI)" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
             if !missing(`rmst_g`g'') {
                 if !missing(`rmst_lb_g`g'') & !missing(`rmst_ub_g`g'') {
-                    qui replace c`col' = strtrim(string(`rmst_g`g'', "%21.`=`digits'+1'f")) + ///
-                        " (" + strtrim(string(`rmst_lb_g`g'', "%21.`=`digits'+1'f")) + ///
-                        ", " + strtrim(string(`rmst_ub_g`g'', "%21.`=`digits'+1'f")) + ")" in `row'
+                    qui replace c`col' = strtrim(ustrregexra(string(`rmst_g`g'', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) + ///
+                        " (" + strtrim(ustrregexra(string(`rmst_lb_g`g'', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) + ///
+                        ", " + strtrim(ustrregexra(string(`rmst_ub_g`g'', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) + ")" in `row'
                 }
                 else {
-                    qui replace c`col' = strtrim(string(`rmst_g`g'', "%21.`=`digits'+1'f")) in `row'
+                    qui replace c`col' = strtrim(ustrregexra(string(`rmst_g`g'', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) in `row'
                 }
             }
         }
         if "`difference'" != "" & `n_groups' == 2 & !missing(`rmst_diff') {
             if !missing(`rmst_diff_lb') & !missing(`rmst_diff_ub') {
-                qui replace c`_diff_col' = strtrim(string(`rmst_diff', "%21.`=`digits'+1'f")) + ///
-                    " (" + strtrim(string(`rmst_diff_lb', "%21.`=`digits'+1'f")) + ///
-                    ", " + strtrim(string(`rmst_diff_ub', "%21.`=`digits'+1'f")) + ")" in `row'
+                qui replace c`_diff_col' = strtrim(ustrregexra(string(`rmst_diff', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) + ///
+                    " (" + strtrim(ustrregexra(string(`rmst_diff_lb', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) + ///
+                    ", " + strtrim(ustrregexra(string(`rmst_diff_ub', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) + ")" in `row'
             }
             else {
-                qui replace c`_diff_col' = strtrim(string(`rmst_diff', "%21.`=`digits'+1'f")) in `row'
+                qui replace c`_diff_col' = strtrim(ustrregexra(string(`rmst_diff', "%21.`=`digits'+1'f"), "-(?=[0.,]+\z)", "")) in `row'
             }
         }
     }
@@ -804,7 +804,7 @@ capture noisily {
             }
             forvalues g = 1/`n_groups' {
                 local col = 1 + `g'
-                qui replace c`col' = string(`nrisk_g`g'_t`t'', "%11.0fc") in `row'
+                qui replace c`col' = ustrregexra(string(`nrisk_g`g'_t`t'', "%11.0fc"), "-(?=[0.,]+\z)", "") in `row'
             }
         }
     }
@@ -814,18 +814,18 @@ capture noisily {
         local row = `row' + 1
         qui set obs `row'
         local _logrank_row = `row'
-        local _lr_chi2_str = string(`logrank_chi2', "%6.2f")
+        local _lr_chi2_str = ustrregexra(string(`logrank_chi2', "%6.2f"), "-(?=[0.,]+\z)", "")
         local _pmin = 10^(-`pdp')
         local _pfmt_lo = "%`=`pdp'+2'.`pdp'f"
         local _pfmt_hi = "%`=`highpdp'+2'.`highpdp'f"
         if `logrank_p' < `_pmin' {
-            local _lr_p_str = "<" + string(`_pmin', "`_pfmt_lo'")
+            local _lr_p_str = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "")
         }
         else if `logrank_p' < 0.10 {
-            local _lr_p_str = string(`logrank_p', "`_pfmt_lo'")
+            local _lr_p_str = ustrregexra(string(`logrank_p', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "")
         }
         else {
-            local _lr_p_str = string(`logrank_p', "`_pfmt_hi'")
+            local _lr_p_str = ustrregexra(string(`logrank_p', "`_pfmt_hi'"), "-(?=[0.,]+\z)", "")
         }
         * A truncated p-value already carries its own operator, so the sentence
         * has to change operator too: "p = <0.001" is not a sentence. The cell
@@ -838,7 +838,7 @@ capture noisily {
         else if substr("`_lr_p_str'", 1, 1) == ">" {
             local _lr_p_phrase `"p > `=substr("`_lr_p_str'", 2, .)'"'
         }
-        qui replace c1 = "Log-rank test: chi2(`=string(`logrank_df',"%1.0f")') = `_lr_chi2_str', `_lr_p_phrase'" in `row'
+        qui replace c1 = "Log-rank test: chi2(`=ustrregexra(string(`logrank_df',"%1.0f"), "-(?=[0.,]+\z)", "")') = `_lr_chi2_str', `_lr_p_phrase'" in `row'
 
         * Write p-value in the p column on the first data row (row 3)
         if `_p_col' > 0 {
@@ -1072,7 +1072,7 @@ capture noisily {
         local _methods `"`macval(_methods)' Median survival time with `_level_txt'% confidence intervals is reported."'
     }
     if `has_rmst' {
-        local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
+        local _rmst_mstr = cond(mod(`rmst', 1) == 0, ustrregexra(string(`rmst', "%3.0f"), "-(?=[0.,]+\z)", ""), ustrregexra(string(`rmst', "%5.1f"), "-(?=[0.,]+\z)", ""))
         local _methods `"`macval(_methods)' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `_level_txt'% confidence intervals based on the Greenwood variance formula."'
         if "`difference'" != "" & `has_by' & `n_groups' == 2 {
             local _methods `"`macval(_methods)' The between-group RMST difference is reported as `macval(glabel_1)' minus `macval(glabel_2)' (the first minus the second by() group in ascending order of `by'), with a `_level_txt'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
@@ -1209,7 +1209,7 @@ capture noisily {
             exit 601
         }
         local _xlsx_ok 1
-        noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
+        noisily _tabtools_export_done using `"`xlsx'"', sheet(`"`macval(sheet)'"')
     }
 
     restore
@@ -1281,7 +1281,7 @@ void _survtab_rmst_mata(string scalar ename, string scalar nname,
             v = v + E[k, 3] / (N[k] * (N[k] - E[k, 3])) * tail^2
         }
     }
-    st_local("_rmst_area", strofreal(area, "%21.17g"))
-    st_local("_rmst_var", strofreal(v, "%21.17g"))
+    st_local("_rmst_area", ustrregexra(strofreal(area, "%21.17g"), "-(?=[0.,]+\z)", ""))
+    st_local("_rmst_var", ustrregexra(strofreal(v, "%21.17g"), "-(?=[0.,]+\z)", ""))
 }
 end

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_deferred_styles Version 1.0.0  2026/10/13
+*! _tabtools_xlsx_deferred_styles Version 1.0.0  2026/10/15
 *! Apply queued cell style rules directly to a closed xlsx workbook's XML
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -275,7 +275,7 @@ string scalar _tt_xlsx_pend_sheet(string scalar root, string scalar sheet,
         x = "<font>"
         if (U[g, 3] == 1) x = x + "<b/>"
         if (U[g, 4] == 1) x = x + "<i/>"
-        x = x + `"<sz val=""' + strofreal(U[g, 2] < 0 ? 11 : U[g, 2], "%9.0g") + `""/>"'
+        x = x + `"<sz val=""' + ustrregexra(strofreal(U[g, 2] < 0 ? 11 : U[g, 2], "%9.0g"), "-(?=[0.,]+\z)", "") + `""/>"'
         if (U[g, 13] >= 1) x = x + `"<color rgb="FF"' + colorhex[U[g, 13]] + `""/>"'
         x = x + `"<name val=""' + _tt_xlsx_pend_esc(U[g, 1] < 1 ? "Calibri" : fontnames[U[g, 1]]) + `""/></font>"'
         fonts = fonts + x
@@ -673,7 +673,7 @@ string scalar _tt_xlsx_pend_setpool(string scalar styles, string scalar tag,
         _error(198)
     }
     open = subinstr(open, `" count=""' + _tt_xlsx_pend_attr(open, "count") + `"""',
-        `" count=""' + strofreal(n, "%18.0f") + `"""', 1)
+        `" count=""' + ustrregexra(strofreal(n, "%18.0f"), "-(?=[0.,]+\z)", "") + `"""', 1)
     return(substr(styles, 1, p - 1) + open + substr(styles, e + 1, q - e - 1) +
         add + substr(styles, q, .))
 }

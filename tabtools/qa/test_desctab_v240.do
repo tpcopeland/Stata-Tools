@@ -19,7 +19,9 @@
 *   - excel() read back with openpyxl (tools/xlsx_facts.py), csv(),
 *     markdown() and frame() read back as text/data;
 *   - data/desctab_v240_golden_2grp.txt: every sink of four two-group SMD
-*     tables, written by _dt240_golden.do from the 2.3.1 code.
+*     tables, written by _dt240_golden.do from the 2.3.1 code. 1.0.0 SSC
+*     pass (2026-10-15): the four console "Exported <r> rows × <c> cols"
+*     completion lines were added, the only change.
 
 clear all
 set more off

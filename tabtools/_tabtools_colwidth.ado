@@ -1,4 +1,4 @@
-*! _tabtools_colwidth Version 1.0.0  2026/10/13
+*! _tabtools_colwidth Version 1.0.0  2026/10/15
 *! Size one exported table column from its own rendered cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -59,8 +59,8 @@ program define _tabtools_colwidth, rclass
             }
             else {
                 local _fmt : format `_var'
-                local _cell `"string(`_var', "`_fmt'")"'
-                local _hcell `"string(`_var'[`headerrow'], "`_fmt'")"'
+                local _cell `"ustrregexra(string(`_var', "`_fmt'"), "-(?=[0.,]+\z)", "")"'
+                local _hcell `"ustrregexra(string(`_var'[`headerrow'], "`_fmt'"), "-(?=[0.,]+\z)", "")"'
             }
 
             local _cond "_n >= `firstrow'"

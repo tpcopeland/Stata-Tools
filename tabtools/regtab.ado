@@ -1,4 +1,4 @@
-*! regtab Version 1.0.0  2026/10/13
+*! regtab Version 1.0.0  2026/10/15
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -396,7 +396,7 @@ quietly{
 	* at most 15 significant digits, so 99.9 never prints as the double's
 	* 17-digit 99.90000000000001. r(ci_level) returns the number itself.
 	local _ci_level_num = r(level)
-	local _ci_level = strtrim(string(`_ci_level_num', "%21.15g"))
+	local _ci_level = strtrim(ustrregexra(string(`_ci_level_num', "%21.15g"), "-(?=[0.,]+\z)", ""))
 	local _ci_found = r(found)
 	* cilabel()/plabel(): the interval and p-value header text. Each replaces
 	* the default text verbatim in every layout and sink; the parentheses a
@@ -1782,12 +1782,12 @@ drop _b_had
 	if _rc gen double _eplot_est`_model_ix' = .
 	replace _eplot_est`_model_ix' = c`i'z if _n >= 3
 * Fixed effects: user-specified decimal places (default 2), or cformat().
-gen str64 c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) if !_is_re & !missing(c`i'z)
+gen str64 c`i'_fmt = strtrim(ustrregexra(string(round(c`i'z, `coef_round'), "`coef_fmt'"), "-(?=[0.,]+\z)", "")) if !_is_re & !missing(c`i'z)
 * Transformed random intercept (MOR/MHR): same precision as fixed effects
-replace c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) ///
+replace c`i'_fmt = strtrim(ustrregexra(string(round(c`i'z, `coef_round'), "`coef_fmt'"), "-(?=[0.,]+\z)", "")) ///
     if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(c`i'z)
 * Other random effects: same decimal places as fixed effects
-replace c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) ///
+replace c`i'_fmt = strtrim(ustrregexra(string(round(c`i'z, `coef_round'), "`coef_fmt'"), "-(?=[0.,]+\z)", "")) ///
     if _is_re & _is_re_intercept == 0 & !missing(c`i'z)
 replace c`i' = c`i'_fmt if c`i'_fmt != "" & _n >= 3 ///
 	& inlist(_constraint`_model_ix', "", "cns")
@@ -1851,13 +1851,13 @@ forvalues i = 2(3)`=`last'+1' {
 	    replace _eplot_ll`_model_ix' = _ci_lo if _n >= 3 & _ci_lo < .
 	    replace _eplot_ul`_model_ix' = _ci_hi if _n >= 3 & _ci_hi < .
 	    * Fixed effects: user-specified decimal places
-    replace _ci_fmt = "(" + strtrim(string(`_ci_lo_r', "`ci_fmt'")) + _ci_sepv + strtrim(string(`_ci_hi_r', "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(ustrregexra(string(`_ci_lo_r', "`ci_fmt'"), "-(?=[0.,]+\z)", "")) + _ci_sepv + strtrim(ustrregexra(string(`_ci_hi_r', "`ci_fmt'"), "-(?=[0.,]+\z)", "")) + ")" ///
         if !_is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Transformed random intercept (MOR/MHR): same precision as fixed effects
-    replace _ci_fmt = "(" + strtrim(string(`_ci_lo_r', "`ci_fmt'")) + _ci_sepv + strtrim(string(`_ci_hi_r', "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(ustrregexra(string(`_ci_lo_r', "`ci_fmt'"), "-(?=[0.,]+\z)", "")) + _ci_sepv + strtrim(ustrregexra(string(`_ci_hi_r', "`ci_fmt'"), "-(?=[0.,]+\z)", "")) + ")" ///
         if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Other random effects: same decimal places as fixed effects
-    replace _ci_fmt = "(" + strtrim(string(`_ci_lo_r', "`ci_fmt'")) + _ci_sepv + strtrim(string(`_ci_hi_r', "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(ustrregexra(string(`_ci_lo_r', "`ci_fmt'"), "-(?=[0.,]+\z)", "")) + _ci_sepv + strtrim(ustrregexra(string(`_ci_hi_r', "`ci_fmt'"), "-(?=[0.,]+\z)", "")) + ")" ///
         if _is_re & _is_re_intercept == 0 & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * An interval left as rendered (a bound regtab could not read) takes
     * sep() in place of the private delimiter. Only the renderer's own text
@@ -1955,11 +1955,11 @@ local _pmin = 10^(-`pdp')
 local _pmax = 1 - 10^(-`highpdp')
 local _pfmt_lo = "%`=`pdp'+2'.`pdp'f"
 local _pfmt_hi = "%`=`highpdp'+2'.`highpdp'f"
-replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z < `_pmin' & !missing(c`i'z)
-replace c`i'_fmt = string(c`i'z, "`_pfmt_lo'") if c`i'z >= `_pmin' & c`i'z < 0.10 & !missing(c`i'z)
-replace c`i'_fmt = string(c`i'z, "`_pfmt_hi'") if c`i'z >= 0.10 & !missing(c`i'z)
-replace c`i'_fmt = ">" + string(`_pmax', "`_pfmt_hi'") if c`i'z > `_pmax' & c`i'z < 1 & !missing(c`i'z)
-replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z == 0 & !missing(c`i'z)
+replace c`i'_fmt = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if c`i'z < `_pmin' & !missing(c`i'z)
+replace c`i'_fmt = ustrregexra(string(c`i'z, "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if c`i'z >= `_pmin' & c`i'z < 0.10 & !missing(c`i'z)
+replace c`i'_fmt = ustrregexra(string(c`i'z, "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if c`i'z >= 0.10 & !missing(c`i'z)
+replace c`i'_fmt = ">" + ustrregexra(string(`_pmax', "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if c`i'z > `_pmax' & c`i'z < 1 & !missing(c`i'z)
+replace c`i'_fmt = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if c`i'z == 0 & !missing(c`i'z)
 * Add leading zero if missing (e.g., .123 -> 0.123)
 replace c`i'_fmt = "0" + c`i'_fmt if substr(c`i'_fmt, 1, 1) == "."
 * Apply formatting - only if we have a non-missing formatted value
@@ -3077,7 +3077,7 @@ if `_has_xlsx' {
         exit 601
     }
     local _xlsx_ok 1
-    noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
+    noisily _tabtools_export_done using `"`xlsx'"', sheet(`"`macval(sheet)'"')
 }
 if `_xlsx_ok' {
     return local xlsx "`xlsx'"

@@ -1,4 +1,4 @@
-*! _tabcell_render Version 1.0.0  2026/10/13
+*! _tabcell_render Version 1.0.0  2026/10/15
 *! Vectorised cell renderer behind tabcell (scalar and generate() forms)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -206,9 +206,9 @@ program define _tabcell_render, rclass
                 replace `_ptx' = strtrim(`_ptx')
             }
             if "`form'" == "est" | "`form'" == "iqr" {
-                replace `generate' = strtrim(string(`v1', "`fmt'")) + " (" + ///
-                    strtrim(string(`v2', "`fmt'")) + `_sepv' + ///
-                    strtrim(string(`v3', "`fmt'")) + ")" if `touse' & !`bad'
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`fmt'"), "-(?=[0.,]+\z)", "")) + " (" + ///
+                    strtrim(ustrregexra(string(`v2', "`fmt'"), "-(?=[0.,]+\z)", "")) + `_sepv' + ///
+                    strtrim(ustrregexra(string(`v3', "`fmt'"), "-(?=[0.,]+\z)", "")) + ")" if `touse' & !`bad'
             }
             else if "`form'" == "p" {
                 tempvar ptxt
@@ -225,7 +225,7 @@ program define _tabcell_render, rclass
                 }
             }
             else if "`form'" == "n" {
-                replace `generate' = strtrim(string(`v1', "`nformat'")) if `touse' & !`bad'
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) if `touse' & !`bad'
                 if `mincell' > 0 {
                     replace `generate' = "<`mincell'" if `touse' & !`bad' & ///
                         `v1' >= 1 & `v1' < `mincell'
@@ -242,7 +242,7 @@ program define _tabcell_render, rclass
             }
             else if "`form'" == "np" & !`_ci' {
                 * n (%): the percentage is omitted when the denominator is 0
-                replace `generate' = strtrim(string(`v1', "`nformat'")) + ///
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) + ///
                     cond(`v2' > 0, " (" + `_ptx' + ")", "") ///
                     if `touse' & !`bad'
                 if `mincell' > 0 {
@@ -270,11 +270,11 @@ program define _tabcell_render, rclass
                 * percentage rule escalated, at pformat() elsewhere
                 tempvar _lotx _hitx
                 local _psep = cond(regexm(`"`pformat'"', "^%-?0?[0-9]+,"), ",", ".")
-                gen strL `_lotx' = strtrim(string(100 * `_lo', "`pformat'")) if `_show'
-                gen strL `_hitx' = strtrim(string(100 * `_hi', "`pformat'")) if `_show'
-                replace `_lotx' = strtrim(string(100 * `_lo', "%21`_psep'" + string(`_pdc') + "f")) ///
+                gen strL `_lotx' = strtrim(ustrregexra(string(100 * `_lo', "`pformat'"), "-(?=[0.,]+\z)", "")) if `_show'
+                gen strL `_hitx' = strtrim(ustrregexra(string(100 * `_hi', "`pformat'"), "-(?=[0.,]+\z)", "")) if `_show'
+                replace `_lotx' = strtrim(ustrregexra(string(100 * `_lo', "%21`_psep'" + string(`_pdc') + "f"), "-(?=[0.,]+\z)", "")) ///
                     if `_show' & !missing(`_pdc')
-                replace `_hitx' = strtrim(string(100 * `_hi', "%21`_psep'" + string(`_pdc') + "f")) ///
+                replace `_hitx' = strtrim(ustrregexra(string(100 * `_hi', "%21`_psep'" + string(`_pdc') + "f"), "-(?=[0.,]+\z)", "")) ///
                     if `_show' & !missing(`_pdc')
                 if "`nocount'" != "" {
                     * pct (lo, hi): the percentage and its interval alone
@@ -283,7 +283,7 @@ program define _tabcell_render, rclass
                         if `touse' & !`bad'
                 }
                 else {
-                    replace `generate' = strtrim(string(`v1', "`nformat'")) + ///
+                    replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) + ///
                         cond(`v2' > 0, " (" + `_ptx' + ///
                         "; " + `_lotx' + `_sepv' + `_hitx' + ")", "") ///
                         if `touse' & !`bad'
@@ -329,9 +329,9 @@ program define _tabcell_render, rclass
                     noisily display as error "tabcell rate: the rate or its interval could not be computed in `r(N)' cell(s)"
                     exit 459
                 }
-                replace `generate' = strtrim(string(`_rt', "`fmt'")) + " (" + ///
-                    strtrim(string(`_lo', "`fmt'")) + `_sepv' + ///
-                    strtrim(string(`_hi', "`fmt'")) + ")" if `_show'
+                replace `generate' = strtrim(ustrregexra(string(`_rt', "`fmt'"), "-(?=[0.,]+\z)", "")) + " (" + ///
+                    strtrim(ustrregexra(string(`_lo', "`fmt'"), "-(?=[0.,]+\z)", "")) + `_sepv' + ///
+                    strtrim(ustrregexra(string(`_hi', "`fmt'"), "-(?=[0.,]+\z)", "")) + ")" if `_show'
                 if `mincell' > 0 {
                     * events, person-time and the rate give each other back:
                     * the withheld rate prints no number at all
@@ -348,14 +348,14 @@ program define _tabcell_render, rclass
                 }
             }
             else if "`form'" == "enp" {
-                replace `generate' = strtrim(string(`v1', "`nformat'")) + "/" + ///
-                    strtrim(string(`v2', "`nformat'")) + ///
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) + "/" + ///
+                    strtrim(ustrregexra(string(`v2', "`nformat'"), "-(?=[0.,]+\z)", "")) + ///
                     cond(`v2' > 0, " (" + `_ptx' + ")", "") ///
                     if `touse' & !`bad'
                 if `mincell' > 0 {
                     * a masked event count loses its percentage; a masked total
                     * masks the whole cell, since e/n would reveal it
-                    replace `generate' = "<`mincell'/" + strtrim(string(`v2', "`nformat'")) ///
+                    replace `generate' = "<`mincell'/" + strtrim(ustrregexra(string(`v2', "`nformat'"), "-(?=[0.,]+\z)", "")) ///
                         if `touse' & !`bad' & `v1' >= 1 & `v1' < `mincell'
                     replace `generate' = "<`mincell'" if `touse' & !`bad' & ///
                         `v2' >= 1 & `v2' < `mincell'

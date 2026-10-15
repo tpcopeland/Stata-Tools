@@ -1,4 +1,4 @@
-*! _regtab_cmdsets Version 1.0.0  2026/10/13
+*! _regtab_cmdsets Version 1.0.0  2026/10/15
 *! cmdset levels in the order regtab's columns use
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -29,7 +29,7 @@ program define _regtab_cmdsets, nclass
 			if missing(real("`_l'")) local _num = 0
 		}
 		if `_num' & `"`_ord'"' != "" {
-			mata: st_local("_ord", invtokens(strofreal(sort(strtoreal(tokens(st_local("_ord")))', 1)', "%21.0g")))
+			mata: st_local("_ord", invtokens(ustrregexra(strofreal(sort(strtoreal(tokens(st_local("_ord")))', 1)', "%21.0g"), "-(?=[0.,]+\z)", "")))
 		}
 		local _ord = strtrim(`"`_ord'"')
 		c_local _cs_levels `"`_ord'"'

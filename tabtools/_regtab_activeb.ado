@@ -1,4 +1,4 @@
-*! _regtab_activeb Version 1.0.0  2026/10/13
+*! _regtab_activeb Version 1.0.0  2026/10/15
 *! constraint notes of a collected model that is the active fit
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

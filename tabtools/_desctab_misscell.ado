@@ -1,4 +1,4 @@
-*! _desctab_misscell Version 1.0.0  2026/10/13
+*! _desctab_misscell Version 1.0.0  2026/10/15
 *! Text of one desctab missingsummary cell in the level rows' cell format
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,12 +25,12 @@ program define _desctab_misscell, rclass
         syntax , COUNT(real) DENOM(real) NFORMAT(string) PERCFORMAT(string) ///
             [PERCSIGN(string) PCTONLY(integer 0) PCTFIRST(integer 0) ///
             SLASH(integer 0) NHIDDEN(integer 0)]
-        local _n = string(`count', "`nformat'")
+        local _n = ustrregexra(string(`count', "`nformat'"), "-(?=[0.,]+\z)", "")
         if `nhidden' local _text `"`_n'"'
         else {
             _tabtools_fmt_pct, value(`count' / `denom' * 100) format(`percformat')
             local _pct `"`r(text)'`percsign'"'
-            if `slash' local _n = "`_n'/" + string(`denom', "`nformat'")
+            if `slash' local _n = "`_n'/" + ustrregexra(string(`denom', "`nformat'"), "-(?=[0.,]+\z)", "")
             if `pctonly' local _text `"`_pct'"'
             else if `pctfirst' local _text `"`_pct' (`_n')"'
             else local _text `"`_n' (`_pct')"'

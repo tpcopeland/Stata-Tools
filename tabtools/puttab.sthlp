@@ -413,6 +413,7 @@ Stata session is never replaced, so switching A, then B, then back to A keeps A'
 {phang3}{cmd:title("Mean price and mpg by origin") zebra varlabels digits(1)}{p_end}
 
 {pstd}{bf:Example 2: A named frame}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. frame put make mpg price in 1/10, into(top)}{p_end}
 {phang2}{cmd:. puttab using table.xlsx, sheet("Top10") frame(top) ///}{p_end}
 {phang3}{cmd:title("Ten cars") headershade borderstyle(academic)}{p_end}
@@ -516,6 +517,14 @@ decimals.{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(file)}}Excel filename, when an Excel workbook was written{p_end}
 {synopt:{cmd:r(csv)}}CSV filename (if written){p_end}
+
+{pstd}
+{cmd:r(n_rows)} and {cmd:r(n_cols)} count the assembled table: content
+columns only, and no blank first row when there is no title. The
+completion line printed after an Excel export ({cmd:Exported} {it:r} rows
+{c 215} {it:c} cols) reports the worksheet{c 39}s used range instead, which
+also counts column A and every written row, as every tabtools command
+reports it.{p_end}
 
 {marker alsosee}{...}
 {title:Also see}

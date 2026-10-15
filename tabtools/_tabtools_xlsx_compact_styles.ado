@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_compact_styles Version 1.0.0  2026/10/13
+*! _tabtools_xlsx_compact_styles Version 1.0.0  2026/10/15
 *! Collapse duplicate style records in a closed xlsx workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -291,13 +291,13 @@ string scalar _tt_xlsx_compact_styles_xml(string scalar styles,
         else if (i == 2) fillmap = thismap
         else bordermap = thismap
 
-        st_local("_tt_" + pools[i, 3] + "_before", strofreal(rows(items), "%18.0f"))
-        st_local("_tt_" + pools[i, 3] + "_after", strofreal(rows(uniq), "%18.0f"))
+        st_local("_tt_" + pools[i, 3] + "_before", ustrregexra(strofreal(rows(items), "%18.0f"), "-(?=[0.,]+\z)", ""))
+        st_local("_tt_" + pools[i, 3] + "_after", ustrregexra(strofreal(rows(uniq), "%18.0f"), "-(?=[0.,]+\z)", ""))
         changed = changed + (rows(items) - rows(uniq))
 
         out = substr(out, 1, span[1] - 1) +
             "<" + pools[i, 1] + " count=" + char(34) +
-            strofreal(rows(uniq), "%18.0f") + char(34) + ">" +
+            ustrregexra(strofreal(rows(uniq), "%18.0f"), "-(?=[0.,]+\z)", "") + char(34) + ">" +
             invtokens(uniq', "") +
             "</" + pools[i, 1] + ">" +
             substr(out, span[4], .)
@@ -316,7 +316,7 @@ string scalar _tt_xlsx_compact_styles_xml(string scalar styles,
             }
             out = substr(out, 1, span[1] - 1) +
                 "<cellStyleXfs count=" + char(34) +
-                strofreal(rows(items), "%18.0f") + char(34) + ">" +
+                ustrregexra(strofreal(rows(items), "%18.0f"), "-(?=[0.,]+\z)", "") + char(34) + ">" +
                 invtokens(items', "") + "</cellStyleXfs>" +
                 substr(out, span[4], .)
         }
@@ -339,13 +339,13 @@ string scalar _tt_xlsx_compact_styles_xml(string scalar styles,
         xfs[i] = _tt_xlsx_remap_attr(xfs[i], "borderId", bordermap)
     }
     xfuniq = _tt_xlsx_dedupe(xfs, xfmap)
-    st_local("_tt_formats_before", strofreal(rows(xfs), "%18.0f"))
-    st_local("_tt_formats_after", strofreal(rows(xfuniq), "%18.0f"))
+    st_local("_tt_formats_before", ustrregexra(strofreal(rows(xfs), "%18.0f"), "-(?=[0.,]+\z)", ""))
+    st_local("_tt_formats_after", ustrregexra(strofreal(rows(xfuniq), "%18.0f"), "-(?=[0.,]+\z)", ""))
     changed = changed + (rows(xfs) - rows(xfuniq))
     st_local("_tt_changed", changed > 0 ? "1" : "0")
 
     out = substr(out, 1, span[1] - 1) +
-        "<cellXfs count=" + char(34) + strofreal(rows(xfuniq), "%18.0f") +
+        "<cellXfs count=" + char(34) + ustrregexra(strofreal(rows(xfuniq), "%18.0f"), "-(?=[0.,]+\z)", "") +
         char(34) + ">" + invtokens(xfuniq', "") + "</cellXfs>" +
         substr(out, span[4], .)
 
@@ -438,7 +438,7 @@ string scalar _tt_xlsx_remap_attr(string scalar item, string scalar attr,
     v = strtoreal(substr(item, p, q - p))
     if (v >= . | v < 0 | v != floor(v) | v + 1 > rows(map)) return(item)
 
-    return(substr(item, 1, p - 1) + strofreal(map[v + 1], "%18.0f") +
+    return(substr(item, 1, p - 1) + ustrregexra(strofreal(map[v + 1], "%18.0f"), "-(?=[0.,]+\z)", "") +
         substr(item, q, .))
 }
 

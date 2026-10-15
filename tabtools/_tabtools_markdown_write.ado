@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 1.0.0  2026/10/13
+*! _tabtools_markdown_write Version 1.0.0  2026/10/15
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -199,7 +199,7 @@ string scalar _tt_md_cell(string scalar v, real scalar i)
     }
     x = st_data(i, j)
     if (x >= .) return("")
-    return(strtrim(strofreal(x, st_varformat(j))))
+    return(strtrim(ustrregexra(strofreal(x, st_varformat(j)), "-(?=[0.,]+\z)", "")))
 }
 
 // Escaped body cell. With indent != 0, each leading space of a string cell

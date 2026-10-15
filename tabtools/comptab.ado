@@ -1,4 +1,4 @@
-*! comptab Version 1.0.0  2026/10/13
+*! comptab Version 1.0.0  2026/10/15
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -770,7 +770,7 @@ program define _comptab_rates, rclass
 	        }
 	        * The level as shown: at most 15 significant digits, so 99.9 never
 	        * prints as the double's 17-digit 99.90000000000001.
-	        local _ci_level_label = strtrim(string(`_ci_level', "%21.15g"))
+	        local _ci_level_label = strtrim(ustrregexra(string(`_ci_level', "%21.15g"), "-(?=[0.,]+\z)", ""))
 	        forvalues _o = 1/`outcomes' {
 	            frame `rateframe': local _rate_outcome_id_`_o' : char _dta[tabtools_outcome_id_`_o']
 	            local _rate_header_col = 2 + (`_o' - 1) * 3
@@ -1825,7 +1825,18 @@ program define _comptab_rates, rclass
         * Console display
         noisily _tabtools_console_display `ncols' `"`macval(_out_title)'"', datastart(4) headerstart(2)
         if `"`macval(footnote)'"' != "" {
-            noisily display as text `"`macval(footnote)'"'
+            local _con_rest `"`macval(footnote)'"'
+            while `"`macval(_con_rest)'"' != "" {
+                local _con_at = strpos(`"`macval(_con_rest)'"', " \ ")
+                if `_con_at' == 0 {
+                    noisily display as text `"`macval(_con_rest)'"'
+                    local _con_rest ""
+                }
+                else {
+                    noisily display as text substr(`"`macval(_con_rest)'"', 1, `_con_at' - 1)
+                    local _con_rest = substr(`"`macval(_con_rest)'"', `_con_at' + 3, .)
+                }
+            }
             noisily display as text ""
         }
 
@@ -2094,7 +2105,7 @@ program define _comptab_rates, rclass
                 exit 601
             }
             local _xlsx_ok 1
-            display as text "Exported " as result "`lastrow'" as text " rows × " as result "`ncols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
+            _tabtools_export_done using `"`xlsx'"', sheet(`"`macval(sheet)'"')
         }
 
         if `_xlsx_ok' {
@@ -3248,9 +3259,9 @@ program define _comptab_vertical, rclass
                 if `_refmt' {
                     _comptab_ep_value, ep(`_src_ep') key(`_ep_key') row(`r') model(`_source_m')
                     if !r(found) | missing(r(est)) | missing(r(ll)) | missing(r(ul)) continue
-                    local _t_est = strtrim(string(r(est), "`cformat'"))
-                    local _t_lo = strtrim(string(r(ll), "`cformat'"))
-                    local _t_hi = strtrim(string(r(ul), "`cformat'"))
+                    local _t_est = strtrim(ustrregexra(string(r(est), "`cformat'"), "-(?=[0.,]+\z)", ""))
+                    local _t_lo = strtrim(ustrregexra(string(r(ll), "`cformat'"), "-(?=[0.,]+\z)", ""))
+                    local _t_hi = strtrim(ustrregexra(string(r(ul), "`cformat'"), "-(?=[0.,]+\z)", ""))
                 }
                 else {
                     * cisep() alone: rewrite "(a, b)" exactly or refuse
@@ -3718,7 +3729,7 @@ program define _comptab_vertical, rclass
         capture confirm file "`xlsx'"
         if _rc == 0 {
             local _xlsx_ok 1
-            noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
+            noisily _tabtools_export_done using `"`xlsx'"', sheet(`"`macval(sheet)'"')
         }
         else {
             noisily display as error "Export command succeeded but file not found"
@@ -4012,9 +4023,9 @@ program define _comptab_effect_cell, rclass
             if r(found) & !missing(r(est)) & !missing(r(ll)) & !missing(r(ul)) {
                 local stars ""
                 mata: st_local("stars", regexm(st_local("text"), "^[^(]*[^*(](\*+)") ? regexs(1) : "")
-                local _t_est = strtrim(string(r(est), "`cformat'"))
-                local _t_lo = strtrim(string(r(ll), "`cformat'"))
-                local _t_hi = strtrim(string(r(ul), "`cformat'"))
+                local _t_est = strtrim(ustrregexra(string(r(est), "`cformat'"), "-(?=[0.,]+\z)", ""))
+                local _t_lo = strtrim(ustrregexra(string(r(ll), "`cformat'"), "-(?=[0.,]+\z)", ""))
+                local _t_hi = strtrim(ustrregexra(string(r(ul), "`cformat'"), "-(?=[0.,]+\z)", ""))
                 mata: st_local("text", st_local("_t_est") + st_local("stars") + " (" + st_local("_t_lo") + st_local("sep") + st_local("_t_hi") + ")")
             }
         }

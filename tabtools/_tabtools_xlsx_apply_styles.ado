@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_apply_styles Version 1.0.0  2026/10/13
+*! _tabtools_xlsx_apply_styles Version 1.0.0  2026/10/15
 *! Apply compact Excel style rules to an open Mata xl() workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -271,9 +271,9 @@ string scalar _tt_xlsx_style_rgb(real rowvector rgb, string rowvector colors)
         return(colors[color_code])
     }
 
-    return(strtrim(strofreal(rgb[1], "%9.0f")) + " " +
-        strtrim(strofreal(rgb[2], "%9.0f")) + " " +
-        strtrim(strofreal(rgb[3], "%9.0f")))
+    return(strtrim(ustrregexra(strofreal(rgb[1], "%9.0f"), "-(?=[0.,]+\z)", "")) + " " +
+        strtrim(ustrregexra(strofreal(rgb[2], "%9.0f"), "-(?=[0.,]+\z)", "")) + " " +
+        strtrim(ustrregexra(strofreal(rgb[3], "%9.0f"), "-(?=[0.,]+\z)", "")))
 }
 
 void _tt_xlsx_style_validate(
@@ -397,7 +397,7 @@ void _tt_xlsx_style_validate_rgb(
 void _tt_xlsx_style_error(real scalar row, string scalar message)
 {
     errprintf("invalid style rule in row " +
-        strtrim(strofreal(row, "%9.0f")) + ": " + message + "\n")
+        strtrim(ustrregexra(strofreal(row, "%9.0f"), "-(?=[0.,]+\z)", "")) + ": " + message + "\n")
     _error(198)
 }
 

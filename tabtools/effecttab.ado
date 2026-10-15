@@ -1,4 +1,4 @@
-*! effecttab Version 1.0.0  2026/10/13
+*! effecttab Version 1.0.0  2026/10/15
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -296,15 +296,15 @@ quietly {
 				mata: st_local("_vrn", st_matrixrowstripe(st_local("from"))[`_vr', 2])
 				if !missing(`from'[`_vr', 4]) & ///
 					(`from'[`_vr', 4] < 0 | `from'[`_vr', 4] > 1) {
-					local _vbad = strtrim(string(`from'[`_vr', 4], "%12.0g"))
+					local _vbad = strtrim(ustrregexra(string(`from'[`_vr', 4], "%12.0g"), "-(?=[0.,]+\z)", ""))
 					noisily display as error ///
 						`"from() row `_vr' (`macval(_vrn)'): p-value `_vbad' is outside [0, 1]"'
 					exit 198
 				}
 				if !missing(`from'[`_vr', 2]) & !missing(`from'[`_vr', 3]) & ///
 					`from'[`_vr', 2] > `from'[`_vr', 3] {
-					local _vlo = strtrim(string(`from'[`_vr', 2], "%12.0g"))
-					local _vhi = strtrim(string(`from'[`_vr', 3], "%12.0g"))
+					local _vlo = strtrim(ustrregexra(string(`from'[`_vr', 2], "%12.0g"), "-(?=[0.,]+\z)", ""))
+					local _vhi = strtrim(ustrregexra(string(`from'[`_vr', 3], "%12.0g"), "-(?=[0.,]+\z)", ""))
 					noisily display as error ///
 						`"from() row `_vr' (`macval(_vrn)'): lower limit `_vlo' exceeds upper limit `_vhi'"'
 					exit 198
@@ -316,9 +316,9 @@ quietly {
 				if !missing(`from'[`_vr', 1]) & !missing(`from'[`_vr', 2]) & ///
 					!missing(`from'[`_vr', 3]) & ///
 					(`from'[`_vr', 1] < `from'[`_vr', 2] | `from'[`_vr', 1] > `from'[`_vr', 3]) {
-					local _vb = strtrim(string(`from'[`_vr', 1], "%12.0g"))
-					local _vlo = strtrim(string(`from'[`_vr', 2], "%12.0g"))
-					local _vhi = strtrim(string(`from'[`_vr', 3], "%12.0g"))
+					local _vb = strtrim(ustrregexra(string(`from'[`_vr', 1], "%12.0g"), "-(?=[0.,]+\z)", ""))
+					local _vlo = strtrim(ustrregexra(string(`from'[`_vr', 2], "%12.0g"), "-(?=[0.,]+\z)", ""))
+					local _vhi = strtrim(ustrregexra(string(`from'[`_vr', 3], "%12.0g"), "-(?=[0.,]+\z)", ""))
 					noisily display as text ///
 						`"Note: from() row `_vr' (`macval(_vrn)'): estimate `_vb' lies outside its interval [`_vlo', `_vhi']; columns are read as estimate, lower limit, upper limit, p-value"'
 				}
@@ -336,7 +336,7 @@ quietly {
 	* _ci_level is the level as shown (header, methods, frame characteristics):
 	* at most 15 significant digits, so 99.9 never prints as the double's
 	* 17-digit 99.90000000000001. r(ci_level) returns the number itself.
-	local _ci_level = strtrim(string(`_ci_level_num', "%21.15g"))
+	local _ci_level = strtrim(ustrregexra(string(`_ci_level_num', "%21.15g"), "-(?=[0.,]+\z)", ""))
 
 	* Check xlsx if specified
 	if `_has_xlsx' {
@@ -822,16 +822,18 @@ quietly {
 				local _cilo = `from'[`_fr', 2]
 				local _cihi = `from'[`_fr', 3]
 				local _pv = `from'[`_fr', 4]
-				if !missing(`_est') qui replace c1 = strtrim(string(`_est', "`_from_fmt'")) in `_obs'
+				if !missing(`_est') qui replace c1 = strtrim(ustrregexra(string(`_est', "`_from_fmt'"), "-(?=[0.,]+\z)", "")) in `_obs'
 			if !missing(`_cilo') & !missing(`_cihi') {
 				local _cilo_s : display `_from_fmt' `_cilo'
 				local _cihi_s : display `_from_fmt' `_cihi'
 				local _cilo_s = strtrim("`_cilo_s'")
 				local _cihi_s = strtrim("`_cihi_s'")
+				local _cilo_s = ustrregexra("`_cilo_s'", "-(?=[0.,]+\z)", "")
+				local _cihi_s = ustrregexra("`_cihi_s'", "-(?=[0.,]+\z)", "")
 				qui replace c2 = "(`_cilo_s'`_ci_tok'`_cihi_s')" in `_obs'
 			}
 			if !missing(`_pv') {
-				qui replace c3 = string(`_pv', "%21.0g") in `_obs'
+				qui replace c3 = ustrregexra(string(`_pv', "%21.0g"), "-(?=[0.,]+\z)", "") in `_obs'
 			}
 		}
 		local n 3
@@ -1308,6 +1310,8 @@ quietly {
 				if _n >= 3 & c`i'z < . & missing(_eplot_est`_model_ix')
 			replace c`i'z = round(c`i'z, `coef_round')
 			tostring c`i'z, replace force format(`coef_fmt')
+			* a value that formats to zero prints without a sign ("-0.00" -> "0.00")
+			quietly replace c`i'z = ustrregexra(c`i'z, "-(?=[0.,]+\z)", "")
 				* Matrix input has no structural base-level metadata, so a numeric zero
 				* can never be reinterpreted as a reference category.
 				local _omit_ok = 0
@@ -1411,8 +1415,8 @@ quietly {
 			* alike in both cells: string() alone rounds an exact binary tie
 			* (2.25 at one decimal) to even where the estimate rounds it up. A
 			* bound that rounds to zero keeps its own text (-0.00 stays -0.00).
-			replace `_ci_fmt' = "(" + strtrim(string(cond(round(`_ci_lo', `coef_round') == 0, `_ci_lo', round(`_ci_lo', `coef_round')), "`coef_fmt'")) + `_ci_sepv' + ///
-				strtrim(string(cond(round(`_ci_hi', `coef_round') == 0, `_ci_hi', round(`_ci_hi', `coef_round')), "`coef_fmt'")) + ")" ///
+			replace `_ci_fmt' = "(" + strtrim(ustrregexra(string(cond(round(`_ci_lo', `coef_round') == 0, `_ci_lo', round(`_ci_lo', `coef_round')), "`coef_fmt'"), "-(?=[0.,]+\z)", "")) + `_ci_sepv' + ///
+				strtrim(ustrregexra(string(cond(round(`_ci_hi', `coef_round') == 0, `_ci_hi', round(`_ci_hi', `coef_round')), "`coef_fmt'"), "-(?=[0.,]+\z)", "")) + ")" ///
 				if `_ci_lo' < . & `_ci_hi' < . & _n >= 3
 			* an interval with a bound that is not a number keeps its bounds
 			* as rendered, joined by sep()
@@ -1443,11 +1447,11 @@ quietly {
 		local _pmax = 1 - 10^(-`highpdp')
 		local _pfmt_lo = "%`=`pdp'+2'.`pdp'f"
 		local _pfmt_hi = "%`=`highpdp'+2'.`highpdp'f"
-		replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z < `_pmin' & !missing(c`i'z)
-		replace c`i'_fmt = string(c`i'z, "`_pfmt_lo'") if c`i'z >= `_pmin' & c`i'z < 0.10 & !missing(c`i'z)
-		replace c`i'_fmt = string(c`i'z, "`_pfmt_hi'") if c`i'z >= 0.10 & !missing(c`i'z)
-		replace c`i'_fmt = ">" + string(`_pmax', "`_pfmt_hi'") if c`i'z > `_pmax' & c`i'z < 1 & !missing(c`i'z)
-		replace c`i'_fmt = "<" + string(`_pmin', "`_pfmt_lo'") if c`i'z == 0 & !missing(c`i'z)
+		replace c`i'_fmt = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if c`i'z < `_pmin' & !missing(c`i'z)
+		replace c`i'_fmt = ustrregexra(string(c`i'z, "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if c`i'z >= `_pmin' & c`i'z < 0.10 & !missing(c`i'z)
+		replace c`i'_fmt = ustrregexra(string(c`i'z, "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if c`i'z >= 0.10 & !missing(c`i'z)
+		replace c`i'_fmt = ">" + ustrregexra(string(`_pmax', "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if c`i'z > `_pmax' & c`i'z < 1 & !missing(c`i'z)
+		replace c`i'_fmt = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if c`i'z == 0 & !missing(c`i'z)
 		* Add leading zero if missing (e.g., .123 -> 0.123)
 		replace c`i'_fmt = "0" + c`i'_fmt if substr(c`i'_fmt, 1, 1) == "."
 		* Apply formatting - only if we have a non-missing formatted value
@@ -1480,13 +1484,13 @@ quietly {
 					local _ep_ul = .
 					local _ep_p = .
 					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
-					capture local _ep_est = regexr(string(_eplot_est`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					capture local _ep_est = regexr(ustrregexra(string(_eplot_est`_ep_m'[`_ep_obs'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
 					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
-					capture local _ep_ll = regexr(string(_eplot_ll`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					capture local _ep_ll = regexr(ustrregexra(string(_eplot_ll`_ep_m'[`_ep_obs'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
 					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
-					capture local _ep_ul = regexr(string(_eplot_ul`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					capture local _ep_ul = regexr(ustrregexra(string(_eplot_ul`_ep_m'[`_ep_obs'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
 					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
-					capture local _ep_p = regexr(string(_eplot_p`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					capture local _ep_p = regexr(ustrregexra(string(_eplot_p`_ep_m'[`_ep_obs'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
 					local _ep_model_col = (`_ep_m' - 1) * 3 + 1
 					mata: st_local("_ep_model_label", st_sdata(1, "c`_ep_model_col'"))
 					if `"`macval(_ep_model_label)'"' == "" local _ep_model_label "Model `_ep_m'"
@@ -2037,7 +2041,7 @@ quietly {
 		}
 		else {
 			local _xlsx_ok 1
-			noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
+			noisily _tabtools_export_done using `"`xlsx'"', sheet(`"`macval(sheet)'"')
 		}
 	}
 	if `_xlsx_ok' {

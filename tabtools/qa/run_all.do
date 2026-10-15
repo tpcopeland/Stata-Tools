@@ -218,6 +218,7 @@ local test_files "`test_files' test_qa_gaps_2026_10_10.do"
 local test_files "`test_files' test_clarity_2026_10_12.do"
 local test_files "`test_files' test_ratetab_rateratio_refusal.do"
 local test_files "`test_files' test_clarity_final_2026_10_12.do"
+local test_files "`test_files' test_ssc_prerelease_2026_10_15.do"
 
 local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
 local validation_files "`validation_files' validation_crosstab.do"

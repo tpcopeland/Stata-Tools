@@ -1,4 +1,4 @@
-*! tabtools Version 1.0.0  2026/10/13
+*! tabtools Version 1.0.0  2026/10/15
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -642,9 +642,9 @@ program define _tabtools_detail, nclass
             display as text "               Supports continuous, categorical, and binary"
             display as text "               variables with customizable formatting."
             display as text ""
-            display as result "  desctab" as text "      Direct access to the consolidated Table 1 engine"
-            display as text "               number formats and optional composite cells such"
-            display as text "               as events / N (%)."
+            display as result "  desctab" as text "      Direct access to the consolidated Table 1 engine,"
+            display as text "               with number formats and optional composite cells"
+            display as text "               such as events / N (%)."
             display as text ""
             display as result "  crosstab" as text "     Cross-tabulation with row/column percentages"
             display as text "               and association measures. Supports chi-square,"

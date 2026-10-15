@@ -1423,7 +1423,7 @@ capture noisily {
     file open `fh' using "`stlog_path'.log", read text
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "Exported to") > 0 {
+        if strpos(`"`line'"', "Exported ") == 1 & strpos(`"`line'"', " cols to ") > 0 {
             local found_msg 1
         }
         file read `fh' line

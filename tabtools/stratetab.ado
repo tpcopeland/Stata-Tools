@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.0  2026/10/13
+*! stratetab Version 1.0.0  2026/10/15
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -497,7 +497,7 @@ forvalues e = 1/`n_exposures' {
 				* No value label - convert to string directly. %21.0g keeps
 				* integer codes of any size exact (default string() turns
 				* 10000000 into "1.00e+07").
-				gen `catvar_str' = string(`catvar', "%21.0g")
+				gen `catvar_str' = ustrregexra(string(`catvar', "%21.0g"), "-(?=[0.,]+\z)", "")
 			}
 			}
 			else {
@@ -563,9 +563,9 @@ forvalues e = 1/`n_exposures' {
 					mata: st_local("cat_e`e'_`i'", st_sdata(`i', "`catvar_str'"))
 					local D_o`o'_e`e'_`i' = _D[`i']
 					local Y_o`o'_e`e'_`i' = _Y[`i'] / `pyscale'
-					local Rate_o`o'_e`e'_`i' = regexr(string(`_Rate_scaled'[`i'], "%21x"), "^[+]", "")
-					local Lower_o`o'_e`e'_`i' = regexr(string(`_Lower_scaled'[`i'], "%21x"), "^[+]", "")
-					local Upper_o`o'_e`e'_`i' = regexr(string(`_Upper_scaled'[`i'], "%21x"), "^[+]", "")
+					local Rate_o`o'_e`e'_`i' = regexr(ustrregexra(string(`_Rate_scaled'[`i'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
+					local Lower_o`o'_e`e'_`i' = regexr(ustrregexra(string(`_Lower_scaled'[`i'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
+					local Upper_o`o'_e`e'_`i' = regexr(ustrregexra(string(`_Upper_scaled'[`i'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
 				}
 			}
 			else {
@@ -592,9 +592,9 @@ forvalues e = 1/`n_exposures' {
 					}
 					local D_o`o'_e`e'_`i' = _D[`_match_row']
 					local Y_o`o'_e`e'_`i' = _Y[`_match_row'] / `pyscale'
-					local Rate_o`o'_e`e'_`i' = regexr(string(`_Rate_scaled'[`_match_row'], "%21x"), "^[+]", "")
-					local Lower_o`o'_e`e'_`i' = regexr(string(`_Lower_scaled'[`_match_row'], "%21x"), "^[+]", "")
-					local Upper_o`o'_e`e'_`i' = regexr(string(`_Upper_scaled'[`_match_row'], "%21x"), "^[+]", "")
+					local Rate_o`o'_e`e'_`i' = regexr(ustrregexra(string(`_Rate_scaled'[`_match_row'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
+					local Lower_o`o'_e`e'_`i' = regexr(ustrregexra(string(`_Lower_scaled'[`_match_row'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
+					local Upper_o`o'_e`e'_`i' = regexr(ustrregexra(string(`_Upper_scaled'[`_match_row'], "%21x"), "-(?=[0.,]+\z)", ""), "^[+]", "")
 				}
 			}
 			
@@ -621,7 +621,7 @@ if `level' != -1 & missing(`_ci_level') local _ci_level = `level'
 if missing(`_ci_level') local _ci_level = 95
 * The level as shown: at most 15 significant digits, so 99.9 never prints
 * as the double's 17-digit 99.90000000000001; r(ci_level) stays numeric.
-local _ci_level_txt = strtrim(string(`_ci_level', "%21.15g"))
+local _ci_level_txt = strtrim(ustrregexra(string(`_ci_level', "%21.15g"), "-(?=[0.,]+\z)", ""))
 local _ci_alpha = (100 - `_ci_level') / 200
 local _ci_z = invnormal(1 - `_ci_alpha')
 
@@ -764,10 +764,10 @@ forvalues e = 1/`n_exposures' {
 			local _nopt = (`Y_o`o'_e`e'_`i'' == 0)
 			* Events
 			if `eventdigits' == 0 {
-				local ev_fmt = string(round(`D_o`o'_e`e'_`i'', 1), "%24.0fc")
+				local ev_fmt = ustrregexra(string(round(`D_o`o'_e`e'_`i'', 1), "%24.0fc"), "-(?=[0.,]+\z)", "")
 			}
 			else {
-				local ev_fmt = string(round(`D_o`o'_e`e'_`i'', `_evunit'), "%24.`eventdigits'fc")
+				local ev_fmt = ustrregexra(string(round(`D_o`o'_e`e'_`i'', `_evunit'), "%24.`eventdigits'fc"), "-(?=[0.,]+\z)", "")
 			}
 			if `_masked' {
 				if `_mask_given' local ev_fmt `"`macval(masktext)'"'
@@ -781,10 +781,10 @@ forvalues e = 1/`n_exposures' {
 
 			* Person-years
 			if `pydigits' == 0 {
-				local py_fmt = string(round(`Y_o`o'_e`e'_`i'',1), "%24.0fc")
+				local py_fmt = ustrregexra(string(round(`Y_o`o'_e`e'_`i'',1), "%24.0fc"), "-(?=[0.,]+\z)", "")
 			}
 			else {
-				local py_fmt = string(round(`Y_o`o'_e`e'_`i'', `_pyunit'), "%24.`pydigits'fc")
+				local py_fmt = ustrregexra(string(round(`Y_o`o'_e`e'_`i'', `_pyunit'), "%24.`pydigits'fc"), "-(?=[0.,]+\z)", "")
 			}
 			if `_masked' local py_fmt "–"
 			if `_zero_cell' & `_zc_pt' local py_fmt `"`_zero_txt'"'
@@ -800,22 +800,22 @@ forvalues e = 1/`n_exposures' {
 			* A rate without bounds (strate gives none for zero events) shows
 			* the en dash the IRR column uses for a missing estimate.
 			if `"`cformat'"' != "" {
-				local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"))
+				local rt_fmt = strtrim(ustrregexra(string(round(`Rate_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"), "-(?=[0.,]+\z)", ""))
 			}
 			else {
-				local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
+				local rt_fmt = strtrim(ustrregexra(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"), "-(?=[0.,]+\z)", ""))
 			}
 			if missing(`Lower_o`o'_e`e'_`i'') | missing(`Upper_o`o'_e`e'_`i'') {
 				local rt_fmt `"`rt_fmt' (–)"'
 			}
 			else {
 				if `"`cformat'"' != "" {
-					local _lo_txt = strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"))
-					local _hi_txt = strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"))
+					local _lo_txt = strtrim(ustrregexra(string(round(`Lower_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"), "-(?=[0.,]+\z)", ""))
+					local _hi_txt = strtrim(ustrregexra(string(round(`Upper_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"), "-(?=[0.,]+\z)", ""))
 				}
 				else {
-					local _lo_txt = strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
-					local _hi_txt = strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
+					local _lo_txt = strtrim(ustrregexra(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"), "-(?=[0.,]+\z)", ""))
+					local _hi_txt = strtrim(ustrregexra(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"), "-(?=[0.,]+\z)", ""))
 				}
 				mata: st_local("rt_fmt", st_local("rt_fmt") + " (" + st_local("_lo_txt") + st_local("sep") + st_local("_hi_txt") + ")")
 			}
@@ -855,9 +855,9 @@ forvalues e = 1/`n_exposures' {
 					quietly replace c`col' = "–" in `new'
 				}
 				else {
-					local _est_txt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"))
-					local _lo_txt = strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"))
-					local _hi_txt = strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"))
+					local _est_txt = strtrim(ustrregexra(string(round(`IRR_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"), "-(?=[0.,]+\z)", ""))
+					local _lo_txt = strtrim(ustrregexra(string(round(`IRRlo_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"), "-(?=[0.,]+\z)", ""))
+					local _hi_txt = strtrim(ustrregexra(string(round(`IRRhi_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"), "-(?=[0.,]+\z)", ""))
 					mata: st_local("irr_fmt", st_local("_est_txt") + " (" + st_local("_lo_txt") + st_local("sep") + st_local("_hi_txt") + ")")
 					* a ratio whose numerator or reference count is masked is withheld
 					if `_masked' | `_ref_masked_o`o'_e`e'_`i'' local irr_fmt "–"
@@ -1238,7 +1238,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				}
 				else {
 					local _xlsx_ok 1
-					noisily display as text "Exported to " as result `"`macval(xlsx)'"' as text ", sheet " as result `"`macval(sht)'"'
+					noisily _tabtools_export_done using `"`macval(xlsx)'"', sheet(`"`macval(sht)'"')
 				}
 			}
 			}

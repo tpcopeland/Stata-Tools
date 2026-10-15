@@ -1,4 +1,4 @@
-*! stacktab Version 1.0.0  2026/10/13
+*! stacktab Version 1.0.0  2026/10/15
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -565,7 +565,18 @@ program define stacktab, rclass
                 if `_disp_ren_rc' exit `_disp_ren_rc'
             }
             if `"`macval(note)'"' != "" {
-                noisily display as text `"`macval(note)'"'
+                local _con_rest `"`macval(note)'"'
+                while `"`macval(_con_rest)'"' != "" {
+                    local _con_at = strpos(`"`macval(_con_rest)'"', " \ ")
+                    if `_con_at' == 0 {
+                        noisily display as text `"`macval(_con_rest)'"'
+                        local _con_rest ""
+                    }
+                    else {
+                        noisily display as text substr(`"`macval(_con_rest)'"', 1, `_con_at' - 1)
+                        local _con_rest = substr(`"`macval(_con_rest)'"', `_con_at' + 3, .)
+                    }
+                }
             }
         }
 
@@ -959,7 +970,7 @@ program define stacktab, rclass
         return scalar markdown_cols = `_ret_markdown_cols'
     }
 
-    display as text `"stacktab: `_ret_blocks_loaded' blocks -> `_ret_rows_written' rows written -> sheet `macval(_ret_sheet)'"'
+    _tabtools_export_done using `"`using'"', sheet(`"`macval(_ret_sheet)'"')
 end
 
 
@@ -1657,7 +1668,7 @@ string matrix _stacktab_cur_strmat(string scalar varlist)
             fmt = st_varformat(vars[j])
             for (i = 1; i <= N; i++) {
                 if (ncol[i] < .) {
-                    scol[i] = strtrim(strofreal(ncol[i], fmt))
+                    scol[i] = strtrim(ustrregexra(strofreal(ncol[i], fmt), "-(?=[0.,]+\z)", ""))
                 }
             }
             out[, j] = scol

@@ -1,4 +1,4 @@
-*! ratetab Version 1.0.0  2026/10/13
+*! ratetab Version 1.0.0  2026/10/15
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -367,7 +367,7 @@ program define ratetab, rclass
         * default rate-header label: per() as typed (a fraction or 1500.5 keeps
         * its decimals; %21.0fc printed per(0.5) as "0" over rates scaled by .5)
         if `"`unitlabel'"' == "" {
-            local unitlabel = strtrim(string(`per', "%21.15gc"))
+            local unitlabel = strtrim(ustrregexra(string(`per', "%21.15gc"), "-(?=[0.,]+\z)", ""))
             if substr(`"`unitlabel'"', 1, 1) == "." local unitlabel "0`unitlabel'"
             * %g keeps a full-width mantissa in exponent form (1.00000000000000e-06)
             if strpos(`"`unitlabel'"', "e") local unitlabel = regexr(`"`unitlabel'"', "[.]?0+e", "e")
@@ -520,7 +520,7 @@ program define ratetab, rclass
                     local _n_zero = `_n_zero' + r(N)
                     quietly replace _Lower = 0 if _D == 0 & _Y > 0
                     quietly replace _Upper = -ln(`_alpha') / _Y if _D == 0 & _Y > 0
-                    local _lvtxt = strtrim(string(`level', "%21.15g"))
+                    local _lvtxt = strtrim(ustrregexra(string(`level', "%21.15g"), "-(?=[0.,]+\z)", ""))
                     label variable _Lower "Lower `_lvtxt'% bound"
                     label variable _Upper "Upper `_lvtxt'% bound"
                     * one row per level, for r(estimates)

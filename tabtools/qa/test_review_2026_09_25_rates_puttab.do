@@ -814,7 +814,7 @@ capture noisily {
     log close _rvm7
     set linesize `_rv_ls'
     assert `"`m7sheet'"' == "Table"
-    _rv_log_has "`m7log'" "to sheet Table in"
+    _rv_log_has "`m7log'" ", sheet Table"
     assert r(found) == 1
     stratetab, using("`sgrp'") outcomes(1) xlsx("`fm7'") sheet("table")
     assert `"`r(sheet)'"' == "Table"

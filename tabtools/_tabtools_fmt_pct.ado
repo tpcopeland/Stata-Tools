@@ -1,4 +1,4 @@
-*! _tabtools_fmt_pct Version 1.0.0  2026/10/13
+*! _tabtools_fmt_pct Version 1.0.0  2026/10/15
 *! The package's percentage display rule: a share that is neither none nor all never prints as 0 or 100
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,14 +10,14 @@ the rule lives in one place.
 For a value v with 0 < v < 100 and a fixed format %w.df or %w.dfc (or the
 decimal-comma %w,df / %w,dfc, which keeps its comma in the escalated text):
 
-    1. format at d decimals, exactly as string(v, fmt) always did
+    1. format at d decimals, exactly as ustrregexra(string(v, fmt), "-(?=[0.,]+\z)", "") always did
     2. if that text reads 0 or 100, add one decimal at a time, up to
        max(d, 2) decimals ("0" -> "0.3", "0.0" -> "0.04", "100" -> "99.6")
     3. if it still reads 0 or 100 at max(d, 2) decimals, print
        "<0.01" or ">99.99" (that many decimals)
 
 Everything else -- v <= 0, v >= 100, missing, or a %g/%e/other format -- is
-string(v, fmt) unchanged, so a true zero count still prints 0 and a whole
+ustrregexra(string(v, fmt), "-(?=[0.,]+\z)", "") unchanged, so a true zero count still prints 0 and a whole
 group still prints 100. Values within 1e-9 of 0 or 100 count as 0 or 100:
 a weighted share whose numerator and denominator are the same sum taken in
 a different order lands one ulp off 100, and that is not "not all".
@@ -83,18 +83,18 @@ program define _tabtools_fmt_pct, rclass
             local _d = real(regexs(2))
             local _fc = regexs(3)
             local _cap = max(`_d', 2)
-            local _lo = "<" + strtrim(string(10^(-`_cap'), "%21`_sep'`_cap'f"))
-            local _hi = ">" + strtrim(string(100 - 10^(-`_cap'), "%21`_sep'`_cap'f"))
+            local _lo = "<" + strtrim(ustrregexra(string(10^(-`_cap'), "%21`_sep'`_cap'f"), "-(?=[0.,]+\z)", ""))
+            local _hi = ">" + strtrim(ustrregexra(string(100 - 10^(-`_cap'), "%21`_sep'`_cap'f"), "-(?=[0.,]+\z)", ""))
         }
         local _tol = 1e-9
 
         if `_scalar' {
-            local _text = string(`_sv', `"`format'"')
+            local _text = ustrregexra(string(`_sv', `"`format'"'), "-(?=[0.,]+\z)", "")
             local _dec = .
             if `_fixed' & `_sv' > `_tol' & `_sv' < 100 - `_tol' {
                 forvalues _k = `=`_d' + 1'/`_cap' {
                     if inlist(real(subinstr("`_text'", ",", ".", .)), 0, 100) {
-                        local _text = strtrim(string(`_sv', "%21`_sep'`_k'`_fc'"))
+                        local _text = strtrim(ustrregexra(string(`_sv', "%21`_sep'`_k'`_fc'"), "-(?=[0.,]+\z)", ""))
                         local _dec = `_k'
                     }
                 }
@@ -111,7 +111,7 @@ program define _tabtools_fmt_pct, rclass
             local v `varlist'
             tempvar _esc
             quietly {
-                gen str32 `generate' = string(`v', `"`format'"') if `touse'
+                gen str32 `generate' = ustrregexra(string(`v', `"`format'"'), "-(?=[0.,]+\z)", "") if `touse'
                 gen byte `_esc' = 0
                 if `_fixed' {
                     replace `_esc' = 1 if `touse' & `v' > `_tol' & `v' < 100 - `_tol'
@@ -121,7 +121,7 @@ program define _tabtools_fmt_pct, rclass
                     forvalues _k = `=`_d' + 1'/`_cap' {
                         local _need "`_esc' & inlist(real(subinstr(`generate', ",", ".", .)), 0, 100)"
                         if "`decimals'" != "" replace `decimals' = `_k' if `_need'
-                        replace `generate' = strtrim(string(`v', "%21`_sep'`_k'`_fc'")) if `_need'
+                        replace `generate' = strtrim(ustrregexra(string(`v', "%21`_sep'`_k'`_fc'"), "-(?=[0.,]+\z)", "")) if `_need'
                     }
                     local _need "`_esc' & inlist(real(subinstr(`generate', ",", ".", .)), 0, 100)"
                     if "`decimals'" != "" replace `decimals' = `_cap' if `_need'

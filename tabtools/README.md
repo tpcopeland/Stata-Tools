@@ -2,7 +2,7 @@
 
 # tabtools — Manuscript tables to Excel and Markdown
 
-**Version 1.0.0** | 2026-10-13
+**Version 1.0.0** | 2026-10-15
 
 [![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
@@ -66,7 +66,7 @@ If another copy is earlier on the `adopath`, inspect `ado dir` and remove only t
 
 ## Commands
 
-The suite contains 17 public commands. The version column is the minimum Stata release for that command.
+The suite contains 16 public commands. The version column is the minimum Stata release for that command.
 
 | Command | Stata | Purpose |
 | --- | ---: | --- |
@@ -554,7 +554,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.0.0** (2026-10-13): First SSC release.
+- **1.0.0** (2026-10-15): First SSC release.
 
 ## Author
 

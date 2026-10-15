@@ -1,4 +1,4 @@
-*! _stacktab_frames Version 1.0.0  2026/10/13
+*! _stacktab_frames Version 1.0.0  2026/10/15
 *! stacktab, frames(): stack in-memory frames as labelled panels via puttab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -245,7 +245,7 @@ void _stacktab_frames_fmt(string scalar src, string scalar dst,
     }
     for (i = 1; i <= rows(v); i++) {
         if (mapped[i] != "") out[i] = mapped[i]
-        else if (v[i] < .) out[i] = strtrim(strofreal(v[i], fmt))
+        else if (v[i] < .) out[i] = strtrim(ustrregexra(strofreal(v[i], fmt), "-(?=[0.,]+\z)", ""))
     }
     st_sstore(., dst, out)
 }

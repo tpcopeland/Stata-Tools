@@ -1,4 +1,4 @@
-*! _regtab_scale Version 1.0.0  2026/10/13
+*! _regtab_scale Version 1.0.0  2026/10/15
 *! display scale of one collected model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

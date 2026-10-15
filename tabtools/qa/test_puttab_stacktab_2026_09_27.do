@@ -130,7 +130,8 @@ capture noisily {
     assert r(rc) == 0
     local txt `"`r(text)'"'
     assert strpos(`"`txt'"', "1978 automobile data") == 0
-    assert strpos(`"`txt'"', "puttab: wrote 3 data rows") > 0
+    * the shared completion line: header row 2, three data rows, A..C
+    assert strpos(`"`txt'"', "Exported 5 rows × 3 cols to ") > 0
     frame drop pst_f
 }
 if _rc == 0 {

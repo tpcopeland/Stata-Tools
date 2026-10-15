@@ -1,4 +1,4 @@
-*! _tabtools_fmt_p Version 1.0.0  2026/10/13
+*! _tabtools_fmt_p Version 1.0.0  2026/10/15
 *! regtab's p-value display rule, vectorised, for tabcell and its callers
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -46,11 +46,11 @@ program define _tabtools_fmt_p, nclass
         local _pfmt_hi = "%`=`highpdp'+2'.`highpdp'f"
         quietly {
             gen str20 `generate' = ""
-            replace `generate' = "<" + string(`_pmin', "`_pfmt_lo'") if `z' < `_pmin' & !missing(`z') & `touse'
-            replace `generate' = string(`z', "`_pfmt_lo'") if `z' >= `_pmin' & `z' < 0.10 & !missing(`z') & `touse'
-            replace `generate' = string(`z', "`_pfmt_hi'") if `z' >= 0.10 & !missing(`z') & `touse'
-            replace `generate' = ">" + string(`_pmax', "`_pfmt_hi'") if `z' > `_pmax' & `z' < 1 & !missing(`z') & `touse'
-            replace `generate' = "<" + string(`_pmin', "`_pfmt_lo'") if `z' == 0 & !missing(`z') & `touse'
+            replace `generate' = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if `z' < `_pmin' & !missing(`z') & `touse'
+            replace `generate' = ustrregexra(string(`z', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if `z' >= `_pmin' & `z' < 0.10 & !missing(`z') & `touse'
+            replace `generate' = ustrregexra(string(`z', "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if `z' >= 0.10 & !missing(`z') & `touse'
+            replace `generate' = ">" + ustrregexra(string(`_pmax', "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if `z' > `_pmax' & `z' < 1 & !missing(`z') & `touse'
+            replace `generate' = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if `z' == 0 & !missing(`z') & `touse'
             replace `generate' = "0" + `generate' if substr(`generate', 1, 1) == "." & `touse'
         }
     }

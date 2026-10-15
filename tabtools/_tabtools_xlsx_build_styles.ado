@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_build_styles Version 1.0.0  2026/10/13
+*! _tabtools_xlsx_build_styles Version 1.0.0  2026/10/15
 *! Build compact Excel style rule matrices from row specifications
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -134,7 +134,7 @@ real rowvector _tt_xlsx_build_styles_values(
     for (i = 1; i <= cols(values); i++) {
         if (values[i] >= .) {
             _tt_xlsx_build_styles_error("non-numeric value in row " +
-                strtrim(strofreal(row_number, "%9.0f")))
+                strtrim(ustrregexra(strofreal(row_number, "%9.0f"), "-(?=[0.,]+\z)", "")))
         }
     }
 

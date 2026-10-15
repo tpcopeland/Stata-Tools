@@ -1,4 +1,4 @@
-*! _tabtools_fvterm_label Version 1.0.0  2026/10/13
+*! _tabtools_fvterm_label Version 1.0.0  2026/10/15
 *! reader-facing label for an interaction or margins at() row key
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -254,7 +254,7 @@ program define _tabtools_fvterm_num, nclass
     c_local _fvt_num ""
     capture noisily {
         args v
-        local _vs = strtrim(string(`v', "%9.0g"))
+        local _vs = strtrim(ustrregexra(string(`v', "%9.0g"), "-(?=[0.,]+\z)", ""))
         if substr("`_vs'", 1, 1) == "." local _vs "0`_vs'"
         if substr("`_vs'", 1, 2) == "-." local _vs = "-0" + substr("`_vs'", 2, .)
         c_local _fvt_num "`_vs'"

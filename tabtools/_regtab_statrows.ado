@@ -1,4 +1,4 @@
-*! _regtab_statrows Version 1.0.0  2026/10/13
+*! _regtab_statrows Version 1.0.0  2026/10/15
 *! regtab block: model statistics rows below the table body (stats())
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -92,7 +92,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_N_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`stat_N_`m'', "%12.0fc") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_N_`m'', "%12.0fc"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -114,7 +114,7 @@ if `add_stats' == 1 {
         forvalues m = 1/`use_models' {
             if !missing(`stat_`_nt'_`m'') {
                 local col = (`m' - 1) * 3 + 1
-                replace c`col' = string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''") in `=`curr_n'+1'
+                replace c`col' = ustrregexra(string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
             }
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -138,7 +138,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_groups_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`stat_groups_`m'', "%12.0fc") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_groups_`m'', "%12.0fc"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -159,7 +159,7 @@ if `add_stats' == 1 {
         forvalues m = 1/`use_models' {
             if !missing(`stat_`_nt'_`m'') {
                 local col = (`m' - 1) * 3 + 1
-                replace c`col' = string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''") in `=`curr_n'+1'
+                replace c`col' = ustrregexra(string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
             }
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -196,13 +196,13 @@ if `add_stats' == 1 {
                 if "`_aic_label'" == "AIC" {
                     if !missing(`stat_aic_`m'') {
                         local col = (`m' - 1) * 3 + 1
-                        replace c`col' = string(`stat_aic_`m'', "%12.2f") in `=`curr_n'+1'
+                        replace c`col' = ustrregexra(string(`stat_aic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                     }
                 }
                 else {
                     if !missing(`stat_qic_`m'') {
                         local col = (`m' - 1) * 3 + 1
-                        replace c`col' = string(`stat_qic_`m'', "%12.2f") in `=`curr_n'+1'
+                        replace c`col' = ustrregexra(string(`stat_qic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                     }
                 }
             }
@@ -229,7 +229,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_qic_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`stat_qic_`m'', "%12.2f") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_qic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -254,7 +254,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_bic_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`stat_bic_`m'', "%12.2f") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_bic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -279,7 +279,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_ll_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`stat_ll_`m'', "%12.2f") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_ll_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -305,7 +305,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_icc_models' {
                 if !missing(`stat_icc_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`stat_icc_`m'', "%5.3f") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_icc_`m'', "%5.3f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -347,7 +347,7 @@ if `add_stats' == 1 {
                 else if !missing(`stat_r2_a_`m'') local _r2val = `stat_r2_a_`m''
                 if !missing(`_r2val') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`_r2val', "%5.3f") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`_r2val', "%5.3f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -368,7 +368,7 @@ if `add_stats' == 1 {
         forvalues m = 1/`use_models' {
             if !missing(`stat_`_nt'_`m'') {
                 local col = (`m' - 1) * 3 + 1
-                replace c`col' = string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''") in `=`curr_n'+1'
+                replace c`col' = ustrregexra(string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
             }
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -453,7 +453,7 @@ if `add_stats' == 1 {
                 if !missing(`_x') {
                     local _cst_fmt "`_cst_fmt_`_k''"
                     if "`_cst_fmt'" == "" local _cst_fmt = cond(`_cst_int`_s'_`_k'', "%12.0fc", "%12.3f")
-                    local _cst_txt = strtrim(string(`_x', "`_cst_fmt'"))
+                    local _cst_txt = strtrim(ustrregexra(string(`_x', "`_cst_fmt'"), "-(?=[0.,]+\z)", ""))
                     local _cst_gs = `_cst_g`_s'_`_k''
                     if `_cst_pm`_s'_`_k'_`m'' {
                         local _cst_txt "<`_cst_mc`_s'_`_k''"

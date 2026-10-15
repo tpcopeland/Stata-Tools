@@ -1,4 +1,4 @@
-*! puttab Version 1.0.0  2026/10/13
+*! puttab Version 1.0.0  2026/10/15
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1035,10 +1035,7 @@ program define puttab, rclass
         }
 
         if `_has_using' {
-            noisily display as text "puttab: wrote " as result "`_ndatarows'" ///
-                as text " data rows x " as result "`K'" as text " cols (" ///
-                as result "`_src'" as text " source) to sheet " ///
-                as result `"`macval(sheet)'"' as text " in " as result `"`using'"'
+            noisily _tabtools_export_done using `"`using'"', sheet(`"`macval(sheet)'"')
         }
     }
     local rc = _rc
@@ -1145,7 +1142,7 @@ string colvector _puttab_fmt_num(
     if (isdate) {
         for (i = 1; i <= n; i++) {
             if (mapped[i] != "") out[i] = mapped[i]
-            else if (v[i] < .) out[i] = strtrim(strofreal(v[i], vfmt))
+            else if (v[i] < .) out[i] = strtrim(ustrregexra(strofreal(v[i], vfmt), "-(?=[0.,]+\z)", ""))
         }
         return(out)
     }
@@ -1159,14 +1156,14 @@ string colvector _puttab_fmt_num(
     }
     grp = (regexm(vfmt, "^%-?0?[0-9]+[.][0-9]+fc$") ? "c" : "")
     ifmt = (nfmt != "" ? nfmt : "%32.0f" + grp)
-    ffmt = "%32." + strofreal(digits, "%9.0f") + "f" + grp
+    ffmt = "%32." + ustrregexra(strofreal(digits, "%9.0f"), "-(?=[0.,]+\z)", "") + "f" + grp
 
     for (i = 1; i <= n; i++) {
         if (mapped[i] != "") {
             out[i] = mapped[i]
         }
         else if (v[i] < .) {
-            out[i] = strtrim(strofreal(v[i], allint ? ifmt : ffmt))
+            out[i] = strtrim(ustrregexra(strofreal(v[i], allint ? ifmt : ffmt), "-(?=[0.,]+\z)", ""))
             if (regexm(out[i], "^-0([.]0+)?$")) out[i] = substr(out[i], 2, .)
         }
     }
@@ -1211,14 +1208,14 @@ void _puttab_emit_table(string matrix out)
             if (strlen(out[i, j]) > maxlen) maxlen = strlen(out[i, j])
         }
         if (maxlen < 1) maxlen = 1
-        if (maxlen <= 2045) vtype = "str" + strofreal(maxlen, "%9.0f")
+        if (maxlen <= 2045) vtype = "str" + ustrregexra(strofreal(maxlen, "%9.0f"), "-(?=[0.,]+\z)", "")
         else vtype = "strL"
-        vname = "c" + strofreal(j, "%9.0f")
+        vname = "c" + ustrregexra(strofreal(j, "%9.0f"), "-(?=[0.,]+\z)", "")
         (void) st_addvar(vtype, vname)
     }
     st_addobs(N)
     for (j = 1; j <= K; j++) {
-        st_sstore(., "c" + strofreal(j, "%9.0f"), out[, j])
+        st_sstore(., "c" + ustrregexra(strofreal(j, "%9.0f"), "-(?=[0.,]+\z)", ""), out[, j])
     }
 }
 

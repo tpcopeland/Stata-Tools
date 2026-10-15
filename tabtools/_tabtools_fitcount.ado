@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 1.0.0  2026/10/13
+*! _tabtools_fitcount Version 1.0.0  2026/10/15
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -352,7 +352,7 @@ program define _tabtools_fitcount, rclass
 				quietly summarize `events' if `touse' `_cond', meanonly
 				local _tev = r(sum)
 				if missing(`_tev') local _tev = 0
-				local _tev_`_n_terms' = strofreal(`_tev', "%21.0f")
+				local _tev_`_n_terms' = ustrregexra(strofreal(`_tev', "%21.0f"), "-(?=[0.,]+\z)", "")
 				local _tvok_`_n_terms' = `_vok'
 			}
 			forvalues _ti = 1/`_n_terms' {
@@ -401,7 +401,7 @@ program define _tabtools_fitcount, rclass
 				if !`_sok' continue
 				mata: _tt_fc_U = uniqrows(st_data(., tokens(st_local("_fvl")), st_local("touse")))
 				mata: _tt_fc_P = tokens(subinstr(st_local("_sig"), "#", " ")); _tt_fc_o = ""; _tt_fc_M = rowmissing(_tt_fc_U)
-				mata: for (_tt_fc_i = 1; _tt_fc_i <= rows(_tt_fc_U); _tt_fc_i++) { if (_tt_fc_M[_tt_fc_i] > 0) continue; _tt_fc_q = 0; _tt_fc_k = ""; for (_tt_fc_j = 1; _tt_fc_j <= cols(_tt_fc_P); _tt_fc_j++) { _tt_fc_t = _tt_fc_P[_tt_fc_j]; if (substr(_tt_fc_t, 1, 2) == "*.") { _tt_fc_q++; _tt_fc_t = strofreal(_tt_fc_U[_tt_fc_i, _tt_fc_q], "%21.0g") + substr(_tt_fc_t, 2, strlen(_tt_fc_t)); }; _tt_fc_k = _tt_fc_k + (_tt_fc_j > 1 ? "#" : "") + _tt_fc_t; }; _tt_fc_o = _tt_fc_o + " " + _tt_fc_k; }
+				mata: for (_tt_fc_i = 1; _tt_fc_i <= rows(_tt_fc_U); _tt_fc_i++) { if (_tt_fc_M[_tt_fc_i] > 0) continue; _tt_fc_q = 0; _tt_fc_k = ""; for (_tt_fc_j = 1; _tt_fc_j <= cols(_tt_fc_P); _tt_fc_j++) { _tt_fc_t = _tt_fc_P[_tt_fc_j]; if (substr(_tt_fc_t, 1, 2) == "*.") { _tt_fc_q++; _tt_fc_t = ustrregexra(strofreal(_tt_fc_U[_tt_fc_i, _tt_fc_q], "%21.0g"), "-(?=[0.,]+\z)", "") + substr(_tt_fc_t, 2, strlen(_tt_fc_t)); }; _tt_fc_k = _tt_fc_k + (_tt_fc_j > 1 ? "#" : "") + _tt_fc_t; }; _tt_fc_o = _tt_fc_o + " " + _tt_fc_k; }
 				mata: st_local("_sigk", strtrim(_tt_fc_o))
 				capture mata: mata drop _tt_fc_*
 				local _lev_str `"`_lev_str';`_sig'=`_sigk'"'
@@ -439,10 +439,10 @@ program define _tabtools_fitcount, rclass
 		}
 
 		noisily display as text "tabtools fitcount (model `_k', " as result "`_n_sample'" as text " obs): events " ///
-			as result strtrim(string(`_ev', "%21.0fc")) ///
-			as text cond(missing(`_pp'), "", ", people ") as result cond(missing(`_pp'), "", strtrim(string(`_pp', "%21.0fc"))) ///
-			as text cond(missing(`_ppe'), "", ", people with an event ") as result cond(missing(`_ppe'), "", strtrim(string(`_ppe', "%21.0fc"))) ///
-			as text cond(missing(`_px'), "", ", exposure ") as result cond(missing(`_px'), "", strtrim(string(`_px', "%21.2fc")))
+			as result strtrim(ustrregexra(string(`_ev', "%21.0fc"), "-(?=[0.,]+\z)", "")) ///
+			as text cond(missing(`_pp'), "", ", people ") as result cond(missing(`_pp'), "", strtrim(ustrregexra(string(`_pp', "%21.0fc"), "-(?=[0.,]+\z)", ""))) ///
+			as text cond(missing(`_ppe'), "", ", people with an event ") as result cond(missing(`_ppe'), "", strtrim(ustrregexra(string(`_ppe', "%21.0fc"), "-(?=[0.,]+\z)", ""))) ///
+			as text cond(missing(`_px'), "", ", exposure ") as result cond(missing(`_px'), "", strtrim(ustrregexra(string(`_px', "%21.2fc"), "-(?=[0.,]+\z)", "")))
 
 		return scalar events = `_ev'
 		if !missing(`_pp') return scalar people = `_pp'
