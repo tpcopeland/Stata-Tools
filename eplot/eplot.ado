@@ -1,4 +1,4 @@
-*! eplot Version 1.7.3  2026/10/13
+*! eplot Version 1.0.0  2026/10/15
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -2099,6 +2099,14 @@ program define _eplot_estimates, rclass
         matrix `b_dot' = e(b)
         matrix `V_dot' = e(V)
         local _keform_dot "`e(k_eform)'"
+        // mixed posts its variance components as equations of their own
+        // (lns#_#_#, atr#_#_#_#, lnsig_e, r_*), not in "/": the first
+        // e(k_f) columns are the fixed effects.
+        local _nfix_dot .
+        if inlist("`e(cmd)'", "mixed", "xtmixed") {
+            capture confirm integer number `e(k_f)'
+            if !_rc local _nfix_dot = `e(k_f)'
+        }
         _eplot_coef_df, b(`b_dot') df(`dfv_dot') v(`V_dot')
     }
 
@@ -2198,7 +2206,7 @@ program define _eplot_estimates, rclass
     forvalues m = 1/`n_models' {
         local est_name : word `m' of `estlist'
         if `m' == `dot_idx' {
-            _eplot_matrix_coefnames, matrix(`b_dot')
+            _eplot_matrix_coefnames, matrix(`b_dot') nfix(`_nfix_dot')
             local _colnames `"`s(names)'"'
         }
         else {
@@ -2206,7 +2214,12 @@ program define _eplot_estimates, rclass
             if _rc continue
             tempname _btemp
             matrix `_btemp' = e(b)
-            _eplot_matrix_coefnames, matrix(`_btemp')
+            local _nfix_l .
+            if inlist("`e(cmd)'", "mixed", "xtmixed") {
+                capture confirm integer number `e(k_f)'
+                if !_rc local _nfix_l = `e(k_f)'
+            }
+            _eplot_matrix_coefnames, matrix(`_btemp') nfix(`_nfix_l')
             local _colnames `"`s(names)'"'
         }
         foreach _cn of local _colnames {
@@ -2231,9 +2244,10 @@ program define _eplot_estimates, rclass
             // Parse factor notation: #.varname or #b.varname or c.varname
             local _facval ""
             local _purvar "`_basevar'"
-            if regexm("`_basevar'", "^([0-9]+)b?\.(.+)$") {
+            // margins, post names a level "#bn." (no base level).
+            if regexm("`_basevar'", "^([0-9]+)(bn|b)?\.(.+)$") {
                 local _facval = regexs(1)
-                local _purvar = regexs(2)
+                local _purvar = regexs(3)
             }
             else if regexm("`_basevar'", "^[co]\.(.+)$") {
                 local _purvar = regexs(1)
@@ -2306,6 +2320,7 @@ program define _eplot_estimates, rclass
     // the equations Stata itself exponentiates are kept: the first
     // e(k_eform) equations (default 1), as [R] ml display documents.
     local _n_anc 0
+    local _n_vc 0
     local _n_noneform 0
     local _zero_names ""
     // Every coefficient of every model, before keep() or any omission, so a
@@ -2318,7 +2333,7 @@ program define _eplot_estimates, rclass
         if `m' == `dot_idx' {
             // Current estimates (already extracted)
             local k = colsof(`b_dot')
-            _eplot_matrix_coefnames, matrix(`b_dot')
+            _eplot_matrix_coefnames, matrix(`b_dot') nfix(`_nfix_dot')
             local names `"`s(names)'"'
             local _fnames : colfullnames `b_dot'
             local _known `"`_known' `names' `_fnames'"'
@@ -2333,6 +2348,10 @@ program define _eplot_estimates, rclass
                 local this_var = `V_dot'[`i', `i']
                 if "`_eq_i'" == "/" {
                     if `this_var' > 0 & !missing(`this_var') local ++_n_anc
+                    continue
+                }
+                if `i' > `_nfix_dot' {
+                    local ++_n_vc
                     continue
                 }
                 if "`eform'" != "" & !`: list _eq_i in _eform_eqs' {
@@ -2396,9 +2415,14 @@ program define _eplot_estimates, rclass
             matrix `bm' = e(b)
             matrix `Vm' = e(V)
             _eplot_coef_df, b(`bm') df(`dfvm') v(`Vm')
+            local _nfix .
+            if inlist("`e(cmd)'", "mixed", "xtmixed") {
+                capture confirm integer number `e(k_f)'
+                if !_rc local _nfix = `e(k_f)'
+            }
 
             local k = colsof(`bm')
-            _eplot_matrix_coefnames, matrix(`bm')
+            _eplot_matrix_coefnames, matrix(`bm') nfix(`_nfix')
             local names `"`s(names)'"'
             local _fnames : colfullnames `bm'
             local _known `"`_known' `names' `_fnames'"'
@@ -2413,6 +2437,10 @@ program define _eplot_estimates, rclass
                 local this_var = `Vm'[`i', `i']
                 if "`_eq_i'" == "/" {
                     if `this_var' > 0 & !missing(`this_var') local ++_n_anc
+                    continue
+                }
+                if `i' > `_nfix' {
+                    local ++_n_vc
                     continue
                 }
                 if "`eform'" != "" & !`: list _eq_i in _eform_eqs' {
@@ -2455,6 +2483,9 @@ program define _eplot_estimates, rclass
     local _post_open 0
     if `_n_anc' > 0 {
         display as text "(note: `_n_anc' ancillary parameter(s) in equation / omitted)"
+    }
+    if `_n_vc' > 0 {
+        display as text "(note: `_n_vc' variance-component parameter(s) omitted)"
     }
     if `_n_noneform' > 0 {
         display as text "(note: `_n_noneform' parameter(s) outside the exponentiated equation(s) omitted with eform)"
@@ -4398,14 +4429,28 @@ program define _eplot_matrix_coefnames, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, Matrix(name)
+        syntax, Matrix(name) [NFIX(string)]
 
-        local names : colnames `matrix'
+        // NFIX(#) < colsof(): only the first # columns are effects (the
+        // fixed part of mixed), so only they decide whether names need their
+        // equation prefix; the remaining columns keep their full names.
+        local k = colsof(`matrix')
+        local nf = real("`nfix'")
+        if missing(`nf') | `nf' >= `k' | `nf' < 1 local nf = `k'
+        tempname _sub
+        matrix `_sub' = `matrix'[1, 1..`nf']
+        local names : colnames `_sub'
         local unique_names : list uniq names
         local n_names : word count `names'
         local n_unique : word count `unique_names'
         if `n_unique' < `n_names' {
-            local names : colfullnames `matrix'
+            local names : colfullnames `_sub'
+        }
+        if `nf' < `k' {
+            local _full : colfullnames `matrix'
+            forvalues j = `=`nf' + 1'/`k' {
+                local names `"`names' `: word `j' of `_full''"'
+            }
         }
 
         sreturn clear

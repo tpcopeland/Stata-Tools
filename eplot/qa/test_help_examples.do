@@ -30,7 +30,7 @@ local failed_tests ""
 
 * Pinned inventory (review when the help file or README changes).
 local want_sthlp 16
-local want_readme_run 7
+local want_readme_run 8
 local want_readme_skip 3
 
 mata:
@@ -172,7 +172,7 @@ forvalues b = 1/`n_readme_run' {
     capture frame drop effects
     capture noisily {
         do "`hx'_readme_`b'.do"
-        * Every runnable block ends in an eplot call (block 4 then drops its
+        * Every runnable block ends in an eplot call (the frame-mode block drops its
         * frame, which leaves r() alone): its results must be posted.
         assert substr(`"`r(cmd)'"', 1, 7) == "twoway "
         assert r(k) >= 1 & r(k) < .

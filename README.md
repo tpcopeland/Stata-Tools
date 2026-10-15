@@ -173,7 +173,7 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 
 | Package | What it does | Version |
 | --- | --- | --- |
-| [eplot](eplot) | Forest and coefficient plots from variables, stored estimates, matrices, or frames | ![version](https://img.shields.io/badge/version-1.7.3-1a5f91?style=flat-square) |
+| [eplot](eplot) | Forest and coefficient plots from variables, stored estimates, matrices, or frames | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [kmplot](kmplot) | Kaplan-Meier and cumulative-failure curves with CIs, risk tables, landmarks, medians, and censor marks | ![version](https://img.shields.io/badge/version-1.4.3-1a5f91?style=flat-square) |
 | [raincloud](raincloud) | Raincloud plots: density, raw points, and box summary in one figure | ![version](https://img.shields.io/badge/version-1.0.4-1a5f91?style=flat-square) |
 | [spaghetti](spaghetti) | Individual trajectories over time, with optional group means and CIs | ![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square) |

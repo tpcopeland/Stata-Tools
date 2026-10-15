@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.3  13oct2026}{...}
+{* *! version 1.0.0  15oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -210,7 +210,10 @@ initially empty {cmd:e()} state or results posted by {cmd:ereturn post} without
 {cmd:e(cmd)}. Parameters in the {cmd:/} equation (cutpoints, variance
 components, and ancillary parameters such as {cmd:/lnalpha} or {cmd:/ln_p}) are
 always omitted with a note: Stata reports no Wald {it:p}-value for them and
-computes their confidence intervals on a transformed metric.
+computes their confidence intervals on a transformed metric. The same holds
+for the variance components of {cmd:mixed}, which it posts in equations of
+their own ({cmd:lns1_1_1}, {cmd:atr1_1_1_2}, {cmd:lnsig_e}, ...): only the
+first {cmd:e(k_f)} coefficients, the fixed effects, are plotted.
 
 {pmore}
 Intervals and p-values follow each model's estimation distribution: {cmd:eplot}
@@ -630,13 +633,13 @@ column header takes the default text and the axis title drops its
 With {opt values} (horizontal layout), the plot region runs on under the values
 column, so the title is centred on the drawn effect axis instead of on the plot
 region, drawn the way an {cmd:atnull} title is. A passed-through {cmd:xtitle()}
-may give the text and {cmd:size()} and {cmd:color()}, which are carried over.
-{cmd:twoway} places the title itself, centred on the plot region, when
+may give the text and {cmd:size()} and {cmd:color()}, which are carried over. {cmd:twoway}
+places the title itself, centred on the plot region, when
 {cmd:xtitle("")} suppresses it, when {cmd:xtitle()} has any other suboption
 (such as {cmd:placement()}, {cmd:justification()}, {cmd:orientation()}, or
 {cmd:margin()}) or is given more than once (in both cases a note says so), and
-when {cmd:xscale(alt)} moves the axis to the top or {cmd:xscale(off)} hides it.
-An option naming {cmd:axis(2)} exits with error 198, as {cmd:eplot} draws a
+when {cmd:xscale(alt)} moves the axis to the top or {cmd:xscale(off)} hides it. An
+option naming {cmd:axis(2)} exits with error 198, as {cmd:eplot} draws a
 single effect axis.
 
 {pmore}
@@ -1351,7 +1354,7 @@ alone.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.3, 2026-10-13{p_end}
+{pstd}Version 1.0.0, 2026-10-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
