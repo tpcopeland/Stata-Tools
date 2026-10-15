@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.10  2026/10/12
+*! fvgen Version 1.0.0  2026/10/15
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -137,7 +137,7 @@ program define fvgen, rclass
             * characteristics, so a variable is dropped only while its stamp
             * still equals its name: clonevar copies and renamed generated
             * variables are left in place. An empty stamp is a variable made
-            * before 1.2.9 and keeps the old role-only rule.
+            * by an earlier pre-release build and keeps the old role-only rule.
             if `_has_vl' | `"`_drop_extras'"' != "" {
                 display as error ///
                     "drop does not take varlists, qualifiers, weights, or other options; use {cmd:fvgen, drop} alone to remove all fvgen-generated variables"
@@ -154,9 +154,7 @@ program define fvgen, rclass
                     }
                 }
             }
-            foreach _c in spec terms allvars genvars centered sigvars signature {
-                char _dta[fvgen_`_c'] ""
-            }
+            mata: _fvgen_provclear()
             local _dropped : list clean _dropped
             local _nd : word count `_dropped'
             return local dropped  "`_dropped'"
@@ -558,9 +556,7 @@ program define fvgen, rclass
             **# Invalidate the previous run's provenance
             * Only now that the plan is valid: a rejected call leaves an earlier,
             * still-valid flattened model usable by fvgen, margins.
-            foreach _c in spec terms allvars genvars centered sigvars signature {
-                char _dta[fvgen_`_c'] ""
-            }
+            mata: _fvgen_provclear()
 
             **# Create centered copies
             local genvars ""
@@ -683,15 +679,22 @@ program define fvgen, rclass
             }
 
             **# Dataset-level provenance for post-estimation margins-ready clones
+            * List-valued provenance is chunked: one characteristic holds at
+            * most 67,784 bytes, which a wide dataset or a large factor design
+            * exceeds (r(1004) after the variables were already created).
             local _sigvars : list _fvgen_prevars | genvars
             quietly _datasignature `_sigvars'
-            char _dta[fvgen_spec] "`expandspec'"
-            char _dta[fvgen_terms] "`terms'"
-            char _dta[fvgen_allvars] "`allvars'"
-            char _dta[fvgen_genvars] "`genvars'"
-            char _dta[fvgen_centered] "`center'"
-            char _dta[fvgen_sigvars] "`_sigvars'"
-            char _dta[fvgen_signature] "`r(datasignature)'"
+            local _fvgen_sig "`r(datasignature)'"
+            foreach _c in spec terms allvars genvars centered sigvars signature {
+                if "`_c'" == "spec"      local _cval "`expandspec'"
+                if "`_c'" == "terms"     local _cval "`terms'"
+                if "`_c'" == "allvars"   local _cval "`allvars'"
+                if "`_c'" == "genvars"   local _cval "`genvars'"
+                if "`_c'" == "centered"  local _cval "`center'"
+                if "`_c'" == "sigvars"   local _cval "`_sigvars'"
+                if "`_c'" == "signature" local _cval "`_fvgen_sig'"
+                mata: _fvgen_charput("fvgen_`_c'", st_local("_cval"))
+            }
 
             **# Return results
             return local spec     "`expandspec'"
@@ -814,15 +817,15 @@ program define _fvgen_margins_repost, eclass
             exit 301
         }
 
-        local allvars : char _dta[fvgen_allvars]
-        local spec    : char _dta[fvgen_spec]
+        mata: st_local("allvars", _fvgen_charget("fvgen_allvars"))
+        mata: st_local("spec", _fvgen_charget("fvgen_spec"))
         if `"`allvars'"' == "" | `"`spec'"' == "" {
             display as error ///
                 "fvgen, margins requires fvgen term provenance; rerun fvgen, estimate on r(allvars), then call fvgen, margins"
             exit 198
         }
-        local sigvars   : char _dta[fvgen_sigvars]
-        local signature : char _dta[fvgen_signature]
+        mata: st_local("sigvars", _fvgen_charget("fvgen_sigvars"))
+        mata: st_local("signature", _fvgen_charget("fvgen_signature"))
         if `"`sigvars'"' == "" | `"`signature'"' == "" {
             display as error ///
                 "fvgen, margins requires current fvgen data provenance; rerun fvgen and the flattened estimator"
@@ -840,7 +843,7 @@ program define _fvgen_margins_repost, eclass
                 "fvgen, margins: data variables present when fvgen ran, or generated variables, changed afterward; rerun fvgen and the flattened estimator"
             exit 498
         }
-        local centered : char _dta[fvgen_centered]
+        mata: st_local("centered", _fvgen_charget("fvgen_centered"))
         if "`centered'" != "" {
             display as error ///
                 "fvgen, margins does not support models generated with center; margins must see the same raw factor-variable scale used for estimation"
@@ -1023,6 +1026,9 @@ end
 * Unaligned free b is a different basis after exact collinearity: accepted
 * (0) for a deterministic VCE, unverifiable (2) for a resampling VCE.
 capture mata: mata drop _fvgen_vcheck()
+capture mata: mata drop _fvgen_provclear()
+capture mata: mata drop _fvgen_charput()
+capture mata: mata drop _fvgen_charget()
 mata:
 void _fvgen_vcheck(string scalar fb, string scalar fv, string scalar fo,
     string scalar no, real scalar resample)
@@ -1049,5 +1055,55 @@ void _fvgen_vcheck(string scalar fb, string scalar fv, string scalar fo,
         else bad = 2 * (resample != 0)
     }
     st_local("_fvgen_vbad", strofreal(bad))
+}
+
+// Clear every _dta[fvgen_*] characteristic, chunk continuations included.
+void _fvgen_provclear()
+{
+    string colvector nm
+    real scalar i
+
+    nm = st_dir("char", "_dta", "fvgen_*")
+    for (i = 1; i <= rows(nm); i++) st_global("_dta[" + nm[i] + "]", "")
+}
+
+// Store a space-separated list in _dta[key], _dta[key_2], ... with each
+// chunk under the 67,784-byte characteristic limit, split between words.
+void _fvgen_charput(string scalar key, string scalar val)
+{
+    string rowvector w
+    string scalar chunk
+    real scalar i, k
+
+    w = tokens(val, " ")
+    w = select(w, w :!= " ")
+    chunk = ""
+    k = 1
+    for (i = 1; i <= cols(w); i++) {
+        if (chunk != "" & strlen(chunk) + 1 + strlen(w[i]) > 60000) {
+            st_global("_dta[" + key + (k > 1 ? "_" + strofreal(k) : "") + "]", chunk)
+            k++
+            chunk = ""
+        }
+        chunk = chunk + (chunk == "" ? "" : " ") + w[i]
+    }
+    st_global("_dta[" + key + (k > 1 ? "_" + strofreal(k) : "") + "]", chunk)
+}
+
+// Reassemble a list written by _fvgen_charput().
+string scalar _fvgen_charget(string scalar key)
+{
+    string scalar s, t
+    real scalar k
+
+    s = st_global("_dta[" + key + "]")
+    k = 2
+    t = st_global("_dta[" + key + "_2]")
+    while (t != "") {
+        s = s + " " + t
+        k++
+        t = st_global("_dta[" + key + "_" + strofreal(k) + "]")
+    }
+    return(s)
 }
 end

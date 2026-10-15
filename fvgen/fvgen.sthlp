@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.10  12oct2026}{...}
+{* *! version 1.0.0  15oct2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -338,7 +338,7 @@ it: {cmd:char }{it:var}{cmd:[fvgen_role]} is {cmd:main}, {cmd:interaction}, or {
 example {cmd:1.foreign#c.mpg}), and {cmd:char }{it:var}{cmd:[fvgen_name]} records the name
 {cmd:fvgen} gave it. {cmd:fvgen, drop} removes a variable only when it has a {cmd:fvgen_role}
 and its {cmd:fvgen_name} still equals its name, so a {helpb clonevar} copy or a renamed
-variable is never dropped. (A variable made by {cmd:fvgen} before version 1.2.9 has no
+variable is never dropped. (A variable made by an earlier pre-release build of {cmd:fvgen} has no
 {cmd:fvgen_name} and is identified by {cmd:fvgen_role} alone.) Dataset-level provenance also records the effective
 specification, generated-variable inventory, and a signature of every data
 variable present when {cmd:fvgen} ran plus its generated data. The {opt margins}
@@ -460,7 +460,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.10, 2026-10-12{p_end}
+{pstd}Version 1.0.0, 2026-10-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

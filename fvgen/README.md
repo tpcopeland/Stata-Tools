@@ -2,9 +2,9 @@
 
 # fvgen — Labeled variables from factor-variable interactions
 
-**Version 1.2.10** | 2026-10-12
+**Version 1.0.0** | 2026-10-15
 
-[![version](https://img.shields.io/badge/version-1.2.10-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -243,24 +243,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.2.10** (2026-10-12): `fvgen, margins` refuses (r(198)) a command line carrying a `saving()`-type option instead of replaying it, which silently rewrote the user's bootstrap or jackknife replicate file; it also refuses `mi estimate` results by name. A failed native replay now shows the estimator's own error message. The README teardown description now states that `clonevar` copies and renamed generated variables are kept.
-- **1.2.9** (2026-10-12): `fvgen, margins` no longer swaps in a different bootstrap variance: a resampling fit is replayed from its posted `e(rngstate)`, the model check now also compares the variance matrix (r(498) on mismatch), and the caller's random-number state is restored afterward. `fvgen, drop` no longer deletes `clonevar` copies of generated variables (generated variables are stamped with their own name in `fvgen_name`). `ref()` naming an `ibn.` factor is now an error instead of silently imposing a base. `xsymbol()` containing a double quote works. The console listing shows labels literally and falls back to the variable name for an unlabeled pass-through variable. A squared continuous term is labeled `^2` when `xsymbol()` is plain ASCII. The help file positions `fvgen` against `xi` and links `xi`, `margins`, and `fvset`.
-- **1.2.8** (2026-10-12): A rejected `fvgen` call no longer erases the previous run's provenance, so `fvgen, margins` still works for the earlier model. `fvgen, margins` replays the estimator under the caller's `varabbrev` setting. Generated-name length is counted in characters, not bytes, so Unicode names up to 32 characters are accepted. `ref()` naming one variable twice now reports the duplicate. Under `center` and `replace`, a weight that reads a centered copy `fvgen` would regenerate is refused instead of being dropped mid-run. Internal simplification: one parse and one name check per term.
-
-<details><summary>Earlier versions</summary>
-
-- **1.2.7** (2026-09-30): Preserve literal quotes, backticks, dollar signs and Unicode when building labels for centered copies, factor indicators and interactions, including reference suffixes. The documented 80-character label limit and suffix rules are unchanged.
-- **1.2.6** (2026-09-29): The margins bridge now refuses (r(498)) a native refit that is not the same model as the flattened fit (different estimation sample, N, rank, free coefficients, or log likelihood), which previously substituted a different model silently after `fvgen ... if` or `alllevels` with `noconstant`; `margins store(name)` no longer silently overwrites an existing stored estimate without `replace`; a level missing from an attached value label is labeled `var=level` instead of a bare number; string variables and `i(numlist)` factors with `ref()`/`simple()` get accurate errors.
-- **1.2.5** (2026-08-30): Strengthened margins provenance to include outcomes and other pre-existing data, restored active estimates after replay failures, rejected nonconverged native replays, and corrected weight documentation.
-- **1.2.4** (2026-08-11): Added atomic generated-name preflight, exact and ambiguity-safe `ref()` label resolution, and stale-data guards for margins refits.
-- **1.2.3** (2026-08-05): Clarified full-rank versus rank-deficient equivalence and repaired quoted clickable help examples.
-- **1.2.2** (2026-08-05): Corrected `vsref()` abbreviation, `replace` collision, and margins-clone stored-result documentation.
-- **1.2.1** (2026-07-27): Documentation hygiene aligned shipped documentation with the released package and kept contributor material out of user-facing files.
-- **1.2.0** (2026-06-30): Added `fvgen, margins` for margins-ready native factor-variable estimator clones after flattened models, plus `store(name)` to preserve the active flattened estimate for table export.
-- **1.1.0** (2026-06-27): Added `vsref(string)` to append the reference level to categorical main-effect labels via an `@` placeholder.
-- **1.0.0** (2026-06-21): Initial release.
-
-</details>
+- **1.0.0** (2026-10-15): Initial release.
 
 ## Author
 

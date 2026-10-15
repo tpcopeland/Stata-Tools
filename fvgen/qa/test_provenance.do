@@ -213,7 +213,7 @@ capture noisily {
     clonevar myclone = _arm_1
     assert "`: char myclone[fvgen_role]'" == "main"
     rename _armXage_1 kept_product
-    * a pre-1.2.9 generated variable carries a role but no name stamp
+    * a generated variable from an earlier pre-release build carries a role but no name stamp
     generate double legacy = 1
     char legacy[fvgen_role] "main"
     fvgen, drop

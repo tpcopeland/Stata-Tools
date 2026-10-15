@@ -588,7 +588,7 @@ else {
 }
 
 **# 19. A rejected run leaves the previous run's provenance intact
-* 1.2.7 cleared every _dta[fvgen_*] char before validating, so a call that
+* An earlier build cleared every _dta[fvgen_*] char before validating, so a call that
 * correctly failed r(110) still made the earlier model unusable by margins.
 local ++test_count
 capture noisily {
@@ -625,7 +625,7 @@ else {
 }
 
 **# 20. margins replays the user's command line under the user's varabbrev
-* 1.2.7 forced varabbrev off for the refit, so an abbreviated depvar that the
+* An earlier build forced varabbrev off for the refit, so an abbreviated depvar that the
 * flattened fit accepted made the native replay fail r(111).
 local ++test_count
 capture noisily {
@@ -749,6 +749,233 @@ else {
     display as error "  FAIL: weight/output collision (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 23"
+}
+
+**# 24. List provenance on wide data is chunked under the characteristic limit
+* One characteristic holds at most 67,784 bytes. The sigvars, allvars and
+* terms inventories of a wide dataset exceed it; this used to fail r(1004)
+* after the generated variables had already been created.
+local ++test_count
+capture noisily {
+    clear
+    set obs 3000
+    set seed 24
+    generate double y = rnormal()
+    generate byte a = runiformint(1, 3)
+    generate double x = rnormal()
+    forvalues i = 1/2400 {
+        quietly generate float v_abcdefghijklmnopqrstuvwx_`i' = rnormal()
+    }
+    quietly fvgen i.a##c.x v_abcdefghijklmnopqrstuvwx_1-v_abcdefghijklmnopqrstuvwx_2400
+    local allv `r(allvars)'
+    assert `: word count `allv'' == 2405
+    assert "`r(genvars)'" == "_a_2 _a_3 _aXx_2 _aXx_3"
+    * each inventory spans more than one chunk and reassembles exactly
+    unab all_now : _all
+    foreach c in allvars sigvars {
+        local c1 : char _dta[fvgen_`c']
+        local c2 : char _dta[fvgen_`c'_2]
+        local c3 : char _dta[fvgen_`c'_3]
+        assert `"`c2'"' != ""
+        assert `"`c3'"' == ""
+        assert strlen(`"`c1'"') <= 67784 & strlen(`"`c2'"') <= 67784
+        if "`c'" == "allvars" assert `"`c1' `c2'"' == `"`allv'"'
+        if "`c'" == "sigvars" assert `"`c1' `c2'"' == `"`all_now'"'
+    }
+    quietly regress y `allv'
+    tempname bflat
+    matrix `bflat' = e(b)
+    fvgen, margins
+    assert "`e(fvgen_margins)'" == "1"
+    foreach v in x v_abcdefghijklmnopqrstuvwx_2400 {
+        local b_nat = _b[`v']
+        local b_flat = `bflat'[1, colnumb(`bflat', "`v'")]
+        assert !missing(`b_nat') & !missing(`b_flat')
+        assert reldif(`b_nat', `b_flat') < 1e-10
+    }
+    * a change to a variable recorded only in the second chunk is still stale
+    quietly regress y `allv'
+    quietly replace v_abcdefghijklmnopqrstuvwx_2400 = 0 in 1
+    capture fvgen, margins
+    assert _rc == 498
+    * a shorter re-run leaves no continuation chunk from the wide run
+    drop v_abcdefghijklmnopqrstuvwx_*
+    quietly fvgen i.a##c.x, replace
+    foreach c in allvars sigvars terms genvars {
+        local c1 : char _dta[fvgen_`c']
+        local c2 : char _dta[fvgen_`c'_2]
+        assert `"`c1'"' != ""
+        assert `"`c2'"' == ""
+    }
+    unab all_now : _all
+    assert `"`: char _dta[fvgen_sigvars]'"' == `"`all_now'"'
+    * teardown clears every chunk (positive control: chars exist first)
+    local dchars : char _dta[]
+    local pre_hits = 0
+    foreach ch of local dchars {
+        if substr("`ch'", 1, 6) == "fvgen_" local ++pre_hits
+    }
+    assert `pre_hits' > 0
+    fvgen, drop
+    local dchars : char _dta[]
+    local hits = 0
+    foreach ch of local dchars {
+        if substr("`ch'", 1, 6) == "fvgen_" local ++hits
+    }
+    assert `hits' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: wide-data provenance chunked, margins and stale guard intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: wide-data provenance (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 24"
+}
+
+**# 25. Console output carries no internal-command noise
+* Every documented workflow is logged and read back: the deliberate fvgen
+* messages must be present, and estimator tables, iteration logs, replay or
+* bootstrap chatter, "real changes made" notes and error codes must not be.
+local ++test_count
+capture noisily {
+    tempfile noise_log
+    sysuse auto, clear
+    label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"
+    label values rep78 rl
+    generate byte hp = price > 6000
+    capture log close _fvgen_noise
+    log using "`noise_log'", text replace name(_fvgen_noise)
+    fvgen i.foreign##c.mpg
+    fvgen i.foreign##i.rep78, replace
+    fvgen c.mpg##c.weight [pw=weight], center replace
+    fvgen i.foreign##i.rep78, alllevels xsymbol(x) replace
+    fvgen i.foreign##i.rep78, ref(rep78 3) replace
+    fvgen i.foreign##c.mpg, simple(foreign) replace
+    fvgen i.foreign##c.mpg, ref(foreign "Domestic") replace
+    fvgen i.foreign##i.rep78, vsref("(vs. @)") replace
+    fvgen, drop
+    fvgen i.foreign##c.mpg, replace
+    quietly regress price _foreign_1 mpg _foreignXmpg_1
+    fvgen, margins store(m_noise) replace
+    fvgen, margins
+    quietly logit hp _foreign_1 mpg _foreignXmpg_1
+    fvgen, margins
+    quietly bootstrap, reps(5) seed(25): regress price _foreign_1 mpg _foreignXmpg_1
+    fvgen, margins
+    fvgen, drop
+    fvgen, drop
+    log close _fvgen_noise
+    estimates drop m_noise
+
+    local want_created = 0
+    local want_margins = 0
+    local want_stored = 0
+    local want_dropped = 0
+    local want_none = 0
+    local noise = 0
+    tempname fh
+    file open `fh' using "`noise_log'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "fvgen created ") local ++want_created
+        if strpos(`"`macval(line)'"', "fvgen rebuilt the active estimates") local ++want_margins
+        if strpos(`"`macval(line)'"', "fvgen stored margins-ready estimates as m_noise") local ++want_stored
+        if strpos(`"`macval(line)'"', "fvgen dropped ") local ++want_dropped
+        if strpos(`"`macval(line)'"', "no fvgen-generated variables found") local ++want_none
+        foreach pat in "real change" "variable created" "Number of obs" "Coefficient" ///
+            "Iteration " "Log likelihood" "replications" "Source |" "(output omitted)" ///
+            "datasignature" "estimation sample" "note:" {
+            if strpos(`"`macval(line)'"', "`pat'") {
+                display as error `"noise: `macval(line)'"'
+                local ++noise
+            }
+        }
+        if regexm(`"`macval(line)'"', "^r\([0-9]+\);") {
+            display as error `"error in log: `macval(line)'"'
+            local ++noise
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `want_created' == 9
+    assert `want_margins' == 3
+    assert `want_stored' == 1
+    assert `want_dropped' == 2
+    assert `want_none' == 1
+    assert `noise' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: documented workflows print only fvgen's own messages"
+    local ++pass_count
+}
+else {
+    local noise_rc = _rc
+    capture log close _fvgen_noise
+    display as error "  FAIL: console noise (rc=`noise_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 25"
+}
+
+**# 26. A large factor-by-factor design on narrow data is chunked too
+* Two 47-level factors on a full grid give 2,208 generated variables; the
+* terms, allvars and genvars inventories then exceed one characteristic.
+local ++test_count
+capture noisily {
+    clear
+    set obs 47
+    generate int regioncode12 = _n
+    expand 47
+    bysort regioncode12: generate int cliniccode12 = _n
+    expand 2
+    set seed 26
+    generate double y = rnormal()
+    quietly fvgen i.regioncode12##i.cliniccode12
+    local allv `r(allvars)'
+    local genv `r(genvars)'
+    assert r(k_all) == 2208 & r(k_int) == 46 * 46
+    foreach c in terms allvars genvars sigvars {
+        local c1 : char _dta[fvgen_`c']
+        local c2 : char _dta[fvgen_`c'_2]
+        assert `"`c1'"' != "" & `"`c2'"' != ""
+        assert strlen(`"`c1'"') <= 67784 & strlen(`"`c2'"') <= 67784
+        if "`c'" == "allvars" assert `"`c1' `c2'"' == `"`allv'"'
+        if "`c'" == "genvars" assert `"`c1' `c2'"' == `"`genv'"'
+    }
+    quietly regress y `allv'
+    local flat_b = _b[_regioncode12Xcliniccode12_47_47]
+    local flat_r2 = e(r2)
+    fvgen, margins
+    local nat_b = _b[47.regioncode12#47.cliniccode12]
+    assert !missing(`flat_b') & !missing(`nat_b')
+    assert reldif(`flat_b', `nat_b') < 1e-8
+    local nat_r2 = e(r2)
+    assert !missing(`flat_r2') & !missing(`nat_r2')
+    assert reldif(`flat_r2', `nat_r2') < 1e-10
+    local dchars : char _dta[]
+    local pre_hits = 0
+    foreach ch of local dchars {
+        if substr("`ch'", 1, 6) == "fvgen_" local ++pre_hits
+    }
+    assert `pre_hits' > 0
+    fvgen, drop
+    assert r(k_dropped) == 2208
+    local dchars : char _dta[]
+    local hits = 0
+    foreach ch of local dchars {
+        if substr("`ch'", 1, 6) == "fvgen_" local ++hits
+    }
+    assert `hits' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: factor-by-factor provenance chunked, margins and drop intact"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: factor-by-factor provenance (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 26"
 }
 
 **# Summary

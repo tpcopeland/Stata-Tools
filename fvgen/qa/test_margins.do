@@ -514,7 +514,7 @@ else {
 }
 
 **# 10. a rejected generation call keeps provenance; the bridge still guards
-* Since 1.2.8 a call rejected before touching the data leaves the previous
+* A call rejected before touching the data leaves the previous
 * provenance in place (the data it describes are unchanged). A model that is
 * not the flattened varlist is still refused by the bridge.
 local ++test_count
