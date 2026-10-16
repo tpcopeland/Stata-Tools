@@ -124,7 +124,7 @@ program define _iivw_replay_identity, rclass
 
     quietly gen long newid = id
     quietly _iivw_bs_refit y treat L1, newid(newid) panelid(id) timevar(time) ///
-        wtype(`wtype') prefix(_iivw_) model(gee) `rwopts' ///
+        wtype(`wtype') prefix(_iivw_) `rwopts' ///
         family(gaussian) nolog
     matrix _REP_B = e(b)
 
@@ -421,7 +421,7 @@ capture noisily {
 
     * The path under test.
     quietly _iivw_bs_refit y treat L1, newid(newid) panelid(id) timevar(time) ///
-        wtype(iivw) prefix(_iivw_) model(gee) ///
+        wtype(iivw) prefix(_iivw_) ///
         visitcov(L1) lagvars(edss) censor(fu_end) baseline(entry) ///
         family(gaussian) nolog
 
@@ -468,7 +468,7 @@ capture noisily {
     quietly _iivw_weight_signature
     char _dta[_iivw_wsig] "`r(signature)'"
 
-    capture iivw_fit y treat L1, model(gee) bootstrap(3) refitweights nolog
+    capture iivw_fit y treat L1, vce(bootstrap, reps(3)) nolog
     assert _rc == 198
 }
 local rc = _rc

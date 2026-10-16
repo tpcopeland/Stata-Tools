@@ -162,7 +162,7 @@ program define _inv_fit, rclass
 
     quietly iivw_weight, id(id) time(time) visit_cov(`visitcov') ///
         censor(fu_end) wtype(`wtype') `wopts' nolog
-    quietly iivw_fit y a `outcomecov', timespec(linear) bootstrap(0) nolog
+    quietly iivw_fit y a `outcomecov', timespec(linear) vce(fixed) nolog
 
     return scalar b  = _b[a]
     return scalar se = _se[a]

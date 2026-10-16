@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.3.7  2026/10/13
+*! iivw_weight Version 1.0.0  2026/10/15
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -26,17 +26,13 @@ Options:
   treat_cov(varlist)   - Covariates for treatment model
   wtype(string)        - Weight type: iivw, iptw, or fiptiw (auto-detect)
   stabcov(varlist)     - Stabilization covariates for IIW numerator
-  experimentalnotreatvisit
-                       - FIPTIW only: omit treat() from the visit-intensity
-                         model (sensitivity/legacy; outside the supported
-                         contract)
   lagvars(varlist)     - Time-varying covariates to lag by one visit
   entry(varname)       - Study entry time per subject (default: 0)
   censor(varname)      - Subject-specific end of observation time
   maxfu(#)             - Common end of follow-up for every subject
   endatlastvisit       - End each subject's risk window at their last visit
                          (one of censor()/maxfu()/endatlastvisit is required
-                          for IIW and FIPTIW; new in 2.0.0)
+                          for IIW and FIPTIW)
   baseline(string)     - entry (default) or event: whether the first visit is
                          study entry or a modeled visit-intensity event
   truncvisit(# #)      - Percentile trimming bounds for the IIW component
@@ -52,7 +48,7 @@ See help iivw_weight for complete documentation
 
 program define iivw_weight, rclass sortpreserve
     version 16.0
-    * Native nuisance fits mutate these observed caller legacy macros.
+    * Native nuisance fits mutate these observed caller macros.
     foreach _native_key in S_1 S_2 {
         mata: st_local("_native_present_"+st_local("_native_key"),strofreal(sum(st_dir("global","macro","*"):==st_local("_native_key"))>0))
         mata: st_local("_native_bytes_"+st_local("_native_key"),st_global(st_local("_native_key")))
@@ -109,8 +105,7 @@ program define iivw_weight, rclass sortpreserve
          BASEline(string) ///
          GENerate(name) REPLACE noLOG EFRon BREslow ///
          ALLOWNONCONVerged ALLOWMISSINGWeights ///
-         SCores ///
-         EXPERIMENTALNOTREATVISit]
+         SCores]
 
     * maxfu() is parsed as ONE exact numeric token, not a numlist: numlist
     * shortens its tokens to 13 significant digits, so a boundary typed -- or
@@ -213,7 +208,7 @@ program define iivw_weight, rclass sortpreserve
     * Baseline handling. Since 2.0.0 the first visit per subject is study ENTRY
     * (risk onset), not a modeled recurrent event: the old default let baseline
     * covariates predict the occurrence of the very visit at which they were
-    * measured. baseline(event) restores the legacy contract for designs where
+    * measured. baseline(event) is the sensitivity contract for designs where
     * the baseline visit really is an event of the same recurrent process.
     *
     * This is a value option rather than a pair of flags because Stata cannot
@@ -229,8 +224,6 @@ program define iivw_weight, rclass sortpreserve
         display as error "baseline() must be entry or event"
         display as error "  entry (default): the first visit per subject is study entry"
         display as error "  event:           the first visit is a modeled visit-intensity event"
-        display as error "                   (the pre-2.0.0 behavior; see nobaseevent in the"
-        display as error "                   migration notes)"
         error 198
     }
     local exclude_base = ("`baseline'" == "entry")
@@ -310,26 +303,7 @@ program define iivw_weight, rclass sortpreserve
     *
     * It is now added BY CONSTRUCTION. A user who already listed it in
     * visit_cov() gets it once, not twice.
-    local treat_in_visit = 0
-    if "`experimentalnotreatvisit'" != "" & "`wtype'" != "fiptiw" {
-        display as error "experimentalnotreatvisit is only allowed with wtype(fiptiw)"
-        display as error "  it opts out of adding treat() to the visit-intensity model,"
-        display as error "  and only FIPTIW adds it"
-        error 198
-    }
-    if "`wtype'" == "fiptiw" {
-        if "`experimentalnotreatvisit'" != "" {
-            display as text ""
-            display as text "note: experimentalnotreatvisit -- treat() is NOT in the visit-intensity"
-            display as text "  model. The IIW factor cannot correct a visit process that depends on"
-            display as text "  treatment, so this is not the FIPTIW estimator of the literature. It"
-            display as text "  is a sensitivity/legacy path and is outside the supported contract."
-            display as text ""
-        }
-        else {
-            local treat_in_visit = 1
-        }
-    }
+    local treat_in_visit = ("`wtype'" == "fiptiw")
 
     * Note when visit_cov is supplied but ignored for IPTW-only
     if "`wtype'" == "iptw" {
@@ -550,7 +524,7 @@ program define iivw_weight, rclass sortpreserve
             display as error "                   constant within id() and >= the subject's last visit"
             display as error "  maxfu(#)         a common end of follow-up shared by all subjects"
             display as error "  endatlastvisit   follow-up genuinely ends at each subject's last"
-            display as error "                   visit (the pre-2.0.0 behavior)"
+            display as error "                   visit"
             display as error ""
             display as error "endatlastvisit is rarely the right description of a registry or EHR"
             display as error "cohort: it makes a subject leave the risk set because they stopped"
@@ -1155,14 +1129,8 @@ program define iivw_weight, rclass sortpreserve
         display as text "Treatment:        " as result "`treat'"
     }
     if "`wtype'" == "fiptiw" {
-        if `treat_in_visit' {
-            display as text "Treatment in visit model: " as result "yes" ///
-                as text " (added by construction)"
-        }
-        else {
-            display as text "Treatment in visit model: " as error "no" ///
-                as text " (experimentalnotreatvisit)"
-        }
+        display as text "Treatment in visit model: " as result "yes" ///
+            as text " (added by construction)"
     }
     if "`treat_cov'" != "" {
         display as text "Treatment covars: " as result "`treat_cov'"
@@ -1232,8 +1200,13 @@ program define iivw_weight, rclass sortpreserve
             error `__iivw_hold_rc'
         }
 
+        * Internal data preparation runs quietly; only the nuisance model
+        * fits are shown, and only when the user did not ask for nolog
+        * (the same rule iivw_exogtest applies). Error-class output stays
+        * visible under quietly, and the notes below are noisily.
+        local __iivw_fit_pfx = cond("`log_opt'" == "nolog", "quietly", "noisily")
         preserve
-        capture noisily {
+        capture noisily quietly {
             * ---------------------------------------------------------------
             * Step 1: Counting process setup
             * Each visit is a recurrent event. Transform to (start, stop).
@@ -1388,7 +1361,7 @@ program define iivw_weight, rclass sortpreserve
             * ---------------------------------------------------------------
             tempvar _tie_touse
             gen byte `_tie_touse' = (`_cox_ok' & `_stop' > `_start')
-            _iivw_tie_density, event(`_event') stop(`_stop') ///
+            noisily _iivw_tie_density, event(`_event') stop(`_stop') ///
                 touse(`_tie_touse') cmdname(visit-intensity) ///
                 method(`tie_method')
             local __iivw_tie_mult   = r(tie_multiplicity)
@@ -1396,7 +1369,8 @@ program define iivw_weight, rclass sortpreserve
             local __iivw_tie_nev    = r(n_modeled_events)
             drop `_tie_touse'
 
-            stcox `visit_covars' if `_cox_ok', `log_opt' `efron_opt'
+            `__iivw_fit_pfx' stcox `visit_covars' if `_cox_ok', noshow `log_opt' `efron_opt'
+            if "`log_opt'" == "nolog" noisily _iivw_omit_note, model(visit-intensity)
             local __iivw_visit_converged = e(converged)
             local __iivw_visit_N = e(N)
             local __iivw_visit_Nsub = e(N_sub)
@@ -1465,7 +1439,8 @@ program define iivw_weight, rclass sortpreserve
 
             if "`stabcov'" != "" {
                 noisily display as text "  Stabilization model: stcox `stabcov'"
-                noisily stcox `stabcov' if `_cox_ok', `log_opt' `efron_opt'
+                `__iivw_fit_pfx' stcox `stabcov' if `_cox_ok', noshow `log_opt' `efron_opt'
+                if "`log_opt'" == "nolog" noisily _iivw_omit_note, model(stabilization)
                 local __iivw_stab_converged = e(converged)
                 local __iivw_stab_N = e(N)
 
@@ -1554,7 +1529,7 @@ program define iivw_weight, rclass sortpreserve
             * enter this mean.
             *
             * Normalizing the POOLED vector instead -- hard-coded baseline 1s
-            * mixed in with fitted weights -- is what the pre-2.1 build did, and
+            * pooled with fitted weights -- is what the pre-2.1 build did, and
             * it is not invariant: the 1s do not move with exp(-gamma_z*c), so
             * the baseline-to-follow-up relative scale shifts, and dividing by a
             * pooled mean cannot undo a change in a RATIO. A probe on 2026-07-21
@@ -1672,11 +1647,11 @@ program define iivw_weight, rclass sortpreserve
             * and leave them alone -- that is what makes the weight vector, and
             * therefore every downstream point estimate, standard error and trim
             * cutpoint, invariant to the origin of a Cox covariate.
-            merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match master)
-            bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
+            quietly merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match master)
+            quietly bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
         }
         else {
-            merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
+            quietly merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
         }
         local __iivw_created_vars "`__iivw_created_vars' `prefix'iw"
 
@@ -1858,10 +1833,12 @@ program define iivw_weight, rclass sortpreserve
         local __iivw_logit_converged = 1
         local __iivw_ps_N = 0
         local __iivw_p_treat = .
+        local __iivw_fit_pfx = cond("`log_opt'" == "nolog", "quietly", "noisily")
         preserve
-        capture noisily {
-            quietly keep if `_first_obs'
-            logit `treat' `treat_covars', `log_opt'
+        capture noisily quietly {
+            keep if `_first_obs'
+            `__iivw_fit_pfx' logit `treat' `treat_covars', `log_opt'
+            if "`log_opt'" == "nolog" noisily _iivw_omit_note, model(treatment)
             local __iivw_logit_converged = e(converged)
             local __iivw_ps_N = e(N)
             * The model's own estimation sample, captured before anything can
@@ -2488,18 +2465,16 @@ program define iivw_weight, rclass sortpreserve
         * row -- NOT the lag column's value, which refers to the visit before it.
         char _dta[_iivw_lagvars] "`lagvars'"
 
-        * Whether treat() is in the visit-intensity denominator. The replay must
-        * reproduce this exactly: rebuilding a FIPTIW draw without it would fit a
-        * different visit model than the observed pass, so the bootstrap would be
-        * bootstrapping an estimator nobody reported.
-        char _dta[_iivw_treat_in_visit] "`treat_in_visit'"
+        * FIPTIW always puts treat() in the visit model, so no contract field
+        * records it. Clear the field a pre-release build may have left.
+        char _dta[_iivw_treat_in_visit]
     }
     else {
         char _dta[_iivw_iw_var] ""
         char _dta[_iivw_visit_covars] ""
         char _dta[_iivw_visit_cov_raw] ""
         char _dta[_iivw_lag_names] ""
-        char _dta[_iivw_treat_in_visit] "0"
+        char _dta[_iivw_treat_in_visit]
     }
     if inlist("`wtype'", "iptw", "fiptiw") {
         char _dta[_iivw_tw_var] "`prefix'tw"
@@ -2863,7 +2838,6 @@ program define iivw_weight, rclass sortpreserve
     return local lag_names "`=strtrim("`__iivw_lag_names'")'"
     return local lagvars "`lagvars'"
     return local owned "`=strtrim("`__iivw_owned'")'"
-    return scalar treat_in_visit = `treat_in_visit'
     if inlist("`wtype'", "iivw", "fiptiw") {
         return local iw_var "`prefix'iw"
 

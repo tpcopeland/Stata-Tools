@@ -133,7 +133,7 @@ capture noisily {
     iivw_balance
     * VERBATIM: no vce(), so this takes the documented refit-bootstrap default.
     * This is the one arm that pays that cost; see the runtime note above.
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear)
+    iivw_fit edss treated edss_bl, timespec(linear)
     assert "`e(iivw_cmd)'" == "iivw_fit"
     assert e(iivw_bs_reps_completed) < .
 }
@@ -155,7 +155,7 @@ capture noisily {
     iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) ///
         replace censor(fu_end) nolog
-    iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic) vce(fixed)
+    iivw_fit edss treated age sex edss_bl, timespec(quadratic) vce(fixed)
     assert "`e(iivw_cmd)'" == "iivw_fit"
 }
 if _rc == 0 {
@@ -183,13 +183,13 @@ capture noisily {
         lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) ///
         replace censor(fu_end) nolog
     iivw_balance, nolog
-    iivw_fit edss treated days relapse age sex edss_bl, model(gee) ///
+    iivw_fit edss treated days relapse age sex edss_bl, ///
         timespec(none) replace nolog vce(fixed)
     estimates store M_fiptiw
 
     gen double log_visit = log(visit + 1)
     iivw_fit edss treated days relapse age sex edss_bl log_visit, ///
-        model(gee) timespec(none) replace nolog vce(fixed)
+        timespec(none) replace nolog vce(fixed)
     estimates store M_adjusted
 
     iivw_exogtest edss relapse, id(id) time(days) censor(fu_end) ///
@@ -200,7 +200,7 @@ capture noisily {
 
     * `r(decomposable) < .' is not an assertion about this workflow -- it is
     * true at 0 and at 1, so it could not see that all three fits here are
-    * iivw_fit model(gee), i.e. Gaussian identity link, and were nonetheless
+    * iivw_fit's GEE, i.e. Gaussian identity link, and were nonetheless
     * being reported as a nonlinear-link comparison. This sequence ran the
     * defect for as long as it existed and passed every time. Assert the value.
     assert r(decomposable) == 1
@@ -259,7 +259,7 @@ capture noisily {
     * documented follow-up fit satisfies.
     iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) ///
         lagvars(edss relapse) stabcov(treated) replace censor(fu_end) nolog
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear) vce(fixed) nolog
+    iivw_fit edss treated edss_bl, timespec(linear) vce(fixed) nolog
     assert e(iivw_stabilization_validated) == 1
 
     _help_data

@@ -2,9 +2,9 @@
 
 # iivw — Inverse intensity weighting for irregular visit data
 
-**Version 4.3.7** | 2026-10-13
+**Version 1.0.0** | 2026-10-15
 
-[![version](https://img.shields.io/badge/version-4.3.7-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Inference](#inference)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -47,7 +47,7 @@ iivw_fit y x, vce(fixed) nolog
 ## Requirements
 
 - Stata 16 or later.
-- Stata 17 or later for `iivw_fit, model(mixed)` and the `collect` option.
+- Stata 17 or later for the `iivw_fit` `collect` option.
 - No external runtime dependency is required for the core `iivw` commands or their direct `xlsx()` reporting exports.
 - Optional: `tabtools` for `regtab` model-table exports, and `psdash` for treatment-propensity diagnostics after IPTW/FIPTIW weighting.
 - The repository demo additionally uses `tc_schemes` for its graph scheme.
@@ -75,7 +75,7 @@ net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 | `iivw` | Display the package overview and return the available command list |
 | `iivw_weight` | Compute IIW, IPTW, or FIPTIW weights |
 | `iivw_balance` | Report weight leverage, composition shifts, and the visit-model target-SMD diagnostic |
-| `iivw_fit` | Fit weighted or unweighted GEE-style and mixed-effects outcome models |
+| `iivw_fit` | Fit weighted or unweighted GEE outcome models |
 | `iivw_exogtest` | Test whether lagged outcomes or disease activity predict subsequent visit timing |
 | `iivw_diagnose` | Decompose movement in a stored marginal or reference-slope estimate across three models |
 | `iivw_bspool` | Pool bootstrap replicate files from concurrent `iivw_fit` shards into one result |
@@ -121,7 +121,7 @@ Correct informative visit timing without a treatment-propensity component. The d
 ```stata
 iivw_weight, id(id) time(time) visit_cov(x) lagvars(y) maxfu(12) replace nolog
 iivw_balance
-iivw_fit y x, model(gee) timespec(linear) vce(fixed) nolog
+iivw_fit y x, timespec(linear) vce(fixed) nolog
 ```
 
 ### 2. FIPTIW for treatment confounding and informative visits
@@ -132,7 +132,7 @@ Adding `treat()` makes the default weight type FIPTIW and adds treatment to the 
 iivw_weight, id(id) time(time) visit_cov(x) lagvars(y) maxfu(12) ///
     treat(treated) treat_cov(x) stabcov(treated) replace nolog
 iivw_balance, component(final) nolog
-iivw_fit y treated x, model(gee) timespec(linear) vce(fixed) nolog
+iivw_fit y treated x, timespec(linear) vce(fixed) nolog
 ```
 
 ### 3. Refit-bootstrap inference
@@ -140,7 +140,7 @@ iivw_fit y treated x, model(gee) timespec(linear) vce(fixed) nolog
 For a weighted IIW or IPTW analysis, the recommended variance route refits the nuisance models inside each subject-level bootstrap replicate. FIPTIW intervals requested explicitly are nominal and are labeled in the stored inference status.
 
 ```stata
-iivw_fit y treated x, model(gee) ///
+iivw_fit y treated x, ///
     vce(bootstrap, reps(999) seed(20260417)) ///
     citype(percentile) nolog
 ```
@@ -241,12 +241,11 @@ iivw_weight, id(varname) time(varname) [options]
 | `truncvisit(# #)` | None | Trim the IIW component at row-level percentiles |
 | `trunctreat(# #)` | None | Trim the IPTW component at subject-level percentiles |
 | `truncfinal(# #)` | None | Trim the final analysis weight at row-level percentiles |
-| `experimentalnotreatvisit` | Off | FIPTIW sensitivity mode that omits treatment from the visit model; outside the supported contract |
 | `generate(name)` | `_iivw_` | Prefix for generated weights and metadata-linked variables |
 | `replace` | Off | Overwrite variables owned by a prior `iivw` call |
 | `nolog` | Off | Suppress model iteration logs |
 | `efron` | On | Use Efron handling for tied visit times |
-| `breslow` | Off | Use Breslow handling, mainly for compatibility with pre-3.0.0 analyses |
+| `breslow` | Off | Use Breslow handling, mainly to match analyses that used `stcox`'s Breslow default |
 | `allownonconverged` | Off | Continue after a nonconverged weight model; use only as an explicit sensitivity/debugging choice |
 | `allowmissingweights` | Off | Accept rows with no computed weight as a complete-case analysis; otherwise missing-weight rows are an error |
 
@@ -288,8 +287,7 @@ iivw_fit depvar [indepvars] [if] [in], [options]
 | `unweighted` | Off | Fit without applying stored weights |
 | `id(varname)` | Stored metadata for weighted fits | Panel ID for an unweighted fit without package metadata |
 | `time(varname)` | Stored metadata for weighted fits | Time variable for an unweighted fit without metadata when time is modeled |
-| `model(gee\|mixed)` | `gee` | Use `glm` with clustered robust SEs, or `mixed` with a subject random intercept |
-| `family(string)` | `gaussian` | GLM family for GEE-style fits |
+| `family(string)` | `gaussian` | GLM family for the GEE fit |
 | `link(string)` | Canonical link | GLM link override |
 | `timespec(string)` | `linear` | `linear`, `quadratic`, `cubic`, `ns(#)`, `categorical`, or `none` |
 | `interaction(varlist)` | None | Create interactions between listed covariates and all generated time terms |
@@ -298,18 +296,14 @@ iivw_fit depvar [indepvars] [if] [in], [options]
 | `timebasecat(#)` | Lowest observed time | Reference level for `timespec(categorical)` |
 | `cluster(varname)` | Stored panel ID | Cluster variable for analytic robust SEs |
 | `vce(bootstrap, reps(#) [seed(#)] [fixedweights]\|fixed\|stacked)` | Weight-type dependent | Refit bootstrap, fixed-weight bootstrap, fixed-weight analytic sandwich, or FIPTIW two-step stacked sandwich; details are below |
-| `bootstrap(#)` | Omitted | Legacy spelling for bootstrap variance; prefer `vce()` |
-| `refitweights` | Off | Legacy request to refit weights inside bootstrap draws; prefer `vce(bootstrap)` |
 | `citype(none\|wald\|percentile\|basic\|bca)` | `wald`, except bare FIPTIW is `none` | Select point-only, normal/Wald, percentile, basic, or BCa endpoints |
 | `allowfailedreps` | Off | Accept an incomplete bootstrap and record the failed-replicate counts |
 | `level(#)` | `c(level)` | Confidence level |
 | `nolog` | Off | Suppress the underlying estimator's iteration log |
 | `allownonconverged` | Off | Continue after outcome-model nonconvergence |
-| `experimentalmixed` | Off | Required for a weighted `model(mixed)` fit |
 | `replace` | Off | Overwrite generated time, categorical, and interaction variables |
 | `collect` | Off | Use Stata's `collect` framework for non-bootstrap GEE fits |
-| `geeopts(string)` | None | Pass additional options to `glm`, except options that take control of the package-owned variance; refused with `model(mixed)` |
-| `mixedopts(string)` | None | Pass additional options to `mixed`; requires `model(mixed)` |
+| `geeopts(string)` | None | Pass additional options to `glm`, except options that take control of the package-owned variance |
 
 ### iivw_exogtest
 
@@ -362,7 +356,7 @@ The three estimates must refer to the same outcome, coefficient, model scale, an
 
 ### Weight construction
 
-`iivw_weight` auto-detects IIW versus FIPTIW from `treat()`; use `wtype(iptw)` for treatment weighting without a visit model. The treatment variable must be binary and time-invariant within subject, and the treatment model is fit cross-sectionally on one row per subject. Under FIPTIW, treatment is included in the visit-intensity model unless the explicit experimental sensitivity option is used.
+`iivw_weight` auto-detects IIW versus FIPTIW from `treat()`; use `wtype(iptw)` for treatment weighting without a visit model. The treatment variable must be binary and time-invariant within subject, and the treatment model is fit cross-sectionally on one row per subject. Under FIPTIW, treatment is included in the visit-intensity model by construction.
 
 The default `baseline(entry)` treats the first visit per subject as study entry and assigns it the normalized entry weight. `baseline(event)` models the first visit as a recurrent event and is retained for designs where that first visit is genuinely part of the monitoring process.
 
@@ -380,7 +374,7 @@ For a bare weighted FIPTIW GEE fit, the default is point-only at every sample si
 
 A 999-draw refit bootstrap refits the visit-intensity model and the outcome model on every draw, and that work is the same on every draw and depends on no other draw. Profiling on a 1200-subject, 7100-row panel put 99.9% of the run in per-draw work, against a fixed overhead of about one draw, so the run is serial only because Stata's `bootstrap` prefix is.
 
-`iivw_fit`'s `saving()` writes the replicate draws to a dataset, which the command discarded before 4.2.0, and `rngstream(#)` draws them from an independent RNG substream of one shared `seed()`. Together they let K concurrent Stata processes produce the same 999 draws, which `iivw_bspool` pools into a single estimation result.
+`iivw_fit`'s `saving()` writes the replicate draws to a dataset, and `rngstream(#)` draws them from an independent RNG substream of one shared `seed()`. Together they let K concurrent Stata processes produce the same 999 draws, which `iivw_bspool` pools into a single estimation result.
 
 Pooling is delegated to Stata's own `bstat`, so the pooled variance and percentile limits are computed by the same code path the `bootstrap` prefix uses: splitting one run's replicate file into K pieces and pooling them back reproduces that run to the last bit. Nine shards of 111 drawn from independent substreams agree with a single 999-draw run within Monte Carlo tolerance, with a worst observed relative standard-error difference of 0.053 against a 3-MCSE band of 0.095.
 
@@ -458,9 +452,9 @@ Extreme weights, low effective sample size, rare treatment patterns, few cluster
 
 ### Compatibility notes
 
-Version 2.0.0 made the end-of-follow-up contract explicit, changed the first-visit default to `baseline(entry)`, removed `truncate()`, and made stale or missing weight state fail closed. Re-run `iivw_weight` when using a dataset whose older weighting contract lacks the stored replay information required by refit bootstrap or balance replay.
+The end-of-follow-up contract is explicit, the first-visit default is `baseline(entry)`, there is no single `truncate()` option, and stale or missing weight state fails closed. Re-run `iivw_weight` when a dataset's stored weighting contract lacks the replay information required by refit bootstrap or balance replay.
 
-Weighted `model(mixed)` requires `experimentalmixed` because a single observation-level probability weight does not consistently weight the random-effects variance components. Use weighted `model(gee)` for the primary marginal analysis; interpret weighted mixed-model fixed effects as an experimental sensitivity analysis.
+The outcome model is a GEE (independence working correlation, cluster-robust variance), which estimates the marginal effect the IIW theory identifies. Weighted random-effects models are not offered: a single observation-level probability weight does not consistently weight random-effects variance components.
 
 ## References
 
@@ -477,38 +471,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **4.3.7** (2026-10-13): The trimming message now uses English ordinals: `trunctreat(1 99)` printed "the 1th and 99th percentiles" and now prints "the 1st and 99th percentiles" (also 2nd, 3rd, 21st; 11th to 13th keep "th"). Documentation: `iivw_bspool` help lists the emptied `e(ci_bca)`, `e(accel)`, `e(iivw_ci_bca)` and `iivw_fit` help lists `e(ivars)`. The README worked examples now run in sequence: Example 5 rebuilds the IIW weights first, because Example 2 leaves weights stabilized on `treated` and `iivw_fit` refuses them for models without `treated` (r(198)).
-- **4.3.6** (2026-10-09): Help References completed: Crump et al. (2009) and Hernán and Robins (2020) in `iivw_weight`, Rabe-Hesketh and Skrondal (2006) in `iivw_fit`, DOIs for Hertz-Picciotto and Rockhill (1997) and the IrregLong package; the `iivw_balance` note on what is and is not sourced is now its own section rather than part of References.
-- **4.3.5** (2026-10-06): Fixes from the 2026-10-05 audit. **Weighting:** the stale-score sweep deletes only columns this prefix owns; end of follow-up is compared exactly, so large time origins and tiny units no longer lose terminal risk intervals, and `maxfu()` keeps its exact value; a float `censor()` that matches the last visit only at float precision is moved onto that visit with a note, and refused when another subject's visit falls in the gap this would drop; treatment-model scores are zero outside the treatment model's sample, so stacked variance uses the full subject union; untrimmed component snapshots are bound by the weight signature; the weight signature no longer depends on `set processors`, so data weighted on one machine can be fitted on another. **Rerun `iivw_weight` once on data weighted by 4.3.4 or earlier:** stored weighting contracts fail the signature check until rebuilt, and data weighted with `scores` and treatment-model exclusions otherwise keeps the old stacked-variance subject loss. **Fit:** `e(sample)`, `e(N)` and clusters match the engine's sample; stacked intercept-only and `noconstant` fits work and the stacked Wald test uses the stacked variance; `family()`/`link()` are refused under `model(mixed)`; grouped-binomial responses are judged as successes/trials; offset, exposure, trials and residual `by()`/`t()` variables cannot be overwritten by generated columns; `predict` checks each generated design column against its stored expression (fits saved before 4.3.5 with generated design columns must be refit to predict, and `margins` at counterfactual raw-time values is refused after generated time columns); native mixed `predict` and `estat` work under `iivw_fit`; point-only linear predictions keep the offset. **Bootstrap and pooling:** auxiliary model inputs join the pooling identity; each shard's own counts are reconciled; an undefined percentile, basic or BCa endpoint is refused rather than posted as available, and a Wald interval with an undefined model variance is reported with a note; stale BCa results are cleared after pooling. **Diagnostics:** `iivw_exogtest` builds risk histories from the selected rows only and counts ties on each fitted sample; `iivw_balance` withholds its verdict under any Efron ties, bases `r(balance_flag)` on modeled covariates only, reports listed unmodeled covariates in a separate verdict `r(extra_flag)` (the misspecification check), and returns `r(target)` for every covariate; `iivw_balance` and `iivw_exogtest` share the weighting end-of-follow-up policy; `iivw_diagnose` distinguishes `xtreg` fe/be estimands and withholds decomposition in contrast mode. **Reporting:** worksheet names round-trip exactly, string cells are written verbatim, the `sheet()` limit is stated in UTF-8 bytes, and a malformed package version header is refused. Help text corrected for entry-only IIW, merged diagnostic cells, IPTW-only weights and bootstrap convergence.
-- **4.3.4** (2026-09-30): Preserve exact caller presence and opaque bytes of native `S_1` and `S_2` across `iivw_balance`, `iivw_weight` and `iivw_exogtest` success or refusal. Treat an already removed owned column as successful rollback instead of reporting false data corruption. Preserve quoted Excel font names through reporting option dispatch instead of silently replacing them with Arial.
-
-<details>
-<summary>Earlier versions</summary>
-
-- **4.3.3** (2026-09-30): `iivw_diagnose` preserves the caller’s variable order after inspecting stored estimates, including refusal after a stored estimate has been restored. Native estimate restoration can otherwise move existing sample-marker columns to the end of the data.
-
-- **4.3.2** (2026-09-29): Fixes for the four open findings the 4.3.1 QA recorded, plus two found in review (label expansion and trimming cutpoint precision). **`iivw_weight` and `stset`:** the file the visit weights were merged back from carried the internal counting-process `stset` characteristics, and `merge` adds any the data lacks. Unstset data came back marked `stset` on variables that no longer existed (a later `stdescribe` failed r(111)), and a user's own `stset` gained an `enter()`/`exit()` naming a dropped temporary variable. The weights are unchanged; the data's characteristics are now left exactly as they were. **User text is data:** `title()` and `footnote()` of `iivw_balance`, `iivw_exogtest` and `iivw_diagnose`, and the variable and value labels those commands export (`iivw_balance` covariate rows; `iivw_exogtest` term and `by()` group labels in the workbook and in `r(term_label_#)`/`r(group_label_#)`), were expanded again as macro text, so a label such as `Cost in $USD` was written as `Cost in ` and an unbalanced backtick exited r(132) or r(199). They are now written byte for byte. `iivw_bspool, saving()` likewise wrote the pooled file under a macro-expanded name, executed an unbalanced backtick, and on a quoted name holding a comma wrote the file but failed to stamp it (r(601)); the literal name is now written, stamped and returned in `e(iivw_bs_saving)`. **`iivw`:** `r(n_commands)` was a literal 5 beside six listed commands; it is now counted from `r(commands)`, and the overview lists `help iivw_bspool`. **Trimming:** the `truncvisit()`, `trunctreat()` and `truncfinal()` cutpoints were carried through a decimal macro that keeps about 16 digits, so a weight equal to the percentile could fall beyond its own rounded cut: it was counted as trimmed (`r(n_trunc_visit)` overcounted in about half of test draws), moved by a rounding error, and `r(trunc_visit_lo)`/`r(trunc_visit_hi)` and the stored cutpoints differed from the percentile in the last bits. Cutpoints now travel exactly. Help-file stored-result tables no longer wrap in the Viewer. QA: new `test_iivw_v432_regressions` (7 cases, all red on 4.3.1); five suites that pinned `r(n_commands) == 5` now assert 6; the open ledgers of `test_iivw_state_lifecycle` and `test_iivw_surfaces` are empty.
-- **4.3.1** (2026-09-28): Fixes for the six defects found by the new route × condition grid. **Samples:** on the refit bootstrap (and the percentile interval and pooled shards built on it), and under `model(mixed)` with a refit bootstrap, `e(sample)`/`e(N)` included rows with a missing outcome or outcome covariate at rc 0 (e.g. `e(N)`=635 for a 571-row fit). Any `vce()` request also let a `timespec(categorical)` level seen only on missing-outcome rows build an omitted design column. Cause: parsing the `vce()` suboptions cleared the variable list before the estimation sample was marked. **Stored results:** `e(iivw_outcome_nclust)` is now posted on every route, counted from `e(sample)`; it was missing everywhere except the refit bootstrap. Point-only fits now post `e(iivw_predict)` (`_predict`) and send `predict` through the design-column check; before, `predict, xb` after a point-only fit skipped that check. **vce(stacked):** it accepts a string panel id (it exited r(2000)), and `cluster()` above the subject (for example clinics holding whole subjects), where each cluster's nuisance correction is summed over its subjects. It exited r(459) with a misleading message. A subject spanning clusters is refused (r(459)) as a nesting failure. **Pass-through options:** `geeopts()` with `model(mixed)` and `mixedopts()` with `model(gee)` are refused (r(198)); they were silently ignored, so `geeopts(offset())` on a mixed fit fitted without the offset. QA: new `test_iivw_route_grid_fixes` (10 cases, all red on 4.3.0); the route grid's open ledger is empty (117/117 cells).
-- **4.3.0** (2026-09-28): Fixes from the 2026-09-27 audit. **Variance:** under `baseline(entry)`, subjects seen only at entry kept a visit-model score of 0 although they were in the Cox risk set; their real score is now carried back. `vce(stacked)` now includes subjects that informed the weights but have no usable outcome (all outcomes missing, or rows outside `if`/`in`); their nuisance-score correction was previously omitted, and `e(iivw_stacked_nclust)` now counts that union. **Samples and prediction:** rows dropped by a missing `offset()` or `exposure()` in `geeopts()` are no longer reported in `e(sample)`/`e(N)` on the point-only and refit-bootstrap routes. `predict` after `estimates restore` refuses (r(459)) when a later fit rebuilt the generated design columns, instead of silently predicting from the new columns. A cluster-nesting check no longer falsely rejects nested panels when a subject's last row is outside the sample. **Sharded bootstrap:** shards carry an outcome-analysis identity and draw lineage; `iivw_bspool` refuses shards from different outcome analyses, stale live weight inputs, a missing anchor shard, and re-pooling a saved pool with any of its own components. Shard files written by 4.2.0 lack these stamps and are refused; refit them. `saving(x.dta)` no longer stamps a neighboring `x.dta.dta`. Pooled results now carry the pooled native bootstrap fields (`e(N_reps)`, `e(ci_percentile)`, ...), so `estat bootstrap` describes the pool. Replay and pooling accept fractional confidence levels (10–99.99). The shard demo driver requires a fresh completion token from every worker. **Diagnostics:** `iivw_diagnose` uses a stored percentile/basic/BCa interval as stored (and refuses a different `level()`), refuses omitted and base-level coefficients (r(459)), and withholds shares consistently in the console, `r(decomp)` and the workbook under `force` with incomparable estimates or `exogeneity(endogenous)`. QA: new `test_iivw_codexaudit_2026_09_27_a` and `_b`; the help-render check now actually renders all help files.
-- **4.2.0** (2026-09-15): Sharded bootstrap execution. `iivw_fit` gains `saving()`, which writes the bootstrap replicate draws the command previously discarded, and `rngstream(#)`, which draws them from an independent RNG substream so K shards can share one `seed()`. New command `iivw_bspool` pools the shard files into a single estimation result, delegating the variance and percentile arithmetic to Stata's `bstat` so a split-and-rejoined run reproduces the unsharded one exactly. Pooling refuses shards that disagree on the weight contract, weight type, specification, coefficient set, observed estimates or build; refuses two shards drawn from the same RNG state, a truncated shard file, and BCa shards; and recomputes the replicate accounting and the `uncleared-low-reps` stamp from the pooled total while inheriting every other stamp. `iivw_fit` now restores the caller's RNG generator after a `rngstream()` fit, on the error path as well as the success path. `_iivw_fit_replay` moved out of `iivw_fit.ado` into its own file so Stata's autoloader can resolve it for `iivw_bspool`. Two defects found while wiring that display path are fixed: a stored percentile, basic or BCa interval fit at any level other than the session default refused its own bare replay, citing an option the user had not typed, because the replay parsed `level()` as a `cilevel` option and `syntax` fills those with `c(level)` whenever they are omitted; and the same trap in the new pooler made an omitted `level()` take the session default instead of the shards' own. QA: new `test_iivw_v420_shard` (23 cases), including bit-identical re-pooling, substream independence and replay, every refusal, pooled failure accounting, the status arithmetic, agreement between nine shards of 111 and one run of 999 inside a 3-MCSE band, and two cases that are red on 4.1.3 for the replay-level defects above.
-- **4.1.3** (2026-09-06): Fixed two defects confirmed by the 2026-09-04 audit. `vce(stacked)` built its Wald confidence limits from the fixed-weight covariance before the two-step sandwich replaced `e(V)`, so the printed and stored interval did not match the reported standard errors and disagreed with an ordinary Wald replay; the interval is now formed from the posted covariance. The stored weighting signature did not bind the `scores` influence-function columns or the stacked nuisance metadata, so a finite edit to a saved score, derivative, or inverse-information value changed the reported standard error at `rc=0`; those inputs are now part of the contract signature and such an edit is refused. QA: new `test_iivw_v413_regressions` (7 cases, 6 of them red on 4.1.2), the zero-derivative algebra check moved to the helper surface, standalone suites sandboxed and their resolution asserted, sensitivity simulations record every requested replication and take Monte Carlo error from the usable count, and run artifacts moved to per-run tempfiles.
-- **4.1.2** (2026-09-04): Hardened input ownership, analysis-sample validation, transactional weight metadata rollback, and fail-closed inference gates. Expanded regression coverage for stored source-variable collisions, incomplete simulations, separator failures, FIPTIW recovery, and the assembled stacked covariance oracle; refreshed the user-facing inference contract and independent-reference workflow.
-- **4.1.1** (2026-09-04): Fail-closed resolve contract for explicitly named sources. `iivw_diagnose` now refuses stored estimates that carry no `e(depvar)` or `e(cmd)`: the comparability gate decides "same estimand" by comparing those fields across the three roles, and three estimates that carry neither compared equal on empty strings, so the gate passed vacuously and the command returned `decomposable = 1` with a printed decomposition it had never verified. `iivw` now refuses an install whose `iivw.ado` header cannot be read instead of reporting `r(version)` as "unknown" at rc 0. New internal helper `_iivw_require_meta`.
-- **4.1.0** (2026-09-03): Fail-closed commit contract for final weights. `iivw_weight` now refuses a run in which every observation is unweighted, instead of committing its signed `_iivw_` contract and returning success: `allowmissingweights` declares that a complete-case analysis is intended, and zero complete cases is not one. New internal helper `_iivw_assert_cardinality`.
-- **4.0.1** (2026-08-30): Preserved unfitted `baseline(event)` weights as missing, made the demo restore caller state on failure, corrected its exogeneity return, and repaired Viewer-width documentation tables.
-- **4.0.0** (2026-08-19): Removed journal theme presets from reporting exports and added direct `font()` and `fontsize()` options.
-- **3.4.2** (2026-08-11): Restores `c(varabbrev)` on captured early-error and helper-success branches, makes every internal program class explicit, repairs the `iivw_fit` stored-results table width, and makes the coverage-gate runbook relocatable. The release QA now inventories every shipped `.ado` dynamically and regression-tests the session-state and documentation contracts.
-
-- **3.4.1** (2026-08-10): Corrects the FIPTIW inference default introduced in 3.4.0. Bare FIPTIW fits are point-only at every sample size because the R=200 stacked-sandwich study was explicitly diagnostic, not a release gate, and covered only one identity-link DGP. Explicit `vce(stacked)` remains available and is stamped `uncleared-stacked-analytic`; the option table now lists it.
-
-- **3.4.0** (2026-08-08): FIPTIW fits with >= 600 clusters now default to `vce(stacked)` Wald intervals instead of point-only. Coverage is 0.940 at n=600 and 0.960 at n=1200 (Wilson contains 0.95, no overcoverage). Below 600 clusters the default remains point-only: the oracle (true SE) itself covers only 0.943 at n=300, so no variance estimator can deliver nominal coverage there. Explicit `vce(stacked)` remains available at any sample size and is stamped `uncleared-stacked-analytic`; the new auto-default is stamped `cleared-stacked-at-studied-settings`.
-- **3.3.0** (2026-08-07): `iivw_fit` gains `vce(stacked)`, the two-step (stacked) influence-function sandwich that Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021) derive: unlike the fixed sandwich it carries the uncertainty from having estimated the weights, in one pass with no resampling. It requires the new `iivw_weight, scores` option, which emits the influence-function inputs at the point the nuisance models are fitted, since they cannot be reconstructed afterwards. The variance is **empirically uncleared** — no coverage gate has been run for it — and is stamped `uncleared-stacked-analytic`; no default changed and the FIPTIW default remains point-only. Canonical links and `model(gee)` only; weight trimming is refused.
-- **3.2.2** (2026-08-06): `iivw_fit`'s help now carries a compact table of what each fit does with no `vce()` and what is recommended, making the FIPTIW point-only default and the absence of any recommended FIPTIW interval scannable rather than buried in prose. Documentation only; no behavior changed.
-- **3.2.1** (2026-08-04): Reporting exports now preserve quoted worksheet names and workbook paths through the internal writer; package and QA release hygiene was updated.
-- **3.2.0** (2026-08-03): Constant outcomes now fail explicitly, follow-up and weight-contract documentation was corrected, and shipped help examples were repaired.
-- **3.1.0** (2026-07-25): Treatment-weight trimming uses subject-level percentiles, while visit and final-weight trimming retain their row-level definitions.
-
-</details>
+- **1.0.0** (2026-10-15): Initial release.
 
 ## Author
 

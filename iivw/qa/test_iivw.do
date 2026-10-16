@@ -202,7 +202,7 @@ if `run_only' == 0 | `run_only' == 5 {
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
         assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_cmd)'" == "iivw_fit"
@@ -227,7 +227,7 @@ if `run_only' == 0 | `run_only' == 6 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(quadratic) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(quadratic) nolog
         assert "`e(iivw_timespec)'" == "quadratic"
         confirm variable _iivw_time_sq
     }
@@ -249,7 +249,7 @@ if `run_only' == 0 | `run_only' == 7 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(ns(3)) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(ns(3)) nolog
         assert "`e(iivw_timespec)'" == "ns(3)"
         confirm variable _iivw_tns1
     }
@@ -271,7 +271,7 @@ if `run_only' == 0 | `run_only' == 8 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(none) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(none) nolog
         assert "`e(iivw_timespec)'" == "none"
     }
     if _rc == 0 {
@@ -615,7 +615,7 @@ if `run_only' == 0 | `run_only' == 22 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         assert _N == `N_before'
         local N_before2 = _N
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(linear) nolog
         assert _N == `N_before2'
     }
     if _rc == 0 {
@@ -1312,30 +1312,6 @@ if `run_only' == 0 | `run_only' == 49 {
 }
 
 * =============================================================================
-* TEST 50: Mixed model (model(mixed))
-* =============================================================================
-local ++test_count
-if `run_only' == 0 | `run_only' == 50 {
-    capture noisily {
-        _setup_relapses
-        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog
-        assert !missing(e(N))
-        assert e(N) > 0
-        assert "`e(iivw_model)'" == "mixed"
-        assert "`e(iivw_timespec)'" == "linear"
-    }
-    if _rc == 0 {
-        display as result "  PASS: Test 50 - Mixed model"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Test 50 - mixed model (error `=_rc')"
-        local ++fail_count
-    }
-}
-
-* =============================================================================
 * TEST 51: Bootstrap standard errors
 * Bootstrap calls _iivw_bs_estimate wrapper which applies pw internally,
 * avoiding Stata's bootstrap prefix stripping pweights.
@@ -1352,8 +1328,8 @@ if `run_only' == 0 | `run_only' == 51 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, model(gee) timespec(linear) ///
-            bootstrap(10) nolog
+        iivw_fit outcome severity, timespec(linear) ///
+            vce(bootstrap, reps(10) fixedweights) nolog
         assert e(N_reps) == 10
         assert "`e(vce)'" == "bootstrap"
     }
@@ -1377,7 +1353,7 @@ if `run_only' == 0 | `run_only' == 52 {
         * Create alternative cluster variable
         gen long site_id = mod(id, 10)
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
+        iivw_fit edss relapse, vce(fixed) timespec(linear) ///
             cluster(site_id) nolog
         assert !missing(e(N))
         assert e(N) > 0
@@ -1401,7 +1377,7 @@ if `run_only' == 0 | `run_only' == 53 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
+        iivw_fit edss relapse, vce(fixed) timespec(linear) ///
             level(90) nolog
         assert !missing(e(N))
         assert e(N) > 0
@@ -1477,7 +1453,7 @@ if `run_only' == 0 | `run_only' == 56 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) ///
+        iivw_fit edss relapse, vce(fixed) timespec(linear) ///
             geeopts(iterate(50)) nolog
         assert !missing(e(N))
         assert e(N) > 0
@@ -1584,7 +1560,7 @@ if `run_only' == 0 | `run_only' == 60 {
         bysort id (days): gen double edss_bl = edss[1]
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
         assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_cmd)'" == "iivw_fit"
@@ -1630,36 +1606,6 @@ if `run_only' == 0 | `run_only' == 61 {
 }
 
 * =============================================================================
-* TEST 62: Bootstrap with mixed model
-* =============================================================================
-local ++test_count
-if `run_only' == 0 | `run_only' == 62 {
-    capture noisily {
-        clear
-        set seed 20260312
-        set obs 200
-        gen long id = ceil(_n / 5)
-        bysort id: gen int visit_n = _n
-        gen double months = (visit_n - 1) * 6
-        gen double severity = rnormal(3, 1)
-        gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, model(mixed) experimentalmixed timespec(linear) ///
-            bootstrap(10) nolog
-        assert e(N_reps) == 10
-        assert "`e(vce)'" == "bootstrap"
-    }
-    if _rc == 0 {
-        display as result "  PASS: Test 62 - Bootstrap with mixed model"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Test 62 - bootstrap mixed (error `=_rc')"
-        local ++fail_count
-    }
-}
-
-* =============================================================================
 * TEST 63: Bootstrap with quadratic timespec
 * =============================================================================
 local ++test_count
@@ -1674,8 +1620,8 @@ if `run_only' == 0 | `run_only' == 63 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, model(gee) timespec(quadratic) ///
-            bootstrap(10) nolog
+        iivw_fit outcome severity, timespec(quadratic) ///
+            vce(bootstrap, reps(10) fixedweights) nolog
         assert e(N_reps) == 10
         assert "`e(vce)'" == "bootstrap"
     }
@@ -1705,8 +1651,8 @@ if `run_only' == 0 | `run_only' == 64 {
         gen int group = mod(id, 3)
         gen double outcome = 50 - 0.1 * months - severity + group + rnormal(0, 2)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity group, model(gee) timespec(linear) ///
-            categorical(group) bootstrap(10) nolog
+        iivw_fit outcome severity group, timespec(linear) ///
+            categorical(group) vce(bootstrap, reps(10) fixedweights) nolog
         assert e(N_reps) == 10
         assert "`e(vce)'" == "bootstrap"
     }
@@ -1735,8 +1681,8 @@ if `run_only' == 0 | `run_only' == 65 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, model(gee) timespec(linear) ///
-            interaction(severity) bootstrap(10) nolog
+        iivw_fit outcome severity, timespec(linear) ///
+            interaction(severity) vce(bootstrap, reps(10) fixedweights) nolog
         assert e(N_reps) == 10
         assert "`e(vce)'" == "bootstrap"
     }
@@ -1765,8 +1711,8 @@ if `run_only' == 0 | `run_only' == 66 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity, model(gee) timespec(linear) ///
-            geeopts(iterate(50)) bootstrap(10) nolog
+        iivw_fit outcome severity, timespec(linear) ///
+            geeopts(iterate(50)) vce(bootstrap, reps(10) fixedweights) nolog
         assert e(N_reps) == 10
         assert "`e(vce)'" == "bootstrap"
     }
@@ -1798,8 +1744,8 @@ if `run_only' == 0 | `run_only' == 67 {
         gen double outcome = 50 - 0.1 * months - severity + ///
             0.2 * age + female + rnormal(0, 2)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit outcome severity age female, model(gee) ///
-            timespec(linear) bootstrap(10) nolog
+        iivw_fit outcome severity age female, ///
+            timespec(linear) vce(bootstrap, reps(10) fixedweights) nolog
         assert e(N_reps) == 10
         assert "`e(vce)'" == "bootstrap"
     }
@@ -1848,7 +1794,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss treated, vce(fixed) timespec(linear) nolog
     assert "`e(iivw_cluster)'" == "id"
 }
 if _rc == 0 {
@@ -1868,7 +1814,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     gen long site = mod(id, 5)
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) ///
+    iivw_fit edss treated, vce(fixed) timespec(linear) ///
         cluster(site) nolog
     assert "`e(iivw_cluster)'" == "site"
 }
@@ -1889,7 +1835,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss treated, vce(fixed) timespec(linear) nolog
     * Verify model converged (e(converged) should be 1)
     assert e(converged) == 1
 }
@@ -1911,7 +1857,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * Normal data with sufficient variation should NOT trigger the guard
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(ns(3)) nolog replace
+    iivw_fit edss treated, vce(fixed) timespec(ns(3)) nolog replace
     assert !missing(e(N))
     assert e(N) > 0
     * Verify the knot validation code exists by confirming ns() works
@@ -1987,7 +1933,7 @@ capture noisily {
     replace site = . if mod(id, 2) == 0
     quietly count if !missing(site)
     local N_nonmiss = r(N)
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(linear) ///
+    iivw_fit edss treated, vce(fixed) timespec(linear) ///
         cluster(site) nolog replace
     * e(N) should equal the non-missing cluster count
     assert e(N) == `N_nonmiss'
@@ -2011,11 +1957,11 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * First fit creates _iivw_time_sq
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
+    iivw_fit edss treated, vce(fixed) timespec(quadratic) nolog replace
     assert !missing(e(N))
     assert e(N) > 0
     * Second fit with replace should succeed (overwrites _iivw_time_sq)
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
+    iivw_fit edss treated, vce(fixed) timespec(quadratic) nolog replace
     assert !missing(e(N))
     assert e(N) > 0
 }
@@ -2036,9 +1982,9 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     * First fit creates _iivw_time_sq
-    iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog replace
+    iivw_fit edss treated, vce(fixed) timespec(quadratic) nolog replace
     * Second fit WITHOUT replace should error
-    capture iivw_fit edss treated, vce(fixed) model(gee) timespec(quadratic) nolog
+    capture iivw_fit edss treated, vce(fixed) timespec(quadratic) nolog
     assert _rc == 110
 }
 if _rc == 0 {
@@ -2192,7 +2138,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    capture iivw_fit edss relapse if edss > 999, vce(fixed) model(gee) nolog
+    capture iivw_fit edss relapse if edss > 999, vce(fixed) nolog
     assert _rc == 2000
 }
 if _rc == 0 {
@@ -2229,7 +2175,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss relapse, vce(fixed) model(gee) timespec(cubic) nolog
+    iivw_fit edss relapse, vce(fixed) timespec(cubic) nolog
     assert "`e(iivw_timespec)'" == "cubic"
     confirm variable _iivw_time_sq
     confirm variable _iivw_time_cu
@@ -2252,7 +2198,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss relapse, vce(fixed) model(gee) timespec(ns(2)) nolog
+    iivw_fit edss relapse, vce(fixed) timespec(ns(2)) nolog
     assert "`e(iivw_timespec)'" == "ns(2)"
     confirm variable _iivw_tns1
     confirm variable _iivw_tns2
@@ -2275,7 +2221,7 @@ local ++test_count
 capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss relapse, vce(fixed) model(gee) timespec(ns(4)) nolog
+    iivw_fit edss relapse, vce(fixed) timespec(ns(4)) nolog
     assert "`e(iivw_timespec)'" == "ns(4)"
     confirm variable _iivw_tns1
     confirm variable _iivw_tns4
@@ -2323,7 +2269,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     local N_full = _N
-    iivw_fit edss relapse if edss > 3, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss relapse if edss > 3, vce(fixed) timespec(linear) nolog
     assert e(N) < `N_full'
     assert !missing(e(N))
     assert e(N) > 0
@@ -2471,7 +2417,7 @@ capture noisily {
     _setup_relapses
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     set varabbrev on
-    iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss relapse, vce(fixed) timespec(linear) nolog
     assert c(varabbrev) == "on"
 }
 if _rc == 0 {
@@ -2693,7 +2639,7 @@ capture noisily {
     _setup_relapses
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
     * Verify e() results stored for all predictors
     assert _b[treated] != .
     assert _b[edss_bl] != .
@@ -2710,30 +2656,6 @@ else {
 }
 }
 
-* TEST 107: Console summary shows all predictors (mixed)
-if `run_only' == 0 | `run_only' == 107 {
-local ++test_count
-capture noisily {
-    _setup_relapses
-    bysort id (days): gen double edss_bl = edss[1]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss treated edss_bl, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog
-    * Verify e() results stored for all predictors
-    assert _b[treated] != .
-    assert _b[edss_bl] != .
-    assert _se[treated] > 0
-    assert _se[edss_bl] > 0
-}
-if _rc == 0 {
-    display as result "  PASS: Test 107 - Console summary shows all predictors (mixed)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Test 107 - mixed console summary (error `=_rc')"
-    local ++fail_count
-}
-}
-
 * TEST 108: collect + regtab basic export (GEE gaussian -> Coef. auto-detect)
 if `run_only' == 0 | `run_only' == 108 {
 local ++test_count
@@ -2742,7 +2664,7 @@ capture noisily {
     bysort id (days): gen double edss_bl = edss[1]
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
     collect clear
-    collect: iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    collect: iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
     * Export without coef() - should auto-detect "Coef." for gaussian glm
     local _xlsxfile "`_xlsx_stub'_regtab_108.xlsx"
     capture erase "`_xlsxfile'"
@@ -2770,11 +2692,11 @@ capture noisily {
     collect clear
     * Model 1: IIW
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    collect: iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    collect: iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
     * Model 2: FIPTIW
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
         treat(treated) treat_cov(edss_bl) replace nolog
-    collect: iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    collect: iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
     * Export multi-model table
     local _xlsxfile "`_xlsx_stub'_regtab_109.xlsx"
     capture erase "`_xlsxfile'"
@@ -2793,31 +2715,6 @@ else {
 }
 }
 
-* TEST 110: Mixed model via collect + regtab
-if `run_only' == 0 | `run_only' == 110 {
-local ++test_count
-capture noisily {
-    _setup_relapses
-    bysort id (days): gen double edss_bl = edss[1]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    collect clear
-    collect: iivw_fit edss treated edss_bl, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog
-    local _xlsxfile "`_xlsx_stub'_regtab_110.xlsx"
-    capture erase "`_xlsxfile'"
-    regtab, xlsx("`_xlsxfile'") sheet(Test110) title(Mixed Model)
-    confirm file "`_xlsxfile'"
-    capture erase "`_xlsxfile'"
-}
-if _rc == 0 {
-    display as result "  PASS: Test 110 - Mixed model via collect + regtab"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Test 110 - mixed + regtab (error `=_rc')"
-    local ++fail_count
-}
-}
-
 * TEST 111: Console summary with categorical predictors
 if `run_only' == 0 | `run_only' == 111 {
 local ++test_count
@@ -2829,7 +2726,7 @@ capture noisily {
     label define arm_t111 0 "Placebo" 1 "Low" 2 "High", replace
     label values arm arm_t111
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-    iivw_fit edss arm edss_bl, vce(fixed) categorical(arm) model(gee) nolog
+    iivw_fit edss arm edss_bl, vce(fixed) categorical(arm) nolog
     * Verify dummy coefficients are accessible
     assert !missing(e(N))
     assert e(N) > 0
@@ -2883,7 +2780,7 @@ if `run_only' == 0 | `run_only' == 113 {
         * Run iivw_fit which depends on _iivw_check_weighted and _iivw_get_settings
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(linear) nolog
         assert !missing(e(N))
         assert e(N) > 0
     }
@@ -2908,7 +2805,7 @@ if `run_only' == 0 | `run_only' == 114 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
         * Check iivw_weight did not change set more
         assert "`c(more)'" == "off"
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit edss relapse, vce(fixed) timespec(linear) nolog
         * Check iivw_fit did not change set more
         assert "`c(more)'" == "off"
     }
@@ -2983,7 +2880,7 @@ if `run_only' == 0 | `run_only' == 117 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit edss, vce(fixed) timespec(linear) nolog
         assert !missing(e(N))
         assert e(N) > 0
         assert _b[days] != .
@@ -3007,7 +2904,7 @@ if `run_only' == 0 | `run_only' == 118 {
     capture noisily {
         _setup_relapses
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss, vce(fixed) model(gee) timespec(none) nolog
+        iivw_fit edss, vce(fixed) timespec(none) nolog
         assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_display_vars)'" == ""
@@ -3039,7 +2936,7 @@ if `run_only' == 0 | `run_only' == 119 {
             3 "Third visit" 4 "Fourth visit", replace
         label values visit_wave wave_t119
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) nolog
-        iivw_fit edss treated, vce(fixed) model(gee) timespec(categorical) nolog
+        iivw_fit edss treated, vce(fixed) timespec(categorical) nolog
         assert "`e(iivw_timespec)'" == "categorical"
         assert "`e(iivw_time_basecat)'" == "1"
         confirm variable _iivw_tcat_1
@@ -3084,7 +2981,7 @@ if `run_only' == 0 | `run_only' == 120 {
         label values treated treated_t120
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
-        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(categorical) ///
+        iivw_fit edss treated edss_bl, vce(fixed) timespec(categorical) ///
             categorical(treated) interaction(treated) nolog
         confirm variable _iivw_ix_drug_tcat_1
         local ixlbl : variable label _iivw_ix_drug_tcat_1
@@ -3118,7 +3015,7 @@ if `run_only' == 0 | `run_only' == 121 {
             3 "Third visit" 4 "Fourth visit", replace
         label values visit_wave wave_t121
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) nolog
-        iivw_fit edss treated, vce(fixed) model(gee) timespec(categorical) ///
+        iivw_fit edss treated, vce(fixed) timespec(categorical) ///
             timebasecat(2) nolog
         assert "`e(iivw_time_basecat)'" == "2"
         local tlbl : variable label _iivw_tcat_1
@@ -3158,7 +3055,7 @@ if `run_only' == 0 | `run_only' == 122 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(visit_wave) visit_cov(edss relapse) ///
             treat(treated) treat_cov(edss_bl) nolog
         collect clear
-        iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(categorical) ///
+        iivw_fit edss treated edss_bl, vce(fixed) timespec(categorical) ///
             categorical(treated) interaction(treated) nolog collect
         local _xlsxfile "`_xlsx_stub'_regtab_122.xlsx"
         capture erase "`_xlsxfile'"

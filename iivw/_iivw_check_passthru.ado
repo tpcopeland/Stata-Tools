@@ -1,10 +1,10 @@
-*! _iivw_check_passthru Version 4.3.7  2026/10/13
+*! _iivw_check_passthru Version 1.0.0  2026/10/15
 *! Reject variance/resampling tokens in a pass-through option string
-*! (geeopts(), mixedopts()).  Part of iivw.
+*! (geeopts()).  Part of iivw.
 *! Author: Timothy P Copeland, Karolinska Institutet
 *
 * iivw selects the variance method deterministically (vce(fixed) or the refit
-* bootstrap) and OWNS it. A pass-through option that reaches the inner glm/mixed
+* bootstrap) and OWNS it. A pass-through option that reaches the inner glm
 * and specifies its own vce()/robust/cluster() would either error or, worse,
 * silently substitute a different covariance under the label iivw reports
 * (IIVW-B08). This guard is the pre-call half of that defense; the post-fit
@@ -17,7 +17,6 @@
 *
 * Usage:
 *   _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')
-*   _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"')
 
 program define _iivw_check_passthru, nclass
     version 16.0
@@ -70,7 +69,7 @@ program define _iivw_check_passthru, nclass
     *
     * The gate fails closed, which is the right default, but the consequence was
     * a message that said the opposite of the truth: `iivw_fit ...,
-    * bootstrap(5) geeopts(irls)' died at r(430) "outcome model did not
+    * vce(bootstrap, reps(5)) geeopts(irls)' died at r(430) "outcome model did not
     * converge" about a model that had converged perfectly, on BOTH the refit
     * and fixed-weight paths. geeopts() is documented as passing options
     * directly to glm, so this was a documented path failing with a false

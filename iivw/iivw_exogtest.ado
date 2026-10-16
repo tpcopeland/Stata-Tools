@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 4.3.7  2026/10/13
+*! iivw_exogtest Version 1.0.0  2026/10/15
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -21,9 +21,9 @@ Options:
   entry(varname)     - Subject-specific study entry time
   generate(name)     - Prefix for generated lag variables
   replace            - Overwrite generated lag variables
-  efron              - Efron ties in stcox (the default since 3.0.0; accepted
-                       as an explicit no-op so 2.x do-files keep running)
-  breslow            - Breslow ties in stcox (the pre-3.0.0 default)
+  efron              - Efron ties in stcox (the default; accepted as an
+                       explicit no-op)
+  breslow            - Breslow ties in stcox
   nolog              - Suppress Cox iteration log
   level(#)           - Confidence level for displayed HR intervals
   xlsx()             - Export diagnostic table to a styled Excel sheet
@@ -33,7 +33,7 @@ See help iivw_exogtest for complete documentation
 
 program define iivw_exogtest, rclass sortpreserve
     version 16.0
-    * Native visit-model estimation mutates these observed legacy globals.
+    * Native visit-model estimation mutates these observed caller globals.
     foreach _native_key in S_1 S_2 {
         mata: st_local("_native_present_"+st_local("_native_key"),strofreal(sum(st_dir("global","macro","*"):==st_local("_native_key"))>0))
         mata: st_local("_native_bytes_"+st_local("_native_key"),st_global(st_local("_native_key")))
@@ -247,7 +247,7 @@ program define iivw_exogtest, rclass sortpreserve
     local tie_method = cond("`breslow'" != "", "breslow", "efron")
 
     local alpha = (100 - `level') / 100
-    local zcrit = invnormal((100 + `level') / 200)
+    local zcrit : display %21x invnormal((100 + `level') / 200)
 
     capture _estimates hold `__iivw_esthold', nullok
     local __iivw_hold_rc = _rc
@@ -544,7 +544,7 @@ program define iivw_exogtest, rclass sortpreserve
 
     quietly egen byte `__iivw_idtag' = tag(`id' `__iivw_group') if `__iivw_usable'
 
-    stset `__iivw_stop' if `__iivw_usable', enter(time `__iivw_start') ///
+    quietly stset `__iivw_stop' if `__iivw_usable', enter(time `__iivw_start') ///
         failure(`__iivw_event') id(`id') exit(time .)
 
     local n_groups : word count `group_levels'
@@ -563,7 +563,15 @@ program define iivw_exogtest, rclass sortpreserve
     local total_N = 0
     local total_ids = 0
     local min_p = .
-    local joint_min_p = .
+    * The omnibus p-values, their minimum, the Holm steps and the adjusted
+    * minimum are carried as doubles in matrices and scalars. A macro
+    * assignment (local x = expr) keeps only about 12 significant digits, and
+    * the Holm ranking must run on the values the tests actually returned.
+    tempname __iivw_JP __iivw_HS __iivw_jmin __iivw_hmin __iivw_jps __iivw_adjS
+    matrix `__iivw_JP' = J(1, `n_groups', .)
+    matrix `__iivw_HS' = J(1, `n_groups', .)
+    scalar `__iivw_jmin' = .
+    scalar `__iivw_hmin' = .
     local history_association_flag = 0
     local row_labels ""
     local __iivw_fitted_groups ""
@@ -641,7 +649,7 @@ program define iivw_exogtest, rclass sortpreserve
 
         capture `fit_prefix' stcox `generated_lags' `adjust' ///
             if `__iivw_usable' & `__iivw_group' == `g', ///
-            vce(cluster `id') level(`level') `log_opt' `efron_opt'
+            vce(cluster `id') level(`level') noshow `log_opt' `efron_opt'
         local fit_rc = _rc
         if `fit_rc' != 0 {
             local ++n_skipped
@@ -697,11 +705,14 @@ program define iivw_exogtest, rclass sortpreserve
         capture test `generated_lags'
         local test_rc = _rc
         local joint_p = .
+        scalar `__iivw_jps' = .
         if `test_rc' == 0 {
-            local joint_p = r(p)
-            if `joint_p' < `joint_min_p' local joint_min_p = `joint_p'
+            scalar `__iivw_jps' = r(p)
+            local joint_p : display %21x `__iivw_jps'
+            if `__iivw_jps' < `__iivw_jmin' scalar `__iivw_jmin' = `__iivw_jps'
         }
-        local __iivw_jointp_`group_index' = `joint_p'
+        matrix `__iivw_JP'[1, `group_index'] = `__iivw_jps'
+        local __iivw_jointp_`group_index' `joint_p'
         * Three-valued, not two. `(joint_p < alpha)' is 0 for a MISSING joint p
         * in Stata, so a group whose omnibus test could not be computed printed
         * "no evidence ... predict visit timing" -- the most reassuring sentence
@@ -712,7 +723,7 @@ program define iivw_exogtest, rclass sortpreserve
             local ++n_unknown
             local __iivw_unklab_`n_unknown' `"`macval(glabel)'"'
         }
-        else if `joint_p' < `alpha' {
+        else if `__iivw_jps' < `alpha' {
             local group_status "association"
         }
         local group_sig = ("`group_status'" == "association")
@@ -729,9 +740,12 @@ program define iivw_exogtest, rclass sortpreserve
             local ++term_index
             local b = .
             local se = .
-            capture local b = _b[`lv']
+            * Each value travels as a %21x hexadecimal literal, which
+            * round-trips a double exactly; local x = expr would keep only
+            * about 12 significant digits.
+            capture local b : display %21x _b[`lv']
             local b_rc = _rc
-            capture local se = _se[`lv']
+            capture local se : display %21x _se[`lv']
             local se_rc = _rc
 
             local z = .
@@ -740,12 +754,12 @@ program define iivw_exogtest, rclass sortpreserve
             local lb = .
             local ub = .
             if `b_rc' == 0 & `se_rc' == 0 & `se' > 0 & `se' < . {
-                local z = `b' / `se'
-                local p = 2 * normal(-abs(`z'))
-                local hr = exp(`b')
-                local lb = exp(`b' - `zcrit' * `se')
-                local ub = exp(`b' + `zcrit' * `se')
-                if `p' < `min_p' local min_p = `p'
+                local z : display %21x (`b') / (`se')
+                local p : display %21x 2 * normal(-abs(`z'))
+                local hr : display %21x exp(`b')
+                local lb : display %21x exp((`b') - (`zcrit') * (`se'))
+                local ub : display %21x exp((`b') + (`zcrit') * (`se'))
+                if `p' < `min_p' local min_p `p'
                 * Individual term p-values are EXPLORATORY and no longer set the
                 * flag. Flagging on "any term in any group is significant" gave
                 * the flag an uncontrolled familywise error rate: with ten
@@ -904,34 +918,31 @@ program define iivw_exogtest, rclass sortpreserve
     * Ranks are computed by counting, not by sorting: `: list sort' orders
     * STRINGS, and a p-value of 6.7e-11 sorts after 0.04 lexically. Silent, and
     * it would corrupt every adjusted p-value in the table.
-    local holm_min_p = .
     if `__iivw_m' > 0 {
         * Step 1: rank ascending (ties share the lower rank), then the raw Holm
         * factor (m - rank + 1) for each group.
         foreach __g of local __iivw_tested {
             local __iivw_rank = 1
             foreach __h of local __iivw_tested {
-                if `__iivw_jointp_`__h'' < `__iivw_jointp_`__g'' {
+                if `__iivw_JP'[1, `__h'] < `__iivw_JP'[1, `__g'] {
                     local ++__iivw_rank
                 }
             }
-            local __iivw_step_`__g' = ///
-                (`__iivw_m' - `__iivw_rank' + 1) * `__iivw_jointp_`__g''
-            if `__iivw_step_`__g'' > 1 local __iivw_step_`__g' = 1
+            matrix `__iivw_HS'[1, `__g'] = ///
+                min(1, (`__iivw_m' - `__iivw_rank' + 1) * `__iivw_JP'[1, `__g'])
         }
         * Step 2: enforce monotonicity -- an adjusted p is the running maximum
         * over every group with a raw p at least as small.
         foreach __g of local __iivw_tested {
-            local __iivw_adj = `__iivw_step_`__g''
+            scalar `__iivw_adjS' = `__iivw_HS'[1, `__g']
             foreach __h of local __iivw_tested {
-                if `__iivw_jointp_`__h'' <= `__iivw_jointp_`__g'' & ///
-                    `__iivw_step_`__h'' > `__iivw_adj' {
-                    local __iivw_adj = `__iivw_step_`__h''
+                if `__iivw_JP'[1, `__h'] <= `__iivw_JP'[1, `__g'] & ///
+                    `__iivw_HS'[1, `__h'] > `__iivw_adjS' {
+                    scalar `__iivw_adjS' = `__iivw_HS'[1, `__h']
                 }
             }
-            local __iivw_holmp_`__g' = `__iivw_adj'
-            if `holm_min_p' >= . | `__iivw_adj' < `holm_min_p' {
-                local holm_min_p = `__iivw_adj'
+            if `__iivw_hmin' >= . | `__iivw_adjS' < `__iivw_hmin' {
+                scalar `__iivw_hmin' = `__iivw_adjS'
             }
         }
     }
@@ -943,7 +954,7 @@ program define iivw_exogtest, rclass sortpreserve
     * endogeneity of the monitoring process is an interpretation of it, not a
     * thing this Cox model measures.
     local history_association_flag = 0
-    if `holm_min_p' < . & `holm_min_p' < `alpha' local history_association_flag = 1
+    if `__iivw_hmin' < . & `__iivw_hmin' < `alpha' local history_association_flag = 1
 
     if `history_association_flag' {
         local conclusion "evidence that recorded outcome history predicts modeled visit timing"
@@ -965,9 +976,9 @@ program define iivw_exogtest, rclass sortpreserve
         as text "  (model could not be fitted at all)"
     display as text "Groups unknown:    " as result `n_unknown' ///
         as text "  (fitted but nonconverged, or omnibus test not computable)"
-    display as text "Minimum joint p:   " as result %8.4f `joint_min_p' ///
+    display as text "Minimum joint p:   " as result %8.4f `__iivw_jmin' ///
         as text "  (raw, within-group omnibus)"
-    display as text "Minimum Holm p:    " as result %8.4f `holm_min_p' ///
+    display as text "Minimum Holm p:    " as result %8.4f `__iivw_hmin' ///
         as text "  (adjusted across `__iivw_m' group(s); this drives the flag)"
     display as text "Minimum term p:    " as result %8.4f `min_p' ///
         as text "  (exploratory; not adjusted, does not drive the flag)"
@@ -1028,7 +1039,7 @@ program define iivw_exogtest, rclass sortpreserve
         }
         if `"`macval(__iivw_clean_foot)'"' == "" {
             local __iivw_mp : display %5.3f `min_p'
-            local __iivw_jmp : display %5.3f `joint_min_p'
+            local __iivw_jmp : display %5.3f `__iivw_jmin'
             local __iivw_mp = strtrim("`__iivw_mp'")
             local __iivw_jmp = strtrim("`__iivw_jmp'")
             local __iivw_clean_foot ///
@@ -1324,8 +1335,8 @@ program define iivw_exogtest, rclass sortpreserve
         * groups, and it -- alone -- decides history_association_flag. Groups
         * counted in n_unknown or n_skipped contribute no p-value to that family.
         return scalar min_p = `min_p'
-        return scalar joint_min_p = `joint_min_p'
-        return scalar holm_min_p = `holm_min_p'
+        return scalar joint_min_p = `__iivw_jmin'
+        return scalar holm_min_p = `__iivw_hmin'
         return scalar n_tests = `__iivw_m'
         return scalar alpha = `alpha'
         return scalar history_association_flag = `history_association_flag'

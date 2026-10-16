@@ -2,19 +2,14 @@
 * Regressions for the 2026-10-05 audit, fit and inference track (FIT-F01..F12).
 *
 *   A1  F01 grouped-binomial trials missing: N, e(sample), clusters match the design
-*   A2  F01 mixed panel id missing under cluster(): N, e(sample), clusters match
-*   A3  F01/F07 mixed residuals(by()/t()) missing values leave the sample
 *   A4  F02 intercept-only vce(stacked) fits and names a 1x1 _cons covariance
 *   A5  F03 vce(stacked) with geeopts(noconstant) fits a slope-only design
-*   A6  F04 family()/link() are refused with model(mixed); omitted defaults fit
 *   A7  F05 vce(stacked) e(chi2)/e(p)/e(df_m) are computed from the posted e(V)
 *   A8  F06 grouped binomial with constant successes but varying trials fits
 *   A9  F07 replace never overwrites an auxiliary input (offset/exposure/trials/by/t)
 *   A10 F08 literal sentinel values are refused; integer formats still parse
 *   A11 F09 an edited raw source refuses predict; if/in, restore and new rows work
 *   A12 F09 sibling generated designs (categorical time, ns, interaction, categorical)
-*   A13 F10 mixed reffects/residuals/fitted equal native mixed; e(cmd) restored
-*   A14 F11 native mixed estat runs; public e(cmd)/e(estat_cmd) restored
 *   A15 F12 point-only xb keeps the offset()/exposure() term
 *
 * Every population oracle is built from the fixture design (which rows carry a
@@ -118,92 +113,6 @@ else {
 }
 }
 
-**# A2: F01 mixed panel id missing under cluster()
-
-local ++test_count
-if `run_only' == 0 | `run_only' == 2 {
-capture noisily {
-    foreach route in "citype(none)" "vce(fixed)" {
-        _afit_base
-        quietly replace id = . if clinic <= 20
-        quietly replace id = . if clinic > 20 & t == 3 & mod(clinic, 5) == 0
-        gen byte design = !missing(id)
-        quietly count if design
-        local n_design = r(N)
-        tempvar tag
-        egen `tag' = tag(clinic) if design
-        quietly count if `tag' == 1
-        local c_design = r(N)
-        drop `tag'
-        quietly iivw_fit y x, model(mixed) unweighted id(id) cluster(clinic) ///
-            timespec(none) `route' nolog
-        quietly count if e(sample)
-        local n_sample = r(N)
-        quietly count if e(sample) != design
-        local mism = r(N)
-        display as text "  `route': N=" e(N) " sample=`n_sample' clusters=" ///
-            e(iivw_outcome_nclust) " design=`n_design'/`c_design'"
-        assert e(N) == `n_design'
-        assert `n_sample' == `n_design'
-        assert `mism' == 0
-        assert e(iivw_outcome_nclust) == `c_design'
-    }
-    display as result "A2 PASS: mixed grouping-variable exclusions reach e(sample)"
-}
-if _rc == 0 local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' A2"
-    display as error "A2 FAIL"
-}
-}
-
-**# A3: F01/F07 mixed residuals(by()/t()) sources missing
-
-local ++test_count
-if `run_only' == 0 | `run_only' == 3 {
-capture noisily {
-    foreach spec in by time {
-        foreach route in "citype(none)" "vce(fixed)" {
-            _afit_base
-            gen byte g = mod(id, 2)
-            gen double tt = t
-            if "`spec'" == "by" {
-                quietly replace g = . if id <= 15
-                local mo "residuals(independent, by(g))"
-                gen byte design = !missing(g)
-            }
-            else {
-                quietly replace tt = . if id <= 15
-                local mo "residuals(ar 1, t(tt))"
-                gen byte design = !missing(tt)
-            }
-            quietly count if design
-            local n_design = r(N)
-            quietly iivw_fit y x, model(mixed) unweighted id(id) timespec(none) ///
-                mixedopts(`mo') `route' nolog
-            quietly count if e(sample)
-            local n_sample = r(N)
-            quietly count if e(sample) != design
-            local mism = r(N)
-            display as text "  `spec' `route': N=" e(N) " sample=`n_sample'" ///
-                " clusters=" e(iivw_outcome_nclust) " design=`n_design'"
-            assert e(N) == `n_design'
-            assert `n_sample' == `n_design'
-            assert `mism' == 0
-            assert e(iivw_outcome_nclust) == 85
-        }
-    }
-    display as result "A3 PASS: mixed residual by()/t() exclusions reach e(sample)"
-}
-if _rc == 0 local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' A3"
-    display as error "A3 FAIL"
-}
-}
-
 **# A4: F02 intercept-only vce(stacked)
 
 local ++test_count
@@ -270,39 +179,6 @@ else {
     local ++fail_count
     local failed "`failed' A5"
     display as error "A5 FAIL"
-}
-}
-
-**# A6: F04 family()/link() with model(mixed)
-
-local ++test_count
-if `run_only' == 0 | `run_only' == 6 {
-capture noisily {
-    _afit_base
-    foreach opt in "family(poisson)" "link(log)" "family(poisson) link(log)" ///
-        "family(gaussian)" {
-        capture iivw_fit y x, model(mixed) unweighted id(id) timespec(none) ///
-            `opt' nolog
-        local rc = _rc
-        display as text "  model(mixed) `opt' -> rc = `rc'"
-        assert `rc' == 198
-    }
-    quietly mixed y x || id:, vce(cluster id) nolog
-    matrix b_nat = e(b)
-    quietly iivw_fit y x, model(mixed) unweighted id(id) timespec(none) nolog
-    assert mreldif(e(b), b_nat) < 1e-10
-    * Acknowledged weighted mixed with the selectors omitted still fits.
-    _afit_iptw
-    capture iivw_fit y x, model(mixed) timespec(none) experimentalmixed ///
-        vce(fixed) nolog
-    assert _rc == 0
-    display as result "A6 PASS: family()/link() refused under model(mixed)"
-}
-if _rc == 0 local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' A6"
-    display as error "A6 FAIL"
 }
 }
 
@@ -398,9 +274,7 @@ capture noisily {
     local case1 "geeopts(offset(_iivw_time_sq))"
     local case2 "geeopts(exposure(_iivw_time_sq))"
     local case3 "family(binomial _iivw_time_sq)"
-    local case4 "model(mixed) mixedopts(residuals(ar 1, t(_iivw_time_sq)))"
-    local case5 "model(mixed) mixedopts(residuals(independent, by(_iivw_time_sq)))"
-    forvalues k = 1/5 {
+    forvalues k = 1/3 {
         local c "`case`k''"
         _afit_base
         quietly iivw_fit y x, unweighted id(id) time(t) timespec(quadratic) nolog
@@ -445,9 +319,11 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 10 {
 capture noisily {
     _afit_base
-    foreach opt in "bootstrap(-999999)" "rngstream(-999999)" ///
-        "vce(fixed, reps(-999999))" "vce(fixed, reps(0))" "bootstrap(-1)" ///
-        "bootstrap(1.5)" "bootstrap(abc)" "vce(bootstrap, reps(-999999))" ///
+    foreach opt in "rngstream(-999999)" ///
+        "vce(fixed, reps(-999999))" "vce(fixed, reps(0))" ///
+        "vce(bootstrap, reps(-1) fixedweights)" ///
+        "vce(bootstrap, reps(1.5) fixedweights)" ///
+        "vce(bootstrap, reps(abc) fixedweights)" "vce(bootstrap, reps(-999999))" ///
         "vce(bootstrap, reps(2.5))" ///
         "vce(bootstrap, reps(2) fixedweights) rngstream(1.5)" {
         capture iivw_fit y x, unweighted id(id) timespec(none) `opt' nolog
@@ -455,12 +331,12 @@ capture noisily {
         display as text "  `opt' -> rc = `rc'"
         assert `rc' == 198
     }
-    foreach opt in "" "bootstrap(0)" "vce(fixed)" {
+    foreach opt in "" "vce(fixed)" {
         capture iivw_fit y x, unweighted id(id) timespec(none) `opt' nolog
         assert _rc == 0
     }
     * The integer formats the old integer option accepted still parse.
-    quietly iivw_fit y x, unweighted id(id) timespec(none) bootstrap(2e1) nolog
+    quietly iivw_fit y x, unweighted id(id) timespec(none) vce(bootstrap, reps(2e1) fixedweights) nolog
     assert e(N_reps) == 20
     quietly iivw_fit y x, unweighted id(id) timespec(none) ///
         vce(bootstrap, reps(4.0) fixedweights seed(51)) rngstream(1e0) nolog
@@ -571,98 +447,6 @@ else {
     local ++fail_count
     local failed "`failed' A12"
     display as error "A12 FAIL"
-}
-}
-
-**# A13: F10 native mixed predictions
-
-local ++test_count
-if `run_only' == 0 | `run_only' == 13 {
-capture noisily {
-    foreach route in "vce(fixed)" "vce(bootstrap, reps(5) fixedweights seed(7))" {
-        _afit_base
-        quietly mixed y x || id:, nolog
-        predict double r_nat, reffects
-        predict double s_nat, residuals
-        predict double f_nat, fitted
-        quietly iivw_fit y x, model(mixed) unweighted id(id) timespec(none) ///
-            `route' nolog
-        assert "`e(ivars)'" == "id"
-        foreach s in r s f {
-            local o = cond("`s'" == "r", "reffects", cond("`s'" == "s", "residuals", "fitted"))
-            capture noisily predict double `s'_fit, `o'
-            assert _rc == 0
-            assert !missing(`s'_fit, `s'_nat)
-            assert reldif(`s'_fit, `s'_nat) < 1e-8
-        }
-        assert "`e(cmd)'" == "iivw_fit"
-        capture predict double bad, notanoption
-        assert _rc != 0
-        assert "`e(cmd)'" == "iivw_fit"
-        display as text "  `route': reffects/residuals/fitted equal native mixed"
-    }
-    * Acknowledged weighted mixed with fixed weights: native [pw=] BLUPs.
-    _afit_iptw
-    local w "`: char _dta[_iivw_weight_var]'"
-    if "`w'" == "" local w "_iivw_weight"
-    quietly mixed y x [pw=`w'] || id:, vce(cluster id) nolog
-    predict double r_nat, reffects
-    quietly iivw_fit y x, model(mixed) timespec(none) experimentalmixed ///
-        vce(fixed) nolog
-    predict double r_fit, reffects
-    assert !missing(r_fit, r_nat)
-    assert reldif(r_fit, r_nat) < 1e-8
-    display as result "A13 PASS: mixed BLUP predictions run under the native identity"
-}
-if _rc == 0 local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' A13"
-    display as error "A13 FAIL"
-}
-}
-
-**# A14: F11 native mixed estat
-
-local ++test_count
-if `run_only' == 0 | `run_only' == 14 {
-capture noisily {
-    capture which _iivw_fit_estat
-    assert _rc == 0
-    _afit_base
-    quietly mixed y x || id:, vce(cluster id) nolog
-    quietly estat ic
-    matrix S_nat = r(S)
-    quietly iivw_fit y x, model(mixed) unweighted id(id) timespec(none) nolog
-    foreach sub in group sd recovariance ic {
-        capture noisily estat `sub'
-        local rc = _rc
-        display as text "  estat `sub' -> rc = `rc'"
-        assert `rc' == 0
-        assert "`e(cmd)'" == "iivw_fit"
-        assert "`e(estat_cmd)'" == "_iivw_fit_estat"
-    }
-    quietly estat ic
-    assert mreldif(r(S), S_nat) < 1e-10
-    capture estat notasubcommand
-    assert _rc != 0
-    assert "`e(cmd)'" == "iivw_fit"
-    assert "`e(estat_cmd)'" == "_iivw_fit_estat"
-    assert "`e(iivw_estat)'" == "mixed_estat"
-    assert "`c(varabbrev)'" == "off"
-    * estat bootstrap on a fixed-weight mixed bootstrap also delegates.
-    quietly iivw_fit y x, model(mixed) unweighted id(id) timespec(none) ///
-        vce(bootstrap, reps(5) fixedweights seed(9)) nolog
-    capture estat bootstrap
-    assert _rc == 0
-    assert "`e(cmd)'" == "iivw_fit"
-    display as result "A14 PASS: native mixed estat runs and public identity is restored"
-}
-if _rc == 0 local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' A14"
-    display as error "A14 FAIL"
 }
 }
 

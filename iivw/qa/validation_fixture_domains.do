@@ -123,17 +123,6 @@ program define _fx_visit_domains, rclass
     local ++tests
     capture noisily {
         * expect: EXACT
-        qa_option_domain, command(iivw_fit y, vce(fixed) timespec(linear) model(@v@) nolog) inside(gee) outside(bad)
-    }
-    local rc=_rc
-    if `rc'==0 local ++pass
-    else {
-        local ++fail
-        di as error "FAIL VISIT iivw_fit y, vce(fixed) timespec(linear) model(@v@) nolog rc=`rc'"
-    }
-    local ++tests
-    capture noisily {
-        * expect: EXACT
         qa_option_domain, command(iivw_fit y, vce(fixed) timespec(@v@) nolog) inside(linear;quadratic;cubic;none) outside(bad)
     }
     local rc=_rc
@@ -226,7 +215,7 @@ program define _fx_visit_domains, rclass
         * evaluated on this explicit four-bin observed-time adapter, avoiding
         * one parameter per unique visit; population mean truth is not used.
         replace time=floor(time)
-        iivw_fit y, unweighted id(id) time(time) timespec(categorical) model(gee) nolog
+        iivw_fit y, unweighted id(id) time(time) timespec(categorical) nolog
         predict double fitted_bin, mu
         bysort time: egen double observed_bin=mean(y)
         assert !missing(fitted_bin,observed_bin) & reldif(fitted_bin,observed_bin)<1e-8

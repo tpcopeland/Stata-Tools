@@ -233,7 +233,7 @@ forvalues s = 1/`n_sims' {
         local rc_iiw = _rc
         if `rc_iiw' == 0 {
             capture iivw_fit y_obs treatment ftime tx_time conf_ti, vce(fixed) ///
-                model(gee) timespec(none) nolog replace
+                timespec(none) nolog replace
             local rc_iiw = _rc
         }
         _sim_postrow_e results `s' "IIW" "marginal" ftime `true_marginal' `rc_iiw'
@@ -247,7 +247,7 @@ forvalues s = 1/`n_sims' {
         local rc_fip = _rc
         if `rc_fip' == 0 {
             capture iivw_fit y_obs treatment ftime tx_time conf_ti, vce(fixed) ///
-                model(gee) timespec(none) nolog replace
+                timespec(none) nolog replace
             local rc_fip = _rc
         }
         _sim_postrow_e results `s' "FIPTIW" "marginal" ftime `true_marginal' `rc_fip'
@@ -264,7 +264,7 @@ forvalues s = 1/`n_sims' {
             capture drop log_test_number
             gen double log_test_number = log(test_number + 1)
             capture iivw_fit y_obs treatment ftime tx_time log_test_number conf_ti, ///
-                vce(fixed) model(gee) timespec(none) nolog replace
+                vce(fixed) timespec(none) nolog replace
             local rc_ftc = _rc
         }
 

@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 4.3.7  2026/10/13
+*! _iivw_get_settings Version 1.0.0  2026/10/15
 *! The canonical weighting specification: the one place any consumer reads the
 *! contract that iivw_weight committed.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -71,7 +71,6 @@ program define _iivw_get_settings, rclass
     local lag_names     : char _dta[_iivw_lag_names]
     local owned         : char _dta[_iivw_owned]
     local allowmissingweights : char _dta[_iivw_allowmissingweights]
-    local treat_in_visit : char _dta[_iivw_treat_in_visit]
     local wsig          : char _dta[_iivw_wsig]
 
     if "`prefix'" == "" local prefix "_iivw_"
@@ -157,11 +156,6 @@ program define _iivw_get_settings, rclass
     * analysis is complete-case in that case, and every consumer should say so.
     return local allowmissingweights "`allowmissingweights'"
 
-    * Whether treat() sits in the visit-intensity denominator. Under the supported
-    * FIPTIW contract it always does; 0 means the user took the experimental
-    * opt-out, and a replay that does not reproduce that opt-out would refit a
-    * DIFFERENT visit model than the one the reported weights came from.
-    return local treat_in_visit "`treat_in_visit'"
 
     * A nuisance model (visit-intensity, stabilization, or treatment) that the
     * user accepted nonconverged via allownonconverged. The weights it produced

@@ -1,4 +1,4 @@
-*! _iivw_stacked_vce Version 4.3.7  2026/10/13
+*! _iivw_stacked_vce Version 1.0.0  2026/10/15
 *! Two-step (stacked) influence-function sandwich for a weighted GEE fit whose
 *! weights were estimated by iivw_weight.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -59,7 +59,7 @@
 * before it will post the stacked matrix. A bread or residual that is wrong
 * fails that assertion instead of quietly shifting the correction.
 *
-* Scope, enforced by the caller: canonical link, model(gee), no weight trimming.
+* Scope, enforced by the caller: canonical link, GEE, no weight trimming.
 *
 * Clusters above the subject
 * --------------------------

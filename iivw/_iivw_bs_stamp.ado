@@ -1,4 +1,4 @@
-*! _iivw_bs_stamp Version 4.3.7  2026/10/13
+*! _iivw_bs_stamp Version 1.0.0  2026/10/15
 *! Stamp iivw shard identity onto a bootstrap replicate file
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (adds e(iivw_bs_lineage/asig/dsig/dsig_vars) only)
@@ -88,7 +88,11 @@ program define _iivw_bs_stamp, eclass
     * wrote x.dta and this rewrote x.dta.dta (audit F06). A file that is not
     * at the one resolved path is a bootstrap that did not write what it was
     * told to, which must not pass silently.
-    mata: st_local("_sfx", pathsuffix(st_local("_fname")))
+    * Stata treats ANY dot in the base name as an extension, but Mata's
+    * pathsuffix() returns "" once the suffix exceeds 10 characters, so
+    * saving(x.000002_quiet_sh1) was written as-is and then looked for as
+    * x.000002_quiet_sh1.dta (r(601) after a completed bootstrap).
+    mata: st_local("_sfx", (strpos(pathbasename(st_local("_fname")), ".") ? "." : ""))
     if `"`_sfx'"' == "" {
         local _target `"`macval(_fname)'.dta"'
     }
@@ -193,13 +197,6 @@ program define _iivw_bs_stamp, eclass
                 }
             }
         }
-        else if "`e(iivw_model)'" == "mixed" {
-            local _auxvars "`e(rbyvar)' `e(timevar)' `e(spcoordvars)'"
-            foreach _v of local _auxvars {
-                confirm variable `_v', exact
-                local _dvars "`_dvars' `_v'"
-            }
-        }
         local _dvars : list uniq _dvars
         local _dvars : list retokenize _dvars
         tempvar _es
@@ -217,7 +214,7 @@ program define _iivw_bs_stamp, eclass
 
         local _bfull : colfullnames e(b)
         local _N = e(N)
-        local _aparts `"`_dsig'|b=`_bfull'|N=`_N'|model=`e(iivw_model)'|ucmd=`e(iivw_underlying_cmd)'|vf=`e(varfunct)'|lk=`e(linkt)'|wt=`e(iivw_weighttype)'|refit=`e(iivw_refitweights)'|unw=`e(iivw_unweighted)'|ts=`e(iivw_timespec)'|cl=`e(iivw_cluster)'|wv=`e(iivw_weight_var)'|tiv=`e(iivw_treat_in_visit)'|wsig=`e(iivw_wsig)'|spec=`spec'"'
+        local _aparts `"`_dsig'|b=`_bfull'|N=`_N'|model=`e(iivw_model)'|ucmd=`e(iivw_underlying_cmd)'|vf=`e(varfunct)'|lk=`e(linkt)'|wt=`e(iivw_weighttype)'|refit=`e(iivw_refitweights)'|unw=`e(iivw_unweighted)'|ts=`e(iivw_timespec)'|cl=`e(iivw_cluster)'|wv=`e(iivw_weight_var)'|wsig=`e(iivw_wsig)'|spec=`spec'"'
         _iivw_bs_stamp_hash, text(`"`_aparts'"')
         local _asig "a2:`r(hash)'"
     }
@@ -232,7 +229,7 @@ program define _iivw_bs_stamp, eclass
     frame create `shardfr'
     local _frame_open = 1
     frame `shardfr' {
-        use `"`macval(_target)'"', clear
+        quietly use `"`macval(_target)'"', clear
 
         * Lineage of a single shard: the exact RNG state its bootstrap
         * consumed, which bootstrap itself records. Same state means same

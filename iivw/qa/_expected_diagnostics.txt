@@ -1,3 +1,4 @@
 # These are asserted strings emitted by contract tests, not lane failures.
 ^[ \t]*I1: failed replicates error rather than shrink the draw set$
-^[ \t]*runner verdict on 3 missing suites: FAIL / suites=3 pass=0 fail=3$
+^[ \t]*runner verdict on missing curated suites: FAIL / suites=([0-9]+) pass=0 fail=\1$
+^[ \t]*DGP [A-Z]: n_ok [0-9]+ of [0-9]+, failed 0$

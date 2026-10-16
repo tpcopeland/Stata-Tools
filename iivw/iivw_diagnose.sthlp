@@ -96,7 +96,7 @@ establish that the named coefficient, exposure contrast, design, and model
 assumptions describe the intended common estimand. The family and link are
 read from {cmd:e(varfunct)}/{cmd:e(linkt)} when the estimator sets them and
 from {cmd:e(family)}/{cmd:e(link)} otherwise: {cmd:glm} -- and therefore
-{cmd:iivw_fit}'s {cmd:model(gee)} path -- leaves {cmd:e(family)} empty and
+{cmd:iivw_fit}'s GEE path -- leaves {cmd:e(family)} empty and
 stores an internal program name rather than the link name in {cmd:e(link)}, so
 reading only that pair could not tell a Gaussian fit from a Gamma one at the
 same link. For an {cmd:iivw_fit}
@@ -116,7 +116,7 @@ comparison. The output is then labeled non-decomposable and
 Confidence intervals use each estimate's {bf:own} distribution: {cmd:t} on
 {cmd:e(df_r)} when the estimator reports finite residual degrees of freedom
 (as {cmd:regress} does), and {cmd:z} otherwise. Each role is treated
-separately, so a mixed set of {cmd:z}- and {cmd:t}-based inputs is handled
+separately, so a combination of {cmd:z}- and {cmd:t}-based inputs is handled
 correctly. A stored {cmd:iivw_fit} percentile, basic, or BCa interval is used
 as stored; see {opt level()}. {cmd:r(ci_dist_*)} records which was used for
 each role.
@@ -237,8 +237,8 @@ cell formatting. The allowed range is 0 through 6; the default is 4.
 header band, and vertical separators after the label column and between column
 groups. Data rows are not separated by interior horizontal rules. {cmd:medium} draws
 the same layout with medium lines. {cmd:academic} uses a three-rule
-(top/header/bottom) layout with no vertical rules at all. {cmd:default} is an alias
-for {cmd:thin}.
+(top/header/bottom) layout with no vertical rules at all. {cmd:default} is the
+same as {cmd:thin}.
 
 {phang}
 {opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its

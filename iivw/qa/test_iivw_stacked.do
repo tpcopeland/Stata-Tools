@@ -25,7 +25,7 @@
 *   S7  vce(stacked) without iivw_weight, scores errors            [fail closed]
 *   S8  scores + trimming is refused                               [fail closed]
 *   S9  non-canonical link is refused                              [scope]
-*   S10 unweighted, model(mixed) and collect are refused           [scope]
+*   S10 unweighted and collect are refused                         [scope]
 *   S11 a rerun WITHOUT scores clears the stale columns            [no stale state]
 *   S12 row order does not change the answer                       [no hidden sort]
 *   S13 e() stamps are present and say uncleared                   [the contract]
@@ -355,27 +355,24 @@ else {
     display "FAIL S9: expected rc 198, got `rc9'"
 }
 
-**# S10 -- unweighted and model(mixed) are refused
+**# S10 -- unweighted and collect are refused
 
 capture quietly iivw_fit y z1, timespec(linear) unweighted id(id) time(t) ///
     vce(stacked)
 local rc10a = _rc
-capture quietly iivw_fit y z1, timespec(linear) model(mixed) ///
-    experimentalmixed vce(stacked)
-local rc10b = _rc
 * collect would freeze the fitter's own table -- the fixed-weight SEs -- while
 * e(V) holds the stacked ones. Two different numbers under one label.
 capture quietly iivw_fit y z1, timespec(linear) vce(stacked) collect
 local rc10c = _rc
-display as text "S10: unweighted rc=`rc10a'  mixed rc=`rc10b'  collect rc=`rc10c'"
-if `rc10a' == 198 & `rc10b' == 198 & `rc10c' == 198 {
+display as text "S10: unweighted rc=`rc10a'  collect rc=`rc10c'"
+if `rc10a' == 198 & `rc10c' == 198 {
     local ++pass_count
-    display "PASS S10: all three out-of-scope combinations are refused"
+    display "PASS S10: both out-of-scope combinations are refused"
 }
 else {
     local ++fail_count
     local failed_tests "`failed_tests' S10"
-    display "FAIL S10: expected rc 198 for all three, got `rc10a', `rc10b', `rc10c'"
+    display "FAIL S10: expected rc 198 for both, got `rc10a', `rc10c'"
 }
 
 **# S11 -- a rerun without scores must clear the stale columns

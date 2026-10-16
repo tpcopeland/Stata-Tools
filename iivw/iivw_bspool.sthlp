@@ -62,8 +62,8 @@ processes, each drawing an independent and reproducible subset, and pooled
 here.
 
 {pstd}
-Nothing about the estimator changes. The draws already existed; before 4.2.0
-the package discarded them instead of making them addressable.
+Nothing about the estimator changes: pooling only makes the bootstrap draws
+addressable across processes.
 
 {pstd}
 {cmd:iivw_bspool} operates on the {cmd:iivw_fit} results currently in
@@ -198,7 +198,7 @@ therefore errors, never warns, when shards disagree on:
 {p2colset 8 44 46 2}{...}
 {p2col:{cmd:e(iivw_wsig)}}the weight contract{p_end}
 {p2col:analysis identity}the outcome analysis: a fingerprint of the estimation-sample outcome, covariate, weight, id, time and cluster columns plus the outcome-model options; also compared against the anchor{p_end}
-{p2col:{cmd:e(iivw_model)}}gee or mixed{p_end}
+{p2col:{cmd:e(iivw_model)}}always {cmd:gee}{p_end}
 {p2col:{cmd:e(iivw_weighttype)}}iivw, iptw, or fiptiw{p_end}
 {p2col:{cmd:e(iivw_refitweights)}}whether the draws refit the weights{p_end}
 {p2col:{cmd:e(iivw_unweighted)}}weighted or not{p_end}
@@ -239,9 +239,9 @@ one of the shards being pooled, or a saved pool of them.
 
 {phang2}
 {bf:a file that is not an iivw shard.} Replicate files written by a bare
-{helpb bootstrap} prefix, or by {cmd:iivw_fit} before 4.2.0, carry no identity
-and cannot be checked. Shard files, and anchors, written before the analysis
-identity and lineage stamps were added are refused likewise; refit them.
+{helpb bootstrap} prefix carry no identity and cannot be checked. Shard files,
+and anchors, that lack the analysis identity and lineage stamps are refused
+likewise; refit them.
 
 {phang2}
 {bf:a truncated shard.} A file holding fewer rows than its own stamp says it
@@ -404,7 +404,9 @@ so {help bootstrap_postestimation:estat bootstrap} describes the pool.{p_end}
 {synopt:{cmd:e(iivw_interval_available)}}always 1{p_end}
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:e(iivw_ci_type)}}the pooled interval type{p_end}
-{synopt:{cmd:e(ci_bca)}, {cmd:e(accel)}, {cmd:e(iivw_ci_bca)}}empty: BCa limits and acceleration are not pooled, so any carried by the anchor shard are removed{p_end}
+{synopt:{cmd:e(ci_bca)}}empty: BCa is not pooled{p_end}
+{synopt:{cmd:e(accel)}}empty: BCa is not pooled{p_end}
+{synopt:{cmd:e(iivw_ci_bca)}}empty: BCa is not pooled{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}recomputed; see above{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if failures were accepted{p_end}
 {synopt:{cmd:e(iivw_bs_saving)}}the {cmd:saving()} file, if written{p_end}

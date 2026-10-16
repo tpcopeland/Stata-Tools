@@ -152,7 +152,7 @@ program define _fx_inference, rclass
     else local ++fail
     local ++tests
     capture noisily {
-        qa_option_domain, command(iivw_fit y, timespec(linear) bootstrap(@v@) nolog) inside(2;20) outside(-1)
+        qa_option_domain, command(iivw_fit y, timespec(linear) vce(bootstrap, reps(@v@) fixedweights) nolog) inside(2;20) outside(-1)
     }
     if _rc==0 local ++pass
     else local ++fail

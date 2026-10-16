@@ -759,7 +759,7 @@ capture noisily {
     file open `fh' using "`msg'", read text
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "earlier iivw version") local found = 1
+        if strpos(`"`macval(line)'"', "pre-release iivw build") local found = 1
         file read `fh' line
     }
     file close `fh'

@@ -2,7 +2,7 @@
 * Regressions for the 2026-10-05 audit, bootstrap and pooling track (BP-01..05).
 *
 *   B1  BP-01 pooling refuses edited auxiliary model inputs (offset, exposure,
-*       trials, mixed residual by()/t()); unedited data and a constant trial
+*       trials); unedited data and a constant trial
 *       count still pool
 *   B2  BP-02 the BCa refusal stays rc198 and no longer blames one shard
 *   B3  BP-03 an undefined selected BCa interval refuses (rc498) instead of
@@ -116,54 +116,6 @@ capture noisily {
     quietly iivw_bspool using "b1_const.dta", notable
     assert e(iivw_bs_reps_completed) == 10
 
-    * mixed residuals by() and t()
-    gen byte g = mod(id, 2)
-    gen double my = 1 + 0.3*x + 0.1*t + ui + rnormal(0, cond(g, 1, 1.5))
-    quietly iivw_fit my x, unweighted id(id) time(t) timespec(linear) ///
-        model(mixed) mixedopts(residuals(independent, by(g))) ///
-        vce(bootstrap, reps(10) seed(36) fixedweights) citype(percentile) ///
-        rngstream(3) saving(b1_mby, double replace) nolog
-    assert strpos(" `e(iivw_bs_dsig_vars)' ", " g ") > 0
-    quietly iivw_bspool using "b1_mby.dta", notable
-    quietly iivw_fit my x, unweighted id(id) time(t) timespec(linear) ///
-        model(mixed) mixedopts(residuals(independent, by(g))) ///
-        vce(bootstrap, reps(10) seed(36) fixedweights) citype(percentile) ///
-        rngstream(3) saving(b1_mby, double replace) nolog
-    replace g = mod(id, 3) > 0
-    capture iivw_bspool using "b1_mby.dta", notable
-    assert _rc == 459
-    replace g = mod(id, 2)
-
-    * a string by() group fits, pools, and is bound too
-    gen str1 gs = cond(g, "a", "b")
-    quietly iivw_fit my x, unweighted id(id) time(t) timespec(linear) ///
-        model(mixed) mixedopts(residuals(independent, by(gs))) ///
-        vce(bootstrap, reps(10) seed(36) fixedweights) citype(percentile) ///
-        rngstream(3) saving(b1_ms, double replace) nolog
-    quietly iivw_bspool using "b1_ms.dta", notable
-    quietly iivw_fit my x, unweighted id(id) time(t) timespec(linear) ///
-        model(mixed) mixedopts(residuals(independent, by(gs))) ///
-        vce(bootstrap, reps(10) seed(36) fixedweights) citype(percentile) ///
-        rngstream(3) saving(b1_ms, double replace) nolog
-    replace gs = cond(mod(id, 3) > 0, "a", "b")
-    capture iivw_bspool using "b1_ms.dta", notable
-    assert _rc == 459
-    drop gs
-
-    gen double tc = t
-    quietly iivw_fit my x, unweighted id(id) time(t) timespec(linear) ///
-        model(mixed) mixedopts(residuals(ar 1, t(tc))) ///
-        vce(bootstrap, reps(10) seed(37) fixedweights) citype(percentile) ///
-        rngstream(4) saving(b1_mt, double replace) nolog
-    assert strpos(" `e(iivw_bs_dsig_vars)' ", " tc ") > 0
-    quietly iivw_bspool using "b1_mt.dta", notable
-    quietly iivw_fit my x, unweighted id(id) time(t) timespec(linear) ///
-        model(mixed) mixedopts(residuals(ar 1, t(tc))) ///
-        vce(bootstrap, reps(10) seed(37) fixedweights) citype(percentile) ///
-        rngstream(4) saving(b1_mt, double replace) nolog
-    replace tc = cond(t == 1, 2, cond(t == 2, 1, t))
-    capture iivw_bspool using "b1_mt.dta", notable
-    assert _rc == 459
     display as result "B1 PASS: auxiliary model inputs bind the pooling identity"
 }
 if _rc == 0 local ++pass_count

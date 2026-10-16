@@ -9,9 +9,11 @@ version 16.0
 *   stata-mp -b do run_all.do           (from iivw/qa/)
 *   stata-mp -b do run_all.do quick     (fast contract/release smoke)
 *   stata-mp -b do run_all.do core      (all supported Stata gates)
-*   stata-mp -b do run_all.do full      (core plus fresh R parity)
+*   stata-mp -b do run_all.do full      (core plus fresh R parity and
+*                                        calibration smoke forms)
 *   stata-mp -b do run_all.do legacy    (legacy estimator constructions)
-*   stata-mp -b do run_all.do sensitivity (post-hoc simulation envelopes)
+*   stata-mp -b do run_all.do sensitivity (calibration gates and post-hoc
+*                                          simulation envelopes)
 *   stata-mp -b do run_all.do sim       (backward-compatible sensitivity alias)
 *
 * READING THE RESULT (important)
@@ -134,6 +136,7 @@ local quick_suites ///
     test_iivw_v420_shard ///
     test_iivw_codexaudit_2026_09_27_a ///
     test_iivw_readme_sequence ///
+    test_iivw_quiet_output ///
     test_iivw_balance ///
     test_iivw_performance ///
     test_iivw_weight_validation_guards ///
@@ -228,6 +231,8 @@ local core_suites validation_fixture_phase2_iivw validation_fixture_analytical v
     test_iivw_surfaces ///
     test_iivw_v432_regressions ///
     test_iivw_v437_ordinal ///
+    test_iivw_v100_regressions ///
+    test_iivw_quiet_output ///
     test_iivw_interval_contract ///
     test_iivw_failclosed ///
     test_iivw_coverage_gate ///
@@ -240,14 +245,26 @@ local core_suites validation_fixture_phase2_iivw validation_fixture_analytical v
     validation_fixture_excel ///
     test_fixture_font_forms ///
     test_fixture_font_tokens ///
-    test_fixture_exog_state
+    test_fixture_exog_state ///
+    validation_iivw_unweighted_recovery ///
+    validation_iivw_links_recovery ///
+    validation_iivw_exogtest_recovery ///
+    crossval_iivw_published_hernan-robins-whatif
 
 local legacy_suites ///
     validation_iivw_recovery ///
     validation_iivw_recovery_extended ///
     validation_iivw_recovery_extended2
 
-local sensitivity_suites ///
+* Inference-calibration gates run at full replicate count here. The full lane
+* runs the same suites in their `smoke' form (see the SUITE TOKENS note below).
+local calibration_suites ///
+    validation_iivw_stacked_calibration ///
+    validation_iivw_unweighted_calibration ///
+    validation_iivw_links_calibration ///
+    validation_iivw_exogtest_calibration
+
+local sensitivity_suites `calibration_suites' ///
     sim_scenarios_abc ///
     sim_scenario_d ///
     sim_scenario_e
@@ -299,10 +316,41 @@ if "`mode'" == "full" {
             exit 198
         }
     }
+    * The newer crossvals call R themselves, each behind its own sentinel. Check
+    * their packages here too so a missing one stops the lane before the core
+    * suites have run, not hours in. The sentinel is created by R itself, only
+    * after every requireNamespace() succeeded.
+    tempfile _rpkgstub
+    local rpkg_ok "`_rpkgstub'_rpkgs.ok"
+    capture erase "`rpkg_ok'"
+    shell Rscript -e "p <- c('geex', 'dplyr', 'geepack', 'survival'); m <- p[!vapply(p, requireNamespace, logical(1), quietly = TRUE)]; if (length(m)) { cat('missing R packages:', m, '\n'); quit(status = 1) }; invisible(file.create('`rpkg_ok''))"
+    capture confirm file "`rpkg_ok'"
+    if _rc {
+        display as error "FAILED: R package preflight for the full lane"
+        display as error "  needs R packages geex, dplyr, geepack and survival"
+        display as error "  (crossval_iivw_stacked_geex,"
+        display as error "  crossval_iivw_published_tompkins-2025-smmr and the geepack/survival crossvals)"
+        sysdir set PLUS     "`orig_plus'"
+        sysdir set PERSONAL "`orig_personal'"
+        exit 198
+    }
+    capture erase "`rpkg_ok'"
     global IIVW_QA_REFS_FRESH "1"
 
+    * crossval_iivw_published_tompkins-2025-smmr fetches the authors' code from
+    * GitHub at a pinned commit and checks its SHA-256. Offline, its R generator
+    * never writes its sentinel and the suite exits 198, so the lane fails; it
+    * never passes against absent references.
     local suites `suites' crossval_iivw crossval_iivw_external ///
-        crossval_iivw_dta crossval_iivw_pbcseq
+        crossval_iivw_dta crossval_iivw_pbcseq ///
+        crossval_iivw_published_coulombe-2021-biometrics ///
+        crossval_iivw_published_tompkins-2025-smmr ///
+        crossval_iivw_bootstrap_survival ///
+        crossval_iivw_stacked_geex ///
+        crossval_iivw_unweighted_geepack
+    foreach cal of local calibration_suites {
+        local suites `suites' `cal':smoke
+    }
 }
 
 * Optional bounded contiguous chunk, preserving the default curated list.
@@ -348,7 +396,8 @@ if "`first'`last'" != "" {
 *
 * The lane lists live here and must not be duplicated in shell, so write the
 * resolved list out instead. run_all.sh requires exactly one well-formed
-* sentinel per name below.
+* sentinel per name below. A `<suite>:smoke' token is written as is, so the
+* gate can tell a smoke run (whose banded checks count as skipped) from a gate.
 capture file close _expected
 file open _expected using "`qa_dir'/run_all_expected.txt", write replace
 file write _expected "lane=`mode'" _n
@@ -365,31 +414,49 @@ local suite_fail = 0
 local failed_suites ""
 local missing_suites ""
 
-foreach f of local suites {
+* SUITE TOKENS. A list entry is either `<suite>' or `<suite>:smoke'. The
+* second runs `do "<suite>.do" smoke', the code-path-only form of a calibration
+* gate (it prints smoke=1 and is never gate evidence). Each token is one suite
+* for the pass/fail counts and the expected-sentinel list. Any other suffix is
+* a failure, never a silent plain run.
+foreach entry of local suites {
+    local f "`entry'"
+    local farg ""
+    local colon = strpos("`entry'", ":")
+    if `colon' {
+        local f = substr("`entry'", 1, `colon' - 1)
+        local farg = substr("`entry'", `colon' + 1, .)
+        if "`farg'" != "smoke" {
+            local ++suite_fail
+            local failed_suites "`failed_suites' `entry'"
+            display as error "BAD TOKEN: `entry' (the only accepted suffix is :smoke)"
+            continue
+        }
+    }
     * A curated suite that is not on disk is a FAILURE, not a skip. Printing
     * "SKIP" and continuing let a typo or an accidental deletion silently shrink
     * coverage while the aggregate stayed green.
     capture confirm file "`qa_dir'/`f'.do"
     if _rc {
         local ++suite_fail
-        local failed_suites "`failed_suites' `f'"
+        local failed_suites "`failed_suites' `entry'"
         local missing_suites "`missing_suites' `f'"
         display as error "MISSING: `qa_dir'/`f'.do is in the curated list but not on disk"
         continue
     }
     display _newline as text "{hline 70}"
-    display as result "Running: `f'.do"
+    display as result "Running: `f'.do `farg'"
     display as text "{hline 70}"
     * Run in fresh state; each suite handles its own install/uninstall
-    capture noisily do "`qa_dir'/`f'.do"
+    capture noisily do "`qa_dir'/`f'.do" `farg'
     if _rc {
         local ++suite_fail
-        local failed_suites "`failed_suites' `f'"
-        display as error "FAILED: `f'.do (rc=`=_rc')"
+        local failed_suites "`failed_suites' `entry'"
+        display as error "FAILED: `f'.do `farg' (rc=`=_rc')"
     }
     else {
         local ++suite_pass
-        display as result "PASSED: `f'.do"
+        display as result "PASSED: `f'.do `farg'"
     }
     * Restore cwd after each suite (in case one cd's away)
     cd "`qa_dir'"

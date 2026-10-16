@@ -1,4 +1,4 @@
-*! _iivw_fit_p Version 4.3.7  2026/10/13
+*! _iivw_fit_p Version 1.0.0  2026/10/15
 *! predict for iivw_fit: refuses generated design columns that no longer
 *! belong to the fit in e(), then hands off to the underlying model's predict.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -11,7 +11,7 @@
 * depend only on position (`_iivw_tcat_1'). A later fit with `replace' can
 * reuse such a name for a DIFFERENT column. Stored estimates keep their
 * coefficients but not the columns, so after `estimates restore' the
-* underlying glm/mixed predict read whatever the column now holds and returned
+* underlying glm predict read whatever the column now holds and returned
 * changed predictions at rc 0 (audit F03: up to 1.019 on the audit fixture,
 * and 50 previously available predictions went missing).
 *
@@ -92,22 +92,5 @@ program define _iivw_fit_p
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'
 
-    * Native mixed BLUP/residual/fitted predictions require the native
-    * command identity; the public result carries e(cmd)=iivw_fit. Delegate
-    * under a temporary native identity, restored on success or error.
-    if "`e(iivw_underlying_cmd)'" == "mixed" {
-        _iivw_fit_predict_mixed `0'
-    }
-    else `e(iivw_predict)' `0'
-end
-
-capture program drop _iivw_fit_predict_mixed
-program define _iivw_fit_predict_mixed, eclass
-    version 16.0
-    local __iivw_cmd "`e(cmd)'"
-    ereturn local cmd "mixed"
-    capture noisily `e(iivw_predict)' `0'
-    local __iivw_rc = _rc
-    ereturn local cmd "`__iivw_cmd'"
-    if `__iivw_rc' exit `__iivw_rc'
+    `e(iivw_predict)' `0'
 end

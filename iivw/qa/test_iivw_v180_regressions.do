@@ -5,14 +5,13 @@ set varabbrev off
 * test_iivw_v180_regressions.do - regressions for v1.8.0 features
 *
 * Coverage:
-*   T1  iivw_fit, bootstrap() refitweights (IIW) sets e(iivw_refitweights)=1
+*   T1  iivw_fit, vce(bootstrap) refit (IIW) sets e(iivw_refitweights)=1
 *   T2  refit and fixed-weight bootstrap share the point estimate but differ in SE
 *   T3  contract survival: _dta[_iivw_id]/_iivw_weight_var unchanged after refit
 *       bootstrap (guards the per-replicate iivw_weight char-leak fix)
-*   T4  iivw_fit, bootstrap() refitweights (FIPTIW) sets e(iivw_refitweights)=1
-*   T5  refitweights without bootstrap() errors (rc 198)
-*   T6  refitweights + unweighted errors (rc 198)
-*   T7  refitweights + a cluster() other than the panel id errors (rc 198)
+*   T4  iivw_fit, vce(bootstrap) refit (FIPTIW) sets e(iivw_refitweights)=1
+*   T6  the refit bootstrap + unweighted errors (rc 198)
+*   T7  the refit bootstrap + a cluster() other than the panel id errors (rc 198)
 *   T8  stabilization nudge prints when stabcov() is omitted (IIW)
 *   T9  stabilization nudge is absent when stabcov() is supplied
 *
@@ -83,7 +82,7 @@ capture noisily {
     _iivw_v180_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     set seed 180180
-    iivw_fit y treat, model(gee) timespec(linear) bootstrap(15) refitweights nolog
+    iivw_fit y treat, timespec(linear) vce(bootstrap, reps(15)) nolog
     assert "`e(iivw_refitweights)'" == "1"
     assert !missing(e(N))
     assert e(N) > 0
@@ -106,12 +105,12 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
 
     set seed 180180
-    iivw_fit y treat, model(gee) timespec(linear) bootstrap(40) refitweights nolog
+    iivw_fit y treat, timespec(linear) vce(bootstrap, reps(40)) nolog
     local b_refit  = _b[treat]
     local se_refit = _se[treat]
 
     set seed 180180
-    iivw_fit y treat, model(gee) timespec(linear) bootstrap(40) nolog replace
+    iivw_fit y treat, timespec(linear) vce(bootstrap, reps(40) fixedweights) nolog replace
     local b_fixed  = _b[treat]
     local se_fixed = _se[treat]
 
@@ -145,7 +144,7 @@ capture noisily {
     local time_before   : char _dta[_iivw_time]
 
     set seed 180180
-    iivw_fit y treat, model(gee) timespec(linear) bootstrap(15) refitweights nolog
+    iivw_fit y treat, timespec(linear) vce(bootstrap, reps(15)) nolog
 
     local id_after   : char _dta[_iivw_id]
     local wvar_after : char _dta[_iivw_weight_var]
@@ -155,7 +154,7 @@ capture noisily {
     assert "`time_after'" == "`time_before'" & "`time_after'" == "days"
 
     * a subsequent fit on the restored contract still works
-    iivw_fit y treat, vce(fixed) model(gee) timespec(linear) nolog replace
+    iivw_fit y treat, vce(fixed) timespec(linear) nolog replace
     assert !missing(e(N))
     assert e(N) > 0
 }
@@ -177,7 +176,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) ///
         treat(treat) treat_cov(sev) truncfinal(1 99) nolog
     set seed 180180
-    iivw_fit y treat sev, model(gee) timespec(linear) bootstrap(15) refitweights nolog
+    iivw_fit y treat sev, timespec(linear) vce(bootstrap, reps(15)) nolog
     assert "`e(iivw_refitweights)'" == "1"
     assert !missing(e(N))
     assert e(N) > 0
@@ -192,25 +191,6 @@ else {
     local failed_tests "`failed_tests' T4"
 }
 
-**# T5: refitweights without bootstrap() errors (rc 198)
-
-local ++test_count
-capture noisily {
-    _iivw_v180_panel
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
-    capture iivw_fit y treat, model(gee) refitweights nolog
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: T5 - refitweights without bootstrap errors (rc 198)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: T5 - refitweights-without-bootstrap guard (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T5"
-}
-
 **# T6: refitweights + unweighted errors (rc 198)
 
 local ++test_count
@@ -218,7 +198,7 @@ capture noisily {
     _iivw_v180_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
     capture iivw_fit y treat, unweighted id(id) time(days) ///
-        bootstrap(15) refitweights nolog
+        vce(bootstrap, reps(15)) nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -238,7 +218,7 @@ capture noisily {
     _iivw_v180_panel
     gen long clinic = mod(id, 5)
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
-    capture iivw_fit y treat, model(gee) bootstrap(15) refitweights cluster(clinic) nolog
+    capture iivw_fit y treat, vce(bootstrap, reps(15)) cluster(clinic) nolog
     assert _rc == 198
 }
 if _rc == 0 {

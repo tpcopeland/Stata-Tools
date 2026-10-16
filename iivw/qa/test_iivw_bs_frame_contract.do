@@ -162,12 +162,12 @@ capture noisily {
         wtype(iivw) nolog
     replace id = . in 1/3
 
-    capture noisily iivw_fit y a, timespec(linear) bootstrap(5) refitweights nolog
+    capture noisily iivw_fit y a, timespec(linear) vce(bootstrap, reps(5)) nolog
     assert _rc == 459
 
     * The code alone is not enough: 459 must come from THIS guard, not from an
     * unrelated failure that happens to share the return code.
-    capture noisily iivw_fit y a, timespec(linear) bootstrap(5) refitweights nolog
+    capture noisily iivw_fit y a, timespec(linear) vce(bootstrap, reps(5)) nolog
     local _msg = "`r(msg)'"
 }
 if _rc == 0 {
@@ -192,7 +192,7 @@ capture noisily {
         wtype(iivw) nolog
     replace time = . in 5/7
 
-    capture iivw_fit y a, timespec(linear) bootstrap(5) refitweights nolog
+    capture iivw_fit y a, timespec(linear) vce(bootstrap, reps(5)) nolog
     assert _rc == 459
 }
 if _rc == 0 {
@@ -218,7 +218,7 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) ///
         wtype(iivw) nolog
 
-    capture iivw_fit y a, timespec(linear) bootstrap(5) refitweights ///
+    capture iivw_fit y a, timespec(linear) vce(bootstrap, reps(5)) ///
         geeopts(irls) nolog
     assert _rc == 198
 
@@ -229,7 +229,7 @@ capture noisily {
     * a non-irls geeopts() payload must still run under the same bootstrap. If
     * the 198 came from a broken geeopts() pass-through, a mistyped option name
     * or anything else generic, this control would fail too.
-    quietly iivw_fit y a, timespec(linear) bootstrap(5) refitweights ///
+    quietly iivw_fit y a, timespec(linear) vce(bootstrap, reps(5)) ///
         geeopts(iterate(50)) nolog
     assert !missing(e(N))
     assert e(N) > 0
@@ -256,11 +256,11 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) ///
         wtype(iivw) nolog
 
-    capture iivw_fit y a, timespec(linear) bootstrap(5) geeopts(irls) nolog
+    capture iivw_fit y a, timespec(linear) vce(bootstrap, reps(5) fixedweights) geeopts(irls) nolog
     assert _rc == 198
 
     * Same contrast control as B3, on the fixed-weight path.
-    quietly iivw_fit y a, timespec(linear) bootstrap(5) geeopts(iterate(50)) nolog
+    quietly iivw_fit y a, timespec(linear) vce(bootstrap, reps(5) fixedweights) geeopts(iterate(50)) nolog
     assert !missing(e(N))
     assert e(N) > 0
 }
@@ -287,7 +287,7 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) ///
         wtype(iivw) nolog
 
-    quietly iivw_fit y a, timespec(linear) bootstrap(0) geeopts(irls) nolog
+    quietly iivw_fit y a, timespec(linear) vce(fixed) geeopts(irls) nolog
     assert !missing(e(N))
     assert e(N) > 0
     assert !missing(_b[a])
@@ -321,7 +321,7 @@ capture noisily {
 
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) ///
         wtype(iivw) nolog
-    quietly iivw_fit y a, timespec(linear) bootstrap(20) refitweights nolog
+    quietly iivw_fit y a, timespec(linear) vce(bootstrap, reps(20)) nolog
 
     * e(N_clust) is the frame; the new scalar is the outcome sample.
     assert e(N_clust) == `_ncp'
@@ -357,7 +357,7 @@ capture noisily {
 
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) ///
         wtype(iivw) nolog
-    quietly iivw_fit y a, timespec(linear) bootstrap(20) refitweights nolog
+    quietly iivw_fit y a, timespec(linear) vce(bootstrap, reps(20)) nolog
 
     assert e(N) == `_no'
     assert e(iivw_bs_frame_N) == `_np'
@@ -392,7 +392,7 @@ capture noisily {
 
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) ///
         wtype(iivw) nolog
-    quietly iivw_fit y a, timespec(linear) bootstrap(20) refitweights nolog
+    quietly iivw_fit y a, timespec(linear) vce(bootstrap, reps(20)) nolog
 
     assert e(N) == `_np'
     assert e(iivw_bs_frame_N) == `_np'

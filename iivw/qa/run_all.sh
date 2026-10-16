@@ -28,6 +28,10 @@
 #   - run_all_status.txt first line is PASS
 #   - for EVERY curated suite named in run_all_expected.txt: exactly one
 #     evaluated sentinel, with tests == pass + fail + skip, fail == 0, skip == 0
+#   - a `<suite>:smoke' entry (a calibration gate run in its smoke form) must
+#     print smoke=1; its skip count is the banded checks smoke never applies,
+#     so skip > 0 is allowed there and only there. A plain entry printing
+#     smoke=1 is refused: a smoke run is never gate evidence.
 #   - no curated suite missing a sentinel, and no sentinel counted twice
 # =============================================================================
 set -uo pipefail
@@ -78,10 +82,19 @@ fi
 # A suite name is matched anchored at column 0 so an echoed source line -- which
 # carries the macro form, not evaluated numbers -- cannot satisfy the check.
 n_ok=0
-while read -r name; do
-    [[ -z "$name" || "$name" == lane=* ]] && continue
+while read -r entry; do
+    [[ -z "$entry" || "$entry" == lane=* ]] && continue
+    name="${entry%%:*}"
+    smoke=0
+    if [[ "$entry" == *:* ]]; then
+        if [[ "${entry#*:}" != "smoke" ]]; then
+            fail "$entry: unknown suite token (only :smoke is accepted)"
+            continue
+        fi
+        smoke=1
+    fi
 
-    mapfile -t hits < <(grep -aoE "^RESULT: ${name} tests=[0-9]+ pass=[0-9]+ fail=[0-9]+( skip=[0-9]+)?" run_all.log || true)
+    mapfile -t hits < <(grep -aE "^RESULT: ${name} tests=[0-9]+ pass=[0-9]+ fail=[0-9]+( skip=[0-9]+)?" run_all.log || true)
     if (( ${#hits[@]} == 0 )); then
         fail "$name emitted NO evaluated RESULT: sentinel"
         continue
@@ -106,7 +119,17 @@ while read -r name; do
     if (( t == 0 ));            then fail "$name reported tests=0"; continue; fi
     if (( t != p + f + s ));    then fail "$name: tests=$t != pass=$p + fail=$f + skip=$s"; continue; fi
     if (( f != 0 ));            then fail "$name reported fail=$f"; continue; fi
-    if (( s != 0 ));            then fail "$name reported skip=$s (an unrun check is not a pass)"; continue; fi
+    if (( smoke )); then
+        if [[ ! "$line" =~ [[:space:]]smoke=1([[:space:]]|$) ]]; then
+            fail "$name ran as :smoke but did not print smoke=1"; continue
+        fi
+        if (( p == 0 )); then fail "$name ran as :smoke with pass=0 (nothing was checked)"; continue; fi
+    else
+        if [[ "$line" =~ [[:space:]]smoke=1([[:space:]]|$) ]]; then
+            fail "$name printed smoke=1 in a gate slot (a smoke run is not evidence)"; continue
+        fi
+        if (( s != 0 )); then fail "$name reported skip=$s (an unrun check is not a pass)"; continue; fi
+    fi
     (( n_ok++ ))
 done < run_all_expected.txt
 

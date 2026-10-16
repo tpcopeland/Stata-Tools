@@ -1,5 +1,5 @@
-*! _iivw_bs_refit Version 4.3.7  2026/10/13
-*! Bootstrap wrapper for iivw_fit, refitweights: recomputes IIW/IPTW/FIPTIW
+*! _iivw_bs_refit Version 1.0.0  2026/10/15
+*! Bootstrap wrapper for the iivw_fit refit bootstrap: recomputes IIW/IPTW/FIPTIW
 *! weights from scratch on each resampled panel before refitting the outcome
 *! model, so the bootstrap propagates weight-estimation uncertainty.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -23,7 +23,7 @@ program define _iivw_bs_refit, eclass
     * incomplete:
     * _iivw_lagvars, _iivw_wsig and _iivw_nonconverged were not on it. A probe on
     * 2026-07-14 saw _iivw_lagvars go from `x' to blank across a successful
-    * `iivw_fit, bootstrap(3) refitweights' -- and _iivw_check_weighted still
+    * `iivw_fit, vce(bootstrap, reps(3))' -- and _iivw_check_weighted still
     * returned 0 afterwards, because the signature it would have checked against
     * had been blanked too. The contract silently stopped describing the data and
     * the guard that exists to catch that had been erased by the same bug.
@@ -48,16 +48,15 @@ program define _iivw_bs_refit, eclass
     capture noisily {
     syntax varlist(numeric min=1) [if] [in], ///
         NEWID(varname) TIMEvar(varname) WTYPE(string) PREFIX(string) ///
-        MODel(string) ///
         [PANELid(varname) OUTCOMETOUSE(varname) ///
          VISITcov(string) LAGvars(string) TREAT(string) TREATcov(string) ///
          STABcov(string) EFRon BREslow BASEline(string) ///
          TRUNCVisit(string) TRUNCTreat(string) TRUNCFinal(string) ///
          ENTRY(string) ///
          CENSor(string) MAXfu(string) ENDATLASTvisit ///
-         ALLOWMISSINGWeights EXPERIMENTALNOTREATVISit ///
+         ALLOWMISSINGWeights ///
          FAMily(string) LINk(string) ///
-         GEEopts(string asis) MIXEDopts(string asis) noLOG]
+         GEEopts(string asis) noLOG]
 
     * ---------------------------------------------------------------------
     * The RESAMPLING FRAME, captured before any varlist markout.
@@ -116,13 +115,12 @@ program define _iivw_bs_refit, eclass
     quietly keep if `frame_touse'
 
     * Same pass-through guard as iivw_fit (IIVW-B08): no variance/resampling
-    * token in geeopts()/mixedopts() may reach the inner glm inside a draw.
+    * token in geeopts() may reach the inner glm inside a draw.
     * noirls unconditionally: this program only ever runs inside a bootstrap,
     * so the e(converged) gate below is always live. iivw_fit refuses irls
     * before it gets here; this is the second half of the same guard, for the
     * day something else calls this wrapper.
     _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')  noirls
-    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"') noirls
 
     local log_opt = cond("`log'" == "nolog", "nolog", "")
     local weight_var "`prefix'weight"
@@ -143,12 +141,11 @@ program define _iivw_bs_refit, eclass
     * of each of its patients. When cluster() IS the panel the mapping is
     * one-to-one with newid, which is why the common case never showed the bug.
     *
-    * DEFENSIVE ONLY under the current contract: iivw_fit refuses refitweights
+    * DEFENSIVE ONLY under the current contract: iivw_fit refuses the refit bootstrap
     * when cluster() differs from the panel id, so the two branches below are
     * equivalent on every path that can actually reach this program today. It is
-    * kept rather than collapsed because the identical construction IS live in
-    * _iivw_bs_estimate, where cluster() may sit above the panel, and because
-    * the day that refusal is lifted this is the behaviour that has to be here.
+    * kept rather than collapsed because the day that refusal is lifted this
+    * is the behaviour that has to be here.
     * ---------------------------------------------------------------------
     tempvar _bs_subj
     if "`panelid'" != "" {
@@ -248,8 +245,6 @@ program define _iivw_bs_refit, eclass
         }
     }
     local amw_opt = cond("`allowmissingweights'" != "", "allowmissingweights", "")
-    local ntv_opt = ///
-        cond("`experimentalnotreatvisit'" != "", "experimentalnotreatvisit", "")
 
     * The trimming spec is replayed by PERCENTILE, not by the observed cutpoint.
     * A bootstrap draw is a different sample: its 99th percentile is a different
@@ -296,7 +291,7 @@ program define _iivw_bs_refit, eclass
         local base_opt = cond("`baseline'" != "", "baseline(`baseline')", "")
         quietly iivw_weight, id(`_bs_subj') time(`timevar') `wopts' ///
             wtype(`wtype') `efron_opt' `base_opt' ///
-            generate(`prefix') replace nolog `amw_opt' `ntv_opt'
+            generate(`prefix') replace nolog `amw_opt'
     }
 
     * Drop rows with a missing recomputed weight from this replicate's fit
@@ -314,28 +309,16 @@ program define _iivw_bs_refit, eclass
     * ---------------------------------------------------------------------
     gettoken depvar covars : varlist
 
-    if "`model'" == "gee" {
-        local glm_family "family(`family')"
-        local glm_link ""
-        if "`link'" != "" local glm_link "link(`link')"
-        glm `depvar' `covars' [pw=`weight_var'] if `touse', ///
-            `glm_family' `glm_link' `log_opt' `geeopts'
-    }
-    else if "`model'" == "mixed" {
-        * The random intercept groups on the resampled SUBJECT, not the
-        * resampled cluster -- see the group(newid, panelid) note above.
-        mixed `depvar' `covars' [pw=`weight_var'] if `touse' ///
-            || `_bs_subj':, `log_opt' `mixedopts'
-    }
-    else {
-        display as error "model() must be gee or mixed"
-        error 198
-    }
+    local glm_family "family(`family')"
+    local glm_link ""
+    if "`link'" != "" local glm_link "link(`link')"
+    glm `depvar' `covars' [pw=`weight_var'] if `touse', ///
+        `glm_family' `glm_link' `log_opt' `geeopts'
 
     * The outcome fit must have CONVERGED to count as a replicate; see
     * _iivw_require_draw_converged.ado for why, why allownonconverged is not
     * honoured inside a draw, and why a missing e(converged) fails closed.
-    _iivw_require_draw_converged, model(`model')
+    _iivw_require_draw_converged, model(glm)
 
     * ---------------------------------------------------------------------
     * Declare the frame, not the outcome sample, as e(sample).

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.3.7  13oct2026}
+{* *! version 1.0.0  15oct2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -56,7 +56,7 @@ The package provides five main commands:
 
 {phang2}{helpb iivw_weight} computes IIW, IPTW, or FIPTIW weights{p_end}
 {phang2}{helpb iivw_balance} checks weight leverage and visit-model balance{p_end}
-{phang2}{helpb iivw_fit} fits unweighted or weighted outcome models via GEE or mixed effects{p_end}
+{phang2}{helpb iivw_fit} fits unweighted or weighted GEE outcome models{p_end}
 {phang2}{helpb iivw_exogtest} tests whether prior outcomes predict visit timing{p_end}
 {phang2}{helpb iivw_diagnose} decomposes marginal/reference-slope movement across models{p_end}
 {phang2}{helpb iivw_bspool} pools bootstrap replicates from concurrent {cmd:iivw_fit} shards{p_end}
@@ -128,7 +128,7 @@ outside what these weights identify.{p_end}
 {synoptset 20}{...}
 {synopt:{helpb iivw_weight}}compute IIW/IPTW/FIPTIW weights{p_end}
 {synopt:{helpb iivw_balance}}check weight leverage and visit-model balance{p_end}
-{synopt:{helpb iivw_fit}}fit the outcome model (GEE or mixed){p_end}
+{synopt:{helpb iivw_fit}}fit the GEE outcome model{p_end}
 {synopt:{helpb iivw_exogtest}}test whether prior outcomes predict visit timing{p_end}
 {synopt:{helpb iivw_diagnose}}decompose marginal/reference-slope changes{p_end}
 {synopt:{helpb iivw_bspool}}pool sharded bootstrap replicates{p_end}
@@ -228,8 +228,7 @@ uncertainty. Its current-build status is {cmd:uncleared-current-build} until the
 long-run gate is reproduced against the current source manifest. A bare FIPTIW
 fit is point-only. {cmd:vce(fixed)} and
 {cmd:vce(bootstrap, ... fixedweights)} hold the weights fixed and omit that
-term; the older {opt bootstrap(#)} and {opt refitweights} spellings still run, as
-deprecated shims that print a note pointing at the equivalent {opt vce()}.{p_end}
+term. The variance is chosen through {opt vce()} only.{p_end}
 
 {phang2}(f) Historical coverage results do not automatically certify a later
 source build. Read {cmd:e(iivw_inference_status)} for the current fit; an
@@ -258,8 +257,8 @@ final weight variable (default {cmd:_iivw_weight}), component weights when
 applicable, and dataset metadata used by {cmd:iivw_fit}.{p_end}
 
 {phang2}2. {bf:Inspect weights} using {cmd:summarize _iivw_weight, detail}. Look for extreme
-values (very large max or very small min). {cmd:truncate()} was removed in 2.0.0
-and now errors; trimming is component-specific and is a labelled sensitivity
+values (very large max or very small min). There is no
+{cmd:truncate()} option; trimming is component-specific and is a labelled sensitivity
 analysis, not the default. Tompkins et al. (2025, §4.4) report that trimming
 helps for {it:treatment}-model extremes ({cmd:trunctreat()}) and does {bf:not}
 help for {it:visit}-model extremes -- an extreme IIW means the visit model needs
@@ -269,9 +268,9 @@ mean is near 1" is arithmetic, not evidence. Use {cmd:iivw_balance} for a
 diagnostic that can fail.{p_end}
 
 {phang2}3. {bf:Fit the outcome model} with {cmd:iivw_fit}, which reads the
-weights from the dataset automatically. The default is a GEE-style model
-(GLM with clustered robust standard errors), equivalent to independence
-working correlation GEE.{p_end}
+weights from the dataset automatically. The outcome model is a GLM with
+clustered robust standard errors, equivalent to independence working
+correlation GEE.{p_end}
 
 
 {marker diagnostic}{...}
@@ -353,7 +352,7 @@ often, but treatment assignment is either randomized or not being analyzed:
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_balance}{p_end}
-{phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) timespec(linear)}{p_end}
+{phang2}{cmd:. iivw_fit edss treated edss_bl, timespec(linear)}{p_end}
 
 {pstd}
 For real analyses, prefer baseline or lagged time-varying predictors in the
@@ -369,7 +368,7 @@ severity, add {cmd:treat()} and {cmd:treat_cov()} to correct for both
 simultaneously:
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) replace censor(fu_end) nolog}{p_end}
-{phang2}{cmd:. iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)}{p_end}
+{phang2}{cmd:. iivw_fit edss treated age sex edss_bl, timespec(quadratic)}{p_end}
 
 {pstd}
 {bf:Example 3: diagnostic decomposition with a measurement-process adjustment}
@@ -384,10 +383,10 @@ marginal or reference-arm time slope, here {cmd:days}.
 {phang2}{cmd:. estimates store M_unweighted}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) replace censor(fu_end) nolog}{p_end}
 {phang2}{cmd:. iivw_balance, nolog}{p_end}
-{phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, model(gee) timespec(none) replace nolog}{p_end}
+{phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, timespec(none) replace nolog}{p_end}
 {phang2}{cmd:. estimates store M_fiptiw}{p_end}
 {phang2}{cmd:. gen double log_visit = log(visit + 1)}{p_end}
-{phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl log_visit, model(gee) timespec(none) replace nolog}{p_end}
+{phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl log_visit, timespec(none) replace nolog}{p_end}
 {phang2}{cmd:. estimates store M_adjusted}{p_end}
 {phang2}{cmd:. iivw_exogtest edss relapse, id(id) time(days) censor(fu_end) adjust(age sex edss_bl) by(treated) nolog}{p_end}
 {phang2}{cmd:. iivw_diagnose days, unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) estimand(marginal) exogeneity(unknown)}{p_end}
@@ -464,7 +463,7 @@ answer.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.3.7, 2026-10-13{p_end}
+{pstd}Version 1.0.0, 2026-10-15{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

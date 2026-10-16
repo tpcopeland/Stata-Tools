@@ -28,7 +28,7 @@ version 16.0
 *
 * Code paths exercised: IIW linear/none/quadratic/cubic, stabcov, entry,
 * nobaseevent, lagvars, truncate, unweighted; IPTW (gaussian/poisson/LPM);
-* FIPTIW; model(mixed); a non-informative negative control; a strong-gamma
+* FIPTIW; a non-informative negative control; a strong-gamma
 * positivity-stress case.
 * ----------------------------------------------------------------------------
 
@@ -701,63 +701,6 @@ local rc = _rc
 if `rc' == 0 local ++pass_count
 else local ++fail_count
 _rc_result `rc' "S11 IPTW poisson recovers log-RR (est=" + string(s11_est,"%6.4f") + ")"
-
-**# S12: weighted model(mixed) fixed-effect slope -- BOUNDED (fenced path)
-* iivw_fit fences weighted model(mixed): IIVW weights enter mixed through a single
-* observation-level [pw=] that Stata does not rescale across levels, so the fixed
-* slope is only partially weight-corrected by design (the package documents this
-* and steers to model(gee) as primary). Ship a BOUNDED gate: mixed removes a
-* substantial share of the naive bias and beats naive, but is NOT claimed to
-* recover tightly. (model(gee) recovers this same DGP tightly -- see recovery
-* scenario A.) Observed: mixed removes ~66% of the bias.
-scalar s12_ok = 0
-local ++test_count
-capture noisily {
-    clear
-    set seed 1212
-    set obs 15000
-    gen long id = _n
-    gen double Z = runiform(-1, 1)
-    gen double s_i = 0.5 + 0.6*Z
-    gen double a_i = 10 + 1.0*Z
-    gen double rate_i = 1.5*exp(0.7*Z)
-    expand 60
-    bysort id: gen int k = _n
-    gen double gap = -ln(runiform())/rate_i
-    bysort id (k): gen double vtime = sum(gap)
-    keep if vtime <= 10
-    gen double months = vtime
-    sort id months
-    bysort id: gen int nv = _N
-    drop if nv < 2
-    drop nv
-    gen double y = a_i + s_i*months + rnormal(0, 1)
-    glm y months, family(gaussian) link(identity) vce(cluster id)
-    scalar s12_naive = _b[months]
-    iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(Z) wtype(iivw) nolog replace
-    iivw_fit y, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog replace
-    scalar s12_est = _b[months]
-    scalar s12_ok = 1
-}
-local rc = _rc
-if `rc' == 0 & s12_ok == 1 local ++pass_count
-else local ++fail_count
-_rc_result `rc' "S12 setup (weighted mixed, fenced)"
-
-local ++test_count
-capture noisily {
-    assert s12_ok == 1
-    assert abs(s12_naive - 0.5) > 0.10                   // naive bias ~ +0.14
-    * mixed removes >= 45% of the bias and beats naive (observed ~66%)
-    scalar s12_frac = (abs(s12_naive-0.5) - abs(s12_est-0.5)) / abs(s12_naive-0.5)
-    assert s12_frac >= 0.45
-    assert abs(s12_est - 0.5) < abs(s12_naive - 0.5)
-    assert abs(s12_est - 0.5) < 0.08                     // documented bound (obs ~0.048)
-}
-local rc = _rc
-if `rc' == 0 local ++pass_count
-else local ++fail_count
-_rc_result `rc' "S12 weighted mixed bounded partial recovery (est=" + string(s12_est,"%6.4f") + ")"
 
 **# S13: truncation invariance under benign (mild) weights
 * Mild informativeness (gamma=0.3) so truncfinal(1 99) removes essentially nothing;

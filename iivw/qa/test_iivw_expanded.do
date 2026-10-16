@@ -8,7 +8,7 @@ set varabbrev off
 *   - Aggregation sanity bounds (ESS<=N, weights positive, finite)
 *   - Seed reproducibility for bootstrap
 *   - Documentation-reality: sthlp/README examples run verbatim
-*   - Option interaction stress (lagvars+stabcov+truncate; mixed+ns)
+*   - Option interaction stress (lagvars+stabcov+truncate)
 *   - entry() edge cases
 *   - Output name collisions
 *   - Adversarial data (unequal visits, degenerate cov variance)
@@ -144,14 +144,14 @@ if `run_only' == 0 | `run_only' == 2 {
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 99
-        iivw_fit event severity, bootstrap(20) nolog
+        iivw_fit event severity, vce(bootstrap, reps(20) fixedweights) nolog
         matrix b1 = e(b)
         scalar se1 = _se[severity]
 
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 99
-        iivw_fit event severity, bootstrap(20) nolog
+        iivw_fit event severity, vce(bootstrap, reps(20) fixedweights) nolog
         matrix b2 = e(b)
         scalar se2 = _se[severity]
 
@@ -181,13 +181,13 @@ if `run_only' == 0 | `run_only' == 3 {
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 1
-        iivw_fit event severity, bootstrap(20) nolog
+        iivw_fit event severity, vce(bootstrap, reps(20) fixedweights) nolog
         scalar se_a = _se[severity]
 
         _setup_panel
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
         set seed 99999
-        iivw_fit event severity, bootstrap(20) nolog
+        iivw_fit event severity, vce(bootstrap, reps(20) fixedweights) nolog
         scalar se_b = _se[severity]
 
         * Different seeds should not produce byte-identical SE
@@ -231,7 +231,7 @@ if `run_only' == 0 | `run_only' == 4 {
         label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
         label values treatment arm
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog
-        iivw_fit edss relapse, vce(fixed) model(gee) timespec(linear)
+        iivw_fit edss relapse, vce(fixed) timespec(linear)
         assert e(converged) == 1
     }
     if _rc == 0 {
@@ -274,7 +274,7 @@ if `run_only' == 0 | `run_only' == 5 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(age sex edss_bl) ///
             truncfinal(1 99) replace nolog
-        iivw_fit edss treated age sex edss_bl, vce(fixed) model(gee) timespec(quadratic)
+        iivw_fit edss treated age sex edss_bl, vce(fixed) timespec(quadratic)
         assert "`e(iivw_weighttype)'" == "fiptiw"
         assert e(converged) == 1
     }
@@ -313,29 +313,6 @@ if `run_only' == 0 | `run_only' == 6 {
     }
     else {
         display as error "  FAIL: E6 - triple option interaction (error `=_rc')"
-        local ++fail_count
-    }
-}
-
-* =============================================================================
-* E7: mixed + ns(3) compatibility
-* =============================================================================
-local ++test_count
-if `run_only' == 0 | `run_only' == 7 {
-    capture noisily {
-        _setup_panel
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, vce(fixed) model(mixed) experimentalmixed timespec(ns(3)) nolog
-        confirm variable _iivw_tns1
-        confirm variable _iivw_tns2
-        confirm variable _iivw_tns3
-    }
-    if _rc == 0 {
-        display as result "  PASS: E7 - mixed + ns(3) compatibility"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: E7 - mixed + ns(3) (error `=_rc')"
         local ++fail_count
     }
 }
@@ -710,7 +687,7 @@ if `run_only' == 0 | `run_only' == 21 {
         scalar b_none = _b[severity]
         scalar se_none = _se[severity]
 
-        iivw_fit event severity, bootstrap(0) nolog
+        iivw_fit event severity, vce(fixed) nolog
         scalar b_zero = _b[severity]
         scalar se_zero = _se[severity]
 
@@ -726,33 +703,6 @@ if `run_only' == 0 | `run_only' == 21 {
     }
     else {
         display as error "  FAIL: E21 - bootstrap(0) equivalence (error `=_rc')"
-        local ++fail_count
-    }
-}
-
-* =============================================================================
-* E22: Mixed model stores e(N) and matches GEE observations count
-* =============================================================================
-local ++test_count
-if `run_only' == 0 | `run_only' == 22 {
-    capture noisily {
-        _setup_panel
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-
-        iivw_fit event severity, vce(fixed) model(gee) nolog
-        scalar n_gee = e(N)
-
-        iivw_fit event severity, vce(fixed) model(mixed) experimentalmixed nolog
-        scalar n_mixed = e(N)
-
-        assert n_gee == n_mixed
-    }
-    if _rc == 0 {
-        display as result "  PASS: E22 - GEE and mixed see same N"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: E22 - model N parity (error `=_rc')"
         local ++fail_count
     }
 }
@@ -871,7 +821,7 @@ if `run_only' == 0 | `run_only' == 26 {
         assert "`wtype'" == "iivw"
 
         * iivw_fit can still use the still-valid prior weighting
-        iivw_fit event severity, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit event severity, vce(fixed) timespec(linear) nolog
         assert "`e(iivw_weighttype)'" == "iivw"
     }
     if _rc == 0 {
@@ -880,36 +830,6 @@ if `run_only' == 0 | `run_only' == 26 {
     }
     else {
         display as error "  FAIL: E26 - stale metadata invalidation (error `=_rc')"
-        local ++fail_count
-    }
-}
-
-* =============================================================================
-* E27: mixed + cluster() uses cluster-robust SEs and stores cluster metadata
-* =============================================================================
-local ++test_count
-if `run_only' == 0 | `run_only' == 27 {
-    capture noisily {
-        _setup_panel
-        gen long site = mod(id, 8)
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, vce(fixed) model(mixed) experimentalmixed timespec(linear) ///
-            cluster(site) nolog
-
-        assert !missing(e(N))
-
-        assert e(N) > 0
-        assert "`e(iivw_cluster)'" == "site"
-        assert "`e(vce)'" == "cluster"
-        assert "`e(clustvar)'" == "site"
-        assert e(N_clust) <= 8
-    }
-    if _rc == 0 {
-        display as result "  PASS: E27 - mixed cluster() path honored"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: E27 - mixed cluster() path (error `=_rc')"
         local ++fail_count
     }
 }

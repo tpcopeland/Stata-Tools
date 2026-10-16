@@ -212,7 +212,7 @@ capture noisily {
     _setup_unweighted_panel
     set seed 20260524
     iivw_fit y x, unweighted id(id) time(t) timespec(linear) ///
-        bootstrap(5) nolog
+        vce(bootstrap, reps(5) fixedweights) nolog
     assert "`e(iivw_weighttype)'" == "unweighted"
     assert "`e(iivw_unweighted)'" == "1"
     assert "`e(vce)'" == "bootstrap"

@@ -112,7 +112,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         _adv_setup_panel, wtype(fiptiw)
-        iivw_fit event treated sev_bl, vce(fixed) model(gee) family(binomial) ///
+        iivw_fit event treated sev_bl, vce(fixed) family(binomial) ///
             link(logit) timespec(linear) cluster(site) nolog
 
         assert !missing(e(N))
@@ -136,28 +136,28 @@ if `run_only' == 0 | `run_only' == 1 {
     }
 }
 
-**## 2. Mixed model with timespec(none)
+**## 2. GEE with timespec(none) and a site cluster
 local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
         _adv_setup_panel, wtype(fiptiw)
-        iivw_fit y treated sev_bl, vce(fixed) model(mixed) experimentalmixed timespec(none) ///
+        iivw_fit y treated sev_bl, vce(fixed) timespec(none) ///
             cluster(site) nolog
 
         assert !missing(e(N))
 
         assert e(N) > 0
-        assert "`e(iivw_model)'" == "mixed"
+        assert "`e(iivw_model)'" == "gee"
         assert "`e(iivw_timespec)'" == "none"
         assert "`e(iivw_cluster)'" == "site"
         assert "`e(iivw_display_vars)'" == "treated sev_bl"
     }
     if _rc == 0 {
-        display as result "  PASS: A2 - Mixed model with timespec(none)"
+        display as result "  PASS: A2 - GEE with timespec(none)"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: A2 - mixed timespec(none) (error `=_rc')"
+        display as error "  FAIL: A2 - GEE timespec(none) (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' A2"
     }
@@ -169,7 +169,7 @@ if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
         foreach ts in linear quadratic cubic "ns(3)" none {
             _adv_setup_panel, seed(20260513)
-            iivw_fit y severity, vce(fixed) model(gee) timespec(`ts') replace nolog
+            iivw_fit y severity, vce(fixed) timespec(`ts') replace nolog
             assert "`e(iivw_timespec)'" == "`ts'"
 
             if "`ts'" == "linear" {
@@ -399,8 +399,8 @@ if `run_only' == 0 | `run_only' == 10 {
     capture noisily {
         _adv_setup_panel, nids(36) visits(4) seed(20260520)
         set seed 720
-        iivw_fit y severity, model(gee) timespec(linear) ///
-            cluster(site) bootstrap(6) nolog
+        iivw_fit y severity, timespec(linear) ///
+            cluster(site) vce(bootstrap, reps(6) fixedweights) nolog
 
         assert e(N_reps) == 6
         assert "`e(vce)'" == "bootstrap"
@@ -596,7 +596,7 @@ if `run_only' == 0 | `run_only' == 16 {
         assert "`fitted2'" == ""
 
         _adv_setup_panel, seed(20260530)
-        capture iivw_fit y severity, bootstrap(-1) nolog
+        capture iivw_fit y severity, vce(bootstrap, reps(-1) fixedweights) nolog
         assert _rc == 198
         local fitted3 : char _dta[_iivw_fitted]
         assert "`fitted3'" == ""
@@ -617,7 +617,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 17 {
     capture noisily {
         _adv_setup_panel, seed(20260528)
-        iivw_fit y, vce(fixed) model(gee) timespec(none) nolog
+        iivw_fit y, vce(fixed) timespec(none) nolog
         assert !missing(e(N))
         assert e(N) > 0
         assert "`e(iivw_display_vars)'" == ""
@@ -632,29 +632,6 @@ if `run_only' == 0 | `run_only' == 17 {
         display as error "  FAIL: A17 - intercept-only model (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' A17"
-    }
-}
-
-**## 18. bootstrap with mixed where supported
-local ++test_count
-if `run_only' == 0 | `run_only' == 18 {
-    capture noisily {
-        _adv_setup_panel, nids(30) visits(4) seed(20260529)
-        set seed 729
-        iivw_fit y severity, model(mixed) experimentalmixed timespec(linear) bootstrap(5) nolog
-
-        assert e(N_reps) == 5
-        assert "`e(vce)'" == "bootstrap"
-        assert "`e(iivw_model)'" == "mixed"
-    }
-    if _rc == 0 {
-        display as result "  PASS: A18 - mixed bootstrap path"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: A18 - mixed bootstrap path (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' A18"
     }
 }
 

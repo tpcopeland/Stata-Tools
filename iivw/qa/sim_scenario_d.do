@@ -212,7 +212,7 @@ forvalues s = 1/`n_sims' {
         local rc_iiw = _rc
         if `rc_iiw' == 0 {
             capture iivw_fit y_obs treatment conf_ti, vce(fixed) ///
-                model(gee) timespec(linear) interaction(treatment) ///
+                timespec(linear) interaction(treatment) ///
                 nolog replace
             local rc_iiw = _rc
         }
@@ -226,7 +226,7 @@ forvalues s = 1/`n_sims' {
         local rc_fip = _rc
         if `rc_fip' == 0 {
             capture iivw_fit y_obs treatment conf_ti, vce(fixed) ///
-                model(gee) timespec(linear) interaction(treatment) ///
+                timespec(linear) interaction(treatment) ///
                 nolog replace
             local rc_fip = _rc
         }
@@ -240,7 +240,7 @@ forvalues s = 1/`n_sims' {
         local rc_ftc = _rc
         if `rc_ftc' == 0 {
             capture iivw_fit y_obs treatment test_number conf_ti, vce(fixed) ///
-                model(gee) timespec(linear) interaction(treatment) ///
+                timespec(linear) interaction(treatment) ///
                 nolog replace
             local rc_ftc = _rc
         }

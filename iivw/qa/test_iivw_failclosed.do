@@ -713,13 +713,13 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit(z) censor(cens)
 
     * Nested subject-within-clinic: a supported, documented path.
-    quietly iivw_fit y x, bootstrap(30) cluster(clinic) nolog
+    quietly iivw_fit y x, vce(bootstrap, reps(30) fixedweights) cluster(clinic) nolog
     assert "`e(clustvar)'" == "clinic"
     assert e(N_clust) == 10
 
     * Subject spanning two clinics: refused, and refused for this reason.
     quietly replace clinic = clinic + 1 if mod(_n, 7) == 0
-    capture quietly iivw_fit y x, bootstrap(30) cluster(clinic) nolog replace
+    capture quietly iivw_fit y x, vce(bootstrap, reps(30) fixedweights) cluster(clinic) nolog replace
     assert _rc == 459
 }
 if _rc == 0 {

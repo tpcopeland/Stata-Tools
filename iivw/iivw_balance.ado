@@ -1,4 +1,4 @@
-*! iivw_balance Version 4.3.7  2026/10/13
+*! iivw_balance Version 1.0.0  2026/10/15
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -543,7 +543,7 @@ program define iivw_balance, rclass
     }
     local __iivw_hold_ok = 1
 
-    capture noisily {
+    capture noisily quietly {
         preserve
         local __iivw_restore_needed = 1
 
@@ -689,7 +689,7 @@ program define iivw_balance, rclass
             level(`level') vce(cluster `panel_id')
         local __iivw_fit_rc = _rc
         if `__iivw_fit_rc' == 0 & e(converged) != 1 {
-            _iivw_require_converged, model("visit-model balance replay")
+            noisily _iivw_require_converged, model("visit-model balance replay")
         }
 
         tempvar __iivw_xbf __iivw_w __iivw_H __iivw_xbs
@@ -697,7 +697,7 @@ program define iivw_balance, rclass
         if "`rep_stabcov'" != "" {
             quietly stcox `rep_stabcov' if `__iivw_coxok', `rep_efron'
             if e(converged) != 1 {
-                _iivw_require_converged, model("stabilization balance replay")
+                noisily _iivw_require_converged, model("stabilization balance replay")
             }
             quietly predict double `__iivw_xbs', xb
             quietly gen double `__iivw_w' = exp(`__iivw_xbs' - `__iivw_xbf')
@@ -707,7 +707,7 @@ program define iivw_balance, rclass
             quietly stcox `model_covars' if `__iivw_coxok', `rep_efron' ///
                 level(`level') vce(cluster `panel_id')
             if e(converged) != 1 {
-                _iivw_require_converged, model("visit-model balance replay")
+                noisily _iivw_require_converged, model("visit-model balance replay")
             }
         }
         else {
@@ -1011,7 +1011,7 @@ program define iivw_balance, rclass
             local __iivw_tmean_`__iivw_bix' = `__iivw_tmean'
             local __iivw_wmean_`__iivw_bix' = `__iivw_wmean'
 
-            * Two maxima, never mixed. The modeled maximum sets
+            * Two maxima, never combined. The modeled maximum sets
             * r(balance_flag) (help, varlist): an extra covariate must neither
             * move it nor rescue a modeled maximum that is unavailable. But a
             * modeled covariate's target SMD is typically near zero BY

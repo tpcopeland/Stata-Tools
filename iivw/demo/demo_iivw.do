@@ -211,7 +211,7 @@ capture noisily {
     * FIPTIW call is point-only.
     iivw_fit sdmt tx years tx_years relapse ///
         age female edss0 dur naive sdmt0, ///
-        model(gee) timespec(none) vce(fixed) replace nolog
+        timespec(none) vce(fixed) replace nolog
     estimates store M_fiptiw
 
     gen double log_testno = log(testno + 1)
@@ -219,7 +219,7 @@ capture noisily {
 
     iivw_fit sdmt tx years tx_years relapse ///
         age female edss0 dur naive sdmt0 log_testno, ///
-        model(gee) timespec(none) vce(fixed) replace nolog
+        timespec(none) vce(fixed) replace nolog
     estimates store M_adjusted
 
     * # Step 6: exogeneity check and diagnostic decomposition
@@ -265,7 +265,7 @@ capture noisily {
 
     collect clear
     iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse, ///
-        model(gee) timespec(categorical) timebasecat(1) ///
+        timespec(categorical) timebasecat(1) ///
         categorical(tx) interaction(tx) vce(fixed) replace nolog collect
 
     local cat_time "`e(iivw_time_cat_vars)'"
@@ -331,10 +331,10 @@ capture noisily {
         unweighted id(id) time(years) timespec(none) replace nolog
     collect: iivw_fit sdmt tx years tx_years relapse ///
         age female edss0 dur naive sdmt0, ///
-        model(gee) timespec(none) vce(fixed) replace nolog
+        timespec(none) vce(fixed) replace nolog
     collect: iivw_fit sdmt tx years tx_years relapse ///
         age female edss0 dur naive sdmt0 log_testno, ///
-        model(gee) timespec(none) vce(fixed) replace nolog
+        timespec(none) vce(fixed) replace nolog
 
     regtab, xlsx("`xlsx'") sheet("Diagnostic") ///
         models("Unweighted \ FIPTIW \ FIPTIW + log(test+1)") ///
@@ -375,7 +375,7 @@ capture noisily {
 
     collect clear
     iivw_fit sdmt tx age female edss0 dur naive sdmt0 relapse, ///
-        model(gee) timespec(categorical) timebasecat(1) ///
+        timespec(categorical) timebasecat(1) ///
         categorical(tx) interaction(tx) vce(fixed) replace nolog collect
 
     regtab, xlsx("`xlsx'") sheet("Visit waves") ///

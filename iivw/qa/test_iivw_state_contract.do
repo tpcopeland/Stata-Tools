@@ -120,7 +120,7 @@ capture noisily {
         local was`i' : char _dta[`c']
     }
 
-    quietly iivw_fit y treat L1, model(gee) bootstrap(5) refitweights nolog
+    quietly iivw_fit y treat L1, vce(bootstrap, reps(5)) nolog
     assert _rc == 0
 
     * iivw_fit legitimately ADDS its own fit metadata (_iivw_fitted, _iivw_model,
@@ -174,7 +174,7 @@ capture noisily {
     local before "`r(blob)'"
 
     * Force the fit to fail: an outcome model with a nonexistent covariate.
-    capture iivw_fit y treat nosuchvar, model(gee) bootstrap(3) refitweights nolog
+    capture iivw_fit y treat nosuchvar, vce(bootstrap, reps(3)) nolog
     assert _rc != 0
 
     _iivw_state_snap
@@ -316,10 +316,10 @@ capture noisily {
     assert _rc != 0
     assert "`c(varabbrev)'" == "on"
 
-    quietly iivw_fit y treat L1, vce(fixed) model(gee) nolog
+    quietly iivw_fit y treat L1, vce(fixed) nolog
     assert "`c(varabbrev)'" == "on"
 
-    capture iivw_fit y nosuchvar, vce(fixed) model(gee) nolog
+    capture iivw_fit y nosuchvar, vce(fixed) nolog
     assert _rc != 0
     assert "`c(varabbrev)'" == "on"
 
@@ -430,7 +430,7 @@ capture noisily {
     * a field from a hypothetical future contract version
     char _dta[_iivw_future_field] "do-not-lose-me"
 
-    quietly iivw_fit y treat L1, model(gee) bootstrap(3) refitweights nolog
+    quietly iivw_fit y treat L1, vce(bootstrap, reps(3)) nolog
     assert _rc == 0
 
     local survived : char _dta[_iivw_future_field]

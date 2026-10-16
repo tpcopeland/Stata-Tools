@@ -122,7 +122,7 @@ capture noisily {
     assert "`post_timespec'" == "linear"
 
     * Validation failure (negative bootstrap)
-    capture noisily iivw_fit y treat x, bootstrap(-1) timespec(linear) nolog
+    capture noisily iivw_fit y treat x, vce(bootstrap, reps(-1) fixedweights) timespec(linear) nolog
     assert _rc == 198
     local post2_fitted : char _dta[_iivw_fitted]
     assert "`post2_fitted'" == "1"
@@ -255,16 +255,16 @@ capture noisily {
     assert _rc == 198
 
     * v1.1.0+: missing weightvar() is the unweighted bootstrap path
-    capture noisily _iivw_bs_estimate y x z, model(gee) family(gaussian)
+    capture noisily _iivw_bs_estimate y x z, family(gaussian)
     assert _rc == 0
     assert _b[x] != .
 
     * Empty sample must error 2000
-    capture noisily _iivw_bs_estimate y x z if id < 0, weightvar(_iivw_weight) model(gee) family(gaussian)
+    capture noisily _iivw_bs_estimate y x z if id < 0, weightvar(_iivw_weight) family(gaussian)
     assert _rc == 2000
 
     * Happy path: weighted gee with valid args succeeds
-    _iivw_bs_estimate y x z, weightvar(_iivw_weight) model(gee) family(gaussian) nolog
+    _iivw_bs_estimate y x z, weightvar(_iivw_weight) family(gaussian) nolog
     assert _b[x] != .
 }
 if _rc == 0 {

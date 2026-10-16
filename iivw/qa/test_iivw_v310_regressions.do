@@ -480,7 +480,7 @@ capture noisily {
     char _dta[_iivw_tt_unit] ""
     iivw_qa_sign_contract
 
-    capture iivw_fit y a, vce(bootstrap, reps(4)) refitweights nolog
+    capture iivw_fit y a, vce(bootstrap, reps(4)) nolog
     assert _rc == 198
 
     * And the refusal must be specific to the refit path: a fixed-weight fit

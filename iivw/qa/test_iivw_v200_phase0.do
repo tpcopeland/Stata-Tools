@@ -19,8 +19,8 @@ set varabbrev off
 *   C4  a long generate() prefix collapses two categorical levels onto one
 *       32-char dummy name, pooling a level into the base category with rc 0
 *   C9  a nonconverged model is accepted and stamped as a successful fit
-*       (per the audit verification, the GEE/iterate(0) probe does NOT
-*       reproduce -- glm reports e(converged)=1 -- so this uses model(mixed))
+*       (a binomial-logit glm capped at one ML iteration; glm reports
+*       e(converged)=1 under iterate(0), so that probe does not reproduce)
 
 capture log close
 * Q6: no disposable log in the package tree. This suite used to write
@@ -332,15 +332,16 @@ capture noisily {
     _v200_panel
     quietly iivw_weight, endatlastvisit baseline(event) id(pid) time(vtime) visit_cov(z)
 
-    * mixedopts(iterate(0)) stops the optimizer before it converges. v1.9.7
-    * returns rc 0, e(converged)=0, and stamps _dta[_iivw_fitted]=1.
-    * (The audit cited geeopts(iterate(0)); that probe does not reproduce --
-    * glm reports e(converged)=1 with iterate(0) -- so mixed is used here.)
-    capture noisily iivw_fit y z, vce(fixed) model(mixed) experimentalmixed mixedopts(iterate(0))
+    * A binomial-logit glm capped at one ML iteration stops before it
+    * converges (e(converged)=0); the fit must be refused, not stamped.
+    quietly summarize y, meanonly
+    quietly gen byte ybin = y > r(mean) if !missing(y)
+    capture noisily iivw_fit ybin z, vce(fixed) family(binomial) link(logit) ///
+        geeopts(iterate(1))
     local got_rc = _rc
 
-    if `got_rc' == 0 {
-        display as error "C9 FAIL: nonconverged mixed fit returned rc 0"
+    if `got_rc' != 430 {
+        display as error "C9 FAIL: nonconverged GEE fit returned rc `got_rc', expected 430"
         error 9
     }
     * No success metadata may survive a nonconverged fit.

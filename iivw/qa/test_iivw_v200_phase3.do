@@ -10,7 +10,6 @@
 *   P7  H10  Excel sheet lookup is case-insensitive, like Excel itself
 *   P8  H16  edited/dropped/permuted weighted data is refused; a re-sort is not
 *   P9  H18  a time-varying treat_cov() is refused; a baseline one is accepted
-*   P10 H15  weighted model(mixed) requires experimentalmixed
 *   P11 C10  the README Quick Start runs verbatim
 *
 * Every one of these was rc 0 and wrong before Phase 3. The H11 cases are the
@@ -324,7 +323,7 @@ local p8_ok = 1
 * A harmless re-sort must NOT trip the guard.
 _p3_weighted
 gsort -time
-capture iivw_fit y z, vce(fixed) model(gee)
+capture iivw_fit y z, vce(fixed)
 if _rc != 0 {
     local p8_ok = 0
     display "  P8: a re-sort was rejected, rc " _rc " -- the signature is not sort-invariant"
@@ -333,7 +332,7 @@ if _rc != 0 {
 * Each of these is a real change and must be refused with 459.
 _p3_weighted
 drop in 1/50
-capture iivw_fit y z, vce(fixed) model(gee)
+capture iivw_fit y z, vce(fixed)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: dropped rows accepted, rc " _rc
@@ -341,7 +340,7 @@ if _rc != 459 {
 
 _p3_weighted
 quietly replace _iivw_weight = _iivw_weight * 2 in 7
-capture iivw_fit y z, vce(fixed) model(gee)
+capture iivw_fit y z, vce(fixed)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: an edited weight accepted, rc " _rc
@@ -349,7 +348,7 @@ if _rc != 459 {
 
 _p3_weighted
 quietly replace z = z + 1 in 11
-capture iivw_fit y z, vce(fixed) model(gee)
+capture iivw_fit y z, vce(fixed)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: an edited visit covariate accepted, rc " _rc
@@ -359,7 +358,7 @@ if _rc != 459 {
 * terms sum(w*t)/sum(w*k) catch it -- this is why they are in the signature.
 _p3_weighted
 quietly replace _iivw_weight = _iivw_weight[_N - _n + 1]
-capture iivw_fit y z, vce(fixed) model(gee)
+capture iivw_fit y z, vce(fixed)
 if _rc != 459 {
     local p8_ok = 0
     display "  P8: a PERMUTED weight column accepted, rc " _rc
@@ -434,44 +433,6 @@ if `p9_ok' {
 else {
     local ++fail_count
     display "FAIL P9: treat_cov() silently became 'whatever sat on the earliest row'"
-}
-
-**# P10  H15: a weighted mixed model requires the acknowledgment
-
-local ++test_count
-local p10_ok = 1
-_p3_weighted
-
-* stata-dev-ignore: rc-only-test — the oracle IS a specific code per probe (`if _rc != 198' for the gated weighted mixed, `if _rc != 0' for the three that must stay ungated), accumulated into p10_ok so every probe reports instead of the first one aborting
-capture iivw_fit y z, vce(fixed) model(mixed)
-if _rc != 198 {
-    local p10_ok = 0
-    display "  P10: weighted model(mixed) ran without experimentalmixed, rc " _rc
-}
-capture iivw_fit y z, vce(fixed) model(mixed) experimentalmixed
-if _rc != 0 {
-    local p10_ok = 0
-    display "  P10: experimentalmixed did not permit the fit, rc " _rc
-}
-* Unweighted mixed carries no such caveat and must not require the option.
-capture iivw_fit y z, model(mixed) unweighted
-if _rc != 0 {
-    local p10_ok = 0
-    display "  P10: UNweighted model(mixed) was gated, rc " _rc
-}
-capture iivw_fit y z, vce(fixed) model(gee)
-if _rc != 0 {
-    local p10_ok = 0
-    display "  P10: model(gee) was gated, rc " _rc
-}
-
-if `p10_ok' {
-    local ++pass_count
-    display "PASS P10: weighted mixed gated behind experimentalmixed; gee/unweighted free"
-}
-else {
-    local ++fail_count
-    display "FAIL P10: the weighted-mixed caveat is still only a note"
 }
 
 **# P11  C10: the README Quick Start must run exactly as printed

@@ -435,7 +435,7 @@ if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
         _setup_panel_v
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-        iivw_fit event severity, bootstrap(30) nolog
+        iivw_fit event severity, vce(bootstrap, reps(30) fixedweights) nolog
         * bootstrap posts N_reps via e()
         assert e(N_reps) == 30
     }

@@ -1,4 +1,4 @@
-*! _iivw_check_weighted Version 4.3.7  2026/10/13
+*! _iivw_check_weighted Version 1.0.0  2026/10/15
 *! Verify the stored weights still describe the data in memory before fitting
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -57,8 +57,24 @@ program define _iivw_check_weighted, rclass
         display as error ""
         display as error "  These weights cannot be verified against the data in memory, so there"
         display as error "  is no way to tell whether they still describe it. That happens when the"
-        display as error "  data was weighted by a version of iivw older than 2.0.0, or when the"
-        display as error "  stored contract has been edited."
+        display as error "  data was weighted by a pre-release iivw build, or when the stored contract"
+        display as error "  has been edited."
+        display as error ""
+        display as error "  Re-run `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' on the current data."
+        error 459
+    }
+
+    * A pre-release build could fit FIPTIW without treat() in the visit model
+    * and recorded that choice as _iivw_treat_in_visit = 0. That variant no
+    * longer exists, and a refit bootstrap would rebuild the visit model WITH
+    * treat(), so such weights are refused rather than mixed with the current
+    * design. iivw_weight clears the field on every run.
+    local __iivw_tiv : char _dta[_iivw_treat_in_visit]
+    if "`__iivw_tiv'" == "0" {
+        display as error "these weights were built without treat() in the FIPTIW visit model"
+        display as error ""
+        display as error "  That variant came from a pre-release iivw build and is no longer"
+        display as error "  supported: FIPTIW always puts treat() in the visit-intensity model."
         display as error ""
         display as error "  Re-run `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' on the current data."
         error 459
@@ -101,7 +117,7 @@ program define _iivw_check_weighted, rclass
         display as error "  (Re-sorting the data is safe and does not trigger this.)"
         display as error ""
         display as error "  If the data have not changed, the weighting contract may have been"
-        display as error "  stored by an earlier iivw version, which signed fewer columns (for"
+        display as error "  stored by a pre-release iivw build, which signed fewer columns (for"
         display as error "  example, not the untrimmed iw_raw/tw_raw snapshots). Re-running"
         display as error "  `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' with the same options rebuilds it."
         error 459

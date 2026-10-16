@@ -55,7 +55,7 @@ if _rc {
 
 iivw_weight, id(id) time(time) visit_cov(x) baseline(event) ///
     endatlastvisit efron nolog
-iivw_fit y x, model(gee) family(gaussian) timespec(linear) ///
+iivw_fit y x, family(gaussian) timespec(linear) ///
     vce(fixed) nolog
 local stata_x = _b[x]
 local stata_time = _b[time]

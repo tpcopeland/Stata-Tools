@@ -144,7 +144,6 @@ if `run_only' == 0 | `run_only' == 2 {
         * The denominator really is z + trt: assert the design, not just the
         * consequence, so a failure says which of the two broke.
         assert "`r(visit_covars)'" == "z trt"
-        assert r(treat_in_visit) == 1
 
         quietly summarize _iivw_iw
         assert !missing(r(min), 1)

@@ -164,7 +164,7 @@ program define _fit4, rclass
     capture quietly {
         iivw_weight, id(id) time(t) visit_cov(Z) wtype(iivw) ///
             censor(C) baseline(entry) nolog replace
-        iivw_fit y A, model(gee) timespec(none) vce(fixed) nolog replace
+        iivw_fit y A, timespec(none) vce(fixed) nolog replace
     }
     local rc_iiw = _rc
     local b_iiw = .
@@ -173,7 +173,7 @@ program define _fit4, rclass
     capture quietly {
         iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) ///
             wtype(iptw) nolog replace
-        iivw_fit y A, model(gee) timespec(none) vce(fixed) nolog replace
+        iivw_fit y A, timespec(none) vce(fixed) nolog replace
     }
     local rc_iptw = _rc
     local b_iptw = .
@@ -185,8 +185,9 @@ program define _fit4, rclass
         baseline(entry) nolog replace
     local rc_fiptiw = _rc
     if `rc_fiptiw' == 0 {
-        local tiv = r(treat_in_visit)
-        capture quietly iivw_fit y A, model(gee) timespec(none) ///
+        * 1 when treatment is in the fitted visit-intensity design.
+        local tiv = (strpos(" `r(visit_covars)' ", " A ") > 0)
+        capture quietly iivw_fit y A, timespec(none) ///
             vce(fixed) nolog replace
         local rc_fiptiw = _rc
     }
@@ -403,18 +404,18 @@ if `run_only' == 0 | `run_only' == 3 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
-        * every replicate stored r(treat_in_visit); the cell min must be 1.
+        * every replicate recorded whether A is in r(visit_covars); the cell
+        * min must be 1.
         _getcell using "`cells'", arm("0.6,0.3") n(500)
-        display as text "    min(treat_in_visit) over the strong-arm cell = `tiv'"
+        display as text "    min(A in visit design) over the strong-arm cell = `tiv'"
         assert `tiv' == 1
 
         * one representative fit, printed, for diagnosis of the nuisance models.
         _gen_coulombe, n(500) seed(424242) g1(0.6) g2(0.3)
         iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) visit_cov(Z) ///
             wtype(fiptiw) censor(C) baseline(entry) nolog replace
-        display as text "    visit_covars = `r(visit_covars)'  treat_in_visit = `r(treat_in_visit)'"
+        display as text "    visit_covars = `r(visit_covars)'"
         assert "`r(visit_covars)'" == "Z A"
-        assert r(treat_in_visit) == 1
         * component weights are finite and the treatment weight is ~mean 1
         quietly summarize _iivw_tw
         display as text "    mean(IPT weight)=" %7.4f r(mean) "  (stabilized ~ 1)"

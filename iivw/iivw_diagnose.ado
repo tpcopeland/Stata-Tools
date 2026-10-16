@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.3.7  2026/10/13
+*! iivw_diagnose Version 1.0.0  2026/10/15
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -236,7 +236,7 @@ program define iivw_diagnose, rclass
             *   - the collapsibility gate below could never match "gaussian" +
             *     "identity", so a Gaussian identity-link fit was reported
             *     non-decomposable with the note "identity-link collapsibility
-            *     not established". That is iivw_fit's own model(gee) default
+            *     not established". That is iivw_fit's own GEE default
             *     and the ONE case the decomposition is valid for, so the gate
             *     was inverted for the package's primary workflow (README
             *     "Diagnostic workflow" and demo/demo_iivw.do both feed
@@ -251,7 +251,7 @@ program define iivw_diagnose, rclass
             *     decomposed at rc 0 and reported a 100% artifact share.
             *
             * e(varfunct)/e(linkt) are verified to survive iivw_fit's repost on
-            * every path, including under the bootstrap prefix; -mixed- and
+            * every path, including under the bootstrap prefix; a random-effects fit and
             * -regress- set none of the four, so they still fall through to the
             * e(cmd) list.
             local family_`role'  "`e(family)'"
@@ -493,7 +493,7 @@ program define iivw_diagnose, rclass
             * single uninformative string (glm's e(link) = "glim_l01") decide
             * the scale of an identity-link Gaussian fit. An incomplete pair now
             * falls through to the estimator list, which is the surface that
-            * knows about -regress- and -mixed-.
+            * knows about -regress- and random-effects fits.
             if "`_fam'" != "" & "`_lnk'" != "" {
                 if "`_fam'" == "gaussian" & "`_lnk'" == "identity" local _lin = 1
             }

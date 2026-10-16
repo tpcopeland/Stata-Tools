@@ -515,7 +515,7 @@ if `run_only' == 0 | `run_only' == 9 {
             nolog replace breslow
         local ch : char _dta[_iivw_efron]
         assert "`ch'" == ""
-        capture quietly iivw_fit y, bootstrap(15) refitweights nolog
+        capture quietly iivw_fit y, vce(bootstrap, reps(15)) nolog
         assert _rc == 0
 
         * ...and an Efron contract too, so T9 is not passing merely because the
@@ -525,7 +525,7 @@ if `run_only' == 0 | `run_only' == 9 {
             nolog replace
         local ch : char _dta[_iivw_efron]
         assert "`ch'" == "efron"
-        capture quietly iivw_fit y, bootstrap(15) refitweights nolog
+        capture quietly iivw_fit y, vce(bootstrap, reps(15)) nolog
         assert _rc == 0
     }
     if _rc == 0 {
@@ -563,21 +563,21 @@ if `run_only' == 0 | `run_only' == 10 {
         quietly save "`bres_contract'"
 
         quietly _iivw_bs_refit y u, newid(_nid) panelid(id) ///
-            timevar(t) wtype(iivw) prefix(_iivw_) model(gee) ///
+            timevar(t) wtype(iivw) prefix(_iivw_) ///
             visitcov(u) censor(fu_end) baseline(entry) nolog
         matrix _n0 = e(b)
         local b_none = _n0[1, 1]
 
         quietly use "`bres_contract'", clear
         quietly _iivw_bs_refit y u, newid(_nid) panelid(id) ///
-            timevar(t) wtype(iivw) prefix(_iivw_) model(gee) ///
+            timevar(t) wtype(iivw) prefix(_iivw_) ///
             visitcov(u) censor(fu_end) baseline(entry) nolog breslow
         matrix _n1 = e(b)
         local b_bres = _n1[1, 1]
 
         quietly use "`bres_contract'", clear
         quietly _iivw_bs_refit y u, newid(_nid) panelid(id) ///
-            timevar(t) wtype(iivw) prefix(_iivw_) model(gee) ///
+            timevar(t) wtype(iivw) prefix(_iivw_) ///
             visitcov(u) censor(fu_end) baseline(entry) nolog efron
         matrix _n2 = e(b)
         local b_efr = _n2[1, 1]

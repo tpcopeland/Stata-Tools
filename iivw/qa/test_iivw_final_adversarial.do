@@ -11,7 +11,6 @@ set varabbrev off
 *   T4   ns() basis continuity at exact knot positions
 *   T5   efron option with heavy ties in visit times
 *   T6   geeopts passthrough: conflicting vce(), iterate(), extra options
-*   T7   mixedopts passthrough with nolog and extra options
 *   T8   collect option: double collect, collect after prior error
 *   T9   if/in that eliminates entire clusters
 *   T10  iivw_weight with extreme xb (near-separation visit model)
@@ -331,30 +330,6 @@ if `run_only' == 0 | `run_only' == 6 {
         display as error "  FAIL: T6 - geeopts passthrough (error `=_rc')"
         local ++fail_count
         local failed_tests "`failed_tests' T6"
-    }
-}
-
-**## T7: mixedopts passthrough with extra options
-
-local ++test_count
-if `run_only' == 0 | `run_only' == 7 {
-    capture noisily {
-        _final_panel, seed(10007)
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-
-        iivw_fit y severity, vce(fixed) model(mixed) experimentalmixed mixedopts(iterate(50)) nolog
-        assert !missing(e(N))
-        assert e(N) > 0
-        assert "`e(iivw_model)'" == "mixed"
-    }
-    if _rc == 0 {
-        display as result "  PASS: T7 - mixedopts passthrough"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: T7 - mixedopts passthrough (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' T7"
     }
 }
 

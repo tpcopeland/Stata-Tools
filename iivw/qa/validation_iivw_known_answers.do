@@ -301,7 +301,7 @@ capture noisily {
     _ka_iivw_dataset_fit
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x) wtype(iptw) nolog
     set seed 20260509
-    iivw_fit y treat x, timespec(linear) bootstrap(5) nolog
+    iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(5) fixedweights) nolog
     assert e(N_reps) == 5
     assert "`e(iivw_model)'" == "gee"
     assert abs(_b[treat] - 2) < 1e-12

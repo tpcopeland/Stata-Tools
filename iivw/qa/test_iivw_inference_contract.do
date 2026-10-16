@@ -114,7 +114,7 @@ capture noisily {
     _inf_fragile
     quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
 
-    capture iivw_fit y x rare, timespec(linear) bootstrap(40) nolog
+    capture iivw_fit y x rare, timespec(linear) vce(bootstrap, reps(40) fixedweights) nolog
     local rc_fail = _rc
     display as text "    rc with failed replicates = `rc_fail'"
 
@@ -139,7 +139,7 @@ display as text "I2: allowfailedreps records what it accepted"
 capture noisily {
     _inf_fragile
     quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
-    iivw_fit y x rare, timespec(linear) bootstrap(40) nolog allowfailedreps
+    iivw_fit y x rare, timespec(linear) vce(bootstrap, reps(40) fixedweights) nolog allowfailedreps
 
     * The accounting has to add up, and it has to be legible from e() alone --
     * a reader reconstructing the analysis from a saved estimation result must be
@@ -171,7 +171,7 @@ capture noisily {
     _inf_panel
     quietly iivw_weight, id(id) time(time) visit_cov(x) treat(treat) ///
         treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(25) refitweights nolog
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(25)) nolog
 
     * allowfailedreps must NOT be needed here. If this errors, the gate is
     * over-firing and would make the honest path unusable -- a guard that
@@ -211,12 +211,12 @@ capture noisily {
     * Bootstrap that does NOT refit the weights: still treats them as known. This
     * is the one that reads like real bootstrap inference and is not -- the
     * resampling propagates the OUTCOME model's uncertainty only.
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(20) nolog replace
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(20) fixedweights) nolog replace
     assert "`e(iivw_vce)'" == "bootstrap-fixedweights"
 
     * Bootstrap that refits every nuisance model inside each draw. The only one
     * of the three that propagates weight-estimation uncertainty.
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(20) refitweights ///
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(20)) ///
         nolog replace
     assert "`e(iivw_vce)'" == "bootstrap"
     assert "`e(iivw_refitweights)'" == "1"
@@ -242,12 +242,12 @@ capture noisily {
         treat_cov(x) wtype(fiptiw) censor(fu_end) nolog
 
     set seed 777
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(60) nolog replace
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(60) fixedweights) nolog replace
     local se_fixed = _se[treat]
     local b_fixed = _b[treat]
 
     set seed 777
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(60) refitweights ///
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(60)) ///
         nolog replace
     local se_refit = _se[treat]
     local b_refit = _b[treat]
@@ -285,17 +285,17 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
 
     set seed 13
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(30) refitweights ///
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(30)) ///
         nolog replace
     local se_a = _se[treat]
 
     set seed 13
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(30) refitweights ///
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(30)) ///
         nolog replace
     local se_b = _se[treat]
 
     set seed 99
-    quietly iivw_fit y treat x, timespec(linear) bootstrap(30) refitweights ///
+    quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(30)) ///
         nolog replace
     local se_c = _se[treat]
 
@@ -333,7 +333,7 @@ capture noisily {
     * nuisance-estimation theory: the visit-intensity model is a counting process
     * per SUBJECT, and resampling clinics while refitting it is not a validated
     * design. It must error until it is, rather than quietly produce a number.
-    capture iivw_fit y treat x, timespec(linear) bootstrap(10) refitweights ///
+    capture iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(10)) ///
         cluster(clinic) nolog replace
     * The specific code, not merely "nonzero": a refusal that arrived as an
     * unrelated failure (a parse error, a missing variable) would satisfy
@@ -453,21 +453,16 @@ capture noisily {
 
     * The deprecated spelling names the same mathematical object and must not
     * allow a one-draw variance either.
-    capture iivw_fit y treat x, timespec(linear) bootstrap(1) nolog replace
+    capture iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(1) fixedweights) nolog replace
     assert _rc == 198
 
     * vce(fixed) takes no replicate machinery.
     capture iivw_fit y treat x, timespec(linear) vce(fixed, reps(5)) nolog replace
     assert _rc == 198
 
-    * vce() and the legacy spelling together is ambiguous -- refuse rather than
-    * silently letting one win.
-    capture iivw_fit y treat x, timespec(linear) vce(fixed) bootstrap(10) ///
-        nolog replace
-    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: I10 - malformed and doubled vce() are refused"
+    display as result "  PASS: I10 - malformed vce() is refused"
     local ++pass_count
 }
 else {
@@ -674,7 +669,7 @@ else {
 **# I16 - the pass-through guard rejects every variance token spelling (B08)
 
 local ++test_count
-display as text "I16: geeopts()/mixedopts() cannot smuggle a vce/robust/cluster token"
+display as text "I16: geeopts() cannot smuggle a vce/robust/cluster token"
 capture noisily {
     _inf_panel
     quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog
@@ -885,12 +880,12 @@ capture noisily {
     assert `n_panel' > `n_outcome'
 
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
-    quietly iivw_fit y a, timespec(linear) bootstrap(0) nolog
+    quietly iivw_fit y a, timespec(linear) vce(fixed) nolog
     local b_observed = _b[a]
 
     * The identity draw: newid == id, nothing resampled, whole panel present.
     quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
-        prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+        prefix(_iivw_) panelid(id) visitcov(z) ///
         censor(fu_end) family(gaussian) nolog
     assert !missing(_b[a], `b_observed')
     assert reldif(_b[a], `b_observed') < 1e-10
@@ -921,11 +916,11 @@ capture noisily {
         local n_panel = r(N)
 
         quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
-        quietly iivw_fit y a xout, timespec(linear) bootstrap(0) nolog
+        quietly iivw_fit y a xout, timespec(linear) vce(fixed) nolog
         local b_observed = _b[a]
 
         quietly _iivw_bs_refit y a xout time, newid(id) timevar(time) ///
-            wtype(iivw) prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+            wtype(iivw) prefix(_iivw_) panelid(id) visitcov(z) ///
             censor(fu_end) family(gaussian) nolog
         assert !missing(_b[a], `b_observed')
         assert reldif(_b[a], `b_observed') < 1e-10
@@ -961,7 +956,7 @@ capture noisily {
 
     * The target: weights estimated on the WHOLE panel, outcome equation
     * evaluated on the restricted rows only.
-    quietly iivw_fit y a if time > 0, timespec(linear) bootstrap(0) nolog
+    quietly iivw_fit y a if time > 0, timespec(linear) vce(fixed) nolog
     local b_target = _b[a]
 
     * A replicate must reproduce exactly that. outcometouse() carries the
@@ -970,7 +965,7 @@ capture noisily {
     tempvar ocmark
     quietly gen byte `ocmark' = (time > 0)
     quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
-        prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+        prefix(_iivw_) panelid(id) visitcov(z) ///
         outcometouse(`ocmark') censor(fu_end) family(gaussian) nolog
     assert !missing(_b[a], `b_target')
     assert reldif(_b[a], `b_target') < 1e-10
@@ -983,7 +978,7 @@ capture noisily {
     preserve
     quietly drop if time <= 0
     quietly _iivw_bs_refit y a time, newid(id) timevar(time) wtype(iivw) ///
-        prefix(_iivw_) model(gee) panelid(id) visitcov(z) ///
+        prefix(_iivw_) panelid(id) visitcov(z) ///
         censor(fu_end) family(gaussian) nolog
     local b_wrongframe = _b[a]
     restore
@@ -992,8 +987,8 @@ capture noisily {
 
     * And the reported N stays the outcome row count: the panel frame is an
     * internal device and must never surface as the user-facing N or sample.
-    quietly iivw_fit y a if time > 0, timespec(linear) bootstrap(12) ///
-        refitweights nolog
+    quietly iivw_fit y a if time > 0, timespec(linear) vce(bootstrap, reps(12)) ///
+ nolog
     assert e(N) == `n_restricted'
     quietly count if e(sample)
     assert r(N) == `n_restricted'
@@ -1048,24 +1043,24 @@ capture noisily {
 
     * refitweights path: must fail closed.
     capture iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
-        bootstrap(3) refitweights geeopts(iterate(1)) nolog
+        vce(bootstrap, reps(3)) geeopts(iterate(1)) nolog
     assert _rc == 430
 
     * fixed-weight bootstrap path: must fail closed too.
     capture iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
-        bootstrap(3) geeopts(iterate(1)) nolog
+        vce(bootstrap, reps(3) fixedweights) geeopts(iterate(1)) nolog
     assert _rc == 430
 
     * CONTROL: the same models without the iteration cap must succeed and book
     * their replicates, so the assertions above are about convergence and not
     * about a fixture that cannot fit at all.
     quietly iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
-        bootstrap(3) refitweights nolog
+        vce(bootstrap, reps(3)) nolog
     assert e(iivw_bs_reps_completed) == 3
     assert e(iivw_bs_reps_failed) == 0
 
     quietly iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
-        bootstrap(3) nolog
+        vce(bootstrap, reps(3) fixedweights) nolog
     assert e(iivw_bs_reps_completed) == 3
 }
 if _rc == 0 {
@@ -1090,7 +1085,7 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(fu_end) nolog
 
     capture iivw_fit ybin a, family(binomial) link(logit) timespec(linear) ///
-        bootstrap(3) refitweights geeopts(iterate(1)) allownonconverged nolog
+        vce(bootstrap, reps(3)) geeopts(iterate(1)) allownonconverged nolog
     assert _rc == 430
 }
 if _rc == 0 {

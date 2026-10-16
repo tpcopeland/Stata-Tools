@@ -181,7 +181,7 @@ capture noisily {
     * this -- which is how a tolerance gets fitted to a bug.
     local nw = r(N_weighted)
     assert `nw' == 596
-    quietly iivw_fit y treat L1, vce(fixed) model(gee) nolog
+    quietly iivw_fit y treat L1, vce(fixed) nolog
     assert e(N) == 595
     assert e(N) < `nw'
 }
@@ -310,7 +310,7 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(L1) lagvars(edss) ///
         censor(fu_end) allowmissingweights nolog
 
-    quietly iivw_fit y treat L1, model(gee) bootstrap(5) refitweights nolog
+    quietly iivw_fit y treat L1, vce(bootstrap, reps(5)) nolog
     assert _rc == 0
     assert !missing(e(N))
     assert e(N) > 0

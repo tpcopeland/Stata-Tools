@@ -3,7 +3,6 @@
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_bspool" "help iivw_bspool"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
-{vieweralsosee "[ME] mixed" "help mixed"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {viewerjumpto "Syntax" "iivw_fit##syntax"}{...}
 {viewerjumpto "Description" "iivw_fit##description"}{...}
@@ -44,7 +43,6 @@
 {synopt:{opt time(varname)}}time variable for {opt unweighted} fits{p_end}
 
 {syntab:Model}
-{synopt:{opt mod:el(string)}}{cmd:gee} (default) or {cmd:mixed}{p_end}
 {synopt:{opt fam:ily(string)}}GEE family (default: {cmd:gaussian}){p_end}
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
 {synopt:{opt times:pec(string)}}time specification; default {cmd:linear}{p_end}
@@ -60,18 +58,14 @@
 {synopt:{opt allowfailedr:eps}}accept an incomplete bootstrap{p_end}
 {synopt:{opt sav:ing(spec)}}save the bootstrap replicate draws{p_end}
 {synopt:{opt rngstream(#)}}RNG substream for the draws; 1-32768{p_end}
-{synopt:{opt boot:strap(#)}}{it:legacy}; prefer {opt vce()}{p_end}
-{synopt:{opt refit:weights}}{it:legacy}; prefer {opt vce()}{p_end}
 
 {syntab:Reporting}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synopt:{opt allownonconv:erged}}proceed when a model fails to converge{p_end}
-{synopt:{opt experimental:mixed}}acknowledge weighted mixed-model caveat{p_end}
 {synopt:{opt replace}}overwrite generated variables{p_end}
 {synopt:{opt col:lect}}enable the {cmd:collect} framework{p_end}
 {synopt:{opt gee:opts(string)}}additional options passed to {cmd:glm}{p_end}
-{synopt:{opt mixed:opts(string)}}additional options passed to {cmd:mixed}{p_end}
 
 {synoptline}
 {p2colreset}{...}
@@ -86,9 +80,8 @@ weights computed by {helpb iivw_weight}; unweighted fits use the same
 model-building surface without applying weights. This is useful for
 diagnostic comparisons because the unweighted and weighted analyses share
 time terms, categorical expansion, interaction construction, clustering, and
-formatted output. The command supports GEE-equivalent estimation via
-{cmd:glm} with clustered standard errors, and mixed-effects models via
-{cmd:mixed}.
+formatted output. The outcome model is a GEE with independence working
+correlation, fitted via {cmd:glm} with clustered standard errors.
 
 {pstd}
 For GEE models, {cmd:glm} with {cmd:vce(cluster)} is used, which is
@@ -106,7 +99,7 @@ by {cmd:iivw_weight}. For {opt unweighted} fits, specify {opt id()} and
 {bf:What the command does.} {cmd:iivw_fit} takes your outcome variable and
 predictors, optionally builds time trend variables and interaction terms,
 and fits a regression. For Wald inference it displays both the underlying model
-output (from {cmd:glm} or {cmd:mixed}) and a formatted summary table of
+output (from {cmd:glm}) and a formatted summary table of
 effects with coefficients, standard errors, confidence intervals, and
 p-values. For an asymmetric interval it suppresses the underlying Wald table
 and displays only the selected endpoints. A bare FIPTIW fit is point-only at
@@ -145,8 +138,7 @@ can be reused.
 {phang}
 {opt id(varname)} specifies the subject identifier for {opt unweighted} fits
 when no stored package metadata are present. It is used as the default
-clustering variable and as the random-intercept grouping variable for
-{cmd:model(mixed)}.
+clustering variable.
 
 {phang}
 {opt time(varname)} specifies the time variable for {opt unweighted} fits
@@ -156,34 +148,12 @@ when no stored package metadata are present. It is required when
 {dlgtab:Model}
 
 {phang}
-{opt model(string)} specifies the estimation method. {cmd:gee} (the default)
-fits a GLM with clustered robust standard errors via {cmd:glm}, equivalent to
-independence working correlation GEE. {cmd:mixed} fits a mixed-effects model
-via {cmd:mixed} with a random intercept per subject (requires Stata 17+).
-
-{phang2}
-{bf:Weighted mixed models.} {cmd:model(gee)} is the defensible primary
-weighted estimator: it is the marginal estimating equation that IIW theory
-identifies. {cmd:model(mixed)} applies IIVW weights through a single
-observation-level {cmd:[pw=]}, which Stata does not rescale across levels, so
-the random-effects variance components are {it:not} consistently
-weight-estimated (Rabe-Hesketh and Skrondal 2006). Under weighting, interpret
-only the fixed-effect (mean) structure of a mixed fit. A {bf:weighted}
-{cmd:model(mixed)} therefore requires {opt experimental:mixed}, which is how you
-state that you understand the variance components it prints are not a valid
-weighted estimate. For a properly weighted subject-specific model, a
-multilevel-pseudolikelihood approach with level-specific weight scaling is
-required and is outside the scope of this command.
-
-{phang}
 {opt family(string)} specifies the GLM family distribution for GEE models. Default
 is {cmd:gaussian} (identity link, for continuous outcomes). Other common
 choices: {cmd:binomial} for binary outcomes, {cmd:poisson} for count outcomes.
 Grouped binomial data are specified as in {cmd:glm}, {cmd:family(binomial} {it:varname}{cmd:)},
 where {it:varname} holds each row's number of trials; rows with a missing trial
-count leave the estimation sample. {cmd:model(mixed)} fits a Gaussian
-identity-link model, so {opt family()} and {opt link()} are refused there
-rather than ignored.
+count leave the estimation sample.
 
 {pmore}
 {cmd:iivw_fit} requires variation in the modeled response and refuses (error
@@ -197,7 +167,7 @@ that every GLM family is unidentified at a constant response.
 {opt link(string)} specifies the GLM link function. If omitted, the canonical
 link for the specified family is used (identity for gaussian, logit for
 binomial, log for poisson). Override when you need a non-canonical link (e.g.,
-{cmd:family(binomial) link(log)} for risk ratios). Refused with {cmd:model(mixed)}.
+{cmd:family(binomial) link(log)} for risk ratios).
 
 {phang}
 {opt times:pec(string)} specifies how time enters the outcome model. {cmd:linear} (default)
@@ -303,9 +273,8 @@ prints a note when fewer than 40 clusters contribute to an analytic-SE
 (non-bootstrap) fit; prefer {cmd:vce(bootstrap, reps(#))} in that regime.
 
 {phang}
-{opt vce(vcetype)} chooses the variance estimator. It is the contract for
-standard errors; the {opt bootstrap(#)}/{opt refitweights} spellings below are
-retained as a legacy alias but name each method less clearly.
+{opt vce(vcetype)} chooses the variance estimator. It is the only way to
+choose the standard errors.
 
 {pmore}
 What each fit does with no {opt vce()}, and what is recommended:
@@ -393,13 +362,13 @@ evidence only.
 {pmore}
 Scope. It cannot be combined with {opt collect}, which would freeze the
 fitter's own table -- the fixed-weight standard errors -- while {cmd:e(V)} holds
-the stacked ones. {cmd:vce(stacked)} supports {opt model(gee)} with a {bf:canonical} link
+the stacked ones. {cmd:vce(stacked)} supports a {bf:canonical} link
 only -- {opt family(gaussian)} {opt link(identity)}, {opt family(poisson)}
 {opt link(log)}, {opt family(binomial)} {opt link(logit)} -- and refuses weight
 {bf:trimming}, because a weight clipped at an estimated quantile of itself is
 not differentiable in the nuisance parameters and the delta method the sandwich
 rests on does not apply there. Use {cmd:vce(bootstrap, reps(999))} for a trimmed
-weighting, a non-canonical link, or {opt model(mixed)}. Which nuisance
+weighting or a non-canonical link. Which nuisance
 parameters were propagated is recorded in {cmd:e(iivw_stacked_terms)}.
 Intercept-only outcome models and {cmd:geeopts(noconstant)} designs are
 supported. The model-wide Wald test in {cmd:e(chi2)}, {cmd:e(df_m)}, and
@@ -422,43 +391,33 @@ disclosure note still prints. For an interval fit, {cmd:e(iivw_vce)} records
 which of the three was used; a point-only fit records {cmd:none}. An unweighted
 fit keeps the cluster sandwich (no nuisance weights to propagate).
 
-{phang}
-{opt bootstrap(#)} ({it:legacy}) specifies the number of bootstrap replicates. {cmd:bootstrap(0)}
-explicitly requests the weights-known sandwich standard errors
-(equivalent to {cmd:vce(fixed)}); an IIW or IPTW fit with no variance option
-instead takes the refit-bootstrap default, while a bare FIPTIW fit is point-only,
-and a positive count applies the {cmd:bootstrap} prefix with clustering at
-{opt cluster()}, which defaults to the subject ID stored by
-{cmd:iivw_weight}. Negative and non-integer values are refused. Prefer {opt vce()}; a plain
-{cmd:bootstrap(#)} was ambiguous because it meant fixed weights only by the
-absence of {opt refitweights}. Positive legacy counts must be at least 2.
-
 {pmore}
-The legacy {opt bootstrap(#)} without {opt refitweights} treats the IIW/IPTW
-weights as fixed and does not re-estimate them in each draw, so standard errors
-reflect outcome-model uncertainty only. This {bf:omits the weight-estimation correction}
+{cmd:vce(bootstrap, reps(#) fixedweights)} treats the IIW/IPTW weights as fixed
+and does not re-estimate them in each draw, so standard errors reflect
+outcome-model uncertainty only. This {bf:omits the weight-estimation correction}
 that both source papers put inside the sandwich: Buzkova & Lumley
 (2007) add a correction for having estimated the visit-model coefficients, and
 Coulombe, Moodie & Platt (2021) build the FIPTIW variance as a two-step
 (Newey-McFadden) sandwich for the same reason. Omitting it does not have a fixed
 direction across the package's supported weight types; do not read the fixed
-sandwich as automatically conservative. Use the default refit bootstrap (or
-{opt refitweights}) to propagate weight-estimation uncertainty.
+sandwich as automatically conservative. Use the default refit bootstrap to
+propagate weight-estimation uncertainty.
 
-{phang}
-{opt refitweights} re-estimates the IIW/IPTW/FIPTIW weights from scratch inside
-every bootstrap replicate, so the resulting interval reflects both outcome
-model and weight estimation uncertainty. Each replicate resamples whole
-subjects (a cluster bootstrap at the {opt id()} level), recomputes the Andersen-Gill
-visit-intensity model and, for FIPTIW/IPTW, the treatment propensity model on
-the resampled panel using the visit/treatment specification stored by
-{cmd:iivw_weight}, and then refits the outcome model with the fresh weights. The
-point estimates are unchanged from the fixed-weight fit; only the standard
-errors and intervals differ, and they may be larger or smaller depending on
-how the visit and outcome models share covariates. {opt refitweights} requires
-{opt bootstrap(#)} with {it:#} > 0, is not compatible with {opt unweighted}, resamples at the
-stored subject {opt id()} (so {opt cluster()} must be that id), and needs the weighting
-metadata from a preceding {cmd:iivw_weight} run. It is substantially slower than the
+{pmore}
+The refit bootstrap, {cmd:vce(bootstrap, reps(#))}, re-estimates the
+IIW/IPTW/FIPTIW weights from scratch inside every replicate, so the resulting
+interval reflects both outcome model and weight estimation uncertainty. Each
+replicate resamples whole subjects (a cluster bootstrap at the {opt id()}
+level), recomputes the Andersen-Gill visit-intensity model and, for
+FIPTIW/IPTW, the treatment propensity model on the resampled panel using the
+visit/treatment specification stored by {cmd:iivw_weight}, and then refits the
+outcome model with the fresh weights. The point estimates are unchanged from
+the fixed-weight fit; only the standard errors and intervals differ, and they
+may be larger or smaller depending on how the visit and outcome models share
+covariates. The refit bootstrap is not compatible with {opt unweighted} (use
+{cmd:fixedweights}), resamples at the stored subject {opt id()} (so
+{opt cluster()} must be that id), and needs the weighting metadata from a
+preceding {cmd:iivw_weight} run. It is substantially slower than the
 fixed-weight bootstrap because the weight models are refit in every replicate.
 
 {phang}
@@ -510,9 +469,9 @@ does not stop.
 That subset is not random with respect to what is being estimated. The draws that
 fail are the ones carrying the least information about exactly the terms whose
 standard error is being reported, so the surviving standard error is
-anti-conservative -- and before 2.0.0 nothing in the output said so. A measured
-probe (40 subjects, a binary covariate true for 2 of them, {cmd:bootstrap(40)})
-had six replicates fail and printed a standard error built from 34 draws in
+anti-conservative, and nothing in {helpb bootstrap}'s output says so. A measured
+probe (40 subjects, a binary covariate true for 2 of them,
+{cmd:vce(bootstrap, reps(40) fixedweights)}) had six replicates fail and printed a standard error built from 34 draws in
 silence.
 
 {pmore}
@@ -525,24 +484,23 @@ small panel; respecifying is almost always the better answer than accepting the
 option.
 
 {pmore}
-{bf:Changed in 2.0.0.} Each replicate now rebuilds {opt lagvars()} from the raw
-source variables, inside the resampled subject, using the same code that built
-the observed weights. An earlier implementation passed the precomputed {cmd:*_lag1} columns
-passed through as if they were raw covariates. That was wrong in two ways: on a
-terminal censoring interval the lagged value must be the source variable's value
-{it:at} the last visit, and a carried-over lag column supplies the value from two
-visits back instead; and the lag construction could never be rebuilt within a
-draw, so the very uncertainty the bootstrap exists to propagate was frozen at its
-observed-data value in every replicate. Measured on an identity draw -- a
-resample in which every subject is drawn exactly once, so the draw {it:is} the
-observed panel and the weights must come back unchanged -- the old replay was off
-by 22%. It is now exact.
+Each replicate rebuilds {opt lagvars()} from the raw source variables, inside
+the resampled subject, using the same code that built the observed
+weights. Passing the precomputed {cmd:*_lag1} columns through as if they were
+raw covariates would be wrong in two ways: on a terminal censoring interval the
+lagged value must be the source variable's value {it:at} the last visit, and a
+carried-over lag column supplies the value from two visits back instead; and
+the lag construction could never be rebuilt within a draw, so the very
+uncertainty the bootstrap exists to propagate would be frozen at its
+observed-data value in every replicate. On an identity draw -- a resample in
+which every subject is drawn exactly once, so the draw {it:is} the observed
+panel -- the replay reproduces the observed weights exactly.
 
 {pmore}
-Weights written by a version of {cmd:iivw} older than 2.0.0 cannot be
-replayed: the raw visit covariates were not stored apart from the generated lag
-columns, so the replay cannot reconstruct them. {opt refitweights} refuses such a contract
-rather than falling back to the old behaviour. Re-run {cmd:iivw_weight}.
+A weighting contract that does not store the raw visit covariates apart from
+the generated lag columns cannot be replayed, because the replay cannot
+reconstruct them. The refit bootstrap refuses such a contract
+rather than falling back to a different replay. Re-run {cmd:iivw_weight}.
 
 {phang}
 {opt saving(spec)} writes the bootstrap replicate draws to a Stata dataset. {it:spec}
@@ -553,7 +511,7 @@ invalid suboption surfaces as {cmd:bootstrap}'s error rather than a second
 implementation that could drift from it.
 
 {pmore}
-The command discarded these draws before 4.2.0. Saving them is what makes a
+Saving the draws is what makes a
 999-draw bootstrap splittable across concurrent processes: see
 {helpb iivw_bspool}. {cmd:iivw_fit} additionally stamps the file with the
 identity of the fit that produced it -- the weight contract, the weight type,
@@ -642,19 +600,8 @@ successful fit would let every downstream diagnostic report on numbers that
 mean nothing. Use it only to inspect the failure.
 
 {phang}
-{opt experimental:mixed} is required to fit a {bf:weighted} {opt model(mixed)}. The IIW weights
-enter {cmd:mixed} as a single observation-level {cmd:[pw=]}, which Stata does not rescale
-across levels, so the random-effects variance components are {bf:not} consistently
-weight-estimated even though they are reported (Rabe-Hesketh and Skrondal
-2006). The IIW theory identifies a {it:marginal} estimator, so {opt model(gee)} is the
-defensible primary weighted analysis. Specify {opt experimental:mixed} only if you
-want the fixed-effect (mean) structure and accept that the variance components
-are not a valid weighted estimate. Unweighted {opt model(mixed)} is unaffected and
-needs no acknowledgment.
-
-{phang}
-{opt nolog} suppresses the iteration log from the underlying {cmd:glm} or
-{cmd:mixed} command.
+{opt nolog} suppresses the iteration log from the underlying {cmd:glm}
+command.
 
 {phang}
 {opt replace} allows overwriting existing time, categorical, and interaction
@@ -664,17 +611,17 @@ never overwrites a variable the current call uses as an input, even one an
 earlier {cmd:iivw_fit} generated: the outcome, predictors, panel id and time,
 cluster, weight, weighting-model inputs, and the auxiliary inputs named in
 {opt geeopts()} ({opt offset()}, {opt exposure()}), a grouped-binomial
-trial-count variable in {opt family()}, and the {cmd:by()} and {cmd:t()}
-variables of {cmd:mixedopts(residuals(}{it:...}{cmd:))}. Such a collision exits
+and a grouped-binomial trial-count variable in {opt family()}. Such a
+collision exits
 with error 198 and leaves the data unchanged.
 
 {phang}
 {opt col:lect} adds the {cmd:collect:} prefix to non-bootstrap
-{cmd:model(gee)} fits, enabling Stata's {cmd:collect} framework for building
+fits, enabling Stata's {cmd:collect} framework for building
 multi-model tables. Use this when combining results from multiple
 {cmd:iivw_fit} calls into a single table via {helpb collect} or
-{helpb regtab}. This option is not applied to {opt bootstrap()} fits or
-{cmd:model(mixed)}, and it is refused with {cmd:citype(none)} because a
+{helpb regtab}. This option is not applied to {cmd:vce(bootstrap)} fits,
+and it is refused with {cmd:citype(none)} because a
 collection would expose the underlying model's nominal inference after a
 point-only fit.
 
@@ -685,15 +632,7 @@ that would set the variance estimator ({cmd:vce()}, {cmd:robust},
 additionally rejected whenever a bootstrap variance is requested, because
 {cmd:glm, irls} does not set {cmd:e(converged)} and each replicate's outcome fit
 is gated on it -- a draw whose convergence cannot be verified must not enter the
-variance. {cmd:irls} remains available with {cmd:vce(fixed)}. {opt geeopts()}
-is refused with {cmd:model(mixed)}, which never calls {cmd:glm}; in particular
-{cmd:mixed} has no {opt offset()}, so an offset cannot be applied to a
-{cmd:model(mixed)} fit.
-
-{phang}
-{opt mixed:opts(string)} passes additional options directly to {cmd:mixed}. It
-requires {cmd:model(mixed)}; with {cmd:model(gee)} it is refused rather than
-ignored. {cmd:mixed} rejects {opt offset()} itself.
+variance. {cmd:irls} remains available with {cmd:vce(fixed)}.
 
 
 {marker remarks}{...}
@@ -808,7 +747,7 @@ These are practical modeling patterns to adapt after {cmd:iivw_weight} has
 created weights.
 
 {pstd}
-{bf:Population-average treatment effect.} Use the default GEE model, include
+{bf:Population-average treatment effect.} Use the GEE outcome model, include
 the treatment indicator and baseline confounders, and start with a simple
 time specification.
 
@@ -865,19 +804,15 @@ weighting decision unless there is a written design reason for changing the
 outcome model. This keeps sensitivity comparisons interpretable.
 
 {pstd}
-{bf:Mixed vs. GEE}
+{bf:Marginal estimand}
 
 {pstd}
-The GEE model (default) estimates a marginal (population-averaged) treatment
+The GEE outcome model estimates a marginal (population-averaged) treatment
 effect: the average effect of treatment across all subjects. This is what IIW
-theory is designed for (Buzkova & Lumley 2007).
-
-{pstd}
-The mixed model ({cmd:model(mixed)}) adds a subject-specific random intercept
-and estimates a conditional (subject-specific) treatment effect. Use it only
-when a conditional interpretation is specifically needed and you understand
-that the IIW theoretical justification is for marginal models. The mixed model
-requires Stata 17 or later.
+theory is designed for (Buzkova & Lumley 2007). Weighted subject-specific
+(random-effects) models are not offered: a single observation-level weight
+does not consistently weight random-effects variance components
+(Rabe-Hesketh and Skrondal 2006).
 
 {pstd}
 {bf:Choosing timespec}
@@ -900,7 +835,7 @@ stable at the boundaries of the time range.
 {bf:Convergence}
 
 {pstd}
-After fitting the GEE or mixed model, {cmd:iivw_fit} checks convergence.
+After fitting the GEE model, {cmd:iivw_fit} checks convergence.
 A nonconverged observed outcome fit is refused with error 430. On a single-fit
 route, an applicable explicit {opt allownonconverged} override allows the fit
 to continue with a warning and an unusable-for-diagnostics stamp. Both fixed-weight and refit
@@ -914,10 +849,10 @@ Nonconvergence can indicate misspecification, collinearity, or extreme weights.
 
 {pstd}
 {cmd:iivw_fit} is an {cmd:eclass} command and works with Stata's {cmd:collect}
-framework. For non-bootstrap {cmd:model(gee)} fits, use the {opt collect}
+framework. For non-bootstrap fits, use the {opt collect}
 option or the {cmd:collect:} prefix to accumulate results across models, then
 export with {helpb regtab} (from the {cmd:tabtools} package; install
-separately if needed). For bootstrap or {cmd:model(mixed)} fits, use Stata's
+separately if needed). For bootstrap fits, use Stata's
 standard post-estimation/export workflow after the model is fit.
 
 {pstd}
@@ -929,7 +864,7 @@ categorical time "Second visit" is stored under a coefficient name such as
 output.
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_fit score drug age severity_bl, model(gee) collect}{p_end}
+{phang2}{cmd:. iivw_fit score drug age severity_bl, collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet(IIW) coef(Coef.) title(IIW Model)}{p_end}
 
 {pstd}
@@ -937,9 +872,9 @@ To compare multiple weighting strategies side by side:
 
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl) replace censor(fu_end) nolog}{p_end}
-{phang2}{cmd:. iivw_fit edss treated age, model(gee) nolog collect}{p_end}
+{phang2}{cmd:. iivw_fit edss treated age, nolog collect}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl) treat(treated) treat_cov(age) replace censor(fu_end) nolog}{p_end}
-{phang2}{cmd:. iivw_fit edss treated age, model(gee) vce(fixed) nolog collect}{p_end}
+{phang2}{cmd:. iivw_fit edss treated age, vce(fixed) nolog collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet(Compare) models(IIW \ FIPTIW) coef(Coef.) stats(n)}{p_end}
 
 {pstd}
@@ -953,7 +888,7 @@ either.
 {title:Interpreting results}
 
 {pstd}
-{bf:Coefficients.} With {cmd:model(gee)} and the default {cmd:family(gaussian)},
+{bf:Coefficients.} With the default {cmd:family(gaussian)},
 coefficients are interpreted as the change in the outcome for a one-unit
 change in the predictor, averaged over the population. For example, a
 coefficient of -0.7 on {cmd:treated} means that, after reweighting for
@@ -1003,8 +938,7 @@ term does not have a universal direction across the package's supported visit
 and treatment nuisance models; do not assume the fixed sandwich is conservative. An
 {bf:unweighted} fit keeps the cluster sandwich as its default, since it
 estimates no nuisance weights. See
-{opt vce()} (and the legacy {opt bootstrap()}/{opt refitweights}) in
-the Options section).
+{opt vce()} in the Options section).
 
 
 {marker inference}{...}
@@ -1087,8 +1021,7 @@ continuous trend.{p_end}
 {pstd}
 A reproducible report should include:
 
-{phang2}(a) the outcome model type ({cmd:gee} or {cmd:mixed}), family, and
-link;{p_end}
+{phang2}(a) the outcome model family and link;{p_end}
 
 {phang2}(b) the covariates in {it:indepvars}, the {opt timespec()} choice,
 and any {opt interaction()} or {opt categorical()} expansions;{p_end}
@@ -1154,7 +1087,7 @@ weighted and measurement-adjusted models.
 The simplest specification: a continuous outcome with treatment, a baseline
 covariate, and a linear time trend.
 
-{phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) timespec(linear)}{p_end}
+{phang2}{cmd:. iivw_fit edss treated edss_bl, timespec(linear)}{p_end}
 
 {pstd}
 {bf:Example 2: Quadratic time specification}
@@ -1228,7 +1161,7 @@ odds ratios.
 {bf:Example 7: Export results to Excel}
 
 {pstd}
-Use the {opt collect} option with non-bootstrap {cmd:model(gee)} fits to
+Use the {opt collect} option with non-bootstrap fits to
 accumulate results, then export with {cmd:regtab}.
 
 {pstd}
@@ -1238,7 +1171,7 @@ before running the export examples if needed:
 {phang2}{cmd:. net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace}{p_end}
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog replace collect}{p_end}
+{phang2}{cmd:. iivw_fit edss treated edss_bl, nolog replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)}{p_end}
 
 {pstd}
@@ -1267,9 +1200,9 @@ Run two weighting strategies and combine them in a single Excel table.
 
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) replace censor(fu_end) nolog}{p_end}
-{phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog collect}{p_end}
+{phang2}{cmd:. iivw_fit edss treated edss_bl, nolog collect}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) replace censor(fu_end) nolog}{p_end}
-{phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) vce(fixed) nolog replace collect}{p_end}
+{phang2}{cmd:. iivw_fit edss treated edss_bl, vce(fixed) nolog replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Comparison) models(IIW \ FIPTIW) title(IIW vs FIPTIW) stats(n) noint}{p_end}
 
 {pstd}
@@ -1329,30 +1262,20 @@ time variable creation.
 
 {phang2}{cmd:. iivw_fit edss treated edss_bl, timespec(none) replace}{p_end}
 
-{pstd}
-{bf:Example 16: Mixed-effects model (Stata 17+)}
-
-{pstd}
-Fit a mixed model with a random intercept per subject. This estimates
-a conditional (subject-specific) treatment effect rather than the marginal
-(population-averaged) effect.
-
-{phang2}{cmd:. iivw_fit edss treated edss_bl, model(mixed) replace}{p_end}
-
 
 {marker results}{...}
 {title:Stored results}
 
 {pstd}
-{cmd:iivw_fit} stores the results from the underlying {cmd:glm} or
-{cmd:mixed} command in {cmd:e()}, plus the following:
+{cmd:iivw_fit} stores the results from the underlying {cmd:glm}
+command in {cmd:e()}, plus the following:
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Standard estimation results}{p_end}
 {synopt:{cmd:e(cmd)}}{cmd:iivw_fit}{p_end}
 {synopt:{cmd:e(b)}}coefficient vector{p_end}
 {synopt:{cmd:e(V)}}covariance matrix; absent for point-only FIPTIW{p_end}
-{synopt:{cmd:e(sample)}}estimation-sample indicator; the rows the outcome engine used{p_end}
+{synopt:{cmd:e(sample)}}rows the outcome engine used{p_end}
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Macros}{p_end}
@@ -1362,9 +1285,9 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_design_token)}}ID stamped on this fit's design columns{p_end}
 {synopt:{cmd:e(iivw_design_vars)}}design columns this fit generated{p_end}
 {synopt:{cmd:e(iivw_expr}{it:#}{cmd:)}}expression that generated the {it:#}th design column{p_end}
-{synopt:{cmd:e(estat_cmd)}}{cmd:_iivw_fit_estat}, when the underlying model has an estat hook{p_end}
-{synopt:{cmd:e(iivw_estat)}}underlying model's estat hook (e.g., {cmd:mixed_estat}){p_end}
-{synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
+{synopt:{cmd:e(estat_cmd)}}{cmd:_iivw_fit_estat} if the model has an estat hook{p_end}
+{synopt:{cmd:e(iivw_estat)}}underlying estat hook ({cmd:glm_estat}){p_end}
+{synopt:{cmd:e(iivw_model)}}always {cmd:gee}; kept for shard identity{p_end}
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
 {synopt:{cmd:e(iivw_refitweights)}}1 if bootstrap weights were refit; otherwise 0{p_end}
@@ -1374,7 +1297,6 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_vce_seed)}}seed set by {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(vce)}}variance method; {cmd:stacked} when {opt vce(stacked)}{p_end}
-{synopt:{cmd:e(ivars)}}panel id variable; restored after the observed {cmd:model(mixed)} bootstrap evaluation{p_end}
 {synopt:{cmd:e(iivw_stacked_terms)}}nuisance terms propagated by {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_selfcheck)}}fixed-vs-fitted sandwich reldif; {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_nclust)}}stacked-sandwich clusters (design union){p_end}
@@ -1391,7 +1313,6 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_bs_dsig_vars)}}columns covered by {cmd:e(iivw_bs_dsig)}{p_end}
 {synopt:{cmd:e(iivw_bs_lineage)}}draw-lineage identifier of the shard{p_end}
 {synopt:{cmd:e(iivw_wsig)}}signature for stored weight contract{p_end}
-{synopt:{cmd:e(iivw_treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:e(iivw_stab_terms)}}the validated {opt stabcov()} terms, if stabilized{p_end}
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
@@ -1410,14 +1331,14 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations in the outcome equation{p_end}
-{synopt:{cmd:e(chi2)}, {cmd:e(df_m)}, {cmd:e(p)}}model Wald test; from the stacked {cmd:e(V)} under {cmd:vce(stacked)}{p_end}
+{synopt:{cmd:e(chi2)}, {cmd:e(df_m)}, {cmd:e(p)}}model Wald test (stacked {cmd:e(V)} if stacked){p_end}
 {synopt:{cmd:e(level)}}confidence level used to construct {cmd:e(iivw_ci)}{p_end}
 {synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} matches outcome design{p_end}
 {synopt:{cmd:e(iivw_vce_locked)}}1 if underlying VCE passed variance lock{p_end}
 {synopt:{cmd:e(iivw_bs_reps_requested)}}bootstrap replicates requested{p_end}
 {synopt:{cmd:e(iivw_bs_reps_completed)}}bootstrap replicates that returned an estimate{p_end}
 {synopt:{cmd:e(iivw_bs_reps_failed)}}bootstrap replicates that failed{p_end}
-{synopt:{cmd:e(iivw_bs_frame_N)}}resampling-frame rows ({opt refitweights} only){p_end}
+{synopt:{cmd:e(iivw_bs_frame_N)}}resampling-frame rows (refit bootstrap only){p_end}
 {synopt:{cmd:e(iivw_outcome_nclust)}}clusters in the outcome sample{p_end}
 {synopt:{cmd:e(iivw_interval_available)}}1 if an interval was reported; 0 for point-only{p_end}
 {synopt:{cmd:e(iivw_ci_explicit)}}1 if {opt cit:ype()} was specified{p_end}
@@ -1434,7 +1355,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {cmd:bootstrap-fixedweights}, or {cmd:bootstrap}.{p_end}
 
 {pstd}
-{bf:Reading e(N) and e(N_clust) after} {opt refitweights}{bf:.} These two
+{bf:Reading e(N) and e(N_clust) after a refit bootstrap.} These two
 scalars describe different samples, deliberately. A refit bootstrap resamples
 the {it:visit panel}, because that is the data the visit-intensity model was
 fitted on and which every replicate re-fits; the outcome equation is then
@@ -1453,7 +1374,7 @@ checks can tell which model was most recently fit:
 {synoptset 26 tabbed}{...}
 {p2col 5 26 30 2: Dataset characteristics}{p_end}
 {synopt:{cmd:_dta[_iivw_fitted]}}flag that {cmd:iivw_fit} completed{p_end}
-{synopt:{cmd:_dta[_iivw_model]}}estimation method used{p_end}
+{synopt:{cmd:_dta[_iivw_model]}}always {cmd:gee}{p_end}
 {synopt:{cmd:_dta[_iivw_timespec]}}time specification used{p_end}
 {synopt:{cmd:_dta[_iivw_cluster]}}clustering variable used{p_end}
 {synopt:{cmd:_dta[_iivw_time_vars]}}time variables included in the outcome model{p_end}
@@ -1467,7 +1388,7 @@ checks can tell which model was most recently fit:
 
 {pstd}
 After an interval-producing fit, standard postestimation commands for
-{cmd:glm} or {cmd:mixed}, including {cmd:predict}, {cmd:lincom}, {cmd:test},
+{cmd:glm}, including {cmd:predict}, {cmd:lincom}, {cmd:test},
 and {cmd:margins}, are available as usual. {cmd:predict} first checks that the
 design columns {cmd:iivw_fit} generated for this fit (categorical-time
 dummies, time powers, splines, categorical dummies, interactions) are still
@@ -1493,10 +1414,8 @@ New rows whose generated columns agree with the stored expressions can be
 predicted. Refit the model, or restore the data it was fitted on, to predict
 from it again. Estimates stored by a version of {cmd:iivw_fit} that did not
 record these expressions must be refitted before {cmd:predict} when the fit
-generated design columns. After {cmd:model(mixed)}, {cmd:predict}'s
-{cmd:reffects}, {cmd:residuals}, and {cmd:fitted} options and {cmd:estat}
-subcommands such as {cmd:estat group}, {cmd:estat sd}, and {cmd:estat ic} run
-the native {cmd:mixed} routines on the fitted model. A point-only fit ({cmd:citype(none)}, or a bare
+generated design columns. {cmd:estat} subcommands such as {cmd:estat ic} run
+the native {cmd:glm} routines on the fitted model. A point-only fit ({cmd:citype(none)}, or a bare
 FIPTIW fit) retains coefficients in {cmd:e(b)} but deliberately posts no
 {cmd:e(V)}, and the underlying model's other results are not kept, except for
 the {cmd:offset()}/{cmd:exposure()} term in {cmd:e(offset)}. Its
@@ -1564,6 +1483,6 @@ and weight trimming. {it:Statistical Methods in Medical Research}
 
 {psee}
 Online: {helpb iivw}, {helpb iivw_weight}, {helpb iivw_exogtest},
-{helpb iivw_diagnose}, {helpb regtab}, {helpb glm}, {helpb xtgee}, {helpb mixed}
+{helpb iivw_diagnose}, {helpb regtab}, {helpb glm}, {helpb xtgee}
 
 {hline}

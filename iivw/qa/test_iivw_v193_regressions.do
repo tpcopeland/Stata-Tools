@@ -1,14 +1,10 @@
 * =============================================================================
 * test_iivw_v193_regressions.do
 * Regression tests for iivw v1.9.3:
-*   - iivw_fit, model(mixed) bootstrap(#) (no refitweights) now passes
-*     idcluster() so a subject resampled twice enters mixed as two separate
-*     random-effect groups, not one merged group (fixes biased RE variance
-*     components and an understated intercept SE). B1.
 *   - iivw_balance, agrefit now requests vce(cluster id) on both the unweighted
 *     and weighted Andersen-Gill Cox refits, so the reported HR intervals are
 *     cluster-robust rather than naive. B3.
-*   - flagship iivw help documents the refitweights option. B2.
+*   - flagship iivw help documents the vce(bootstrap) route. B2.
 *
 * Each numeric test is written to FAIL on the pre-fix code: the fixed command
 * is checked against the correct recipe (must match) AND the buggy recipe
@@ -65,61 +61,6 @@ program define _iivw_v193_panel
     sort id time
 end
 
-**# T1: mixed bootstrap uses idcluster() (matches correct recipe, differs from buggy)
-
-local ++test_count
-capture noisily {
-    _iivw_v193_panel
-    quietly iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
-
-    * fixed command path. experimentalmixed is required from 2.0.0: a weighted
-    * mixed fit is gated, not merely noted. It does not change the estimates --
-    * it is an acknowledgment that the variance components are not consistently
-    * weight-estimated -- so the idcluster() regression this test pins is
-    * unaffected.
-    set seed 4321
-    quietly iivw_fit y sev, model(mixed) timespec(none) bootstrap(20) ///
-        experimentalmixed nolog
-    assert "`e(iivw_model)'" == "mixed"
-    assert e(N_reps) == 20
-    local iivw_se = _se[_cons]
-
-    tempvar touse bsid
-    quietly gen byte `touse' = !missing(y, sev, _iivw_weight, id)
-
-    * CORRECT recipe: idcluster() relabels resampled clusters, panelid = new id
-    set seed 4321
-    quietly bootstrap, reps(20) cluster(id) idcluster(`bsid') level(95) nodots: ///
-        _iivw_bs_estimate y sev if `touse', weightvar(_iivw_weight) ///
-        model(mixed) panelid(`bsid') mixedopts()
-    local correct_se = _se[_cons]
-
-    * BUGGY recipe: no idcluster(), panelid = original id (duplicates merge)
-    set seed 4321
-    quietly bootstrap, reps(20) cluster(id) level(95) nodots: ///
-        _iivw_bs_estimate y sev if `touse', weightvar(_iivw_weight) ///
-        model(mixed) panelid(id) mixedopts()
-    local buggy_se = _se[_cons]
-
-    * fixed command must reproduce the idcluster recipe byte-for-byte
-    assert !missing(`iivw_se', `correct_se')
-    assert reldif(`iivw_se', `correct_se') < 1e-8
-    * and the two recipes must genuinely differ (else the test proves nothing)
-    assert !missing(`correct_se', `buggy_se')
-    assert reldif(`correct_se', `buggy_se') > 0.005
-    * so the command must NOT match the buggy recipe
-    assert !missing(`iivw_se', `buggy_se')
-    assert reldif(`iivw_se', `buggy_se') > 0.005
-}
-if _rc == 0 {
-    display as result "  PASS: T1 - mixed bootstrap passes idcluster()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: T1 - mixed bootstrap idcluster (error `=_rc')"
-    local ++fail_count
-}
-
 **# T2: GEE bootstrap path is unchanged (no idcluster needed for GLM)
 
 local ++test_count
@@ -127,7 +68,7 @@ capture noisily {
     _iivw_v193_panel
     quietly iivw_weight, endatlastvisit baseline(event) id(id) time(time) visit_cov(sev) nolog
     set seed 909
-    quietly iivw_fit y sev, model(gee) timespec(none) bootstrap(20) nolog
+    quietly iivw_fit y sev, timespec(none) vce(bootstrap, reps(20) fixedweights) nolog
     local iivw_gee_se = _se[sev]
 
     tempvar touse
@@ -136,7 +77,7 @@ capture noisily {
     set seed 909
     quietly bootstrap, reps(20) cluster(id) level(95) nodots: ///
         _iivw_bs_estimate y sev if `touse', weightvar(_iivw_weight) ///
-        model(gee) family(gaussian) geeopts()
+        family(gaussian) geeopts()
     assert !missing(`iivw_gee_se', _se[sev])
     assert reldif(`iivw_gee_se', _se[sev]) < 1e-8
 }
@@ -236,7 +177,7 @@ else {
     local ++fail_count
 }
 
-**# T5: flagship iivw help documents refitweights (B2 doc drift)
+**# T5: flagship iivw help documents the vce(bootstrap) route (B2 doc drift)
 
 local ++test_count
 capture noisily {
@@ -245,18 +186,18 @@ capture noisily {
     file open `fh' using "`pkg_dir'/iivw.sthlp", read text
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "refitweights") > 0 local found = 1
+        if strpos(`"`line'"', "vce(bootstrap") > 0 local found = 1
         file read `fh' line
     }
     file close `fh'
     assert `found' == 1
 }
 if _rc == 0 {
-    display as result "  PASS: T5 - flagship help documents refitweights"
+    display as result "  PASS: T5 - flagship help documents the vce(bootstrap) route"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T5 - flagship help refitweights doc (error `=_rc')"
+    display as error "  FAIL: T5 - flagship help vce(bootstrap) doc (error `=_rc')"
     local ++fail_count
 }
 

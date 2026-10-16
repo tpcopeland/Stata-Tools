@@ -427,55 +427,6 @@ else {
     display as error "FAIL: T6 C7 IPTW prevalence sample"
 }
 
-**# T7 (C5): a clinic-clustered bootstrap keeps the PATIENT as the panel unit
-
-local ++test_count
-capture noisily {
-    * 8 clinics x 5 patients x 4 visits. The random intercept is on the patient.
-    * bootstrap, cluster(clinic) idcluster(bsid) makes bsid the resampled CLINIC.
-    * v1.x passed bsid straight through as mixed's grouping variable, so the
-    * model had 8 groups (clinics) where it should have had 40 (patients) --
-    * and _iivw_bs_refit passed the same bsid as iivw_weight's id(), making an
-    * entire clinic one "subject" in the visit-intensity counting process.
-    clear
-    set seed 5150
-    set obs 40
-    gen long patient = _n
-    gen long clinic = ceil(_n/5)
-    gen double u = rnormal()
-    expand 4
-    bysort patient: gen double vtime = _n
-    gen double x = rnormal()
-    gen double y = 0.5*x + u + rnormal()
-    sort patient vtime
-
-    * Drive the helper directly with the two ids, exactly as the bootstrap does.
-    tempvar bsid
-    quietly gen long `bsid' = clinic
-
-    quietly _iivw_bs_estimate y x, model(mixed) panelid(patient) ///
-        bsid(`bsid') nolog
-    * mixed stores e(N_g) as a MATRIX, one column per random-effects level --
-    * a bare scalar assignment dies with r(109).
-    matrix ng = e(N_g)
-    local ngroups = ng[1, 1]
-    display as text "  random-intercept groups = `ngroups' (patients, not clinics)"
-
-    if `ngroups' != 40 {
-        display as error "T7 FAIL: mixed used `ngroups' random-intercept groups, expected 40"
-        display as error "  8 means the clinic draw id was used as the panel unit"
-        error 9
-    }
-}
-if _rc == 0 {
-    local ++pass_count
-    display as result "PASS: T7 clinic-clustered bootstrap groups the random intercept by patient"
-}
-else {
-    local ++fail_count
-    display as error "FAIL: T7 C5 mixed bootstrap grouping"
-}
-
 **# T8 (C5): a patient spanning two clinics is rejected, not silently resampled
 
 local ++test_count
@@ -495,8 +446,8 @@ capture noisily {
     quietly replace clinic = 99 if patient == 1 & vtime > 2
     sort patient vtime
 
-    capture iivw_fit y x, id(patient) time(vtime) model(mixed) ///
-        cluster(clinic) bootstrap(5) unweighted nolog
+    capture iivw_fit y x, id(patient) time(vtime) ///
+        cluster(clinic) vce(bootstrap, reps(5) fixedweights) unweighted nolog
     if _rc != 459 {
         display as error "T8 FAIL: a patient spanning two clusters gave rc=`=_rc', not 459"
         error 9

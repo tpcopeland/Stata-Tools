@@ -449,7 +449,7 @@ else {
 *
 * That left the package's OWN workflow untested. README "Diagnostic workflow"
 * and demo/demo_iivw.do both feed iivw_fit estimates straight into
-* iivw_diagnose, and iivw_fit's model(gee) path is -glm-, which does not set
+* iivw_diagnose, and iivw_fit's GEE path is -glm-, which does not set
 * e(family) at all and puts the internal link PROGRAM name ("glim_l01") in
 * e(link). Measured on the pre-fix build: T15 returned decomposable == 0 with
 * the note "identity-link collapsibility not established" for a Gaussian

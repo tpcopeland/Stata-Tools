@@ -1,4 +1,4 @@
-*! _iivw_own Version 4.3.7  2026/10/13
+*! _iivw_own Version 1.0.0  2026/10/15
 *! Stamp variable-level ownership on a package output, and read it back.
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

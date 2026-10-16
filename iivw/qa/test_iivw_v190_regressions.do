@@ -2,7 +2,6 @@
 * test_iivw_v190_regressions.do
 * Regression tests for iivw v1.9.0:
 *   - IIW component normalized to mean 1 (estimate/SE invariant)
-*   - weighted model(mixed) fence note
 *   - few-cluster inference note
 * =============================================================================
 clear all
@@ -128,7 +127,7 @@ capture noisily {
     assert reldif(se_norm, _se[treated]) < 1e-10
     * iivw_fit (timespec(linear) adds the panel time term, matching the manual
     * glm covariate set {treated, edss_bl, days}) reproduces the coefficient
-    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
     assert !missing(_b[treated], b_norm)
     assert reldif(_b[treated], b_norm) < 1e-8
 }
@@ -153,7 +152,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
-    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
     log close iivwcap
     _iivw_log_has using "`capf'", pattern("cluster-robust SEs can be")
     assert r(found) == 1
@@ -163,7 +162,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
-    iivw_fit edss treated edss_bl, vce(fixed) model(gee) timespec(linear) nolog
+    iivw_fit edss treated edss_bl, vce(fixed) timespec(linear) nolog
     log close iivwcap
     _iivw_log_has using "`capf'", pattern("cluster-robust SEs can be")
     assert r(found) == 0
@@ -173,7 +172,7 @@ capture noisily {
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
     capture log close iivwcap
     log using "`capf'", replace text name(iivwcap)
-    iivw_fit edss treated edss_bl, model(gee) timespec(linear) bootstrap(20) nolog
+    iivw_fit edss treated edss_bl, timespec(linear) vce(bootstrap, reps(20) fixedweights) nolog
     log close iivwcap
     _iivw_log_has using "`capf'", pattern("cluster-robust SEs can be")
     assert r(found) == 0
@@ -187,56 +186,6 @@ if `t3rc' == 0 {
 else {
     display as error "  FAIL: T3 - few-cluster note (error `=_rc')"
     local ++fail_count
-}
-
-**# T4: weighted model(mixed) is GATED (2.0.0); the note fires once acknowledged
-*
-* Before 2.0.0 this fence was only a `note:'. A note does not stop anyone, and
-* the variance components it warns about print immediately below it looking as
-* authoritative as anything else. 2.0.0 requires experimentalmixed instead, so
-* this test now pins the gate as well as the note.
-
-local ++test_count
-if c(stata_version) >= 17 {
-    capture noisily {
-        _iivw_v190_panel, nsubj(80)
-        iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss_bl age sex) nolog
-
-        * weighted mixed WITHOUT the acknowledgment -> hard error, no fit
-        capture iivw_fit edss treated edss_bl, vce(fixed) model(mixed) timespec(linear) nolog
-        assert _rc == 198
-
-        * weighted mixed WITH the acknowledgment -> fits, and the note fires
-        capture log close iivwcap
-        log using "`capf'", replace text name(iivwcap)
-        iivw_fit edss treated edss_bl, vce(fixed) model(mixed) timespec(linear) ///
-            experimentalmixed nolog
-        log close iivwcap
-        _iivw_log_has using "`capf'", pattern("consistently weight-estimated")
-        assert r(found) == 1
-
-        * unweighted mixed -> no gate, no note
-        capture log close iivwcap
-        log using "`capf'", replace text name(iivwcap)
-        iivw_fit edss treated edss_bl, model(mixed) timespec(linear) ///
-            unweighted id(id) time(days) nolog
-        log close iivwcap
-        _iivw_log_has using "`capf'", pattern("consistently weight-estimated")
-        assert r(found) == 0
-    }
-    local t4rc = _rc
-    capture log close iivwcap
-    if `t4rc' == 0 {
-        display as result "  PASS: T4 - weighted mixed gated; note fires once acknowledged; unweighted clean"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: T4 - mixed fence note (error `=_rc')"
-        local ++fail_count
-    }
-}
-else {
-    display as text "  SKIP: T4 - model(mixed) requires Stata 17+"
 }
 
 **# Summary

@@ -188,7 +188,7 @@ upper cut of 16.2837 — its own weight — and was left untouched, while at 2 v
 clipped to 1.8548. The no-op case is the one where the extreme subject dominates the analysis, and the
 command printed "trunctreat() bounds their influence" through it. Reproducing a pre-3.1.0 analysis is
 **not supported**: the resolved unit travels on the contract as `_iivw_tt_unit` (and is part of the
-weight signature), and `iivw_fit ..., refitweights` **refuses** a contract that lacks it rather than
+weight signature), and the `iivw_fit ..., vce(bootstrap)` refit **refuses** a contract that lacks it rather than
 rebuilding the draws at a different unit from the point estimate — the IIVW-B09 / tie-method remedy.
 
 **Pinned in both directions**, because a one-sided invariant makes the wrong generalization free: a
@@ -210,7 +210,7 @@ refusal. 8/8 on 3.1.0, **0/8 on 3.0.0** (all rc=9, observed).
 | Surface | Problem |
 |---|---|
 | **`iivw_diagnose`** | Its sampling/artifact **shares are original to this package**. No source. "Share", "point decomposition", and "bounds" are causal language with nothing behind them. A user-supplied `exogeneity(exogenous)` label flips a "diagnostic range" into a "point decomposition" — **a label is not evidence that exogeneity holds.** Quarantine (Phase 4). |
-| **Weighted `model(mixed)`** | Not a valid weighted random-effects estimator. `experimentalmixed` is an honest warning, but a public path that prints ordinary variance components is easy to overread. **Cannot be in the cleared surface.** |
+| **Weighted mixed model** | Not a valid weighted random-effects estimator. **Removed in 1.0.0**: `model()`, `mixedopts()` and `experimentalmixed` exit `r(198)`; GEE is the only outcome model. |
 | **ESS thresholds (`iivw_balance`)** | `ESS = (Σw)²/Σw²` is attributed to **Kish (1965)** — a book we do **not hold** (corroborated across secondary sources; never read). The **thresholds** built on it are package conventions with **no source**, and the help now says so. |
 | **The 0.10 balance threshold** | A **convention**, not proof of correct visit-model specification. |
 
@@ -234,7 +234,7 @@ damage hides. `S` = supported · `L` = legacy · `X` = experimental/quarantined 
 | `trunctreat` | **B** | Treatment-component trim. A labelled sensitivity analysis: it shifts the target toward the overlap population (Tompkins §4.4). |
 | `truncvisit` | **B** | Visit-component trim. Explicitly **not** a remedy for a misspecified visit model (Tompkins §4.4); balance is expected to worsen. |
 | `truncfinal` | **B** | Final-product trim. Cannot attribute an extreme weight to a component; the old `truncate()` behaviour, named honestly. |
-| `experimentalnotreatvisit` | **D** | Omits `treat()` from the FIPTIW visit model. Outside the supported contract; recorded as such (§2, IIVW-B05). |
+| `experimentalnotreatvisit` | **removed** | Removed in 1.0.0: FIPTIW always puts `treat()` in the visit-intensity model, and the option exits `r(198)` (`test_iivw_v100_regressions` T8). No contract field records the choice any more; pre-release contracts that carried `_iivw_treat_in_visit` fail the weight-signature check (459) and must be reweighted. |
 | **`efron`** | **S** | **Tie method — statistically load-bearing, and previously unclassified.** Must be part of the replay contract: a bootstrap draw that changes the tie handling is bootstrapping a different estimator. |
 | **`allownonconverged`** | **X** | **Previously unclassified.** Lets a nuisance model that does **not solve its estimating equation** through. `exp(−γ̂ᵀZ)` is then not the IIW weight and no downstream null holds. `iivw_balance` already refuses a verdict in this state (`:739-749`) — **correct, and that refusal must extend to every consumer.** Cannot be part of a cleared result. |
 | `generate` `replace` `log` | **C** | Naming/verbosity. (`replace` has an *ownership* defect — plan blocker #10 — but no statistical content.) |
@@ -243,18 +243,18 @@ damage hides. `S` = supported · `L` = legacy · `X` = experimental/quarantined 
 
 | Option | | Note |
 |---|---|---|
-| `model(gee)` `family` `link` `id` `time` `level` | **S** | Core (§3.5). |
+| `family` `link` `id` `time` `level` | **S** | Core (§3.5). GEE is the only outcome model. |
 | `cluster` | **S-restricted** | Subject level only. A higher-level cluster design needs its own resampling/nuisance theory and must error until validated. |
 | `vce` | **S-restricted** | Names the variance route. The nuisance-refitting subject bootstrap is the primary IIW/IPTW inferential path; FIPTIW requests are explicitly nominal and empirically uncleared (§3.6). |
-| `bootstrap` `refitweights` | **L** | Deprecated compatibility spellings for `vce()`; they retain exact historical mappings but are not the documented interface. |
+| `bootstrap` `refitweights` | **removed** | Removed in 1.0.0; `vce()` is the only variance interface, and either option exits `r(198)` (`test_iivw_v100_regressions` T5). |
 | `citype` | **S-restricted** | `none`, Wald, percentile, basic, or BCa. Bare FIPTIW resolves to `none`; bootstrap transformations reuse the same replicate estimates, and BCa adds a delete-one-subject full refit. No FIPTIW interval is cleared. |
 | `allowfailedreps` | **X** | Explicitly accepts inference from a nonrandom subset of successful bootstrap draws. Without it, any failed draw is `r(430)`. |
 | `categorical` `basecat` `interaction` `timebasecat` | **S** | Outcome-design construction. **Load-bearing for §2:** the stabilization check must map `stabcov()` against the design *after* these expand. |
 | **`timespec`** | **S** | This is the working time trend. Coulombe's two interior tertile knots (PDF p.85) map to `timespec(ns(3))`; the help states that `#` counts basis variables, and V26 checks the exact basis. |
 | `unweighted` | **S** | The naive comparator. Essential to the recovery grid — it is the estimator that must *miss* when the DGP bites. |
 | `allownonconverged` | **X** | As above. |
-| `experimentalmixed` `mixedopts` | **X** | Not a valid weighted random-effects estimator (§3.10). **`mixedopts` shares the same variance-ownership contract as `geeopts` below** — it is validated by the same token-aware guard. |
-| **`geeopts` `mixedopts`** | **X** | **Pass-through option surface, GUARDED since 2.0.0 (IIVW-B08).** Both are appended raw to the inner `glm`/`mixed` after the package's own VCE, so a variance/resampling token in them is inside the blast radius. A shared **token-aware validator** (`_iivw_check_passthru.ado`) now rejects `vce()`, every abbreviation of `robust` (`r`…`robust`), and `cluster()` (`cl(`…`cluster(`) — across case, tabs, spaces, quotes, and nested parens — before any GEE/mixed call site, including the bootstrap helpers `_iivw_bs_estimate`/`_iivw_bs_refit`. A **post-fit variance lock** (`e(iivw_vce_locked)`) then re-reads `e(vce)`/`e(clustvar)` and confirms the posted covariance matches the package-selected method, erroring otherwise. Note the earlier "silent override" framing was imprecise: local probes show `geeopts(vce(robust))` in fact *errors* `r(198)` at `glm` (duplicate `vce()`); the real hazard was an uncontrolled inference-option surface, especially in bootstrap helpers whose inner `glm` carried no package VCE. Both halves — pre-call reject and post-fit lock — now close it. |
+| `model` `experimentalmixed` `mixedopts` | **removed** | Removed in 1.0.0 with the mixed route (§3.10); each exits `r(198)` (`test_iivw_v100_regressions` T6, `test_iivw_route_grid_fixes` R10). |
+| **`geeopts`** | **X** | **Pass-through option surface, GUARDED since 2.0.0 (IIVW-B08).** It is appended raw to the inner `glm` after the package's own VCE, so a variance/resampling token in them is inside the blast radius. A shared **token-aware validator** (`_iivw_check_passthru.ado`) now rejects `vce()`, every abbreviation of `robust` (`r`…`robust`), and `cluster()` (`cl(`…`cluster(`) — across case, tabs, spaces, quotes, and nested parens — before any GEE/mixed call site, including the bootstrap helpers `_iivw_bs_estimate`/`_iivw_bs_refit`. A **post-fit variance lock** (`e(iivw_vce_locked)`) then re-reads `e(vce)`/`e(clustvar)` and confirms the posted covariance matches the package-selected method, erroring otherwise. Note the earlier "silent override" framing was imprecise: local probes show `geeopts(vce(robust))` in fact *errors* `r(198)` at `glm` (duplicate `vce()`); the real hazard was an uncontrolled inference-option surface, especially in bootstrap helpers whose inner `glm` carried no package VCE. Both halves — pre-call reject and post-fit lock — now close it. |
 | `log` `replace` `collect` | **C** | |
 
 **`iivw_balance` (21)** — `component` **S** · `agrefit` **S** · `balcut` `cvcut` `essratiocut` **X** (thresholds are package conventions with **no source**; the 0.10 cut is a convention, not proof) · `level` `log` `efron` **S** · the 13 `xlsx`/styling options **C**.
@@ -288,7 +288,7 @@ Two options need naming because they are the sharp edges:
 5. **Treatment is automatically included in the FIPTIW visit denominator** (Coulombe eq. 3.12). An opt-out, if retained, is experimental and cannot carry a cleared FIPTIW label.
 6. **Stabilization must be validated against the fitted outcome design** — the **IIW numerator only** (§2). The IPTW numerator is already correct and must not be "fixed".
 7. **Truncation is component-specific**, off by default, and reported as a sensitivity analysis with its bias acknowledged.
-8. **`iivw_diagnose` and weighted `model(mixed)` are experimental/descriptive**, not reliability-cleared.
+8. **`iivw_diagnose` is descriptive**, not reliability-cleared.
 
 ---
 

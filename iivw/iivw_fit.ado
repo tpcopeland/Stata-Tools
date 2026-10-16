@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.3.7  2026/10/13
+*! iivw_fit Version 1.0.0  2026/10/15
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -9,11 +9,10 @@ Basic syntax:
 
 Description:
   Fits a weighted outcome model using weights from iivw_weight.
-  Supports GEE (default) or mixed models. GEE uses independence
-  working correlation as required by IIW theory.
+  The outcome model is an independence-working-correlation GEE (glm with
+  cluster-robust variance), the estimator the IIW theory identifies.
 
 Options:
-  model(string)       - gee (default) or mixed
   family(string)      - GEE family (default: gaussian)
   link(string)        - GEE link (default: canonical)
   timespec(string)    - Time specification: linear, quadratic, cubic, ns(#), categorical, none
@@ -23,14 +22,12 @@ Options:
   timebasecat(#)      - Reference category for categorical time (default: lowest)
   cluster(varname)    - Cluster variable (default: id from metadata)
   vce(string)         - fixed or bootstrap variance contract
-  bootstrap(#)        - Legacy bootstrap spelling
   citype(string)      - none, wald, percentile, basic, or bca
   level(#)            - Confidence level (default: 95)
   saving(spec)        - Write the bootstrap replicate draws to a .dta file
   rngstream(#)        - RNG substream (1-32768) the replicates are drawn from
   nolog               - Suppress iteration log
   geeopts(string)     - Additional options passed to glm
-  mixedopts(string)   - Additional options passed to mixed
 
 See help iivw_fit for complete documentation
 */
@@ -88,8 +85,7 @@ program define iivw_fit, eclass
     * =========================================================================
 
     syntax varlist(numeric min=1) [if] [in] , ///
-        [MODel(string) ///
-         FAMily(string) LINk(string) ///
+        [FAMily(string) LINk(string) ///
          TIMESpec(string) ///
          INTeraction(varlist numeric) ///
          CATEGorical(varlist numeric) ///
@@ -99,12 +95,12 @@ program define iivw_fit, eclass
          UNWeighted ///
          ID(varname) TIME(varname) ///
          VCE(string asis) ///
-         BOOTstrap(string) REFITweights ALLOWFAILEDReps ///
+         ALLOWFAILEDReps ///
          CIType(string) ///
          Level(cilevel) noLOG ///
-         REPLACE ALLOWNONCONVerged EXPERIMENTALmixed ///
+         REPLACE ALLOWNONCONVerged ///
          SAVing(string asis) RNGSTREAM(string) ///
-         GEEopts(string asis) MIXEDopts(string asis) COLlect]
+         GEEopts(string asis) COLlect]
 
     * =========================================================================
     * CHECK PREREQUISITES
@@ -117,27 +113,16 @@ program define iivw_fit, eclass
     * require a time variable in unweighted mode.
     local __iivw_family_explicit = ("`family'" != "")
     local __iivw_link_explicit = ("`link'" != "")
-    if "`model'" == "" local model "gee"
+    * GEE is the only outcome model; e(iivw_model), _dta[_iivw_model] and the
+    * shard identity stamp record the constant "gee".
     if "`family'" == "" local family "gaussian"
     if "`timespec'" == "" local timespec "linear"
 
-    * Omission is represented by an empty string, outside the numeric domain.
-    * A typed value must parse as the integer option it replaced did: 20,
-    * 20.0 and 2e1 are the same integer; a non-integer or out-of-range value
-    * is refused.
-    local _boot_explicit = ("`bootstrap'" != "")
-    if `_boot_explicit' {
-        local __iivw_intok = 0
-        capture confirm number `bootstrap'
-        if _rc == 0 local __iivw_intok = ///
-            (`bootstrap' == floor(`bootstrap') & abs(`bootstrap') < 2147483621)
-        if !`__iivw_intok' {
-            display as error "bootstrap() must be an integer >= 0"
-            error 198
-        }
-        local bootstrap = `bootstrap'
-    }
-    else local bootstrap 0
+    * The variance is chosen through vce() alone; these two locals carry the
+    * resolved choice (number of draws, and whether the draws refit the
+    * weights) through the rest of the command.
+    local bootstrap 0
+    local refitweights ""
 
     if "`unweighted'" == "" {
         if "`id'" != "" {
@@ -185,7 +170,6 @@ program define iivw_fit, eclass
         local rep_censor_mode "`r(censor_mode)'"
         local rep_censor_var  "`r(censor_var)'"
         local rep_maxfu       "`r(maxfu)'"
-        local rep_treat_in_visit "`r(treat_in_visit)'"
     }
     else {
         local panel_id "`id'"
@@ -224,8 +208,7 @@ program define iivw_fit, eclass
     * an empirically uncleared stamp. Other estimators retain their measured
     * Wald/default contract.
     local _citype_explicit = (strtrim("`citype'") != "")
-    local _inference_explicit = ///
-        (`"`vce'"' != "" | `_boot_explicit' | "`refitweights'" != "")
+    local _inference_explicit = (`"`vce'"' != "")
     local citype = lower(strtrim("`citype'"))
     if "`citype'" == "" {
         if "`weighttype'" == "fiptiw" & "`unweighted'" == "" & ///
@@ -238,7 +221,7 @@ program define iivw_fit, eclass
     }
     if "`citype'" == "none" & `_inference_explicit' {
         display as error "citype(none) cannot be combined with a variance option"
-        display as error "  omit vce()/bootstrap()/refitweights for point estimates only"
+        display as error "  omit vce() for point estimates only"
         display as error "  or explicitly request citype(wald), citype(percentile),"
         display as error "  citype(basic), or citype(bca) for nominal inference"
         error 198
@@ -254,12 +237,8 @@ program define iivw_fit, eclass
     * variation that Buzkova & Lumley (2007) and Coulombe, Moodie & Platt (2021)
     * derive analytically; the papers do not derive this bootstrap itself.
     *
-    * vce() is the contract for choosing it. The legacy bootstrap()/refitweights
-    * spellings are retained as deprecated shims (they still work, with a note)
-    * so existing analysis code does not break, but they are no longer the way to
-    * ask for a variance: bootstrap(#) alone was ambiguous -- it meant "fixed
-    * weights" only because refitweights was absent -- and vce() removes that
-    * ambiguity by naming each method exactly once.
+    * vce() is the only way to choose it, and it names each method exactly
+    * once.
     *
     *   vce(bootstrap, reps(#) [seed(#)])   refit bootstrap  (recommended)
     *   vce(bootstrap, reps(#) fixedweights) bootstrap, weights held fixed
@@ -288,12 +267,6 @@ program define iivw_fit, eclass
     local stacked_terms ""
     local stacked_ainv ""
     if `"`vce'"' != "" {
-        if `bootstrap' > 0 | "`refitweights'" != "" {
-            display as error "specify the variance through vce() OR the legacy"
-            display as error "  bootstrap()/refitweights options, not both"
-            error 198
-        }
-
         * Split "method , suboptions" on the first comma.
         gettoken _vcemethod _vcesub : vce, parse(",")
         local _vcemethod = strtrim("`_vcemethod'")
@@ -371,17 +344,9 @@ program define iivw_fit, eclass
             local vce_seed "`seed'"
         }
     }
-    else if `bootstrap' > 0 | "`refitweights'" != "" {
-        * Legacy spelling. Map is unchanged; just steer the user to vce().
-        local _legacy_target "vce(bootstrap, reps(`bootstrap')"
-        if "`refitweights'" == "" local _legacy_target "`_legacy_target' fixedweights"
-        local _legacy_target "`_legacy_target')"
-        display as text ///
-            "note: bootstrap()/refitweights is deprecated; use `_legacy_target'"
-    }
-    else if "`weighttype'" != "unweighted" & "`model'" == "gee" & `_boot_explicit' == 0 {
+    else if "`weighttype'" != "unweighted" {
         * ---------------------------------------------------------------------
-        * DEFAULT INFERENCE (IIVW-B02): IIW/IPTW model(gee) fits with no vce()
+        * DEFAULT INFERENCE (IIVW-B02): IIW/IPTW GEE fits with no vce()
         * get the 999-draw subject bootstrap that REFITS every nuisance model
         * inside each draw. Bare FIPTIW falls through the same branch with
         * citype(none), but launches no bootstrap and returns point estimates
@@ -389,10 +354,6 @@ program define iivw_fit, eclass
         * weights as known (vce(fixed)) omits the weight-estimation term that
         * both source papers put inside the sandwich (B&L p.10-11; Coulombe
         * PDF p.86), so it is an explicit opt-in, not a silent default.
-        * model(mixed) is deliberately excluded: the weighted random-effects path
-        * is experimental and never inherits the candidate default (it keeps the
-        * analytic sandwich unless a variance is named explicitly).
-        *
         * The refit bootstrap needs the stored replay contract (raw visit
         * covariates, treatment model, risk-set end); the block below already
         * errors with a precise message if iivw_weight was run before 2.0.0
@@ -457,14 +418,6 @@ program define iivw_fit, eclass
             display as text "  collection would hold the fixed-weight standard errors while"
             display as text "  e(V) holds the stacked ones -- two different numbers under one"
             display as text "  label, with nothing in the output to say which is which."
-            error 198
-        }
-        if "`model'" != "gee" {
-            display as error "vce(stacked) requires model(gee)"
-            display as error ""
-            display as text "  The influence function is derived for the independence-GEE"
-            display as text "  estimating equation. model(mixed) solves a different one, and its"
-            display as text "  random-effects components are not weight-estimated at all."
             error 198
         }
 
@@ -660,23 +613,20 @@ program define iivw_fit, eclass
     * without strok, markout silently marks EVERY observation out for a
     * string variable and the fit dies with a misleading "no observations".
     markout `touse' `cluster', strok
-    if "`model'" == "mixed" markout `touse' `panel_id', strok
 
     local __iivw_gee_sources ""
     local __iivw_trial_source ""
-    if "`model'" == "gee" {
-        local __iivw_famword : word 1 of `family'
-        local __iivw_famarg : word 2 of `family'
-        local __iivw_famword = lower("`__iivw_famword'")
-        if "`__iivw_famword'" != "" & "`__iivw_famarg'" != "" {
-            if "`__iivw_famword'" == ///
-                    substr("binomial",1,strlen("`__iivw_famword'")) {
-                capture confirm numeric variable `__iivw_famarg'
-                if _rc == 0 {
-                    local __iivw_trial_source "`__iivw_famarg'"
-                    local __iivw_gee_sources "`__iivw_famarg'"
-                    markout `touse' `__iivw_famarg'
-                }
+    local __iivw_famword : word 1 of `family'
+    local __iivw_famarg : word 2 of `family'
+    local __iivw_famword = lower("`__iivw_famword'")
+    if "`__iivw_famword'" != "" & "`__iivw_famarg'" != "" {
+        if "`__iivw_famword'" == ///
+                substr("binomial",1,strlen("`__iivw_famword'")) {
+            capture confirm numeric variable `__iivw_famarg'
+            if _rc == 0 {
+                local __iivw_trial_source "`__iivw_famarg'"
+                local __iivw_gee_sources "`__iivw_famarg'"
+                markout `touse' `__iivw_famarg'
             }
         }
     }
@@ -697,7 +647,7 @@ program define iivw_fit, eclass
     * F09: 80 rows fitted, 100 reported). Parsed with glm's own abbreviations;
     * the parse is a no-op when geeopts() holds neither option, and a malformed
     * geeopts() is left for glm itself to reject.
-    if "`model'" == "gee" & `"`geeopts'"' != "" {
+    if `"`geeopts'"' != "" {
         local __iivw_save0 `"`0'"'
         local __iivw_savevl `"`varlist'"'
         local __iivw_saveif `"`if'"'
@@ -717,35 +667,6 @@ program define iivw_fit, eclass
         local in `"`__iivw_savein'"'
         local offset ""
         local exposure ""
-        local options ""
-    }
-
-    local __iivw_mixed_sources ""
-    if "`model'" == "mixed" & `"`mixedopts'"' != "" {
-        local __iivw_save0 `"`0'"'
-        local __iivw_savevl `"`varlist'"'
-        local __iivw_saveif `"`if'"'
-        local __iivw_savein `"`in'"'
-        local 0 `", `mixedopts'"'
-        capture syntax [, RESiduals(string asis) *]
-        if _rc == 0 {
-            local __iivw_rescomma = strpos(`"`residuals'"', ",")
-            if `__iivw_rescomma' > 0 {
-                local 0 = substr(`"`residuals'"', `__iivw_rescomma', .)
-                capture syntax [, BY(varname) T(varname numeric) *]
-                if _rc == 0 {
-                    local __iivw_mixed_sources "`by' `t'"
-                    markout `touse' `by' `t', strok
-                }
-            }
-        }
-        local 0 `"`__iivw_save0'"'
-        local varlist `"`__iivw_savevl'"'
-        local if `"`__iivw_saveif'"'
-        local in `"`__iivw_savein'"'
-        local residuals ""
-        local by ""
-        local t ""
         local options ""
     }
 
@@ -808,59 +729,24 @@ program define iivw_fit, eclass
         error 198
     }
 
-    * Validate model type
-    if !inlist("`model'", "gee", "mixed") {
-        display as error "model() must be gee or mixed"
-        error 198
-    }
-
-    if "`model'" == "mixed" & ///
-            (`__iivw_family_explicit' | `__iivw_link_explicit') {
-        display as error "family() and link() require model(gee)"
-        display as error "  model(mixed) fits a Gaussian identity-link model"
-        error 198
-    }
-
-    * Each pass-through reaches exactly one fitter, so the other one's options
-    * were accepted and then dropped at rc 0: model(mixed) never saw
-    * geeopts(offset(x)) and fitted without the offset. mixed has no offset(),
-    * and no glm option means anything to it, so refuse rather than ignore.
-    if "`model'" == "mixed" & `"`geeopts'"' != "" {
-        display as error "geeopts() is not allowed with model(mixed)"
-        display as error "  geeopts() is passed to glm, which model(mixed) does not call;"
-        display as error "  pass mixed options through mixedopts(). mixed has no offset()."
-        error 198
-    }
-    if "`model'" == "gee" & `"`mixedopts'"' != "" {
-        display as error "mixedopts() requires model(mixed)"
-        display as error "  mixedopts() is passed to mixed, which model(gee) does not call;"
-        display as error "  pass glm options through geeopts()"
-        error 198
-    }
-
     if `bootstrap' < 0 | `bootstrap' == 1 {
-        display as error "bootstrap() must be 0 or at least 2"
+        display as error "vce(bootstrap) needs reps() >= 2"
         display as error "  a bootstrap variance is undefined from one draw"
         error 198
     }
 
-    * refitweights: re-estimate IIW/IPTW/FIPTIW weights inside each bootstrap
+    * Refit bootstrap: re-estimate IIW/IPTW/FIPTIW weights inside each bootstrap
     * replicate so the interval reflects weight-estimation uncertainty, not just
     * outcome-model uncertainty with the weights held fixed.
     if "`refitweights'" != "" {
-        if `bootstrap' == 0 {
-            display as error "refitweights requires bootstrap(#) with # > 0"
-            display as error "  it re-estimates the weights inside each bootstrap replicate"
-            error 198
-        }
         if "`unweighted'" != "" {
-            display as error "refitweights is not compatible with unweighted"
-            display as error "  there are no weights to re-estimate"
+            display as error "vce(bootstrap) refits the weights and is not compatible with unweighted"
+            display as error "  there are no weights to re-estimate; use vce(bootstrap, fixedweights)"
             error 198
         }
         if "`cluster'" != "`panel_id'" {
-            display as error "refitweights resamples at the subject (id) level"
-            display as error "  cluster() other than the panel id (`panel_id') is not supported with refitweights"
+            display as error "the refit bootstrap resamples at the subject (id) level"
+            display as error "  cluster() other than the panel id (`panel_id') is not supported with it"
             error 198
         }
         * A contract written before 2.0.0 stored only the UNION of the raw visit
@@ -868,11 +754,11 @@ program define iivw_fit, eclass
         * and the replay cannot be reconstructed. Refuse rather than fall back to
         * the union: falling back is precisely the defect this separation prevents.
         if inlist("`weighttype'", "iivw", "fiptiw") & "`rep_visitcov'" == "" {
-            display as error "refitweights needs the stored raw visit-model covariates"
-            display as error "  these weights were built before iivw 2.0.0 separated the raw"
-            display as error "  covariates from the generated lag columns, so the replay cannot"
-            display as error "  rebuild the lags inside each resampled subject"
-            display as error "  re-run iivw_weight before iivw_fit, refitweights"
+            display as error "the refit bootstrap needs the stored raw visit-model covariates"
+            display as error "  the stored contract does not separate the raw covariates from"
+            display as error "  the generated lag columns, so the replay cannot rebuild the lags"
+            display as error "  inside each resampled subject"
+            display as error "  re-run iivw_weight before iivw_fit, vce(bootstrap)"
             error 198
         }
 
@@ -898,12 +784,12 @@ program define iivw_fit, eclass
         * deliberately NOT supported, so the remedy is to recompute the weights
         * rather than to replay the old unit.
         if "`rep_trunctreat'" != "" & "`rep_tt_unit'" != "subject" {
-            display as error "refitweights cannot replay these trunctreat() weights"
+            display as error "the refit bootstrap cannot replay these trunctreat() weights"
             display as error ""
             display as error "  the stored weights were trimmed at percentiles of the PANEL ROW"
-            display as error "  distribution of the treatment weight (iivw 3.0.0 and earlier)"
+            display as error "  distribution of the treatment weight (a pre-release iivw build)"
             display as error ""
-            display as text  "  From 3.1.0 trunctreat() takes its percentiles over SUBJECTS, because"
+            display as text  "  trunctreat() takes its percentiles over SUBJECTS, because"
             display as text  "  the treatment weight is estimated once per subject and is constant"
             display as text  "  within one -- a row percentile made the trim a function of visit"
             display as text  "  count rather than of the weights being trimmed."
@@ -947,7 +833,7 @@ program define iivw_fit, eclass
         quietly count if missing(`panel_id')
         if r(N) > 0 {
             local _n_badid = r(N)
-            display as error "refitweights needs a complete visit panel to resample"
+            display as error "the refit bootstrap needs a complete visit panel to resample"
             display as error "  `_n_badid' observation(s) have a missing `panel_id'"
             display as error "  the weight model was fitted on every row in memory, so a row the"
             display as error "  resampler cannot place would change the estimator being"
@@ -958,26 +844,26 @@ program define iivw_fit, eclass
             quietly count if missing(`panel_time')
             if r(N) > 0 {
                 local _n_badtime = r(N)
-                display as error "refitweights needs a complete visit panel to resample"
+                display as error "the refit bootstrap needs a complete visit panel to resample"
                 display as error "  `_n_badtime' observation(s) have a missing `panel_time'"
                 display as error "  the visit-intensity model cannot order a visit with no time"
                 error 459
             }
         }
         if inlist("`weighttype'", "iptw", "fiptiw") & "`rep_treat'" == "" {
-            display as error "refitweights needs the stored treatment-model contract"
-            display as error "  re-run iivw_weight before iivw_fit, refitweights"
+            display as error "the refit bootstrap needs the stored treatment-model contract"
+            display as error "  re-run iivw_weight before iivw_fit, vce(bootstrap)"
             error 198
         }
         if "`panel_time'" == "" & inlist("`weighttype'", "iivw", "fiptiw") {
-            display as error "refitweights needs the stored panel time variable"
-            display as error "  re-run iivw_weight before iivw_fit, refitweights"
+            display as error "the refit bootstrap needs the stored panel time variable"
+            display as error "  re-run iivw_weight before iivw_fit, vce(bootstrap)"
             error 198
         }
         * Replay flags for the per-replicate iivw_weight call.
         * _iivw_baseevent stores exclude_base: 1 = baseline is study entry (the
-        * 2.0.0 default), 0 = the legacy baseline-as-event contract, which the
-        * replicates must opt back into explicitly.
+        * default), 0 = baseline(event), the baseline-as-event sensitivity
+        * contract, which the replicates must opt back into explicitly.
         * The tie method must be replayed EXPLICITLY, in both directions.
         * char _dta[_iivw_efron] is stored in stcox form -- "" for Breslow,
         * "efron" for Efron -- which is what iivw_balance wants, because it
@@ -1013,9 +899,9 @@ program define iivw_fit, eclass
         * being reported, and its interval does not cover the reported point.
         if inlist("`weighttype'", "iivw", "fiptiw") {
             if "`rep_censor_mode'" == "" {
-                display as error "refitweights needs the stored end-of-follow-up contract"
-                display as error "  these weights were built before iivw 2.0.0 recorded the risk set"
-                display as error "  re-run iivw_weight before iivw_fit, refitweights"
+                display as error "the refit bootstrap needs the stored end-of-follow-up contract"
+                display as error "  the stored contract does not record the risk set"
+                display as error "  re-run iivw_weight before iivw_fit, vce(bootstrap)"
                 error 198
             }
             if "`rep_censor_mode'" == "censor" {
@@ -1033,34 +919,12 @@ program define iivw_fit, eclass
         local rep_amw_flag = ///
             cond("`rep_allowmissw'" == "1", "allowmissingweights", "")
 
-        * FIPTIW puts treat() in the visit-intensity denominator by construction,
-        * so a replicate reproduces it without being told. The experimental
-        * OPT-OUT has to be replayed explicitly: otherwise every draw would refit
-        * a visit model that the observed pass never fitted, and the interval
-        * would belong to an estimator the user never asked for. A stored contract
-        * that predates the field cannot be replayed either way -- refuse it here
-        * rather than guess, on the same footing as a missing risk-set contract.
-        local rep_ntv_flag ""
-        if "`weighttype'" == "fiptiw" {
-            if "`rep_treat_in_visit'" == "" {
-                display as error "refitweights needs the stored visit-model treatment contract"
-                display as error "  these FIPTIW weights were built before iivw recorded whether"
-                display as error "  treat() is in the visit-intensity model, so the replicates"
-                display as error "  cannot reproduce the visit model they came from"
-                display as error "  re-run iivw_weight before iivw_fit, refitweights"
-                error 198
-            }
-            if "`rep_treat_in_visit'" == "0" {
-                local rep_ntv_flag "experimentalnotreatvisit"
-            }
-        }
-
         * The lag sources must still be in the data to be re-lagged per draw.
         if "`rep_lagvars'" != "" {
             foreach v of local rep_lagvars {
                 capture confirm numeric variable `v'
                 if _rc {
-                    display as error "refitweights needs the raw lag source `v', which is not in the data"
+                    display as error "the refit bootstrap needs the raw lag source `v', which is not in the data"
                     display as error "  the replicates rebuild lagvars() from the source variables"
                     error 111
                 }
@@ -1108,20 +972,15 @@ program define iivw_fit, eclass
         drop `_iivw_ncl' `_iivw_nrel' `_iivw_ntag'
     }
 
-    * collect is only wired into the non-bootstrap model(gee) path; refuse it
+    * collect is only wired into the non-bootstrap GEE path; refuse it
     * elsewhere rather than silently ignoring it.
     if "`collect'" != "" {
         if c(stata_version) < 17 {
             display as error "collect requires Stata 17 or later"
             error 198
         }
-        if "`model'" == "mixed" {
-            display as error "collect is only supported with model(gee)"
-            display as error "  the collect: prefix is not applied to mixed models"
-            error 198
-        }
         if `bootstrap' > 0 {
-            display as error "collect is not supported with bootstrap()"
+            display as error "collect is not supported with vce(bootstrap)"
             display as error "  the collect: prefix is not applied to bootstrap fits"
             error 198
         }
@@ -1153,7 +1012,7 @@ program define iivw_fit, eclass
     * any point rolls the whole dataset back.
 
     local __iivw_protected ///
-        "`depvar' `indepvars' `panel_id' `panel_time' `cluster' `weight_var' `__iivw_gee_sources' `__iivw_mixed_sources'"
+        "`depvar' `indepvars' `panel_id' `panel_time' `cluster' `weight_var' `__iivw_gee_sources'"
     local __iivw_protected ///
         "`__iivw_protected' `categorical' `interaction' `rep_visitcov' `rep_lagvars'"
     local __iivw_protected ///
@@ -1180,7 +1039,7 @@ program define iivw_fit, eclass
 
     * Reject panel time variable in indepvars when timespec auto-adds it.
     * Including both produces a duplicate column (silently dropped as
-    * collinear by glm/mixed) and a misleading row in the effects table.
+    * collinear by glm) and a misleading row in the effects table.
     if "`timespec'" != "none" {
         foreach ipred of local indepvars {
             if "`ipred'" == "`panel_time'" {
@@ -1206,14 +1065,6 @@ program define iivw_fit, eclass
         }
     }
 
-    * Mixed model requires Stata 17+
-    if "`model'" == "mixed" {
-        if c(stata_version) < 17 {
-            display as error "mixed model requires Stata 17 or later"
-            error 198
-        }
-    }
-
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
 
@@ -1234,7 +1085,7 @@ program define iivw_fit, eclass
     display as result "iivw_fit" as text " - `header_wtype' `fit_display'"
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
     display as text ""
-    display as text "Model type:       " as result "`model'"
+    display as text "Model type:       " as result "gee"
     display as text "Outcome:          " as result "`depvar'"
     local predictor_display "`indepvars'"
     if "`predictor_display'" == "" local predictor_display "(none)"
@@ -1249,19 +1100,17 @@ program define iivw_fit, eclass
             display as text "Base category:    " as result "`basecat'"
         }
     }
-    if "`model'" == "gee" {
-        display as text "Family:           " as result "`family'"
-        if "`link'" != "" {
-            display as text "Link:             " as result "`link'"
-        }
-        if "`citype'" == "none" {
-            display as text "Estimation:       " as result ///
-                "GLM point estimate (inference not reported)"
-        }
-        else {
-            display as text "Estimation:       " as result ///
-                "GLM with clustered robust SEs"
-        }
+    display as text "Family:           " as result "`family'"
+    if "`link'" != "" {
+        display as text "Link:             " as result "`link'"
+    }
+    if "`citype'" == "none" {
+        display as text "Estimation:       " as result ///
+            "GLM point estimate (inference not reported)"
+    }
+    else {
+        display as text "Estimation:       " as result ///
+            "GLM with clustered robust SEs"
     }
     if "`unweighted'" != "" {
         display as text "Weight var:       " as result "(none, unweighted)"
@@ -2042,7 +1891,7 @@ program define iivw_fit, eclass
     * =========================================================================
 
     * Token-aware pass-through guard (IIVW-B08). Reject any variance/resampling
-    * token in geeopts()/mixedopts() BEFORE it can reach the inner glm/mixed and
+    * token in geeopts() BEFORE it can reach the inner glm and
     * either error or silently substitute a covariance under iivw's label. The
     * post-fit variance lock re-verifies the result; this stops it at the door
     * for every abbreviation and quoting form, not just the literal spellings.
@@ -2053,7 +1902,6 @@ program define iivw_fit, eclass
     local _noirls ""
     if `bootstrap' > 0 local _noirls "noirls"
     _iivw_check_passthru, optname(geeopts)  value(`"`geeopts'"')  `_noirls'
-    _iivw_check_passthru, optname(mixedopts) value(`"`mixedopts'"') `_noirls'
 
     * vce(bootstrap, seed(#)) fixes the resampling stream for reproducibility.
     * Set it immediately before the draws so no intervening RNG use consumes the
@@ -2128,188 +1976,84 @@ program define iivw_fit, eclass
     local _bs_prefix ""
     if `bootstrap' > 0 & "`citype'" != "wald" local _bs_prefix "quietly"
 
-    if "`model'" == "gee" {
 
-        * GLM with clustered SEs is equivalent to independence-correlation
-        * GEE with robust SEs. xtgee cannot handle varying weights within
-        * panels, so we use glm + vce(cluster) instead.
-        local glm_family "family(`family')"
-        local glm_link ""
-        if "`link'" != "" {
-            local glm_link "link(`link')"
-        }
-
-        local wt_clause ""
-        if "`unweighted'" == "" local wt_clause "[pw=`weight_var']"
-
-        display as text "Fitting `weighttype' GEE model..."
-        display as text ""
-
-        if `bootstrap' > 0 & "`refitweights'" != "" {
-            tempvar bsid
-            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
-                idcluster(`bsid') level(`level') nodots `_bs_saving': ///
-                _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
-                newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
-                outcometouse(`oc_touse') ///
-                wtype(`weighttype') ///
-                prefix(`prefix') model(gee) ///
-                visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
-                treat(`rep_treat') ///
-                treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
-                truncvisit(`rep_truncvisit') trunctreat(`rep_trunctreat') ///
-                truncfinal(`rep_truncfinal') ///
-                `rep_efron_flag' `rep_base_flag' ///
-                entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
-                `rep_ntv_flag' ///
-                family(`family') link(`link') ///
-                geeopts(`geeopts') `log_opt'
-
-            _iivw_repost_outcome_n `touse', frame(`bs_frame')
-        }
-        else if `bootstrap' > 0 {
-            local bs_weightopt ""
-            if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
-            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_opt' cluster(`cluster') ///
-                level(`level') nodots `_bs_saving': ///
-                _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
-                `bs_weightopt' model(gee) ///
-                family(`family') link(`link') `log_opt' ///
-                geeopts(`geeopts')
-        }
-        else {
-            local _collect_prefix ""
-            if "`collect'" != "" local _collect_prefix "collect:"
-            local _fit_prefix ""
-            if "`citype'" == "none" local _fit_prefix "quietly"
-            * vce(stacked) replaces the covariance AFTER glm returns, so glm's
-            * own table would print the fixed-weight SEs -- the very numbers the
-            * user asked not to be given. Suppress it and redisplay from the
-            * reposted matrix further down.
-            if "`stacked'" != "" local _fit_prefix "quietly"
-            `_fit_prefix' `_collect_prefix' glm ///
-                `depvar' `all_covars' `wt_clause' if `touse', ///
-                `glm_family' `glm_link' ///
-                vce(cluster `cluster') level(`level') `log_opt' `geeopts'
-        }
-
-        * `== 0', NOT `!= 1', and deliberately so. glm's IRLS optimizer never
-        * sets e(converged) at all, so `!= 1' would reject every geeopts(irls)
-        * fit -- including converged ones -- on the strength of a scalar that
-        * engine does not produce. Under a bootstrap that ambiguity is
-        * intolerable and _iivw_check_passthru refuses irls outright (noirls);
-        * here, with no draws to gate, a missing flag means "this engine cannot
-        * report convergence", which is not the same as "it did not converge".
-        *
-        * The stcox-based guards in iivw_balance and iivw_exogtest use `!= 1'
-        * because stcox always sets the scalar, so there a missing value really
-        * is a failure and must fail closed.
-        if `bootstrap' == 0 & e(converged) == 0 {
-            _iivw_require_converged, model(GEE outcome) ///
-                `allownonconverged'
-            local __iivw_nonconv = 1
-        }
+    * GLM with clustered SEs is equivalent to independence-correlation
+    * GEE with robust SEs. xtgee cannot handle varying weights within
+    * panels, so we use glm + vce(cluster) instead.
+    local glm_family "family(`family')"
+    local glm_link ""
+    if "`link'" != "" {
+        local glm_link "link(`link')"
     }
-    else if "`model'" == "mixed" {
 
-        local wt_clause ""
-        if "`unweighted'" == "" local wt_clause "[pw=`weight_var']"
+    local wt_clause ""
+    if "`unweighted'" == "" local wt_clause "[pw=`weight_var']"
 
-        * Fence the weighted mixed path: IIVW weights enter mixed via a single
-        * observation-level [pw=], which Stata does not rescale across levels.
-        * The random-effects variance components are therefore not consistently
-        * weight-estimated (Rabe-Hesketh & Skrondal 2006). The marginal (GEE)
-        * estimator is the one the IIW theory identifies; model(gee) is the
-        * defensible primary weighted analysis.
-        *
-        * This used to be a `note:'. A note does not stop anyone -- it scrolls
-        * past in a long fit log, and the variance components it warns about are
-        * printed immediately below it looking exactly as authoritative as any
-        * other output. Requiring the acknowledgment makes the user state that
-        * they know the random-effects half of this model is not identified by
-        * the weighting, which is the whole point of the warning.
-        if "`unweighted'" == "" & "`experimentalmixed'" == "" {
-            display as error "weighted model(mixed) requires experimentalmixed"
-            display as error ""
-            display as text "  IIVW weights enter mixed as a single observation-level [pw=], which"
-            display as text "  Stata does not rescale across levels. The random-effects variance"
-            display as text "  components are therefore NOT consistently weight-estimated"
-            display as text "  (Rabe-Hesketh & Skrondal 2006), even though they are reported."
-            display as text ""
-            display as text "  The IIW theory identifies a MARGINAL estimator. Use:"
-            display as text "    iivw_fit ..., model(gee)"
-            display as text "  for the primary weighted analysis."
-            display as text ""
-            display as text "  If you want the fixed-effect (mean) structure anyway and accept that"
-            display as text "  the variance components are not a valid weighted estimate, add"
-            display as text "  experimentalmixed. model(mixed) is unaffected without weights."
-            error 198
-        }
-        if "`unweighted'" == "" {
-            display as text "note: weighted model(mixed) -- the fixed-effect (mean) structure is the"
-            display as text "  target; the random-effects variance components below are not"
-            display as text "  consistently weight-estimated. See model(gee)."
-        }
+    display as text "Fitting `weighttype' GEE model..."
+    display as text ""
 
-        display as text "Fitting `weighttype' mixed model..."
-        display as text ""
+    if `bootstrap' > 0 & "`refitweights'" != "" {
+        tempvar bsid
+        `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
+            idcluster(`bsid') level(`level') nodots `_bs_saving': ///
+            _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
+            newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
+            outcometouse(`oc_touse') ///
+            wtype(`weighttype') ///
+            prefix(`prefix') ///
+            visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
+            treat(`rep_treat') ///
+            treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
+            truncvisit(`rep_truncvisit') trunctreat(`rep_trunctreat') ///
+            truncfinal(`rep_truncfinal') ///
+            `rep_efron_flag' `rep_base_flag' ///
+            entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
+            family(`family') link(`link') ///
+            geeopts(`geeopts') `log_opt'
 
-        if `bootstrap' > 0 & "`refitweights'" != "" {
-            tempvar bsid
-            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
-                idcluster(`bsid') level(`level') nodots `_bs_saving': ///
-                _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
-                newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
-                outcometouse(`oc_touse') ///
-                wtype(`weighttype') ///
-                prefix(`prefix') model(mixed) ///
-                visitcov(`rep_visitcov') lagvars(`rep_lagvars') ///
-                treat(`rep_treat') ///
-                treatcov(`rep_treatcov') stabcov(`rep_stabcov') ///
-                truncvisit(`rep_truncvisit') trunctreat(`rep_trunctreat') ///
-                truncfinal(`rep_truncfinal') ///
-                `rep_efron_flag' `rep_base_flag' ///
-                entry(`rep_entry') `rep_cens_opt' `rep_amw_flag' ///
-                `rep_ntv_flag' ///
-                mixedopts(`mixedopts') `log_opt'
+        _iivw_repost_outcome_n `touse', frame(`bs_frame')
+    }
+    else if `bootstrap' > 0 {
+        local bs_weightopt ""
+        if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
+        `_bs_prefix' bootstrap, reps(`bootstrap') `bca_opt' cluster(`cluster') ///
+            level(`level') nodots `_bs_saving': ///
+            _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
+            `bs_weightopt' ///
+            family(`family') link(`link') `log_opt' ///
+            geeopts(`geeopts')
+    }
+    else {
+        local _collect_prefix ""
+        if "`collect'" != "" local _collect_prefix "collect:"
+        local _fit_prefix ""
+        if "`citype'" == "none" local _fit_prefix "quietly"
+        * vce(stacked) replaces the covariance AFTER glm returns, so glm's
+        * own table would print the fixed-weight SEs -- the very numbers the
+        * user asked not to be given. Suppress it and redisplay from the
+        * reposted matrix further down.
+        if "`stacked'" != "" local _fit_prefix "quietly"
+        `_fit_prefix' `_collect_prefix' glm ///
+            `depvar' `all_covars' `wt_clause' if `touse', ///
+            `glm_family' `glm_link' ///
+            vce(cluster `cluster') level(`level') `log_opt' `geeopts'
+    }
 
-            _iivw_repost_outcome_n `touse', frame(`bs_frame')
-        }
-        else if `bootstrap' > 0 {
-            local bs_weightopt ""
-            if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
-            * idcluster() relabels each resampled cluster with a unique id, so a
-            * cluster drawn twice enters mixed as two separate random-effect
-            * groups rather than one merged group. Without it, mixed collapses
-            * the duplicated draws into a single panel, biasing the resampled
-            * random-effects variance components and understating the intercept
-            * SE.
-            *
-            * But the draw id is not the panel unit when cluster() sits ABOVE the
-            * panel -- a clinic. Passing it as the grouping variable made a whole
-            * clinic one random-effect group. Hand the helper both ids and let it
-            * form group(bsid, panel_id), the resampled subject.
-            tempvar bsid
-            `_bs_prefix' bootstrap, reps(`bootstrap') `bca_opt' cluster(`cluster') ///
-                idcluster(`bsid') level(`level') nodots `_bs_saving': ///
-                _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
-                `bs_weightopt' model(mixed) ///
-                panelid(`panel_id') bsid(`bsid') `log_opt' ///
-                mixedopts(`mixedopts')
-        }
-        else {
-            local _fit_prefix ""
-            if "`citype'" == "none" local _fit_prefix "quietly"
-            `_fit_prefix' mixed `depvar' `all_covars' `wt_clause' if `touse' ///
-                || `panel_id':, vce(cluster `cluster') level(`level') ///
-                `log_opt' `mixedopts'
-        }
-
-        if `bootstrap' == 0 & e(converged) == 0 {
-            _iivw_require_converged, model(mixed outcome) ///
-                `allownonconverged'
-            local __iivw_nonconv = 1
-        }
+    * `== 0', NOT `!= 1', and deliberately so. glm's IRLS optimizer never
+    * sets e(converged) at all, so `!= 1' would reject every geeopts(irls)
+    * fit -- including converged ones -- on the strength of a scalar that
+    * engine does not produce. Under a bootstrap that ambiguity is
+    * intolerable and _iivw_check_passthru refuses irls outright (noirls);
+    * here, with no draws to gate, a missing flag means "this engine cannot
+    * report convergence", which is not the same as "it did not converge".
+    *
+    * The stcox-based guards in iivw_balance and iivw_exogtest use `!= 1'
+    * because stcox always sets the scalar, so there a missing value really
+    * is a failure and must fail closed.
+    if `bootstrap' == 0 & e(converged) == 0 {
+        _iivw_require_converged, model(GEE outcome) ///
+            `allownonconverged'
+        local __iivw_nonconv = 1
     }
 
     if `bootstrap' == 0 | "`refitweights'" == "" {
@@ -2319,12 +2063,6 @@ program define iivw_fit, eclass
             display as error "iivw_fit: engine N and estimation sample disagree"
             error 459
         }
-    }
-
-    * Restore the original grouping variable after the observed mixed bootstrap
-    * evaluation: its temporary one-to-one relabeling has been dropped.
-    if `bootstrap' > 0 & "`model'" == "mixed" {
-        ereturn local ivars "`panel_id'"
     }
 
     * =========================================================================
@@ -2652,7 +2390,7 @@ program define iivw_fit, eclass
             display as text "note: these standard errors treat the estimated weights as KNOWN."
         }
         else {
-            display as text "note: bootstrap() without refitweights holds the weights FIXED across"
+            display as text "note: vce(bootstrap, fixedweights) holds the weights FIXED across"
             display as text "  replicates, so these standard errors treat them as known."
         }
         display as text "  They omit the uncertainty from estimating the visit-intensity model"
@@ -2766,7 +2504,7 @@ program define iivw_fit, eclass
     * -------------------------------------------------------------------------
     * Validate the underlying fitted covariance before a point-only result
     * deliberately removes it from e(). A pre-call string scan of
-    * geeopts()/mixedopts() is not evidence that the variance the package
+    * geeopts() is not evidence that the variance the package
     * believes it computed is the variance actually posted.
     local iivw_underlying_vce ""
     if `bootstrap' > 0 & "`refitweights'" != "" {
@@ -2787,21 +2525,19 @@ program define iivw_fit, eclass
     }
 
     local iivw_vce_locked 0
-    if "`model'" == "gee" {
-        if `bootstrap' > 0 {
-            if "`_obs_vce'" == "bootstrap" local iivw_vce_locked 1
-        }
-        else if "`_obs_vce'" == "cluster" & "`_obs_clustvar'" == "`cluster'" {
-            local iivw_vce_locked 1
-        }
-        if `iivw_vce_locked' == 0 {
-            display as error "variance lock failed: the posted covariance does not"
-            display as error "  match the package-selected underlying method"
-            display as error "  (`iivw_underlying_vce')"
-            display as error "  observed e(vce)=`_obs_vce', e(clustvar)=`_obs_clustvar'"
-            display as error "  a geeopts()/mixedopts() token may have altered the VCE"
-            error 459
-        }
+    if `bootstrap' > 0 {
+        if "`_obs_vce'" == "bootstrap" local iivw_vce_locked 1
+    }
+    else if "`_obs_vce'" == "cluster" & "`_obs_clustvar'" == "`cluster'" {
+        local iivw_vce_locked 1
+    }
+    if `iivw_vce_locked' == 0 {
+        display as error "variance lock failed: the posted covariance does not"
+        display as error "  match the package-selected underlying method"
+        display as error "  (`iivw_underlying_vce')"
+        display as error "  observed e(vce)=`_obs_vce', e(clustvar)=`_obs_clustvar'"
+        display as error "  a geeopts() token may have altered the VCE"
+        error 459
     }
 
     * Point-only means e(b), e(N), and e(sample), but no e(V). Merely hiding the
@@ -2837,9 +2573,8 @@ program define iivw_fit, eclass
     * not, which made the same public option expose different e() contracts.
     ereturn scalar level = `level'
     ereturn local iivw_cmd "iivw_fit"
-    ereturn local iivw_model "`model'"
+    ereturn local iivw_model "gee"
     ereturn local iivw_weighttype "`weighttype'"
-    ereturn local iivw_treat_in_visit "`rep_treat_in_visit'"
     ereturn scalar iivw_stabilization_validated = `stab_validated'
     ereturn local iivw_stab_terms "`stab_terms'"
 
@@ -3028,7 +2763,7 @@ program define iivw_fit, eclass
     if `__iivw_nonconv' {
         char _dta[_iivw_fit_nonconverged] "1"
     }
-    char _dta[_iivw_model] "`model'"
+    char _dta[_iivw_model] "gee"
     char _dta[_iivw_timespec] "`timespec'"
     char _dta[_iivw_cluster] "`cluster'"
     char _dta[_iivw_time_vars] "`time_vars'"
@@ -3049,7 +2784,7 @@ program define iivw_fit, eclass
     }
 
     * Own replay only after the complete result and dataset contract have been
-    * committed. Leaving e(cmd) as glm/mixed makes estimates replay silently
+    * committed. Leaving e(cmd) as glm makes estimates replay silently
     * replace percentile/basic endpoints with the underlying Wald interval.
     * e(predict) remains the underlying model's prediction program for
     * interval-producing fits and _predict for point-only ones.
@@ -3086,7 +2821,7 @@ program define iivw_fit, eclass
     if `"`saving'"' != "" & `bootstrap' > 0 {
         * spec(): the estimator-affecting outcome options, so two shards that
         * agree on b and N but not on the analysis cannot pool (audit F04).
-        _iivw_bs_stamp, file(`"`saving'"') spec(`"m=`model'|f=`family'|l=`link'|ts=`timespec'|ix=`interaction'|cat=`categorical'|bc=`basecat'|tbc=`timebasecat'|cl=`cluster'|unw=`unweighted'|id=`id'|t=`time'|rf=`refitweights'|anc=`allownonconverged'|xm=`experimentalmixed'|geo=`geeopts'|mxo=`mixedopts'"')
+        _iivw_bs_stamp, file(`"`saving'"') spec(`"m=gee|f=`family'|l=`link'|ts=`timespec'|ix=`interaction'|cat=`categorical'|bc=`basecat'|tbc=`timebasecat'|cl=`cluster'|unw=`unweighted'|id=`id'|t=`time'|rf=`refitweights'|anc=`allownonconverged'|geo=`geeopts'"')
     }
 
     }

@@ -57,7 +57,7 @@ set varabbrev off
 *       build omitted treat() from the visit model on BOTH sides -- observed and
 *       replayed. That is the known limit of an identity-draw oracle: it runs the
 *       same iivw_weight on both sides, so a defect INSIDE iivw_weight cancels.
-*       T4 is a regression guard on the new design, not proof of the fix. T1-T3
+*       T4 is a regression guard on the new design, not proof of the fix. T1-T2
 *       are what prove the fix.
 *   T5  The saturated-stabilization WEIGHT identity was never broken -- only the
 *       balance TARGET was. T5 is the precondition that makes T6 mean something:
@@ -138,16 +138,10 @@ capture noisily {
     * The design handed to stcox, not the raw option.
     local vc "`r(visit_covars)'"
     assert "`vc'" == "x z treat"
-    assert r(treat_in_visit) == 1
 
-    * And it is on the contract, so a replay can reproduce it.
-    local ch : char _dta[_iivw_treat_in_visit]
-    assert "`ch'" == "1"
-
-    * The fit carries it forward into e(), so a saved estimation result records
-    * that this FIPTIW analysis put treatment in the visit-intensity model.
-    quietly iivw_fit y treat x, vce(fixed) timespec(linear) nolog
-    assert "`e(iivw_treat_in_visit)'" == "1"
+    * The stored contract carries the same design, so a replay rebuilds it.
+    local ch : char _dta[_iivw_visit_covars]
+    assert "`ch'" == "x z treat"
 }
 if _rc == 0 {
     display as result "  PASS: T1 - treat() is in the FIPTIW visit model"
@@ -170,7 +164,6 @@ capture noisily {
     * A duplicate column would be collinear and stcox would drop it -- silently,
     * and with a different reported design than the one that was fitted.
     assert "`r(visit_covars)'" == "x z treat"
-    assert r(treat_in_visit) == 1
 }
 if _rc == 0 {
     display as result "  PASS: T2 - treat() deduplicated in the visit design"
@@ -182,41 +175,11 @@ else {
     local failed_tests "`failed_tests' T2"
 }
 
-**# T3 - omitting treat() from the visit model is reachable only via the
-**#      experimental opt-out, and the contract records that it was taken
-
-local ++test_count
-display as text "T3: experimentalnotreatvisit is the only way out, and is recorded"
-capture noisily {
-    _p2_panel
-    quietly iivw_weight, id(id) time(time) visit_cov(x z) treat(treat) ///
-        treat_cov(x) wtype(fiptiw) censor(fu_end) nolog experimentalnotreatvisit
-    assert "`r(visit_covars)'" == "x z"
-    assert r(treat_in_visit) == 0
-    local ch : char _dta[_iivw_treat_in_visit]
-    assert "`ch'" == "0"
-
-    * The opt-out is FIPTIW-only: there is nothing to opt out of elsewhere, and
-    * an option that silently does nothing is worse than an option that errors.
-    capture iivw_weight, id(id) time(time) visit_cov(x z) censor(fu_end) ///
-        wtype(iivw) replace nolog experimentalnotreatvisit
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: T3 - opt-out is explicit, recorded, and FIPTIW-only"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: T3 - experimentalnotreatvisit contract (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T3"
-}
-
-**# T4 - the treat-in-visit contract survives the refit bootstrap replay
+**# T4 - the FIPTIW visit design survives the refit bootstrap replay
 **#      (an identity draw: every subject drawn once, so the draw IS the panel)
 
 local ++test_count
-display as text "T4: refitweights replays the FIPTIW visit design exactly"
+display as text "T4: the refit bootstrap replays the FIPTIW visit design exactly"
 capture noisily {
     _p2_panel, n(150)
     quietly iivw_weight, id(id) time(time) visit_cov(x z) treat(treat) ///
@@ -229,7 +192,7 @@ capture noisily {
     * pass built it WITH treat(), the two disagree and this catches it.
     quietly gen long bsid = id
     quietly _iivw_bs_refit y treat x, newid(bsid) panelid(id) timevar(time) ///
-        wtype(fiptiw) prefix(_iivw_) model(gee) ///
+        wtype(fiptiw) prefix(_iivw_) ///
         visitcov(x z) treat(treat) treatcov(x) ///
         baseline(entry) censor(fu_end) family(gaussian) link(identity) nolog
 
@@ -671,7 +634,7 @@ capture noisily {
     quietly gen double w_obs = _iivw_weight
     quietly gen long bsid = id
     quietly _iivw_bs_refit y treat x, newid(bsid) panelid(id) timevar(time) ///
-        wtype(iivw) prefix(_iivw_) model(gee) ///
+        wtype(iivw) prefix(_iivw_) ///
         visitcov(x z) truncvisit(5 95) ///
         baseline(entry) censor(fu_end) family(gaussian) link(identity) nolog
 

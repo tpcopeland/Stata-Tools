@@ -1,13 +1,12 @@
-*! _iivw_fit_estat Version 4.3.7  2026/10/13
+*! _iivw_fit_estat Version 1.0.0  2026/10/15
 *! estat for iivw_fit: delegate to the underlying model's estat under its
 *! native identity, then restore the public fit identity.
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass
 
 * iivw_fit posts e(cmd)=iivw_fit so replay and predict go through the package.
-* Native estat routines (mixed_estat, glm_estat) refuse a foreign e(cmd) with
-* r(301) before reporting group sizes, variance components or information
-* criteria. iivw_fit keeps the native hook in e(iivw_estat) and routes
+* The native estat routine (glm_estat) refuses a foreign e(cmd) with
+* r(301) before reporting information criteria. iivw_fit keeps the native hook in e(iivw_estat) and routes
 * e(estat_cmd) here. This program installs the native e(cmd) and hook for the
 * duration of one estat call -- replacing the hook as well prevents recursive
 * dispatch and lets estat's own fallback subcommands (ic, vce, summarize) run --

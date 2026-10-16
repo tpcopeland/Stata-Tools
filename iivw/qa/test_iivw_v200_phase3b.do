@@ -332,6 +332,9 @@ capture noisily {
         if "`s'" == "probe_bootstrap_t_screen.do" continue
         * probe_z_toggle.do, same category.
         if "`s'" == "probe_z_toggle.do" continue
+        * probe_iivw_coulombe_fiptiw.do, same category: the exploration behind
+        * the Coulombe reproduction's documented FIPTIW non-reproduction.
+        if "`s'" == "probe_iivw_coulombe_fiptiw.do" continue
         * profile.do is Stata's own startup file, not a QA suite. CLAUDE.md
         * directs placing one here (holding `set processors 1') to run lanes in
         * parallel without the jobs contending for cores, so following the

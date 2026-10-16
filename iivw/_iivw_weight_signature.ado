@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 4.3.7  2026/10/13
+*! _iivw_weight_signature Version 1.0.0  2026/10/15
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.
@@ -94,7 +94,7 @@ program define _iivw_weight_signature, rclass sortpreserve
         quietly count if `touse'
         local __iivw_parts "an|`r(N)'"
         foreach __iivw_v of local analysis {
-            * A string column (a mixed residuals by() group) is bound through
+            * A string column (a string cluster or id) is bound through
             * its group() coding, which depends on the values alone.
             capture confirm string variable `__iivw_v', exact
             if !_rc {
@@ -243,7 +243,6 @@ program define _iivw_weight_signature, rclass sortpreserve
             _iivw_censor_mode _iivw_maxfu _iivw_truncate _iivw_efron ///
             _iivw_ps_estimand _iivw_contract_version _iivw_nonconverged ///
             _iivw_allowmissingweights _iivw_visit_covars ///
-            _iivw_treat_in_visit ///
             _iivw_truncvisit _iivw_trunctreat _iivw_truncfinal ///
             _iivw_tv_locut _iivw_tv_hicut _iivw_tt_locut _iivw_tt_hicut ///
             _iivw_tt_unit _iivw_score_terms {

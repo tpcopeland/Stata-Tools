@@ -5,9 +5,8 @@ set varabbrev off
 * test_iivw_v131_regressions.do - regressions for v1.3.1 review fixes
 *
 * Coverage:
-*   T1  iivw_fit, collect + model(mixed) errors (rc 198) instead of silent no-op
 *   T2  iivw_fit, collect + bootstrap() errors (rc 198) instead of silent no-op
-*   T3  iivw_fit, collect + model(gee) (no bootstrap) still succeeds
+*   T3  iivw_fit, collect + GEE (no bootstrap) still succeeds
 *   T4  iivw_diagnose, level() below 10 errors (rc 198)
 *   T5  iivw_diagnose, level() above 99.99 errors (rc 198)
 *   T6  iivw_diagnose, level(90) (in range) succeeds
@@ -59,32 +58,13 @@ program define _iivw_v131_panel
     gen double y = sev + 0.3 * visit + 0.5 * treat + cos(id + visit)
 end
 
-**# T1: collect + model(mixed) errors (rc 198)
-
-local ++test_count
-capture noisily {
-    _iivw_v131_panel
-    iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
-    capture iivw_fit y treat, vce(fixed) model(mixed) experimentalmixed collect nolog
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: T1 - collect + model(mixed) errors (rc 198)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: T1 - collect + model(mixed) guard (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T1"
-}
-
 **# T2: collect + bootstrap() errors (rc 198)
 
 local ++test_count
 capture noisily {
     _iivw_v131_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
-    capture iivw_fit y treat, model(gee) bootstrap(20) collect nolog
+    capture iivw_fit y treat, vce(bootstrap, reps(20) fixedweights) collect nolog
     assert _rc == 198
 }
 if _rc == 0 {
@@ -97,13 +77,13 @@ else {
     local failed_tests "`failed_tests' T2"
 }
 
-**# T3: collect + model(gee) (no bootstrap) still succeeds
+**# T3: collect + GEE (no bootstrap) still succeeds
 
 local ++test_count
 capture noisily {
     _iivw_v131_panel
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(sev) wtype(iivw) nolog
-    capture iivw_fit y treat, vce(fixed) model(gee) collect nolog
+    capture iivw_fit y treat, vce(fixed) collect nolog
     * On Stata 17+ collect succeeds (rc 0); on Stata 16 the version guard
     * fires (rc 198). Either way it must not silently mis-handle collect.
     if c(stata_version) >= 17 {
@@ -114,11 +94,11 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: T3 - collect + model(gee) handled correctly"
+    display as result "  PASS: T3 - collect + GEE handled correctly"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T3 - collect + model(gee) (error `=_rc')"
+    display as error "  FAIL: T3 - collect + GEE (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T3"
 }

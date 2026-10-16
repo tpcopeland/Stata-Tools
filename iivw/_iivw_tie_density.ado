@@ -1,4 +1,4 @@
-*! _iivw_tie_density Version 4.3.7  2026/10/13
+*! _iivw_tie_density Version 1.0.0  2026/10/15
 *! Measure tie multiplicity among modeled event times and advise on tie method
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -152,7 +152,7 @@ program define _iivw_tie_density, rclass sortpreserve
         noisily display as text "  and therefore IrregLong -- uses, so it is also what reproduces a"
         noisily display as text "  reference implementation. Drop " as result "breslow" as text ///
             " unless you are deliberately"
-        noisily display as text "  reproducing a pre-3.0.0 result."
+        noisily display as text "  matching a Breslow analysis."
     }
 
     return scalar tie_multiplicity = `__iivw_mult'

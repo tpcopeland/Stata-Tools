@@ -237,7 +237,7 @@ in the header band, and vertical separators after the label column and between
 column groups. Data rows are not separated by interior horizontal
 rules. {cmd:medium} draws the same layout with medium lines. {cmd:academic} uses a
 three-rule (top/header/bottom) layout with no vertical rules at all. {cmd:default}
-is an alias for {cmd:thin}.
+is the same as {cmd:thin}.
 
 {phang}
 {opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its
@@ -323,10 +323,9 @@ The check that this is right is an identity, not a simulation. Bůžková & Luml
 (2007, p.8) note that when the visit-model covariates are a subset of the
 outcome-model covariates the stabilized weight equals one everywhere. Set
 {opt stabcov()} equal to the full visit model and the weight is identically 1 --
-it reweights nothing -- so every target SMD must be exactly 0. It is. (Before
-iivw 2.0.0 the observed weight was stabilized but the reference was not, and
-this configuration reported a maximum target SMD of 0.33 for a weight vector of
-all ones.)
+it reweights nothing -- so every target SMD must be exactly 0. It is. (A
+reference that is not stabilized like the observed weight would report a
+nonzero target SMD here for a weight vector of all ones.)
 
 {pstd}
 {bf:Trimmed weights.} If the visit component was trimmed with
@@ -466,7 +465,8 @@ person-time target supports a verdict. {cmd:not_identified} means no terminal
 at-risk interval exists. {cmd:tie_method_efron} means that the fitted model
 contains tied events and uses Efron, so this implementation withholds its
 target-SMD verdict under the policy described above.
-{cmd:target_incomplete} is the unusable-increment case just described. {cmd:unavailable} means the supporting refit did not complete at
+{cmd:target_incomplete} is the unusable-increment case just described.
+{cmd:unavailable} means the supporting refit did not complete at
 all. {cmd:r(balance_flag)} likewise takes five: {cmd:within_rule} and
 {cmd:exceeds_rule} when a verdict was issued, {cmd:not_identified} and
 {cmd:not_assessed} when it was deliberately withheld, and {cmd:unknown}
@@ -523,7 +523,7 @@ disagree sharply.
 {synopt:{cmd:r(component)}}{cmd:iiw} or {cmd:final}; which weight was described{p_end}
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
 {synopt:{cmd:r(balance_flag)}}balance verdict; 5 values{p_end}
-{synopt:{cmd:r(extra_flag)}}extra-covariate verdict; empty without extras{p_end}
+{synopt:{cmd:r(extra_flag)}}extra-covariate verdict; empty if none{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
 {synopt:{cmd:r(xlsx)}}written workbook; only with {opt xlsx()}{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}

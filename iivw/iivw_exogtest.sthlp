@@ -53,7 +53,7 @@
 
 {syntab:Estimation}
 {synopt:{opt efr:on}}Efron ties in {cmd:stcox} (the default){p_end}
-{synopt:{opt bre:slow}}Breslow ties in {cmd:stcox} (pre-3.0.0 default){p_end}
+{synopt:{opt bre:slow}}Breslow ties in {cmd:stcox}{p_end}
 {synopt:{opt nolog}}suppress Cox iteration log{p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 
@@ -209,12 +209,10 @@ and an existing worksheet of the same name is left untouched.
 
 {phang}
 {opt efron} selects the Efron method for tied event times in {cmd:stcox} and
-{opt breslow} selects the Breslow method. {bf:Efron is the default as of version}
-{bf:3.0.0}; through 2.4.x this command inherited {cmd:stcox}'s own Breslow
-default, so a test re-run under 3.0.0 will not reproduce a 2.x p-value on tied
-data unless {opt breslow} is typed. {opt efron} is accepted as an explicit
-no-op naming the default, so earlier do-files keep running. The two may not be
-combined.
+{opt breslow} selects the Breslow method. {bf:Efron is the default}, unlike
+{cmd:stcox}'s own Breslow default, so on tied data a p-value matches a plain
+{cmd:stcox} test only when {opt breslow} is typed. {opt efron} is accepted as
+an explicit no-op naming the default. The two may not be combined.
 
 {phang2}
 {bf:Use the same tie method here that you gave} {helpb iivw_weight}, or the test
@@ -299,8 +297,8 @@ default is 3.
 header band, and vertical separators after the label column and between column
 groups. Data rows are not separated by interior horizontal rules. {cmd:medium} draws
 the same layout with medium lines. {cmd:academic} uses a three-rule
-(top/header/bottom) layout with no vertical rules at all. {cmd:default} is an alias
-for {cmd:thin}.
+(top/header/bottom) layout with no vertical rules at all. {cmd:default} is the
+same as {cmd:thin}.
 
 {phang}
 {opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its

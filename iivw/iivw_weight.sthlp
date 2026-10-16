@@ -68,12 +68,11 @@
 {synopt:{opt truncv:isit(# #)}}percentile trimming of the IIW component{p_end}
 {synopt:{opt truncf:inal(# #)}}percentile trimming of the final weight{p_end}
 {synopt:{opt trunc:ate(# #)}}{it:removed}; use {opt truncfinal()}{p_end}
-{synopt:{opt experimentalnotreatvis:it}}FIPTIW: omit {opt treat()} from the visit model{p_end}
 
 {syntab:Reporting}
 {synopt:{opt gen:erate(name)}}weight-variable prefix; default {cmd:_iivw_}{p_end}
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
-{synopt:{opt nolog}}suppress model iteration log{p_end}
+{synopt:{opt nolog}}suppress nuisance-model logs and tables{p_end}
 {synopt:{opt efr:on}}Efron ties in Cox visit model (default){p_end}
 {synopt:{opt bre:slow}}Breslow ties in the Cox visit model{p_end}
 {synopt:{opt allownonconv:erged}}proceed after weight-model nonconvergence{p_end}
@@ -322,12 +321,12 @@ The Andersen-Gill visit-intensity model needs each subject's observation
 {it:window}, not merely the intervals between their visits. Buzkova and Lumley
 (2007) write the at-risk process as xi_i(t) = I(C_i > t), with C_i the drop-out
 time or end of follow-up; it is C_i, not the last visit, that decides who is in
-the risk set at time t. Before version 2.0.0 this command built intervals only
-between observed visits, so every subject silently left the risk set at their
-own last visit -- which made risk-set membership a function of the very visit
-process being modeled. On a known-truth simulation that attenuated the
-visit-intensity coefficient by about a quarter, and since the weights are
-exp(-xb), the error propagated into every downstream estimate.
+the risk set at time t. Building intervals only between observed visits would
+make every subject silently leave the risk set at their own last visit --
+which makes risk-set membership a function of the very visit process being
+modeled. On a known-truth simulation that attenuated the visit-intensity
+coefficient by about a quarter, and since the weights are exp(-xb), the error
+propagates into every downstream estimate.
 
 {phang}
 {opt censor(varname)} gives each subject's {bf:end of observation time}: the
@@ -391,7 +390,7 @@ it reads back as exactly the same number.
 {phang}
 {opt endatlastvisit} declares that follow-up genuinely ends at each subject's
 last visit -- that they were at risk of another visit right up to their final
-one, and not for one moment afterwards. This is the pre-2.0.0 behavior. It is
+one, and not for one moment afterwards. It is
 rarely the right description of an observational cohort, and it is never the
 right description of one in which people are lost to follow-up.
 
@@ -423,32 +422,12 @@ ignored -- the first visit defines risk onset.
 
 {pmore}
 {opt baseline(event)} models every visit, including the baseline, as a recurrent
-event. This was the default before 2.0.0. Use it only when the first observed
+event. Use it only when the first observed
 visit is itself part of the modeled visit process -- that is, when it was
 clinically triggered rather than an enrollment event. For registry cohorts, EHR
 extracts, and similar non-protocol data, the timing of the baseline visit is not
 part of the informative observation process being corrected, and
 {opt baseline(event)} would let its covariates predict its own occurrence.
-
-{phang}
-{bf:Migrating from 1.x.} Two defaults changed, and the old option name is gone:
-
-{phang2}
-o {cmd:nobaseevent} is now {cmd:baseline(entry)} -- and it is the default, so you
-can simply delete it. The old name is rejected rather than accepted, because
-Stata's {helpb syntax} cannot distinguish an explicit {cmd:baseevent} from an
-omitted option (both leave the macro empty), so keeping it would have meant
-silently ignoring whatever you asked for.{p_end}
-
-{phang2}
-o Code that relied on the old default now needs {cmd:baseline(event)}
-{it:explicitly}.{p_end}
-
-{phang2}
-o Every IIW/FIPTIW call now needs an end-of-follow-up specification. To
-reproduce 1.x weights exactly, add {cmd:endatlastvisit} -- but read the note above
-first: it is very likely not what your design actually looks like, and it is
-the specification that attenuates the visit-intensity coefficient.{p_end}
 
 {dlgtab:Sensitivity}
 
@@ -473,11 +452,11 @@ analysis and say that you did.
 rows. The IPTW component is estimated once per subject and merged onto the
 panel, so it is constant within a subject by construction; a row percentile
 would weight each subject by their visit count and make the trim a function of
-visit density rather than of the weights it is trimming. Through version 3.0.0
-the cutpoints were row percentiles, and on an unbalanced panel that let the very
-subjects the option exists to bound escape it: a subject holding a large share
-of the rows pulls the row percentile inside their own block, so the clip left
-them untouched while the identical weight on a subject with few visits was cut
+visit density rather than of the weights it is trimming. On an unbalanced
+panel, row percentiles would let the very subjects the option exists to bound
+escape it: a subject holding a large share of the rows pulls the row percentile
+inside their own block, so the clip would leave them untouched while the
+identical weight on a subject with few visits was cut
 several-fold. {cmd:r(n_trunc_treat_id)} reports how many subjects were bounded
 and {cmd:r(n_trunc_treat)} how many panel rows carry a clipped
 weight; {cmd:r(trunc_treat_unit)} records the unit. {opt truncvisit()} and
@@ -496,15 +475,11 @@ so the assignment of each option to a unit is derived from the estimation unit
 rather than taken from any one paper.
 
 {pmore}
-{bf:Weights trimmed by version 3.0.0 or earlier cannot be replayed.} A refit
-bootstrap rebuilds the trim inside every replicate from the stored
+A refit bootstrap rebuilds the trim inside every replicate from the stored
 {it:percentiles}, so the unit in force at replay time has to be the unit the
-observed weights were built with. A contract written before 3.1.0 carries a
-row-level treatment weight, and rebuilding each draw at subject level would
-make the replicates and the point estimate describe different
-estimators. {helpb iivw_fit} therefore refuses that combination and asks you to recompute
-the weights; it does not silently mix the two. Reproducing a pre-3.1.0
-trimmed analysis is deliberately not supported.
+observed weights were built with. A stored contract that does not record the
+subject-level trimming unit is refused by {helpb iivw_fit}, which asks you to
+recompute the weights rather than silently mixing two estimators.
 
 {phang}
 {opt truncvisit(# #)} winsorizes the {bf:IIW component}. Tompkins et al. (2025)
@@ -534,23 +509,10 @@ one makes the downstream commands refuse the weights (error 459) until
 {cmd:iivw_weight} is rerun.
 
 {phang}
-{opt truncate(# #)} was removed in 2.0.0 and now errors. {bf:Users of iivw 1.x:} it
-clipped only the final product, so it could never report which component was
-extreme, and it left {helpb iivw_balance} describing the untrimmed IIW while the
-outcome model used the trimmed one. Use {opt truncfinal()} for the identical
-behaviour, stated explicitly, or better, name the component with
-{opt trunctreat()} or {opt truncvisit()}.
-
-{phang}
-{opt experimentalnotreatvisit} omits {opt treat()} from the visit-intensity
-model under {cmd:wtype(fiptiw)}. FIPTIW exists for the design in which treatment
-drives both the outcome and the monitoring schedule, so the treatment variable
-belongs in the visit-intensity denominator and {cmd:iivw_weight} puts it there
-by construction. Omitting it leaves the IIW factor unable to correct a visit
-process that depends on treatment: the result is not the FIPTIW of the source
-literature, but IIW-without-treatment multiplied by IPTW. This option exists for
-sensitivity and legacy comparison only. It is outside the supported contract and
-is recorded as such in the weighting contract and in {cmd:e()}.
+{opt truncate(# #)} is not an option and errors: a single clip of the final
+product could never report which component was extreme. Use {opt truncfinal()}
+to clip the product, or better, name the component with {opt trunctreat()} or
+{opt truncvisit()}.
 
 {dlgtab:Reporting}
 
@@ -567,7 +529,11 @@ variables used by {cmd:iivw_fit} can also be valid Stata names.
 re-running the weighting step with different options.
 
 {phang}
-{opt nolog} suppresses iteration logs from the Cox and logistic models.
+{opt nolog} suppresses the iteration logs and coefficient tables of the
+visit-intensity, stabilization and treatment models. Without it those fits
+are displayed; the internal data preparation is never displayed. Under
+{opt nolog} a covariate a model omitted (collinear or without variation) is
+still named in a note.
 
 {phang}
 {opt allownonconv:erged} lets {cmd:iivw_weight} proceed when the
@@ -665,21 +631,18 @@ returned: {cmd:r(n_missing_weight)}, {cmd:r(n_ids_missing_weight)}, and -- when
 {phang}
 {opt efron} selects the Efron method for handling tied event times in
 the Andersen-Gill Cox model, and {opt breslow} selects the Breslow
-method. {bf:Efron is the default as of version 3.0.0.} Neither option
-is needed for normal use: {opt efron} is accepted as an explicit no-op
-naming the default, so that do-files written against earlier versions
-keep running unchanged. Both options are allowed only for IIW or FIPTIW
+method. {bf:Efron is the default.} Neither option is needed for normal
+use: {opt efron} is accepted as an explicit no-op naming the
+default. Both options are allowed only for IIW or FIPTIW
 weights, since {opt wtype(iptw)} fits no Cox model, and they may not be
 combined.
 
 {phang2}
-{bf:This default changed in 3.0.0 and it moves results.} Through 2.4.x the
-package inherited {help stcox}'s Breslow default. On data with tied visit times
--- the normal case in registry and clinic data, where visits are recorded to the
-day, week or month -- Breslow and Efron give materially different weights, so an
-analysis re-run under 3.0.0 will not reproduce a 2.x analysis unless
-{opt breslow} is typed. Specify {opt breslow} to reproduce a pre-3.0.0 result,
-or to match another package that uses Breslow.
+{bf:The choice moves results.} {help stcox} itself defaults to Breslow. On
+data with tied visit times -- the normal case in registry and clinic data,
+where visits are recorded to the day, week or month -- Breslow and Efron give
+materially different weights. Specify {opt breslow} to match an analysis or
+another package that uses Breslow.
 
 {phang2}
 The two methods agree exactly when no two visits share a time, and diverge as
@@ -821,7 +784,7 @@ interpreting a precise-looking weighted coefficient.
 {cmd:c.age##c.age}, {cmd:ib2.stage}) and inline spline syntax are {bf:not}
 accepted and will be rejected by {cmd:syntax}. This is deliberate: the weight
 models are refitted in places the user never sees -- inside every
-{cmd:vce(bootstrap)} replicate under {helpb iivw_fit:iivw_fit, refitweights},
+refit {helpb iivw_fit:iivw_fit, vce(bootstrap)} replicate,
 and again when {helpb iivw_balance} replays the stored visit model. A term that
 exists only as parser notation is not guaranteed to expand to the same columns,
 in the same order, with the same reference level, on a resampled dataset. The
@@ -849,7 +812,7 @@ redundant level, and a collinear pair is removed by the fit rather than by
 you -- which is a decision you did not make and cannot see.{p_end}
 
 {phang2}2. {bf:The generated columns must survive to every consumer.} Do not
-drop them after {cmd:iivw_weight} returns. {cmd:iivw_fit, refitweights} and
+drop them after {cmd:iivw_weight} returns. {cmd:iivw_fit, vce(bootstrap)} and
 {cmd:iivw_balance} both re-fit the stored visit-model specification by name; a
 missing column is an error at that point, not at weight time.{p_end}
 
@@ -1219,13 +1182,12 @@ weight variability without changing the target estimand.
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) stabcov(treated) replace censor(fu_end) nolog}{p_end}
 
 {pstd}
-{bf:Example 7: Reproducing a pre-3.0.0 result}
+{bf:Example 7: Breslow ties}
 
 {pstd}
 Efron tie handling is the default, so the rounded visit times common in
-registry data need no option. Specify {opt breslow} only to reproduce an
-analysis run under version 2.4.x or earlier, which inherited
-{help stcox}'s Breslow default.
+registry data need no option. Specify {opt breslow} only to match an
+analysis that used {help stcox}'s own Breslow default.
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) breslow replace censor(fu_end) nolog}{p_end}
 
@@ -1274,7 +1236,6 @@ analysis run under version 2.4.x or earlier, which inherited
 {synopt:{cmd:r(trunc_treat_hi)}}realized upper cutpoint of {opt trunctreat()}{p_end}
 {synopt:{cmd:r(trunc_treat_unit)}}{cmd:subject} -- the unit the cutpoints are taken at{p_end}
 {synopt:{cmd:r(tw_raw_var)}}the untrimmed IPTW component, if {opt trunctreat()}{p_end}
-{synopt:{cmd:r(treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:r(nobaseevent)}}1 under {opt baseline(entry)}, 0 under {opt baseline(event)}{p_end}
 {synopt:{cmd:r(censor_mode)}}{cmd:censor}, {cmd:maxfu} or {cmd:lastvisit} (IIW/FIPTIW){p_end}
 {synopt:{cmd:r(censor_var)}}the {opt censor()} variable, if used{p_end}

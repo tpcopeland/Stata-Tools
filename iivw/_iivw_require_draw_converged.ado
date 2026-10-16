@@ -1,4 +1,4 @@
-*! _iivw_require_draw_converged Version 4.3.7  2026/10/13
+*! _iivw_require_draw_converged Version 1.0.0  2026/10/15
 *! Reject a nonconverged outcome fit inside a bootstrap replicate. Shared by
 *! _iivw_bs_estimate (fixed-weight draws) and _iivw_bs_refit (refit draws).
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -6,7 +6,7 @@
 
 * Why this exists
 * ---------------
-* glm and mixed both return a numeric coefficient vector after printing
+* glm returns a numeric coefficient vector after printing
 * "convergence not achieved". bootstrap has no way to tell that apart from a
 * real fit: it sees numbers, books the draw as completed, and folds a
 * non-solution of the estimating equation into the variance. An adversarial
@@ -41,7 +41,7 @@
 * on a perfectly converged fit (verified 2026-07-21: a clean gaussian
 * `glm y x, irls' leaves e(converged) missing). An earlier build's comment here
 * claimed "both engines set it", which was false as written, and the
-* consequence was that `iivw_fit ..., bootstrap(5) geeopts(irls)' died at
+* consequence was that `iivw_fit ..., vce(bootstrap, reps(5)) geeopts(irls)' died at
 * r(430) reporting nonconvergence of a model that had converged.
 *
 * That path is now refused at parse time by _iivw_check_passthru's noirls

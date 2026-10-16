@@ -18,7 +18,6 @@
 *
 * Route oracles for V
 *   fixed, unweighted  glm [pw] if ORACLE, vce(cluster C)
-*   mixed              mixed [pw] if ORACLE || id:, vce(cluster C)
 *   stacked            Mata two-step sandwich over every subject in the
 *                      weighting (the design union), with subject scores from
 *                      an independent Efron Cox fit and A^-1 from its e(V);
@@ -67,7 +66,7 @@ capture mkdir "$G_WORK"
 * Routes and conditions (DOTHIS 2.2). estore is the documented e() surface
 * column: condition none, plus the results the open ledger holds out of the
 * per-cell surface check (so an open bug cannot mask the other assertions).
-local routes fixed stacked bsfixed refit pointonly pct bspool mixed unweighted
+local routes fixed stacked bsfixed refit pointonly pct bspool unweighted
 local conds none ifin wholemiss partmiss covmiss offset entryonly clust ///
     strid lev955 restore edited estore
 
@@ -80,12 +79,9 @@ local c_refit      " =    =    =    =    =    =    =    198  =     =    =    459
 local c_pointonly  " =    =    =    =    =    =    =    =    =     =    =    459  =  "
 local c_pct        " =    =    =    =    =    =    =    198  =     =    =    459  =  "
 local c_bspool     " =    =    =    =    =    =    =    198  =     =    =    459  =  "
-local c_mixed      " =    =    =    =    =    198  =    =    =     =    =    459  =  "
 local c_unweighted " =    =    =    =    =    =    =    =    =     =    =    =    =  "
 * Refusals: refit/pct/bspool x clust = refitweights needs cluster() = id
-* (iivw_fit.sthlp, vce(bootstrap)); mixed x offset = every route gets the same
-* geeopts(offset(off)), and geeopts() is refused under model(mixed) (mixed has
-* no offset(); iivw_fit.sthlp, geeopts()); edited = stale-weight guard (459),
+* (iivw_fit.sthlp, vce(bootstrap)); edited = stale-weight guard (459),
 * except the unweighted route, which uses no weight contract.
 
 * OPEN LEDGER: route|cond|step[=fitrc]|finding. A cell listed here is declared
@@ -210,7 +206,6 @@ program define _g_fit1
     if "`route'" == "pointonly"  iivw_fit `base' citype(none)
     if "`route'" == "pct"        iivw_fit `base' citype(percentile) ///
         vce(bootstrap, reps(20) seed(11)) saving("$G_WORK/draws", replace)
-    if "`route'" == "mixed"      iivw_fit `base' model(mixed) experimentalmixed nolog
     if "`route'" == "unweighted" iivw_fit `base' unweighted
 end
 
@@ -352,12 +347,7 @@ program define _g_oracle
     scalar G_Mo = .
     scalar G_nreps = .
 
-    if "`route'" == "mixed" {
-        quietly mixed y a x t `wt' if ORACLE || $G_ID:, vce(cluster $G_CL) nolog
-    }
-    else {
-        quietly glm y a x t `wt' if ORACLE, family(gaussian) vce(cluster $G_CL) `oo'
-    }
+    quietly glm y a x t `wt' if ORACLE, family(gaussian) vce(cluster $G_CL) `oo'
     matrix G_bo = e(b)
     matrix G_Vo = e(V)
 
@@ -519,7 +509,7 @@ program define _g_cell
     qa_grid_assert_eq e(N) scalar(G_No), name(e(N))
 
     _g_step clust
-    if inlist("`route'", "fixed", "stacked", "bsfixed", "mixed", "unweighted") {
+    if inlist("`route'", "fixed", "stacked", "bsfixed", "unweighted") {
         qa_grid_assert_eq e(N_clust) scalar(G_nclo), name(e(N_clust))
     }
     if "`route'" == "stacked" {
@@ -534,7 +524,7 @@ program define _g_cell
 
     _g_step b
     assert "`: colfullnames e(b)'" == "`: colfullnames G_bo'"
-    local btol = cond("`route'" == "mixed", 1e-8, 1e-10)
+    local btol = 1e-10
     qa_grid_assert_eq e(b) G_bo, matrix tol(`btol') name(e(b))
 
     _g_step V
@@ -543,7 +533,7 @@ program define _g_cell
         assert !`: list posof "V" in mats'
     }
     else {
-        local vtol = cond(inlist("`route'", "stacked", "mixed"), 1e-8, 1e-10)
+        local vtol = cond("`route'" == "stacked", 1e-8, 1e-10)
         qa_grid_assert_eq e(V) G_Vo, matrix tol(`vtol') name(e(V))
     }
 
@@ -558,7 +548,7 @@ program define _g_cell
         }
     }
     else {
-        local ctol = cond(inlist("`route'", "stacked", "mixed"), 1e-8, 1e-10)
+        local ctol = cond("`route'" == "stacked", 1e-8, 1e-10)
         qa_grid_assert_eq e(iivw_ci) G_CIo, matrix tol(`ctol') name(e(iivw_ci))
     }
 

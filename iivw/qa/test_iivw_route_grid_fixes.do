@@ -5,7 +5,6 @@
 *   R1  N3  refit bootstrap: e(sample)/e(N)/e(iivw_outcome_nclust) exclude rows
 *           with a missing outcome or covariate (whole-subject, partial, cov)
 *   R2  N3  the same on citype(percentile) over the refit bootstrap
-*   R3  N3  the same on the model(mixed) refit bootstrap (second call site)
 *   R4  N3  categorical time under vce(): a level seen only on missing-outcome
 *           rows builds no phantom (omitted) design column
 *   R5  I1  e(iivw_outcome_nclust) is posted on every route and counts the
@@ -18,8 +17,8 @@
 *   R8  N2  vce(stacked) refuses a subject that spans clusters, naming nesting
 *   R9  N4  point-only posts e(iivw_predict) and routes predict through the
 *           design-column check: xb matches e(b), rebuilt columns refuse 459
-*   R10 mixed: geeopts() is refused under model(mixed), mixedopts() under
-*           model(gee) (198), leaving the caller's state untouched
+*   R10 the removed model(), mixedopts() and experimentalmixed options are
+*           refused (198), leaving the caller's state untouched
 *
 * Every sample oracle (ORACLE) is built from the fixture design, never from
 * e(sample), touse or any package value.
@@ -236,26 +235,6 @@ else {
 }
 }
 
-**# R3: N3 model(mixed) refit bootstrap
-
-local ++test_count
-if `run_only' == 0 | `run_only' == 3 {
-capture noisily {
-    _rgf_data covmiss
-    quietly iivw_fit y a x, timespec(linear) replace model(mixed) ///
-        experimentalmixed nolog vce(bootstrap, reps(3) seed(11))
-    assert "`e(iivw_model)'" == "mixed" & "`e(iivw_vce)'" == "bootstrap"
-    _rgf_sample id "mixed refit covmiss"
-    display as result "R3 PASS: the mixed refit bootstrap reports the outcome sample"
-}
-if _rc == 0 local ++pass_count
-else {
-    local ++fail_count
-    local failed "`failed' R3"
-    display as error "R3 FAIL"
-}
-}
-
 **# R4: N3 categorical time under vce()
 
 * Visit 6 always has a missing outcome, so the outcome sample has five time
@@ -302,9 +281,8 @@ capture noisily {
     local r3 "vce(bootstrap, reps(3) fixedweights seed(3))"
     local r4 "vce(bootstrap, reps(3) seed(3))"
     local r5 "citype(none)"
-    local r6 "model(mixed) experimentalmixed nolog"
-    local r7 "unweighted"
-    forvalues k = 1/7 {
+    local r6 "unweighted"
+    forvalues k = 1/6 {
         quietly iivw_fit `b' `r`k''
         local posted : e(scalars)
         assert `: list posof "iivw_outcome_nclust" in posted' > 0
@@ -312,7 +290,7 @@ capture noisily {
         assert e(iivw_outcome_nclust) == 100
     }
     * Clustered above the subject: clinics, not subjects.
-    foreach k in 1 2 5 6 7 {
+    foreach k in 1 2 5 6 {
         quietly iivw_fit `b' `r`k'' cluster(clinic)
         _rgf_sample clinic "`r`k'' cluster(clinic)"
         assert e(iivw_outcome_nclust) == 10
@@ -513,7 +491,7 @@ else {
 capture estimates drop rgf_A
 }
 
-**# R10: pass-through options for the other model are refused
+**# R10: the removed outcome-model options are refused
 
 local ++test_count
 if `run_only' == 0 | `run_only' == 10 {
@@ -522,11 +500,9 @@ capture noisily {
     quietly iivw_fit y a x, timespec(linear) replace vce(fixed)
     matrix rgf_userM = (1, 2)
     local k = 0
-    foreach spec in "model(mixed) experimentalmixed geeopts(offset(off))" ///
-        "model(mixed) experimentalmixed geeopts(scale(x2))" ///
-        "model(mixed) experimentalmixed geeopts(nosuchglmoption)" ///
-        "geeopts(offset(off)) mixedopts(reml)" ///
-        "mixedopts(iterate(5))" {
+    foreach spec in "model(mixed)" "model(gee)" ///
+        "experimentalmixed" "mixedopts(iterate(5))" ///
+        "geeopts(offset(off)) mixedopts(reml)" {
         local ++k
         qa_state_snapshot, tag(rgf`k')
         capture iivw_fit y a x, timespec(linear) replace nolog `spec'
@@ -535,20 +511,11 @@ capture noisily {
         assert `rc10' == 198
         qa_state_compare, tag(rgf`k')
     }
-    * mixed itself has no offset(): mixedopts(offset()) is refused by mixed
-    * after estimation starts (so the package's fit-token serial has advanced;
-    * outside the fingerprint for that reason, not because it passes).
-    capture iivw_fit y a x, timespec(linear) replace nolog model(mixed) ///
-        experimentalmixed mixedopts(offset(off))
-    assert _rc == 198
-    * The honoured spellings still fit.
-    quietly iivw_fit y a x, timespec(linear) replace model(mixed) ///
-        experimentalmixed nolog mixedopts(iterate(50))
-    assert "`e(iivw_model)'" == "mixed"
+    * The GEE spelling with a pass-through option still fits.
     quietly iivw_fit y a x, timespec(linear) replace vce(fixed) ///
         geeopts(offset(off))
     assert "`e(iivw_model)'" == "gee"
-    display as result "R10 PASS: an option the chosen model cannot use is refused"
+    display as result "R10 PASS: the removed outcome-model options are refused"
 }
 if _rc == 0 local ++pass_count
 else {

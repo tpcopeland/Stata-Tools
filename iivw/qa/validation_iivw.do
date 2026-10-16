@@ -382,7 +382,7 @@ if `run_only' == 0 | `run_only' == 8 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Fit via iivw_fit
-        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(linear) nolog
         local b_fit = _b[severity]
         local se_fit = _se[severity]
 
@@ -885,15 +885,15 @@ if `run_only' == 0 | `run_only' == 21 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Sandwich SEs
-        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(linear) nolog
         local se_sandwich = _se[severity]
 
         * Re-weight (iivw_fit clears some metadata)
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
 
         * Bootstrap SEs (50 reps for stability)
-        iivw_fit outcome severity, model(gee) timespec(linear) ///
-            bootstrap(50) nolog
+        iivw_fit outcome severity, timespec(linear) ///
+            vce(bootstrap, reps(50) fixedweights) nolog
         local se_bootstrap = _se[severity]
 
         * Bootstrap SE should be positive and at least 80% of sandwich
@@ -931,15 +931,15 @@ if `run_only' == 0 | `run_only' == 22 {
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
 
         * Non-bootstrap estimate
-        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
+        iivw_fit outcome severity, vce(fixed) timespec(linear) nolog
         local b_direct = _b[severity]
 
         * Re-weight
         iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
 
         * Bootstrap estimate (point estimate should match)
-        iivw_fit outcome severity, model(gee) timespec(linear) ///
-            bootstrap(10) nolog
+        iivw_fit outcome severity, timespec(linear) ///
+            vce(bootstrap, reps(10) fixedweights) nolog
         local b_bootstrap = _b[severity]
 
         * Point estimates should be identical (same data, same model)
@@ -1124,47 +1124,6 @@ if `run_only' == 0 | `run_only' == 26 {
     }
     else {
         display as error "  FAIL: V26 - ns(3) tertile-knot basis (error `=_rc')"
-        local ++fail_count
-    }
-}
-
-* =============================================================================
-* V27: Mixed model gives similar estimates to GEE
-* =============================================================================
-local ++test_count
-if `run_only' == 0 | `run_only' == 27 {
-    capture noisily {
-        clear
-        set seed 20260321
-        set obs 200
-        gen long id = ceil(_n / 5)
-        bysort id: gen int visit_n = _n
-        gen double months = (visit_n - 1) * 6
-        gen double severity = rnormal(3, 1)
-        gen double outcome = 50 - 0.1 * months - 2 * severity + rnormal(0, 3)
-
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) nolog
-
-        * GEE estimate
-        iivw_fit outcome severity, vce(fixed) model(gee) timespec(linear) nolog
-        local b_gee = _b[severity]
-
-        * Mixed estimate (need to re-weight since iivw_fit stores metadata)
-        iivw_weight, endatlastvisit baseline(event) id(id) time(months) visit_cov(severity) replace nolog
-        iivw_fit outcome severity, vce(fixed) model(mixed) experimentalmixed timespec(linear) nolog replace
-        local b_mixed = _b[severity]
-
-        * Both should be in same direction and within factor of 2
-        assert (`b_gee' < 0) == (`b_mixed' < 0)
-        local ratio = abs(`b_gee') / abs(`b_mixed')
-        assert `ratio' > 0.5 & `ratio' < 2.0
-    }
-    if _rc == 0 {
-        display as result "  PASS: V27 - Mixed and GEE give similar estimates"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: V27 - mixed vs GEE (error `=_rc')"
         local ++fail_count
     }
 }

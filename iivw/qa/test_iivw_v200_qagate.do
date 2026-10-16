@@ -160,9 +160,10 @@ else {
 local ++test_count
 capture noisily {
     * Stand up a bare qa/ tree containing only run_all.do. In sim mode the
-    * runner curates three suites; none of them exists here. The old runner
-    * printed "SKIP: ... not found" three times and exited 0. The fixed runner
-    * must count all three as failures, name them, and record status=FAIL.
+    * runner curates the sensitivity suites (the sim scenarios and the
+    * calibration gates); none of them exists here. The old runner printed
+    * "SKIP: ... not found" for each and exited 0. The fixed runner must count
+    * every one as a failure, name them, and record status=FAIL.
     tempfile stub3
     local root "`stub3'_q4"
     capture mkdir "`root'"
@@ -192,15 +193,22 @@ capture noisily {
     file close _st
 
     if "`status'" != "FAIL" {
-        display as error "T3 FAIL: three missing curated suites gave status=`status', not FAIL"
+        display as error "T3 FAIL: missing curated suites gave status=`status', not FAIL"
         error 9
     }
-    * All three sim suites are absent, so none ran and all three are failures.
-    if strpos("`counts'", "pass=0") == 0 | strpos("`counts'", "fail=3") == 0 {
-        display as error "T3 FAIL: expected pass=0 fail=3, got: `counts'"
+    * Every curated sim suite is absent, so none ran and every one is a
+    * failure: pass=0 and fail equal to the curated count (at least the three
+    * sim scenarios).
+    local n_suites = .
+    local n_fail   = .
+    if regexm("`counts'", "suites=([0-9]+)") local n_suites = real(regexs(1))
+    if regexm("`counts'", "fail=([0-9]+)")   local n_fail   = real(regexs(1))
+    if strpos("`counts'", "pass=0") == 0 | `n_suites' >= . | `n_suites' < 3 | ///
+        `n_fail' != `n_suites' {
+        display as error "T3 FAIL: expected pass=0 and fail=suites>=3, got: `counts'"
         error 9
     }
-    display as text "  runner verdict on 3 missing suites: `status' / `counts'"
+    display as text "  runner verdict on missing curated suites: `status' / `counts'"
 }
 if _rc == 0 {
     local ++pass_count

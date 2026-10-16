@@ -1,4 +1,4 @@
-*! iivw Version 4.3.7  2026/10/13
+*! iivw Version 1.0.0  2026/10/15
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -91,7 +91,7 @@ program define iivw, rclass
     display as text "  `__iivw_smcl_lb'cmd:    treat(treated) treat_cov(age sex edss_bl) nolog`__iivw_smcl_rb'"
     display as text ""
     display as text "  `__iivw_smcl_lb'cmd:iivw_fit edss treated age sex edss_bl, ///`__iivw_smcl_rb'"
-    display as text "  `__iivw_smcl_lb'cmd:    model(gee) family(gaussian) timespec(linear)`__iivw_smcl_rb'"
+    display as text "  `__iivw_smcl_lb'cmd:    family(gaussian) timespec(linear)`__iivw_smcl_rb'"
     display as text ""
     display as text "Help:  " as result "`__iivw_smcl_lb'help iivw`__iivw_smcl_rb'" as text "  for documentation"
     display as text "       " as result "`__iivw_smcl_lb'help iivw_weight`__iivw_smcl_rb'" as text "  for weight computation"

@@ -1,4 +1,4 @@
-*! iivw_bspool Version 4.3.7  2026/10/13
+*! iivw_bspool Version 1.0.0  2026/10/15
 *! Pool sharded iivw_fit bootstrap replicate files into one estimation result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (reposts the current iivw_fit results)
@@ -120,6 +120,16 @@ program define iivw_bspool, eclass
         * signature is RECOMPUTED from the live columns (audit F04).
         if "`_wsig_now'" != "" {
             capture _iivw_check_weighted
+            * Weights built without treat() in the FIPTIW visit model are
+            * refused for their design, not because the data changed; say so.
+            local _tiv_now : char _dta[_iivw_treat_in_visit]
+            if _rc & "`_tiv_now'" == "0" {
+                display as error "iivw_bspool: the data in memory was weighted without treat() in the FIPTIW visit model"
+                display as error "  that variant came from a pre-release iivw build and is no longer supported"
+                display as error "  re-run iivw_weight and refit the shards, or clear the data and pool from"
+                display as error "  estimates use alone"
+                error 459
+            }
             if _rc {
                 display as error "iivw_bspool: the weighted data in memory has changed since the anchor was fit"
                 display as error "  the recomputed weight signature no longer matches the stored one"
@@ -189,7 +199,7 @@ program define iivw_bspool, eclass
     local resolved ""
     forvalues i = 1/`nshards' {
         local raw : word `i' of `using'
-        mata: st_local("_sfx", pathsuffix(st_local("raw")))
+        mata: st_local("_sfx", (strpos(pathbasename(st_local("raw")), ".") ? "." : ""))
         if `"`_sfx'"' == "" local path `"`raw'.dta"'
         else                local path `"`raw'"'
         capture confirm file `"`path'"'
@@ -230,7 +240,7 @@ program define iivw_bspool, eclass
         }
         * Same exact rule as the inputs and as _iivw_bs_stamp, so the file
         * written is the file restamped.
-        mata: st_local("_sfx", pathsuffix(st_local("_svname")))
+        mata: st_local("_sfx", (strpos(pathbasename(st_local("_svname")), ".") ? "." : ""))
         local _svtarget `"`macval(_svname)'"'
         if `"`_sfx'"' == "" {
             local _svtarget `"`macval(_svname)'.dta"'
@@ -278,8 +288,8 @@ program define iivw_bspool, eclass
                 display as error "iivw_bspool: `path`i'' is not an iivw shard file"
                 display as error "  it carries no _iivw_shard characteristics"
                 display as error "  replicate files written by a bare -bootstrap-"
-                display as error "  prefix, or by iivw_fit before 4.2.0, do not record"
-                display as error "  which fit produced them and cannot be identity-checked"
+                display as error "  prefix do not record which fit produced them and"
+                display as error "  cannot be identity-checked"
                 error 459
             }
 
@@ -553,9 +563,9 @@ program define iivw_bspool, eclass
     * agreement to some tolerance.
     tempfile pooledfile
     frame `shardfr' {
-        use `"`path1'"', clear
+        quietly use `"`path1'"', clear
         forvalues i = 2/`nshards' {
-            append using `"`path`i''"'
+            quietly append using `"`path`i''"'
         }
         quietly save `"`pooledfile'"', replace
     }
@@ -625,7 +635,7 @@ program define iivw_bspool, eclass
         }
     }
 
-    estimates restore `anchorest'
+    quietly estimates restore `anchorest'
 
     * The pooled matrices must line up with the anchor's coefficient vector by
     * NAME. A silent positional mismatch here would attach each term's variance
