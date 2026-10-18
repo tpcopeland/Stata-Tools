@@ -268,7 +268,7 @@ else {
 *                     is estimated globally and H within z1 -- different
 *                     groupings, the factorized A=G*H package extension.
 *   zzf1_stratified : strata() and truncstrata() name the SAME grouping -- the
-*                     ZZF eq.7 stratified construction proper.
+*                     ZZF eq. 6 stratified construction proper.
 *   zzf1_geskus     : one weight stratum (pooled delayed entry).
 *   right_censoring : no delayed entry.
 local ++test_count
@@ -581,7 +581,7 @@ capture drop many150
 * 7. HARD POSITIVITY FAILURE (Gate Z3-functional)
 * ===========================================================================
 * A retained competing-event subject is divided by its own stratum's A_g(X_i-)
-* (with a pooled time-side numerator under equation 7).  If A_g(X_i-) is ZERO,
+* (with a pooled time-side numerator under equation 6).  If A_g(X_i-) is ZERO,
 * the weight is undefined -- and Mata returns MISSING
 * for x/0, not infinity, so before the guard existed this surfaced downstream as
 * "the null log pseudo-likelihood is not finite" and r(430) "convergence not
@@ -1256,7 +1256,7 @@ capture noisily {
 
         /* Exercise the ordinary (non-pooled) branch separately.  The same
            observations with entry reset to zero retain the censoring strata
-           but switch off the equation-7 pooled stabilizer. */
+           but switch off the equation-6 pooled stabilizer. */
         ee0 = J(rows(ee), 1, 0)
         tg0 = J(rows(ee), 1, 1)
         GG0 = _finegray_km_censor(tt, dd, 0, et, bg, ee0)

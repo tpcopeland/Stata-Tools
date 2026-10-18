@@ -1,11 +1,12 @@
-*! finegray_predict Version 1.3.8  2026/10/07
+*! finegray_predict Version 1.3.8  2026/10/19
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
 
 /*
 Basic syntax:
-  finegray_predict newvar [if] [in], [cif xb schoenfeld timevar(varname)]
+  finegray_predict [type] newvar [if] [in], [xb cif schoenfeld basecshazard
+      timevar(varname) attime(#) ci level(#) bootstrap(#) seed(#)]
 
 Description:
   Generate predictions after finegray.
@@ -19,7 +20,14 @@ Required:
 Options:
   cif          - predict CIF instead of xb
   xb           - predict linear predictor (default)
+  schoenfeld   - Schoenfeld residuals (newvar, newvar_2, ... for p > 1)
+  basecshazard - baseline cumulative subhazard
   timevar(var) - use specified variable for time (instead of _t)
+  attime(#)    - after tvc(), evaluate the coefficients at a common time
+  ci           - add CIF limits newvar_lci and newvar_uci
+  level(#)     - confidence level for ci
+  bootstrap(#) - bootstrap ci from # refits (at least 25)
+  seed(#)      - random-number seed for bootstrap()
 
 See help finegray for complete documentation
 */

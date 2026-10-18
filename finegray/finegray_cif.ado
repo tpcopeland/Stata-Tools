@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.8  2026/10/07
+*! finegray_cif Version 1.3.8  2026/10/19
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -6,7 +6,8 @@
 /*
 Basic syntax:
   finegray_cif [, at(var=# ...) over(varname) attime(numlist)
-                  timepoints(numlist) ci level(#) saving(filename)
+                  timepoints(numlist) bstratum(#) ci level(#)
+                  saving(filename) bootstrap(#) seed(#)
                   nograph plotopts() plot#opts() ciopts() ci#opts()
                   twoway_options]
 
@@ -21,7 +22,9 @@ Description:
   at(var=# ...)      sets the covariate profile (default: estimation-sample means).
   over(varname)      one curve per level of a model variable (or per fitted
                      baseline stratum), overlaid in one call; results stacked.
+  bstratum(#)        selects one fitted baseline stratum after bstrata().
   ci                 adds influence-function confidence limits (cloglog scale).
+  bootstrap(#)       bootstrap limits from # refits (at least 25); seed(#).
   saving(filename)   writes the numeric estimates (time cif se lci uci) to a
                      dataset (the outfile analogue).
   plotopts()/ciopts() style every CIF line / CI band; plot#opts()/ci#opts()

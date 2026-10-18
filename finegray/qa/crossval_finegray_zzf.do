@@ -21,7 +21,7 @@
 * beta-only cross-validation leaves the objective and the baseline -- which is
 * every absolute quantity the package reports -- externally unchecked.
 *
-* ARMS.  A/B/D use pooled weights; C implements ZZF equation (7) with the same
+* ARMS.  A/B/D use pooled weights; C implements ZZF equation 6 with the same
 * discrete group for censoring and entry; X uses genuinely distinct censoring
 * and entry groups.  C and X close the old blind spot where the suite never
 * cross-validated truncstrata() or a true cross-classification.

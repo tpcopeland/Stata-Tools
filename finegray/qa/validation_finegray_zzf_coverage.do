@@ -78,8 +78,9 @@
 * They are not all describing the same estimator.  Bellach's is a weighted
 * conditional NPMLE over a transformation-model class; ours is not.
 *
-* OUR estimator uses the equation-7 pooled-stabilizer form: a pooled time-side
-* stabilizer and stratum-specific subject-side denominators.  In this gate only
+* OUR estimator uses the equation-6 pooled-stabilizer form: a pooled time-side
+* stabilizer and stratum-specific subject-side denominators, each stratum's
+* product limit multiplied by its normalizing constant kappa_g. In this gate only
 * truncstrata() varies, so its G-by-H factorization is the documented package
 * extension rather than Zhang et al.'s same-group nonparametric construction.
 * Consequently, w_i(T_i) need not equal 1 in a stratified arm.  The result below
@@ -114,15 +115,18 @@
 *   light_n2000           37     0.905 / 0.890     0.954 / 0.957     0.79 / 0.82
 *   heavy_n500            69     0.858 / 0.858     0.948 / 0.943     0.72 / 0.75
 *   heavy_n2000           69     0.850 / 0.850     0.955 / 0.953     0.70 / 0.72
-*   ts_mod_n2000          44     0.806 / 0.788     0.945 / 0.944     0.62 / 0.60
-*   ts_bounded_n2000      53     0.764 / 0.737     0.949 / 0.943     0.54 / 0.52
+*   ts_mod_n2000          44     0.839 / 0.864     0.946 / 0.940     0.66 / 0.73
+*   ts_bounded_n2000      53     0.793 / 0.824     0.952 / 0.948     0.58 / 0.66
+*
+* The two ts_ rows were re-measured 2026-10-18 with finegray 1.3.8; the other
+* rows match that rerun to the precision shown.
 *
 * Note the two controls that make this readable.  (a) At ZERO truncation the two
 * candidates AGREE (0.956 vs 0.954) and both cover -- so the divergence is caused
 * by the truncation, not by a coding difference between the two variance paths.
 * (b) model_based's SE/SD ratio falls from about 1.0 with no truncation to
 * 0.79-0.82 under light independent truncation, 0.70-0.75 under heavy independent
-* truncation, and 0.52-0.62 in the two entry-stratified arms.  The model-based SE
+* truncation, and 0.58-0.73 in the two entry-stratified arms.  The model-based SE
 * is not merely noisy; it is systematically too small.  Geskus's Table 2 ran only
 * at N = 103-258, where this is difficult to see.
 *
@@ -551,7 +555,7 @@ display as text "[Z-INF-RESULT] THE PREREGISTRATION WAS REFUTED. Directionally c
 display as text "               with Bellach et al. (2020) sec. 5, it is model_based whose"
 display as text "               coverage falls from about 0.95 without truncation to 0.89-0.91"
 display as text "               under light truncation, 0.85-0.86 under heavy truncation, and"
-display as text "               0.74-0.81 in the entry-stratified arms.  This establishes the"
+display as text "               0.79-0.86 in the entry-stratified arms.  This establishes the"
 display as text "               coverage result for finegray's estimator; it does not identify"
 display as text "               why distinct estimators in the cited papers behave differently."
 

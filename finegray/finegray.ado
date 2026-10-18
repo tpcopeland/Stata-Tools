@@ -1,4 +1,4 @@
-*! finegray Version 1.3.8  2026/10/15
+*! finegray Version 1.3.8  2026/10/19
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -23,9 +23,15 @@ Optional options:
   noshr             - Display log-SHR instead of SHR
   level(cilevel)    - Confidence level
   strata(varlist)   - Stratify censoring distribution
+  truncstrata(varlist) - Stratify the entry distribution under delayed entry
   bstrata(varname)  - Stratify the BASELINE subdistribution hazard (shared beta)
+  tvc(varlist)      - Piecewise-constant time-varying coefficients
+  tsplit(numlist)   - Interior interval boundaries for tvc()
   cluster(varname)  - Clustered standard errors
+  noadjust          - Omit the finite-sample sandwich multiplier
   norobust          - Model-based SEs instead of default sandwich
+  nuisance          - Add the weight-estimation (psi) term to the sandwich
+  basehaz           - Store the baseline cumulative subhazard in e(basehaz)
   nolog             - Suppress iteration log
   iterate(#)        - Max iterations (default: 200)
   tolerance(#)      - Convergence tolerance (default: 1e-8)

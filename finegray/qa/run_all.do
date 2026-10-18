@@ -116,7 +116,7 @@ local python_files test_finegray_oracles.do crossval_cif.do crossval_predict_pht
 *                                         (100 reps x n=100,000 x 4 arms, ~4h)
 *   validation_finegray_zzf_coverage.do   Gate Z-inference: which LT variance covers
 *                                         (1000 reps x 7 arms x 2 fits, ~1h)
-*                                         Passed 2026-07-15 on the equation-7
+*                                         Passed 2026-07-15 on the equation-6
 *                                         stratified-weight correction.
 *   validation_finegray_zzf_factorization.do
 *                                         Mechanism-conditioning sensitivity:

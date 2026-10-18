@@ -11,7 +11,7 @@
 # subject-by-time weights to CSV.  crossval_finegray_zzf.do checks production
 # against those frozen numbers.
 #
-# THE ESTIMATOR.   ZZF (2011) eq. (5), with A(t) = b(t) / S(t-):
+# THE ESTIMATOR.   ZZF (2011) eq. (4), with A(t) = b(t) / S(t-):
 #
 #     b_g(t) = n_g^-1 * sum_{i in g} 1{L_i < t <= X_i}      (package (L,X] convention)
 #     S_g(t) = left-truncated Kaplan-Meier of ALL-CAUSE survival within g
@@ -21,7 +21,7 @@
 #            = A_pool(t) / A_g(X_i)       if competing event at X_i < t
 #            = 0                          otherwise
 #
-# STABILIZER: POOLED, exactly as ZZF eq. (7).  The stratum-specific A_g appears
+# STABILIZER: POOLED, exactly as ZZF eq. (6).  The stratum-specific A_g appears
 # only on the subject side.  This distinction is observable: an at-risk subject
 # in stratum g generally carries A_pool(t)/A_g(t), not 1.
 #
@@ -76,7 +76,7 @@ cat(" survival =", as.character(packageVersion("survival")), "\n")
 cat("=====================================================================\n\n")
 
 # ---------------------------------------------------------------------
-# 1.  Direct ZZF Weight-1 estimator.  Written from ZZF (2011) eq. (5).
+# 1.  Direct ZZF Weight-1 estimator.  Written from ZZF (2011) eq. (4).
 #     No production helper, no scan, no shared lookup.  O(n^2) and proud.
 # ---------------------------------------------------------------------
 
@@ -587,7 +587,7 @@ cat("\nFrozen oracle outputs written to ", normalizePath(OUT), "\n", sep = "")
 # So at ties the two forms MAY diverge, and which one production computes is a
 # decision, not a detail.  This gate makes it on evidence:
 #
-#   A_ZZF(t) = b(t) / S(t-)                 <- CANONICAL.  ZZF (2011) eq. (5).
+#   A_ZZF(t) = b(t) / S(t-)                 <- CANONICAL.  ZZF (2011) eq. (4).
 #   A_GH(t)  = G(t-) * H(t-)                <- convenient.  Geskus (2011) eq. (11).
 #
 # Adopt A_GH only if it reproduces A_ZZF on EVERY collision class within
@@ -648,7 +648,7 @@ for (nm in names(tie_fixtures)) {
     cat("       ** WARNING: a collision class is absent -- this fixture does not test it **\n")
   write.csv(d, file.path(OUT, paste0("zzf_tie_", nm, ".csv")), row.names = FALSE)
 
-  # --- A_ZZF: canonical b/S, computed from ZZF eq. (5)
+  # --- A_ZZF: canonical b/S, computed from ZZF eq. (4)
   zz <- zzf_fit(d, c("z1", "z2"), stabilizer = "perstratum")
 
   # --- A_GH: the Geskus product form.  Represented by survival::finegray, which

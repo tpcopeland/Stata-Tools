@@ -401,13 +401,14 @@ else {
 * that follows: if the two implementations disagreed about the weight, agreeing
 * about the SE would mean nothing.
 *
-* MEASURED 2026-09-04 (Stata 17 MP):
+* MEASURED 2026-10-15 (Stata 17 MP, full lane through run_all.do; a 2026-10-18
+*   rerun with set type double gave the same values):
 *   10a  mreldif(rebuilt Lambda10, e(basehaz)) over the whole 397-point curve:
 *        left limit G(u-)  1.23e-15      right-continuous G(u)  1.13e-03
-*   10b  censored, 2 profiles x 3 horizons, CIF and SE:   8.31e-17
+*   10b  censored, 2 profiles x 3 horizons, CIF and SE:   1.17e-16
 *   10c  fault injection (coefficient term dropped):      4.21e-03  (must be
 *        LARGER than the gate, and it is by 7 orders)
-*   10d  uncensored, 3 horizons, CIF and SE:              3.92e-16
+*   10d  uncensored, 3 horizons, CIF and SE:              3.53e-16
 * Note that Stata's reldif(a, b) is |a-b|/(|b|+1), so on quantities of order
 * 0.02-0.5 these are effectively absolute differences; the 1e-10 gate still
 * sits 6-7 orders above the agreement and 7 orders below what 10c produces.

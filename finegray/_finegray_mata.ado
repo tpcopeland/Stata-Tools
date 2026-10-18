@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.8  2026/10/15
+*! _finegray_mata Version 1.3.8  2026/10/19
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -692,7 +692,7 @@ real colvector _finegray_G_minus(
    Stabilized Zhang-Zhang-Fine Weight 1 is  w_i(t) = A(t-) / A(X_i-)  with
 
        A(t) = H(t-) * G(t-)                 Geskus (2011) eq. (11)
-            = b(t) / (kappa S(t-))          ZZF (2011) eq. (5), up to kappa
+            = b(t) / (kappa S(t-))          ZZF (2011) eq. (4), up to kappa
 
    The product is PROPORTIONAL to ZZF's canonical b/S, not equal to it: the
    constant kappa = n^-1 sum 1/H(X_i-) (Geskus eq. 8) is the inverse observation
@@ -1138,7 +1138,7 @@ real colvector _finegray_lt_normalizer(
     return(kappa)
 }
 
-/* ZZF (2011) equation (7) uses a POOLED time-side stabilizer and a
+/* ZZF (2011) equation 6 uses a POOLED time-side stabilizer and a
    stratum-specific subject-side denominator.  The same algebra applies to the
    package's factorized censoring-by-entry extension when its two grouping
    variables differ.  This differs from the historical symmetric
@@ -1300,7 +1300,7 @@ void _finegray_prepare_weight_design(
 
    A retained competing-event subject i is divided by its own stratum's
    A_g(X_i-): its numerator is A_g(t-) on the one-stratum branch and
-   the pooled A(t-) under equation 7.  If A_g(X_i-) is ZERO, that weight is
+   the pooled A(t-) under equation 6.  If A_g(X_i-) is ZERO, that weight is
    undefined -- and Mata returns
    MISSING for x/0 rather than infinity, so the damage surfaces far downstream as
    "the null log pseudo-likelihood is not finite" / r(430) "convergence not
@@ -1364,7 +1364,7 @@ real scalar _finegray_positivity_check(
     }
     nj = cols(Aden)
 
-    /* Under the equation-7 pooled-stabilizer form, every genuinely at-risk
+    /* Under the equation-6 pooled-stabilizer form, every genuinely at-risk
        subject is divided by its group's A_g(t-), not just retained
        competing-event subjects by A_g(X_i-).  Check exactly those consulted
        denominator cells.  Inactive groups are deliberately ignored: 0/A_g
@@ -1915,7 +1915,7 @@ void _finegray_weight_diag(
        A_g(t_k-) / A_g(X_i-): the numerator is Gt[idx, g] multiplied by the
        group's backward sum raw_bwd[g], which is nonzero only once such an
        i has exited, and the denominator is Gminus[i].
-   several weight cells under delayed entry (ZZF eq. 7,
+   several weight cells under delayed entry (ZZF eq. 6,
    _finegray_loglik_zzf_strat and its score/residual/baseline twins):
      - an at-risk subject i at a cause time t_k in (t0_i, X_i] carries
        Apool(t_k-) / A_g(t_k-): its own group's denominator Aden[idx, g]
@@ -2052,7 +2052,7 @@ real scalar _finegray_n_le(real colvector v, real scalar x)
     return(lo - 1)
 }
 
-/* Canonical stratified ZZF equation (7): pooled A(t) stabilizer,
+/* Canonical stratified ZZF equation 6: pooled A(t) stabilizer,
    stratum-specific A_g(.) denominators.  Risk-set sums are maintained on the
    denominator scale; the pooled factor cancels from S1/S0 but remains as the
    outer cause-event weight in the estimating equation. */
@@ -5771,7 +5771,7 @@ real scalar _finegray_eta_shift(real colvector eta)
     return((mx + mn) / 2)
 }
 
-/* Influence-function CIF for the stratified ZZF equation-7 form.  This is the
+/* Influence-function CIF for the stratified ZZF equation-6 form.  This is the
    denominator-scale analogue of _finegray_cif_core(): each event contributes
    dL = 1/(A_event*C), an at-risk subject in group g contributes
    1/(A_event*A_g*C^2), and a retained competing subject contributes

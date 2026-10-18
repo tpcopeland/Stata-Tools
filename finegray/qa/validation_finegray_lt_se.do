@@ -194,7 +194,7 @@ else {
 **# 4-5. Published same-group stratified ZZF path: score identity and jackknife
 **# ---------------------------------------------------------------
 * The original checks above have one weight stratum, so they cannot distinguish
-* the historical symmetric stabilizer from Zhang-Zhang-Fine equation (7).  Use
+* the historical symmetric stabilizer from Zhang-Zhang-Fine equation 6.  Use
 * x2 for both censoring and entry grouping to exercise the paper's published
 * same-group construction directly.
 quietly use `base', clear

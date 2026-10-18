@@ -68,7 +68,7 @@
 * cause 1, on the SAME depend-on dataset each replication (paired):
 *
 *   JOINT     strata(W) truncstrata(W)   condition W in BOTH factors.
-*                                        Matching groups => ZZF eq. (7) same-
+*                                        Matching groups => ZZF eq. 6 same-
 *                                        group form.  A = G_W * H_W is the
 *                                        correct conditional weight.  RECOVER.
 *   MARGINAL  (no strata)                condition W in NEITHER.  A = G-bar *
@@ -115,7 +115,7 @@
 * PART 2 -- SUPPORT COST OF CONDITIONING BOTH MECHANISMS
 *
 * Part 1 shows JOINT is the correctly conditioned option in this DGP. The
-* fully-joint (matching-groups eq. 7) weight consults a
+* fully-joint (matching-groups eq. 6) weight consults a
 * stratum-specific denominator A_W(X_i-) in every observed joint cell, and that
 * is precisely the quantity Z23 shows goes to zero under refinement. This
 * section measures variance and positivity costs without treating a

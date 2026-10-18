@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.8  15oct2026}{...}
+{* *! version 1.3.8  19oct2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -16,6 +16,7 @@
 {viewerjumpto "Examples" "finegray##examples"}{...}
 {viewerjumpto "Stored results" "finegray##results"}{...}
 {viewerjumpto "Methods and formulas" "finegray##methods"}{...}
+{viewerjumpto "References" "finegray##references"}{...}
 {viewerjumpto "Author" "finegray##author"}{...}
 {title:Title}
 
@@ -670,9 +671,10 @@ leave the estimation sample; negative is {cmd:r(402)}; noninteger {cmd:fweight}
 is {cmd:r(401)}.
 
 {pstd} {bf:pweight.} Every subject's contribution to every risk-set sum,
-score, information and Breslow baseline is multiplied by its weight. The
-censoring survivor {it:G} stays {bf:unweighted} and is estimated from the
-analysis sample. Population interpretation requires sampling to preserve the
+score, information and Breslow baseline is multiplied by its weight; the
+score has the weighted form of Wogu et al. (2021, eq. 3). The censoring
+survivor {it:G} stays {bf:unweighted} and is estimated from the analysis
+sample, whereas Wogu et al. estimate it from the full cohort. Population interpretation requires sampling to preserve the
 required censoring distribution and independent censoring. This is not a
 general case-cohort or outcome-dependent sampling estimator; weighting the
 score does not repair a distorted censoring estimate. See
@@ -1021,7 +1023,6 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(rowsigvars)}}variables behind {cmd:e(rowsig)}{p_end}
 {synopt:{cmd:e(fvsupport_vars)}}factor variables with stored support{p_end}
 {synopt:{cmd:e(fvsupport}{it:#}{cmd:)}}fit-time levels of the {it:#}th such variable{p_end}
-{synopt:{cmd:e(sample)}}estimation-sample indicator{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
@@ -1029,6 +1030,10 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(V)}}variance-covariance matrix; zero at omitted terms{p_end}
 {synopt:{cmd:e(basehaz)}}baseline cumulative subhazard; only with {opt basehaz}{p_end}
 {synopt:{cmd:e(basehaz_tvc)}}interval baseline masses; {opt basehaz} with {opt tvc()}{p_end}
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Functions}{p_end}
+{synopt:{cmd:e(sample)}}marks estimation sample{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -1070,6 +1075,13 @@ construction, the proportionality diagnostic, the comparison with
 {helpb stcrreg}, performance, and the full reference list with its citation
 scope.
 
+{marker references}{...}
+{title:References}
+
+{pstd}
+Works cited in this help file; {helpb finegray_methods} gives the full
+reference list.
+
 {pstd}
 Fine JP, Gray RJ. A proportional hazards model for the subdistribution of a
 competing risk. {it:JASA} 1999; 94(446): 496-509.
@@ -1077,18 +1089,38 @@ competing risk. {it:JASA} 1999; 94(446): 496-509.
 {pstd}{browse "https://doi.org/10.1080/01621459.1999.10474144":doi:10.1080/01621459.1999.10474144}{p_end}
 
 {pstd}
-Wogu AF, Zhao S, Nichols HB, Cai J. Proportional subdistribution hazards model
-for competing risks in case-cohort
-studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
+Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing
+risks data. {it:Journal of Computational and Graphical Statistics}
+2021; 30(3): 685-693.
+
+{pstd}{browse "https://doi.org/10.1080/10618600.2020.1841650":doi:10.1080/10618600.2020.1841650}{p_end}
+
+{pstd}
+Wogu AF, Zhao S, Nichols HB, Cai J. Proportional subdistribution hazards
+model for competing risks in case-cohort studies. {it:American Journal of Applied Mathematics}
+2021; 9(5): 165-185.
 
 {pstd}{browse "https://doi.org/10.11648/j.ajam.20210905.12":doi:10.11648/j.ajam.20210905.12}{p_end}
+
+{pstd}
+Zhang X, Zhang M-J, Fine J. A proportional hazards regression model for the
+subdistribution with right-censored and left-truncated competing risks
+data. {it:Statistics in Medicine} 2011; 30(16): 1933-1951.
+
+{pstd}{browse "https://doi.org/10.1002/sim.4264":doi:10.1002/sim.4264}{p_end}
+
+{pstd}
+Zhou B, Latouche A, Rocha V, Fine J. Competing risks regression for stratified
+data. {it:Biometrics} 2011; 67(2): 661-670.
+
+{pstd}{browse "https://doi.org/10.1111/j.1541-0420.2010.01493.x":doi:10.1111/j.1541-0420.2010.01493.x}{p_end}
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.8, 2026-10-15{p_end}
+{pstd}Version 1.3.8, 2026-10-19{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

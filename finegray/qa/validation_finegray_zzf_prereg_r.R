@@ -27,7 +27,7 @@
 #   D  bygroup     + pooled weights      -> NEGATIVE CONTROL, must stay biased
 #
 # "pooled" is represented by collapsing wgroup to a single level.  Arm C uses
-# ZZF equation (7): a pooled time-side stabilizer with z1-specific denominators.
+# ZZF equation 6: a pooled time-side stabilizer with z1-specific denominators.
 
 # The oracle file runs the Z1 gate at top level, so source() would re-run it (and
 # rewrite the frozen CSVs).  Evaluate ONLY its definitions: function definitions

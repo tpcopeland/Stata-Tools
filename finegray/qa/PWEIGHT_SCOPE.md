@@ -1,6 +1,6 @@
 # Pweight interpretation: censoring selection counterexample
 
-Audit: 2026-09-08, finegray 1.3.1, Stata/MP 17. This is a method-boundary probe, not a validation claim or an additional automatic lane. The routine reference comparisons establish agreement with the frozen R weighted-score computation.
+Audit: 2026-09-08, finegray 1.3.1, Stata/MP 17; rerun 2026-10-07 with finegray 1.3.8, all values identical. This is a method-boundary probe, not a validation claim or an additional automatic lane. The routine reference comparisons establish agreement with the frozen R weighted-score computation.
 
 Wogu et al. (2021, §3 p.167) estimate the censoring survivor using the full cohort. This package estimates it without weights using the analysis sample. If every observed cause-1 case is selected and other subjects have selection probability α, the sampled censoring hazard has expected numerator proportional to α dN_C(t) and denominator α Y(t) + (1−α) Y_future-observed-case1(t). It generally differs from the cohort censoring hazard. Applying inverse-probability weights to the subsequent score cannot correct that nuisance estimate. This argument is an inference from the paper's design, independently reviewed during the audit.
 

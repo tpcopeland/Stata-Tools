@@ -297,7 +297,7 @@ of the fitted score.
 {bf:Under delayed entry.} Fine and Gray's psi is the influence of the
 censoring Kaplan-Meier, and the Weight-1 stabilizer is not a censoring
 Kaplan-Meier: it is A(t) = b(t)/S(t-), the observed at-risk fraction over the
-left-truncated all-cause survival (Zhang, Zhang and Fine 2011, eq. 5). Their
+left-truncated all-cause survival (Zhang, Zhang and Fine 2011, eq. 4). Their
 Appendix B (pp. 1944-1945) writes the i.i.d. representation of the score as
 three terms, W_i = l_i + v_i + w_i: l_i is the fixed-weight score residual
 ("the main term"), v_i the influence of the estimated S through the all-cause
@@ -853,8 +853,8 @@ observation gap, or a competing event before the gap closes whose subject
 would be retained. Such a cause event lies outside the identifiable region
 the package estimates, so it is refused whether or not the published
 b_g/S_g form happens to be finite there (it can be, when later censoring
-keeps S_g positive). The message names the count and the affected strata.
-Two remedies leave the estimand unchanged in the remaining data: a coarser
+keeps S_g positive). The message names the count and the affected strata. Two
+remedies leave the estimand unchanged in the remaining data: a coarser
 stratification, which keeps every subject, or dropping the subjects observed
 before the gap, which restricts the analysis to the identifiable region and
 should be reported as such. Moving the time origin later is not a remedy of
@@ -1498,6 +1498,13 @@ risks data. {it:Journal of Computational and Graphical Statistics}
 
 {pstd}{browse "https://doi.org/10.1080/10618600.2020.1841650":doi:10.1080/10618600.2020.1841650}{p_end}
 
+{pstd}
+Kim S, Xu Y, Zhang M-J, Ahn K-W. Stratified proportional subdistribution
+hazards model with covariate-adjusted censoring weight for case-cohort
+studies. {it:Scandinavian Journal of Statistics} 2020; 47(4): 1222-1242.
+
+{pstd}{browse "https://doi.org/10.1111/sjos.12461":doi:10.1111/sjos.12461}{p_end}
+
 {pstd} Latouche A, Allignol A, Beyersmann J, Labopin M, Fine JP. A competing
 risks analysis should report results on all cause-specific hazards and
 cumulative incidence functions. {it:Journal of Clinical Epidemiology} 2013; 66(6): 648-653.
@@ -1526,6 +1533,12 @@ model for competing risks in case-cohort studies. {it:American Journal of Applie
 {pstd}{browse "https://doi.org/10.11648/j.ajam.20210905.12":doi:10.11648/j.ajam.20210905.12}{p_end}
 
 {pstd}
+Woodroofe M. Estimating a distribution function with truncated
+data. {it:Annals of Statistics} 1985; 13(1): 163-177.
+
+{pstd}{browse "https://doi.org/10.1214/aos/1176346584":doi:10.1214/aos/1176346584}{p_end}
+
+{pstd}
 Zhang X, Zhang M-J, Fine J. A proportional hazards regression model for the
 subdistribution with right-censored and left-truncated competing risks
 data. {it:Statistics in Medicine} 2011; 30(16): 1933-1951.
@@ -1549,14 +1562,6 @@ Zhou B, Latouche A, Rocha V, Fine J. Competing risks regression for stratified
 data. {it:Biometrics} 2011; 67(2): 661-670.
 
 {pstd}{browse "https://doi.org/10.1111/j.1541-0420.2010.01493.x":doi:10.1111/j.1541-0420.2010.01493.x}{p_end}
-
-
-{pstd}
-Kim S, Xu Y, Zhang M-J, Ahn K-W. Stratified proportional subdistribution
-hazards model with covariate-adjusted censoring weight for case-cohort
-studies. {it:Scandinavian Journal of Statistics} 2020;47:1222-1242.
-{p_end}
-{pstd}{browse "https://doi.org/10.1111/sjos.12461":doi:10.1111/sjos.12461}.
 
 
 {marker author}{...}
