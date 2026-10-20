@@ -60,6 +60,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | `test_qba_docs.do` | Installed examples, documentation tokens, and the self-contained SMCL render oracle with positive control |
 | `test_qba_documentation_examples.do` | Literal examples from every shipped qba help file, including Monte-Carlo and optional tmle workflows |
 | `test_qba_plot_release_deep.do` | Installed surface, metadata/date agreement, package manifest, examples, and graph failure returns |
+| `test_qba_hostile.do` | Deterministic hostile parser and state contracts: invalid 2x2 cells return the documented error and preserve hostile user names and data |
 | `test_qba_qa_common_bootstrap.do` | QA root discovery and isolated install/restore behavior |
 | `test_qba_qa_assert_helpers.do` | Numeric assertion helpers, including missing-value comparison |
 | `test_qba_qa_text_assertions.do` | File-content assertion helpers and their failure cases |

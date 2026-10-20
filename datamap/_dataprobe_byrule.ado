@@ -1,4 +1,4 @@
-*! _dataprobe_byrule Version 1.10.1  2026/10/13
+*! _dataprobe_byrule Version 1.10.2  2026/10/20
 *! dataprobe byrule(): a row-level rule evaluated under Stata's by byvars (sortvars): semantics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -123,7 +123,16 @@ program define _dataprobe_byrule, rclass
         return scalar ties = `ties'
     }
     local rc = _rc
-    if `_ordmade' capture quietly sort `ord'
+    if `_ordmade' {
+        // Reached only when an error left the data in byvars order: restore
+        // the caller's row order, and say so if that too fails
+        capture quietly sort `ord'
+        local src = _rc
+        if `src' {
+            display as error "byrule(): could not restore the original row order (rc `src')"
+            if !`rc' local rc = `src'
+        }
+    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

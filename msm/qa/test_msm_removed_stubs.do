@@ -11,6 +11,7 @@
 *        resolves to the 2.0 stub
 *   RS3  upgrade with `ado uninstall msm' first (the documented route)
 *   RS4  every stub has a help file that renders and names the replacement
+*   RS5  each stub called by its literal name exits 199 and names its replacement
 
 version 16.0
 clear all
@@ -225,6 +226,52 @@ foreach f in msm msm_table msm_report _msm_tbl_coef {
     capture erase "`olddir'/`f'.ado"
 }
 capture rmdir "`olddir'"
+
+**# RS5: each removed command called by its literal name exits 199 and names its replacement
+* A removed command is refused before it looks at the data, so even a
+* degenerate (empty) dataset gets the 199 replacement message, not a data error.
+local ++test_count
+capture noisily {
+    clear
+    set obs 0
+    tempfile rs5log
+    log using "`rs5log'", text replace name(rs5)
+    * nullcase: msm_protocol msm_validate msm_plot msm_report msm_table msm_diagtab msm_sensitivity
+    capture noisily msm_protocol
+    assert _rc == 199
+    capture noisily msm_validate, anything(1)
+    assert _rc == 199
+    capture noisily msm_plot, anything(1)
+    assert _rc == 199
+    capture noisily msm_report, anything(1) xlsx("never5.xlsx")
+    assert _rc == 199
+    capture noisily msm_table, anything(1)
+    assert _rc == 199
+    capture noisily msm_diagtab, anything(1)
+    assert _rc == 199
+    capture noisily msm_sensitivity, anything(1)
+    assert _rc == 199
+    log close rs5
+    foreach s in protocol validate plot report table diagtab sensitivity {
+        _rs_text_in_file using "`rs5log'", text("msm_`s' was removed in msm 2.0.0")
+        assert r(found) == 1
+        _rs_text_in_file using "`rs5log'", text("`want_msm_`s''")
+        assert r(found) == 1
+    }
+    assert _N == 0 & c(k) == 0
+    capture confirm file "never5.xlsx"
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "PASS RS5: literal invocations exit 199 with their replacement"
+    local ++pass_count
+}
+else {
+    capture log close rs5
+    display as error "FAIL RS5: literal stub invocations (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' RS5"
+}
 
 **# Summary
 if `fail_count' > 0 display as error "Failed tests:`failed_tests'"

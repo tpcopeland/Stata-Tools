@@ -155,6 +155,7 @@ input int uid double other
 end
 save "`using_no_key'", replace
 use "`master'", clear
+* nullcase: rangematch
 capture noisily rangematch keyval lo hi using "`using_bad_type'"
 assert _rc == 109
 capture noisily rangematch keyval lo hi using "`using_no_key'"

@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.0.0  2026/10/15
+*! _tabtools_common Version 1.0.1  2026/10/20
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1046,7 +1046,16 @@ program _tabtools_export_done, nclass
         as text ", sheet " as result `"`macval(sheet)'"'
     }
     local _rc_outer = _rc
-    if `_ed_held' capture _return restore `_ed_hold'
+    if `_ed_held' {
+        // Reached only on an error path: put the caller's r() back, and say
+        // so if that fails rather than leave r() silently replaced
+        capture _return restore `_ed_hold'
+        local _rc_restore = _rc
+        if `_rc_restore' {
+            display as error "could not restore r() after the export (rc `_rc_restore')"
+            if !`_rc_outer' local _rc_outer = `_rc_restore'
+        }
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc_outer' exit `_rc_outer'
 end

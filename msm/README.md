@@ -2,7 +2,7 @@
 
 # msm — Marginal structural models with IPTW, end to end
 
-**Version 2.0.0** | 2026-10-13
+**Version 2.0.0** | 2026-10-20
 
 [![version](https://img.shields.io/badge/version-2.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 

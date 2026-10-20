@@ -556,6 +556,7 @@ capture noisily {
     stset t, failure(d) id(id)
     _finegray_xv x1 x2, compete(status) cause(1) nolog
     * Coefficients should have correct signs
+    assert !missing(e(b)[1,1], e(b)[1,2])
     assert e(b)[1,1] > 0
     assert e(b)[1,2] < 0
     assert e(converged) == 1

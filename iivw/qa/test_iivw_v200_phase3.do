@@ -186,7 +186,14 @@ capture drop _iivw_exog_*
 quietly iivw_exogtest z, id(id) time(time) censor(cens)
 capture iivw_exogtest z, id(id) time(time) censor(cens) replace
 local p4_rc = _rc
-if `p4_rc' == 0 {
+* the overwritten lag variables must exist and be the ones r(lagvars) names
+local p4_lags "`r(lagvars)'"
+local p4_missing = ("`p4_lags'" == "")
+foreach v of local p4_lags {
+    capture confirm variable `v'
+    if _rc local p4_missing = 1
+}
+if `p4_rc' == 0 & `p4_missing' == 0 {
     local ++pass_count
     display "PASS P4: iivw_exogtest replace without xlsx() overwrites the lag variables"
 }

@@ -224,9 +224,8 @@ capture noisily {
     * in e(depvar), so the comparability gate compares "" with "".
     capture noisily iivw_diagnose x, unweighted(nc_u) weighted(nc_w) adjusted(nc_a)
     local n4_rc = _rc
-    display as text "    no-metadata diagnose rc=`n4_rc'"
-    assert `n4_rc' != 0
     assert `n4_rc' == 198
+    display as text "    no-metadata diagnose rc=`n4_rc'"
 }
 local rc = _rc
 if `rc' == 0 {
@@ -329,9 +328,8 @@ capture noisily {
     * version regex cannot match.
     capture noisily iivw
     local n6_rc = _rc
-    display as text "    version-less header rc=`n6_rc'"
-    assert `n6_rc' != 0
     assert `n6_rc' == 198
+    display as text "    version-less header rc=`n6_rc'"
 }
 local rc = _rc
 * Restore the real install unconditionally: N7 and any later suite in the same

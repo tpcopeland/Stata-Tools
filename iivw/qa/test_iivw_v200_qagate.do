@@ -208,7 +208,7 @@ capture noisily {
         display as error "T3 FAIL: expected pass=0 and fail=suites>=3, got: `counts'"
         error 9
     }
-    display as text "  runner verdict on missing curated suites: `status' / `counts'"
+    display as text "  runner verdict on missing curated suites as asserted: none of `n_suites' passed"
 }
 if _rc == 0 {
     local ++pass_count

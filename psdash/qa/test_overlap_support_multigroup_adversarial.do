@@ -610,7 +610,8 @@ capture noisily {
     capture graph drop _all
     psdash overlap treat ps, nograph name(_os_ng_overlap)
     capture graph describe _os_ng_overlap
-    assert _rc != 0
+    * graph describe on an absent graph is rc 111 (not found)
+    assert _rc == 111
 }
 local rc = _rc
 if `rc' == 0 {
@@ -631,7 +632,10 @@ capture noisily {
     capture erase "`graphfile'"
     psdash support treat ps, name(_os_graph_support) saving("`graphfile'")
     graph describe _os_graph_support
+    assert "`r(fn)'" == "_os_graph_support"
     confirm file "`graphfile'"
+    quietly checksum "`graphfile'"
+    assert r(filelen) > 1000
     capture erase "`graphfile'"
     capture graph drop _os_graph_support
 }

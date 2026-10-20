@@ -1193,6 +1193,7 @@ capture {
     set obs 10
     gen byte treat = (_n > 5)
     gen double age = .
+    * nullcase: tvweight
     capture noisily tvweight treat, covariates(age)
     assert _rc == 2000
 }

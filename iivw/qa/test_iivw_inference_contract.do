@@ -109,7 +109,7 @@ end
 **# I1 - an incomplete bootstrap is an error, not a quieter number
 
 local ++test_count
-display as text "I1: failed replicates error rather than shrink the draw set"
+display as text "I1: an incomplete bootstrap errors rather than shrinking the draw set"
 capture noisily {
     _inf_fragile
     quietly iivw_weight, id(id) time(time) visit_cov(x) censor(fu_end) nolog

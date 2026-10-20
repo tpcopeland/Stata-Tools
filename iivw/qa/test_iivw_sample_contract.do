@@ -274,7 +274,7 @@ capture noisily {
     capture iivw_weight, id(id) time(time) visit_cov(L1) censor(fu_end) nolog
     local r1 = _rc
     display as text "    all-missing covariate rc=`r1'"
-    assert `r1' != 0
+    assert `r1' == 2000
 
     * and even WITH the acknowledgment, a weighting with nothing left to weight
     * must not return an ordinary success
@@ -282,7 +282,7 @@ capture noisily {
         allowmissingweights nolog
     local r2 = _rc
     display as text "    all-missing + allowmissingweights rc=`r2'"
-    assert `r2' != 0
+    assert `r2' == 2000
 }
 local rc = _rc
 if `rc' == 0 {
@@ -337,14 +337,14 @@ capture noisily {
     capture iivw_weight, id(id) time(time) visit_cov(L1) censor(fu_end) nolog
     local rt = _rc
     display as text "    missing time rc=`rt'"
-    assert `rt' != 0
+    assert `rt' == 198
 
     _iivw_samp_panel
     quietly replace id = . in 20
     capture iivw_weight, id(id) time(time) visit_cov(L1) censor(fu_end) nolog
     local ri = _rc
     display as text "    missing id rc=`ri'"
-    assert `ri' != 0
+    assert `ri' == 198
 }
 local rc = _rc
 if `rc' == 0 {

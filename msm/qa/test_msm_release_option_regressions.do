@@ -63,7 +63,7 @@ else {
 * =========================================================================
 local ++test_count
 capture noisily {
-    * two mode options -> rejected (old code silently honoured one)
+    * conflicting mode options (two at once) -> rejected (old code silently honoured one)
     capture msm, list detail
     assert _rc == 198
     capture msm, detail status

@@ -146,6 +146,7 @@ capture noisily {
         2 .a
     end
     datasignature set
+    * nullcase: tvevent
     capture noisily tvevent using `event_bad_intervals', id(id) ///
         date(eventdate) generate(outcome)
     local cmdrc = _rc
@@ -184,6 +185,7 @@ capture noisily {
         2 .f 10
     end
     datasignature set
+    * nullcase: tvexpose
     capture noisily tvexpose using `exposure_episodes', id(id) ///
         start(start) stop(stop) exposure(exposure) ///
         entry(entry) exit(exit) reference(0) generate(exposed)
@@ -234,6 +236,7 @@ capture noisily {
         808
     end
     datasignature set
+    * nullcase: tvmerge
     capture noisily tvmerge "`merge_one'" "`merge_two'", id(id) ///
         start(s1 s2) stop(e1 e2) exposure(x1 x2)
     local cmdrc = _rc

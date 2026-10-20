@@ -306,6 +306,24 @@ capture dataprobe, gatesonly byrule(nosuch (t): "x": v == 1)
 _br `=!(_rc == 111)' "unknown byvar: r(111)"
 capture dataprobe, gatesonly byrule(id (t): "x": nosuchvar == 1)
 _br `=!(_rc == 111)' "expression that cannot be evaluated is an error, not a violation (rc 111)"
+* error paths leave the caller's rows where they were (byrule restores its
+* row order on the way out; a failed restore is reported, never silent)
+clear
+input byte id byte t byte v
+2 2 1
+1 2 1
+2 1 1
+1 1 1
+end
+quietly gen long rid = _n
+quietly datasignature
+local sig0 = r(datasignature)
+capture dataprobe, gatesonly byrule(id (t): "x": nosuchvar == 1)
+local rc = _rc
+quietly datasignature
+local sig1 "`r(datasignature)'"
+quietly count if rid != _n
+_br `=!(`rc' == 111 & r(N) == 0 & "`sig1'" == "`sig0'")' "byrule error path: rows unmoved and data byte-identical (rc `rc')"
 
 **## Integration: ledger, checks(), violations(), by(), maskrare, gatesonly
 _br_panel 1

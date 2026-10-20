@@ -1,4 +1,4 @@
-*! _tabcell_render Version 1.0.0  2026/10/15
+*! _tabcell_render Version 1.0.1  2026/10/20
 *! Vectorised cell renderer behind tabcell (scalar and generate() forms)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

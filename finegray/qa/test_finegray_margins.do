@@ -619,6 +619,7 @@ capture noisily {
     assert e(b_mi)[1, 1] == 0 & e(b_mi)[1, 4] == 0
     assert !missing(e(b_mi)[1, 2]) & !missing(e(b_mi)[1, 5])
     assert e(V_mi)[1, 1] == 0 & e(V_mi)[4, 4] == 0
+    assert !missing(e(V_mi)[2, 2])
     assert e(V_mi)[2, 2] > 0
 }
 if _rc == 0 {

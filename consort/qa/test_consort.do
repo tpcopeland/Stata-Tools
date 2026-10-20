@@ -895,6 +895,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         clear
         set obs 0
         gen x = .
+        * nullcase: consort
         capture consort init, initial("Empty data")
         assert _rc == 2000
     }

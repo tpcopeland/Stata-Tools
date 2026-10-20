@@ -1,4 +1,4 @@
-*! _dataprobe_qshow Version 1.10.1  2026/10/13
+*! _dataprobe_qshow Version 1.10.2  2026/10/20
 *! Format one summary statistic for display, suppressed under a mask
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

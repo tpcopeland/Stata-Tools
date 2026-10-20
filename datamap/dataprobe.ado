@@ -1,4 +1,4 @@
-*! dataprobe Version 1.10.1  2026/10/13
+*! dataprobe Version 1.10.2  2026/10/20
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -3426,6 +3426,12 @@ program define dataprobe, rclass
         // dataqa assert cannot pass over it
         if `rc' != 9 & `rc' != 1 {
             capture noisily _dataprobe_errrow `rc' `"`_dsname'"' `"`_ledfile'"' `"`_ledrun'"' `macval(_raw0)'
+            local errrow_rc = _rc
+            if `errrow_rc' {
+                // The call still exits with its own rc below; the ledger
+                // just lacks the error row, so say so rather than stay quiet
+                display as error "dataprobe: the error row could not be written to the ledger (rc `errrow_rc')"
+            }
         }
         exit `rc'
     }

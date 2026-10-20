@@ -77,7 +77,7 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 
 | Route | Recovery | Reference parity | Published reproduction | Inference calibration |
 |---|---|---|---|---|
-| `pkgtransfer` script, bundle, and `restore` routes | none: deterministic transform; known-answer descriptor, tracker, and installed-byte checks live in `test_pkgtransfer_v113.do`, `test_pkgtransfer_v120.do`, and `validation_pkgtransfer.do` | none: no maintained reference (searched: SSC, Stata [R] net/ado; no other tool rewrites Stata package descriptors), so Stata's own `net install` of each generated bundle is the reference in `test_pkgtransfer_v120.do` | none: no grounding paper ([R] net defines the descriptor directives; no estimator) | none: no inference reported |
+| `pkgtransfer` script, bundle, and `restore` routes | `test_pkgtransfer_v111.do#lifecycle`; `test_pkgtransfer_v111.do#github`; `test_pkgtransfer_v113.do#1`; `test_pkgtransfer_v120.do#1`; `test_pkgtransfer_v120.do#2` | none: no maintained reference (searched: SSC, Stata [R] net/ado; no other tool rewrites Stata package descriptors), so Stata's own `net install` of each generated bundle is the reference in `test_pkgtransfer_v120.do` | none: no grounding paper ([R] net defines the descriptor directives; no estimator) | none: no inference reported (pkgtransfer writes install scripts, bundles, and tracker files; it estimates nothing and returns no standard error, interval, or p-value) |
 
 ## Known gaps
 

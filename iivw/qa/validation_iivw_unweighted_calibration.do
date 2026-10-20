@@ -191,7 +191,7 @@ foreach d in A B {
     quietly gen byte hcx = ((bx + (lx - bx) / 2) <= `tx' & `tx' <= (bx + (ux - bx) / 2)) if !missing(lx, ux)
     quietly summarize hcx, meanonly
     local halfcov_`d' = r(mean)
-    display as text _newline "DGP `d': n_ok `nok_x_`d'' of `R', failed `nbad_`d''"
+    display as text _newline "DGP `d': n_ok `nok_x_`d'' of `R', unusable `nbad_`d''"
     display as text "  b_x  bias " %9.5f `bias_x_`d'' " (MCSE " %8.5f `bmcse_x_`d'' ")  coverage " %6.4f `cov_x_`d'' "  ModSE/EmpSE " %6.4f `ratio_x_`d'' " (MCSE " %6.4f `rmcse_x_`d'' ")"
     display as text "  b_t  bias " %9.5f `bias_t_`d'' " (MCSE " %8.5f `bmcse_t_`d'' ")  coverage " %6.4f `cov_t_`d'' "  ModSE/EmpSE " %6.4f `ratio_t_`d'' " (MCSE " %6.4f `rmcse_t_`d'' ")"
     display as text "  neg control (iid model-based, b_x): coverage " %6.4f `negcov_`d'' "  ModSE/EmpSE " %6.4f `negratio_`d''

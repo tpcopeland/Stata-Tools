@@ -144,8 +144,13 @@ capture noisily {
     clear
     capture table1_tc
     local no_data_rc = _rc
-    restore
     assert `no_data_rc' == 100
+    restore
+    assert c(varabbrev) == "on"
+
+    * nullcase: table1_tc
+    capture table1_tc x if 0, by(group) vars(x contn)
+    assert _rc == 2000
     assert c(varabbrev) == "on"
 
     capture table1_tc x, by(group) vars(x nonsense)
@@ -212,6 +217,7 @@ capture noisily {
     capture crosstab row3 col, or
     assert _rc == 198
 
+    * nullcase: crosstab
     capture crosstab row col if 0
     assert _rc == 2000
 
@@ -228,10 +234,91 @@ else {
     local ++fail_count
 }
 
+**# desctab degenerate inputs
+capture noisily {
+    sysuse auto, clear
+    set varabbrev on
+    * nullcase: desctab
+    capture desctab price mpg if 0, by(foreign) vars(price contn \ mpg contn)
+    assert _rc == 2000
+    assert c(varabbrev) == "on"
+    assert _N == 74
+
+    gen byte allmiss_by = .
+    capture desctab price mpg, by(allmiss_by) vars(price contn \ mpg contn)
+    assert _rc == 498
+    assert _N == 74
+    set varabbrev off
+}
+if _rc == 0 {
+    display as result "  PASS: desctab empty sample and all-missing by()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: desctab degenerate inputs (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# desctab restores varabbrev when by() is all missing
+* Regression (tabtools 1.0.1): with an all-missing by() variable,
+* `if `r(min)' < 0 {' evaluated `if  < 0 {', whose parse error closed the outer
+* `capture noisily {' block early, so the later `exit 498' skipped the
+* `set varabbrev' restore at the end of desctab.
+capture noisily {
+    sysuse auto, clear
+    set varabbrev on
+    gen byte allmiss_by = .
+    capture desctab price mpg, by(allmiss_by) vars(price contn \ mpg contn)
+    assert _rc == 498
+    assert c(varabbrev) == "on"
+}
+local vabb_rc = _rc
+set varabbrev off
+if `vabb_rc' == 0 {
+    display as result "  PASS: desctab all-missing by() restores varabbrev"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: desctab all-missing by() leaks varabbrev off (rc=`vabb_rc')"
+    local ++fail_count
+}
+
+**# Null-case oracles for saved-file inputs: puttab and the tabtools profile loader
+* puttab on an empty source must refuse rather than write an empty table, and
+* `tabtools use' must refuse a profile path that does not exist instead of
+* reporting defaults as loaded.
+capture noisily {
+    sysuse auto, clear
+    set varabbrev on
+    drop if 1
+    * nullcase: puttab
+    capture puttab make price using "`output_dir'/_nullcase_puttab_empty.xlsx"
+    assert _rc == 2000
+    capture confirm file "`output_dir'/_nullcase_puttab_empty.xlsx"
+    assert _rc == 601
+    assert c(varabbrev) == "on"
+
+    * nullcase: tabtools
+    capture tabtools use using "`output_dir'/_nullcase_no_such_profile.do"
+    assert _rc == 601
+    assert c(varabbrev) == "on"
+}
+local nc_rc = _rc
+set varabbrev off
+if `nc_rc' == 0 {
+    display as result "  PASS: puttab empty source and missing tabtools profile are refused"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: puttab/tabtools null-case refusals (rc=`nc_rc')"
+    local ++fail_count
+}
+
 **# regtab
 capture noisily {
     collect clear
     set varabbrev on
+    * nullcase: regtab
     capture regtab
     * Missing active collection uses Stata's standard r(119) contract.
     assert _rc == 119

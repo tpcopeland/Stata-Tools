@@ -52,6 +52,7 @@ local core_only_suites test_regressions test_regressions_1_9_0 ///
     validation_tvmerge validation_tvpanel ///
     validation_tvweight validation_tvweight_balance ///
     validation_tvweight_recovery validation_tvweight_msm_recovery ///
+    validation_tvweight_published_rhb2000 ///
     validation_tvdiagnose validation_flow ///
     validation_boundary validation_tvbuild_conservation validation_supplemental ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools test_tvband_oracle
@@ -103,7 +104,8 @@ local manifest_suites test_package_runner_contract ///
     validation_tvevent validation_tvexpose validation_tvexpose_statetime ///
     validation_tvmerge validation_tvpanel validation_tvweight ///
     validation_tvweight_balance validation_tvweight_recovery ///
-    validation_tvweight_msm_recovery validation_tvdiagnose validation_flow ///
+    validation_tvweight_msm_recovery validation_tvweight_published_rhb2000 ///
+    validation_tvdiagnose validation_flow ///
     validation_boundary validation_tvbuild_conservation validation_supplemental ///
     crossval_tvmerge_mata crossval_tvexpose_expand crossval_tvtools test_tvband_oracle ///
     crossval_tvsplit_lexis crossval_tvweight_ipcw ///
@@ -125,7 +127,7 @@ local manifest_counts 11 ///
     84 177 2 ///
     76 4 20 ///
     11 4 ///
-    5 8 5 ///
+    5 4 8 5 ///
     20 16 47 ///
     9 5 7 200 ///
     3 3 ///
@@ -183,4 +185,13 @@ local full_suites `full_suites' `v1181_suites'
 local release_suites `release_suites' `v1181_suites'
 local manifest_suites `manifest_suites' `v1181_suites'
 local manifest_counts `manifest_counts' 5
+local manifest_allow_skips `manifest_allow_skips' 0
+
+**# README Quick Start plus Worked Examples run in one session
+local readme_suites test_readme_sequence
+local core_suites `core_suites' `readme_suites'
+local full_suites `full_suites' `readme_suites'
+local release_suites `release_suites' `readme_suites'
+local manifest_suites `manifest_suites' `readme_suites'
+local manifest_counts `manifest_counts' 1
 local manifest_allow_skips `manifest_allow_skips' 0

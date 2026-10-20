@@ -799,6 +799,43 @@ else {
     local ++fail_count
 }
 
+**## Degenerate codefile(): empty and header-only files are refused
+* The code list is the command's saved-file input. An empty file and a file
+* whose header lacks the name/pattern columns hold no usable definition, so
+* both must refuse and leave the data untouched rather than flag nothing.
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1
+    1 "E110"
+    2 "I10"
+    end
+    tempfile cf_empty cf_badhead
+    tempname fh
+    file open `fh' using "`cf_empty'.csv", write replace
+    file close `fh'
+    file open `fh' using "`cf_badhead'.csv", write replace
+    file write `fh' "name,codes" _n
+    file close `fh'
+    * nullcase: codescan
+    capture codescan dx1, codefile("`cf_empty'.csv") id(pid)
+    assert _rc == 198
+    capture codescan dx1, codefile("`cf_badhead'.csv") id(pid)
+    assert _rc == 198
+    assert _N == 2
+    confirm variable pid dx1
+    describe, varlist
+    assert "`r(varlist)'" == "pid dx1"
+}
+if _rc == 0 {
+    display as result "  PASS: Degenerate codefile() refused"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Degenerate codefile() refused (error `=_rc')"
+    local ++fail_count
+}
+
 * Summary
 * ============================================================
 

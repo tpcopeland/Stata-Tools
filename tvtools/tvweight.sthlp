@@ -639,8 +639,8 @@ W = min(e(X), 1-e(X)) / [A*e(X) + (1-A)*(1-e(X))]
 
 {pstd}
 For categorical exposures the generalized forms are used: the overlap weight is
-[1/{&Sigma}{sub:k}(1/P(A=k|X))]/P(A=a|X) and the matching weight is
-min{sub:k}P(A=k|X)/P(A=a|X).
+[1/sum_k(1/P(A=k|X))]/P(A=a|X) and the matching weight is
+min_k P(A=k|X)/P(A=a|X).
 
 {pstd}
 All components of either multinomial weight use the same raw vector of fitted
@@ -676,7 +676,7 @@ confounding requires the {it:cumulative product} of the period-specific weights
 within each person, ordered by time:
 
 {p 8 8 2}
-W{sub:it} = {&prod}{sub:s<=t} weight at period s
+W_it = prod_s<=t weight at period s
 
 {pstd}
 The {opt cumulative} option computes this product (requires {opt id()} and

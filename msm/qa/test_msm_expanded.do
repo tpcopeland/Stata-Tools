@@ -1129,6 +1129,7 @@ capture noisily {
     gen int period = .
     gen byte treatment = .
     gen byte outcome = .
+    * nullcase: msm_prepare
     capture msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome)
     local empty_rc = _rc
@@ -1353,7 +1354,8 @@ capture noisily {
     * msm_weight without prepare
     capture msm_weight, treat_d_cov(biomarker age)
     assert _rc == 198
-    * msm_fit without prepare
+    * msm_fit without prepare: the dataset carries no msm metadata
+    * nullcase: msm_fit
     capture msm_fit
     assert _rc == 198
 }

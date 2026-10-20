@@ -130,7 +130,7 @@ specifications are possible.
 {pstd}
 {bf:Timing convention.} The default structural model regresses the period-{it:t}
 outcome on the period-{it:t} treatment, following the package's within-period
-ordering L_t {c -> } A_t {c -> } C_t {c -> } Y_t. The marginal structural model
+ordering L_t -> A_t -> C_t -> Y_t. The marginal structural model
 printed by Hernan, Brumback and Robins (2000, p. 563) instead regresses D({it:t})
 on A({it:t}-1): in their zidovudine analysis the treatment decision of the
 {it:preceding} month is the exposure of interest. If you are replicating that

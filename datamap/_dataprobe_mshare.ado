@@ -1,4 +1,4 @@
-*! _dataprobe_mshare Version 1.10.1  2026/10/13
+*! _dataprobe_mshare Version 1.10.2  2026/10/20
 *! Mask a count and its share of a known total for display under maskrare
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

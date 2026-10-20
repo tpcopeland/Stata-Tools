@@ -706,12 +706,15 @@ capture noisily {
     local rc_tvc = _rc
     capture finegray ifp tumsize, compete(status) cause(1) noshorten
     local rc_noshorten = _rc
-    assert `rc_wrapper' != 0
-    assert `rc_tvc' != 0
-    assert `rc_noshorten' != 0
+    * Each is the r(198) syntax refusal: wrapper and noshorten are removed
+    * options, and tvc() is now supported but refused here because the call
+    * gives no tsplit() cut points.
+    assert `rc_wrapper' == 198
+    assert `rc_tvc' == 198
+    assert `rc_noshorten' == 198
 }
 if _rc == 0 {
-    display as result "  PASS: T30 removed options (wrapper/tvc/noshorten) error"
+    display as result "  PASS: T30 removed options (wrapper/noshorten) and tvc() without tsplit() are r(198)"
     local ++pass_count
 }
 else {

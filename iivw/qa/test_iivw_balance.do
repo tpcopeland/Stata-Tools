@@ -367,6 +367,7 @@ capture noisily {
     gen id = _n
     gen t = _n
     gen x = _n
+    * nullcase: iivw_balance
     capture noisily iivw_balance
     assert _rc == 198
 }

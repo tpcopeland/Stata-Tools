@@ -1,4 +1,4 @@
-*! _dataprobe_keyset Version 1.10.1  2026/10/13
+*! _dataprobe_keyset Version 1.10.2  2026/10/20
 *! dataprobe keyset(): the same distinct keys as a saved dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

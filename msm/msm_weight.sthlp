@@ -167,7 +167,7 @@ a claim that a first-order Markov model is adequate for every application.
 {cmd:A_t}, not only on treatment history through {cmd:t-1} as the printed
 sw-dagger formula in Hernan, Brumback and Robins (2000) does. This is
 deliberate and follows from the package's within-period ordering
-L_t {c -> } A_t {c -> } C_t {c -> } Y_t, in which the period's treatment
+L_t -> A_t -> C_t -> Y_t, in which the period's treatment
 decision precedes the censoring decision and is therefore part of the history
 available to it. Because {cmd:A_t} appears in the numerator and the denominator
 alike, it does not enter the weight as a conditioning covariate that the
@@ -386,7 +386,7 @@ the decision-risk rows marked by {cmd:_msm_decision_risk}. Post-event or
 post-censor rows that merely carry the last cumulative weight forward are
 excluded.
 
-{phang2}{bf:Mean {c ~} 1.0:} Stabilized weights should have a mean close to
+{phang2}{bf:Mean ~ 1.0:} Stabilized weights should have a mean close to
 1. A mean far from 1 suggests the numerator or denominator model may be
 misspecified.{p_end}
 

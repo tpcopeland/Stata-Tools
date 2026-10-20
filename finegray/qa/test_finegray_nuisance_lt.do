@@ -284,7 +284,7 @@ capture noisily {
         st_numscalar("_nlt_max", max(abs(pl)))
         st_numscalar("_nlt_nz", sum(abs(pl) :> 0))
     }
-    assert !missing(_nlt_sum, _nlt_max)
+    assert !missing(_nlt_sum, _nlt_max, e(N))
     assert _nlt_max > 0
     assert _nlt_sum < 1e-9 * _nlt_max * e(N)
     * the term is not degenerate: most subjects carry a nonzero contribution

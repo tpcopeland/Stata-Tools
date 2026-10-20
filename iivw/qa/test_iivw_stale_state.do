@@ -93,10 +93,8 @@ program define _iivw_stale_expect, rclass
     local got = _rc
     return scalar rc = `got'
     display as text "    consumer rc=`got' (want `want')"
-    if `got' != `want' {
-        display as error "    stale-state guard did not behave as required"
-        exit 9
-    }
+    if `got' != `want' display as error "    stale-state guard did not behave as required"
+    assert `got' == `want'
 end
 
 **# T1: edit a raw VISIT covariate

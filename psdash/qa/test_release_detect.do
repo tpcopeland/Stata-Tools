@@ -76,7 +76,7 @@ capture noisily {
 }
 _rd_record `=_rc' "dispatcher forwards empty-sample error"
 
-**# Combined dryrun preserves the public detector's empty-sample error
+**# Combined dryrun on a degenerate empty sample preserves the public detector's error
 capture noisily {
     _rd_binary_data
     capture noisily psdash combined trt ps if 0, dryrun

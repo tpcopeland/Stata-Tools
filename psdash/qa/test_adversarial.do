@@ -91,15 +91,13 @@ local ++pass_count
 * SECTION 2: DEGENERATE DATA (the "my dataset is cursed" user)
 * ============================================================================
 
-* T7: All observations in one treatment group (no controls)
+* T7: degenerate input -- all observations in one treatment group (no controls)
 local ++test_count
-capture noisily {
-    clear
-    set obs 50
-    gen byte treat = 1
-    gen double ps = runiform()
-    psdash overlap treat ps, nograph
-}
+clear
+set obs 50
+gen byte treat = 1
+gen double ps = runiform()
+capture noisily psdash overlap treat ps, nograph
 assert _rc == 198
 display as result "  PASS: T7 single treatment group rejected (rc=198)"
 local ++pass_count
@@ -1539,6 +1537,29 @@ else {
     display as error "  FAIL: T85 support indicator values (error `=_rc')"
     local ++fail_count
 }
+
+* T86: degenerate input -- balance with every observation in one treatment group
+local ++test_count
+clear
+set obs 50
+gen byte treat = 1
+gen double ps = runiform() * 0.8 + 0.1
+gen double x1 = rnormal()
+capture noisily psdash balance treat ps, covariates(x1) nowvar
+assert _rc == 198
+display as result "  PASS: T86 balance with a single treatment group rejected (rc=198)"
+local ++pass_count
+
+* T87: degenerate input -- support with an all-missing propensity score
+local ++test_count
+clear
+set obs 50
+gen byte treat = mod(_n, 2)
+gen double ps = .
+capture noisily psdash support treat ps, nograph
+assert _rc == 2000
+display as result "  PASS: T87 support with an all-missing score rejected (rc=2000)"
+local ++pass_count
 
 * ============================================================================
 * SUMMARY

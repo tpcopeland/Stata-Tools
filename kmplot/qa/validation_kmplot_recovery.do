@@ -57,6 +57,53 @@ else {
     local ++fail_count
 }
 
+**## V1b: Kaplan and Meier (1958), published variance at t = 6
+* The paper reports P(6) = 21/40 with estimated variance 0.042 (journal
+* p. 466). Greenwood by hand: (21/40)^2 * (1/(8*7) + 1/(5*4) + 1/(4*3)).
+* The plain interval must be P(6) -/+ z(.975) * se.
+
+local ++test_count
+capture noisily {
+    clear
+    input double time byte died
+        0.8  1
+        1.0  0
+        2.7  0
+        3.1  1
+        5.4  1
+        7.0  0
+        9.2  1
+       12.1  0
+    end
+    stset time, failure(died)
+
+    local v_hand = (21 / 40)^2 * (1 / 56 + 1 / 20 + 1 / 12)
+    local z = invnormal(0.975)
+    tempfile curve
+    kmplot, ci citransform(plain) saving("`curve'", replace) ///
+        name(recovery_v1b, replace)
+    use "`curve'", clear
+    keep if anchor == 0
+    quietly count if abs(time - 5.4) < 1e-10
+    assert r(N) == 1
+    quietly summarize se if abs(time - 5.4) < 1e-10, meanonly
+    local se6 = r(mean)
+    assert abs(round(`se6'^2, 0.001) - 0.042) < 1e-12
+    assert abs(`se6'^2 - `v_hand') < 1e-12
+    quietly summarize lower if abs(time - 5.4) < 1e-10, meanonly
+    assert abs(r(mean) - (21 / 40 - `z' * sqrt(`v_hand'))) < 1e-10
+    quietly summarize upper if abs(time - 5.4) < 1e-10, meanonly
+    assert abs(r(mean) - (21 / 40 + `z' * sqrt(`v_hand'))) < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS: V1b Published Greenwood variance reproduced"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1b Published Greenwood variance (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Known-truth recovery
 **## V2: Exponential survival under independent censoring, two seeds
 

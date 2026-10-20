@@ -382,6 +382,53 @@ else {
     local ++fail
 }
 
+**# T11 extraspace pads p-values when present and is a no-op without them
+* The padding used to sit behind a bare capture: it must pad every p-value
+* that does not start with "<", and the nopvalue / wt() paths (no pvalue
+* column) must still run.
+local ++total
+capture noisily {
+    sysuse auto, clear
+    capture frame drop _dt_es0
+    capture frame drop _dt_es1
+    desctab price mpg rep78, by(foreign) ///
+        vars(price contn %9.1f \ mpg contn %9.1f \ rep78 cat) ///
+        frame(_dt_es0, replace)
+    desctab price mpg rep78, by(foreign) ///
+        vars(price contn %9.1f \ mpg contn %9.1f \ rep78 cat) ///
+        extraspace frame(_dt_es1, replace)
+    frame _dt_es0 {
+        quietly count if strtrim(pvalue) != "" & substr(pvalue, 1, 1) != "<" & !inlist(pvalue, "P-value", "p-value")
+        local n_plain = r(N)
+    }
+    assert `n_plain' > 0
+    frame _dt_es1 {
+        quietly count if strtrim(pvalue) != "" & substr(pvalue, 1, 1) != "<" & !inlist(strtrim(pvalue), "P-value", "p-value") ///
+            & substr(pvalue, 1, 1) == " "
+        local n_padded = r(N)
+    }
+    assert `n_padded' == `n_plain'
+    frame drop _dt_es0
+    frame drop _dt_es1
+
+    sysuse auto, clear
+    capture frame drop _dt_es2
+    desctab price rep78, by(foreign) vars(price contn \ rep78 cat) ///
+        nopvalue extraspace frame(_dt_es2, replace)
+    frame _dt_es2 {
+        capture confirm variable pvalue
+        assert _rc == 111
+    }
+    frame drop _dt_es2
+}
+if _rc == 0 {
+    local ++pass
+}
+else {
+    display as error "  FAIL: extraspace p-value padding (rc=`=_rc')"
+    local ++fail
+}
+
 capture erase "`xlsx'"
 capture erase "`csv'"
 capture erase "`md'"

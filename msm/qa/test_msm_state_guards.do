@@ -76,6 +76,7 @@ capture noisily {
     char _dta[_msm_pred_saved] "1"
 
     set varabbrev on
+    * nullcase: msm_predict
     capture msm_predict, times(`min_period') samples(10) seed(90210)
     local pred_rc = _rc
 

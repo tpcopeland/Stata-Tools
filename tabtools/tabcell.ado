@@ -1,4 +1,4 @@
-*! tabcell Version 1.0.0  2026/10/15
+*! tabcell Version 1.0.1  2026/10/20
 *! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR), rate (CI)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

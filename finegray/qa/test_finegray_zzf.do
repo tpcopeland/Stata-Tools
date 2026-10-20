@@ -152,13 +152,14 @@ quietly stset tb, failure(evb == 1) id(id) enter(time t0b) time0(t0b)
 capture quietly finegray z1 z2, compete(stb) cause(1) truncstrata(vary)
 local _rc_vary = _rc
 restore
-if `_rc_vary' != 0 {
+* The refusal is the r(198) option-validation error, not an incidental failure.
+if `_rc_vary' == 198 {
     local ++pass_count
     display as result "  PASS: Z4 within-subject varying truncstrata() refused (rc=`_rc_vary')"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z4 varying truncstrata() was ACCEPTED"
+    display as error "  FAIL: Z4 varying truncstrata() expected r(198), got rc=`_rc_vary'"
 }
 
 * ===========================================================================
@@ -225,14 +226,22 @@ capture drop many
 quietly gen int many = ceil(runiform() * 150)
 capture quietly finegray z1 z2, compete(status) cause(1) strata(many)
 local _rc_nolt = _rc
-restore
+* rc 0 alone would pass a fit that posted nothing usable: the fit must also
+* carry the whole sample, converge, record the strata variable, and have no
+* delayed entry (this is the right-censoring branch).
+local _nolt_ok = 0
 if `_rc_nolt' == 0 {
+    local _nolt_ok = (e(N) == 4000 & e(converged) == 1 ///
+        & "`e(strata)'" == "many" & e(N_delayed) == 0)
+}
+restore
+if `_rc_nolt' == 0 & `_nolt_ok' == 1 {
     local ++pass_count
     display as result "  PASS: Z8 no-LT branch keeps released many-strata behaviour"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z8 no-LT fit with 150 strata now errors (rc=`_rc_nolt')"
+    display as error "  FAIL: Z8 no-LT fit with 150 strata: rc=`_rc_nolt', content ok=`_nolt_ok'"
 }
 
 * ===========================================================================

@@ -1,0 +1,2 @@
+validation_finegray_zzf_stratified_coverage.do | Standalone 4-design x 1,000-replication delayed-entry stratified-weight coverage study (Stata Journal supplement Table S4.4); run on its own, too long for any lane
+crossval_stcrprep_lt.do | Optional parity with Lambert's SSC stcrprep under delayed entry; the runner's sandboxed PLUS carries no SSC packages, so run it on its own

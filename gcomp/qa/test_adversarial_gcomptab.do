@@ -234,6 +234,7 @@ capture erase "`no_gcomp_xlsx'"
 capture noisily {
     sysuse auto, clear
     quietly regress price mpg
+    * nullcase: gcomptab
     capture gcomptab, xlsx("`no_gcomp_xlsx'") sheet("NoGcomp")
     assert _rc == 119
     capture confirm file "`no_gcomp_xlsx'"

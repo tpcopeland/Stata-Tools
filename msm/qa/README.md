@@ -85,7 +85,7 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 | `test_msm_predict_frame.do` | `msm_predict, frame()` schema and values, `r(rd)`/`r(sd)`, replace and refusal contracts, signed-period names |
 | `test_msm_diagnose_fixture.do` | Retained `msm_diagnose` returns bit-identical to msm 1.4.12 on three scenarios; removed options; no persistence |
 | `test_msm_validate_mapping.do` | One test per former `msm_validate` check, in the core command that now owns it |
-| `test_msm_removed_stubs.do` | Each stub exits 199 with its replacement and touches nothing; upgrade over 1.4.x with and without uninstall resolves to the stubs |
+| `test_msm_removed_stubs.do` | Each stub exits 199 with its replacement and touches nothing, including when called by literal name on an empty dataset; upgrade over 1.4.x with and without uninstall resolves to the stubs |
 | `test_msm_companion_smoke.do` | regtab, effecttab, eplot, twoway recipe, psdash (contract 1.1 end to end), qba_confound and swimlane on msm output, with values checked |
 
 ### Validation

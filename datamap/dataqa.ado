@@ -1,4 +1,4 @@
-*! dataqa Version 1.10.1  2026/10/13
+*! dataqa Version 1.10.2  2026/10/20
 *! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,6 +30,11 @@ program define dataqa, rclass
     }
     local rc = _rc
     capture mata: mata set matastrict `_orig_matastrict'
+    local mrc = _rc
+    if `mrc' {
+        display as error "dataqa: could not restore matastrict `_orig_matastrict' (rc `mrc')"
+        if !`rc' local rc = `mrc'
+    }
     return add
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'

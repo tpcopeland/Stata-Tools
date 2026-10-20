@@ -121,12 +121,24 @@ capture noisily {
     tempfile empty_dir map_output
     capture mkdir "`empty_dir'"
 
+    * nullcase: datamap
     capture noisily datamap, directory("`empty_dir'") output("`map_output'")
     local call_rc = _rc
     assert `call_rc' == 601
     assert _N == 3
     assert marker == 76
     assert score == 100 + _n
+    capture confirm file "`map_output'"
+    assert _rc != 0
+
+    * nullcase: datadict
+    capture noisily datadict, directory("`empty_dir'") output("`map_output'")
+    local dict_rc = _rc
+    assert `dict_rc' == 601
+    assert _N == 3
+    assert marker == 76
+    capture confirm file "`map_output'"
+    assert _rc != 0
 
     capture noisily datamap, output("`map_output'")
     local legal_rc = _rc

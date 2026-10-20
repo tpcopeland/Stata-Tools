@@ -1,4 +1,4 @@
-*! _tabtools_st_timescale Version 1.0.0  2026/10/15
+*! _tabtools_st_timescale Version 1.0.1  2026/10/20
 *! the calendar unit of stset analysis time, when the data say it
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

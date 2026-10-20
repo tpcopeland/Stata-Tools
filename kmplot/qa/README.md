@@ -57,7 +57,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 
 | File | Covers |
 |---|---|
-| `validation_kmplot_recovery.do` | Kaplan–Meier’s published worked example and multi-seed survival recovery under two censoring DGPs. |
+| `validation_kmplot_recovery.do` | Kaplan–Meier’s published worked example (product-limit values, and the Greenwood variance 0.042 at t = 6 through the plain interval in V1b) and multi-seed survival recovery under two censoring DGPs. |
 | `validation_kmplot.do` | Saved estimates, confidence intervals, medians, risk tables, p-values, and landmark results against independent calculations and Stata survival commands. |
 | `validation_fixture_truth.do` | Canonical A2 fixture: 40 hand-enumerated cases for survival/failure landmarks, Greenwood log-log limits, risk/event/censor tables, medians, and log-rank probabilities, with life-table hostile variants and positive time scaling. |
 | `validation_kmplot_calibration.do` | Coverage of the 95% pointwise interval under all three `citransform()` choices at S = .75 and .50, R = 1000 exponential replicates; `smoke` argument runs 25. |
@@ -101,11 +101,11 @@ One row per estimator route. Cells name files only; `check qa kmplot --view evid
 
 | Route | Recovery | Reference parity | Published reproduction | Inference calibration |
 |---|---|---|---|---|
-| KM survival / cumulative failure estimate (`landmark()`, `saving()`) | `validation_kmplot_recovery.do` | `crossval_kmplot_survfit.do`; `crossval_kmplot_sts.do` | `validation_kmplot_recovery.do` | none: no inference reported |
-| Pointwise confidence interval (`ci`, `citransform()`, `level()`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example | `validation_kmplot_calibration.do` |
-| Number at risk, events, censoring (`risktable`, `risksaving()`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example | none: deterministic transform |
-| Median (`median`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example | none: no inference reported |
-| Log-rank p-value (`pvalue`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example | none: deterministic transform of the `sts test` chi-squared, whose type I error is Stata's (parity with R survdiff is in the Reference parity column) |
+| KM survival / cumulative failure estimate (`landmark()`, `saving()`) | `validation_kmplot_recovery.do` | `crossval_kmplot_survfit.do`; `crossval_kmplot_sts.do` | `validation_kmplot_recovery.do` | `validation_kmplot_calibration.do` |
+| Pointwise confidence interval (`ci`, `citransform()`, `level()`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | `validation_kmplot_recovery.do#V1b` | `validation_kmplot_calibration.do` |
+| Number at risk, events, censoring (`risktable`, `risksaving()`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example (Kaplan and Meier 1958, the corpus source, lists eight times and product-limit values but prints no number-at-risk, event, or censoring table) | none: deterministic transform (subjects at risk, events, and censorings are counted from the risk sets at each display time; counts carry no sampling claim to calibrate) |
+| Median (`median`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example (Kaplan and Meier 1958 reports no median for its Table 464 data, and no other corpus paper gives one) | none: no inference reported (`r(median_#)` is the earliest time the curve reaches 0.5 or below; kmplot computes no standard error or interval for the median) |
+| Log-rank p-value (`pvalue`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example (Kaplan and Meier 1958 predates the log-rank test, and the corpus holds no log-rank paper with a worked two-group example) | none: deterministic transform of the `sts test` chi-squared, whose type I error is Stata's (parity with R survdiff is in the Reference parity column) |
 
 The canonical A2 suite `validation_fixture_truth.do` runs in core/full. Its 40 cases check survival/failure landmarks, Greenwood log-log limits, risk/event/censor tables, medians and log-rank probabilities against independent risk-table calculations, with all A2 life-table hostile variants and positive time scaling. Vendored `_qa_fx_a2.do` and `_qa_hostile.do` match the canonical sources. The new scope covers unweighted two-group curves; weighted and other plotting routes remain covered by existing suites and need fixture adoption.
 

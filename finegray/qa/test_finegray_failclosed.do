@@ -31,6 +31,8 @@
 *
 * This suite needs no finegray fit; the estimation-context checks post their
 * own e() results so the missing case can be reached at all.
+*
+*! stata-dev-ignore-file: missing-passes-assert — this suite is the fail-open demonstration itself: every unguarded inequality runs under capture, on a fixture built missing on purpose (to prove it passes there) or on finite content (to prove the guard still discriminates), and the asserted outcome is the captured rc, never the inequality
 
 clear all
 set varabbrev off

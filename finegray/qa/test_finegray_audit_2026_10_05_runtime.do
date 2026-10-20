@@ -166,6 +166,7 @@ capture noisily {
     quietly serset set 0
     quietly serset use, clear
     quietly count if time == .123456789012345 & abs(cif - (1 - exp(-.25))) < 1e-6
+    assert !missing(r(N))
     assert r(N) >= 1
 }
 if _rc == 0 {

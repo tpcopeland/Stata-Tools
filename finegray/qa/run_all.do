@@ -95,6 +95,7 @@ local core_files `quick_files' ///
     validation_finegray.do validation_finegray_recovery.do ///
     validation_finegray_recovery_paths.do validation_cluster_recovery.do ///
     validation_finegray_cif_recovery.do ///
+    validation_finegray_phtest_recovery.do ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     validation_finegray_lt_cluster_cif_se.do ///
     validation_bstrata_recovery.do ///

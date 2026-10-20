@@ -178,6 +178,7 @@ capture noisily {
     4 0 0 82
     end
 
+    * nullcase: diagtab
     capture noisily diagtab test gold if id < 0
     local call_rc = _rc
     assert `call_rc' == 2000

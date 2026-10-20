@@ -1,4 +1,4 @@
-*! desctab Version 1.0.0  2026/10/15 - Consolidated descriptive Table 1 engine
+*! desctab Version 1.0.1  2026/10/20 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -546,8 +546,10 @@ program define desctab, rclass
 
     /* Validate the grouping variable */
     qui su `groupnum' if `touse', meanonly
-    // Check that grouping variable values are non-negative
-    if `r(min)' < 0 {
+    // Check that grouping variable values are non-negative. Read r() in the
+    // expression, not as a macro: an all-missing by() leaves r(min) empty and
+    // `if  < 0 {' is a parse error that closes the capture block early.
+    if r(N) > 0 & r(min) < 0 {
         display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
         exit 498
     }
@@ -1770,9 +1772,12 @@ program define desctab, rclass
 
     /* Add extra space for alignment if requested */
     if `"`extraspace'"' != "" {
-        // Add extra space before p-values for alignment
-        qui cap replace pvalue=" " + pvalue if substr(pvalue,1,1) != "<"
-
+        // Add extra space before p-values for alignment. pvalue is absent
+        // under nopvalue or wt(); when present, a failed replace must error.
+        capture confirm variable pvalue, exact
+        if !_rc {
+            qui replace pvalue = " " + pvalue if substr(pvalue,1,1) != "<"
+        }
     }
 
     /* Format N and missing count columns as strings */
@@ -1782,24 +1787,6 @@ program define desctab, rclass
         qui gen z`v' = ustrregexra(string(`v', "`nformat'"), "-(?=[0.,]+\z)", "") if !missing(`v'), after(`v')
         qui drop `v'
         qui rename z`v' `v'
-    }
-
-    /* Set nice labels in row 1 for N_* and m_* */
-    local levels "`levels' T"
-    foreach l of local levels {
-        // Copy group headers to N and m columns in the first row
-        qui cap replace N_`l' = `by'_`l' if factor == " "
-        qui cap replace m_`l' = `by'_`l' if factor == " "
-        qui cap replace _columna_`l' = `by'_`l' if factor == " "
-        qui cap replace _columnb_`l' = `by'_`l' if factor == " "
-    }
-
-    if `groupcount'==1 {
-        // Format for single group - use string literal
-        qui replace N_1 = "Total" if factor == " "
-        qui replace m_1 = "Total" if factor == " "
-        qui replace _columna_1 = "Total" if factor == " "
-        qui replace _columnb_1 = "Total" if factor == " "
     }
 
     qui drop N_* m_* _columna_* _columnb_*  // Remove unused columns

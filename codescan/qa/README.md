@@ -194,9 +194,9 @@ Benchmarks are exploratory, run by hand, and excluded from correctness lanes.
 
 | Route | Recovery | Reference parity | Published reproduction | Inference calibration |
 |---|---|---|---|---|
-| `codescan` row-level regex/prefix matching | `validation_codescan_dgp_recovery.do`; `validation_codescan_dgp_recovery2.do` | `crossval_codescan_icd10.do` | `validation_codescan_public_known_answers.do#K2` | none: no inference reported |
-| `codescan` patient-level collapse/merge with windows | `validation_codescan_dgp_recovery.do` | none: deterministic transform | none: paper publishes no worked example | none: no inference reported |
-| `codescan_describe` code inventory | `validation_codescan_describe.do` | none: deterministic transform | none: no grounding paper (exploratory inventory with no published estimand) | none: no inference reported |
+| `codescan` row-level regex/prefix matching | `validation_codescan_dgp_recovery.do`; `validation_codescan_dgp_recovery2.do` | `crossval_codescan_icd10.do` | `validation_codescan_public_known_answers.do#K2` | none: no inference reported (codescan returns 0/1 indicators, counts, and dates from pattern matching; it computes no standard error, interval, or p-value) |
+| `codescan` patient-level collapse/merge with windows | `validation_codescan_dgp_recovery.do` | none: deterministic transform (per-id maximum of the row indicators, or sum under `countmode`, earliest and latest matched date, and distinct-date and row counts over rows inside the `refdate` window; checked by hand-built answers in the Recovery suite) | none: paper publishes no worked example (Quan et al. 2005 tabulates ICD-10 code lists only; it gives no patient-level windowed collapse with expected values) | none: no inference reported (codescan returns 0/1 indicators, counts, and dates from pattern matching; it computes no standard error, interval, or p-value) |
+| `codescan_describe` code inventory | `validation_codescan_describe.do` | none: deterministic transform (frequency tabulation of distinct code strings and of their first characters across the scanned variables) | none: no grounding paper (exploratory inventory with no published estimand) | none: no inference reported (`codescan_describe` returns entry counts, unique-code counts, and frequency matrices with no standard error, interval, or p-value) |
 
 ## Known gaps
 

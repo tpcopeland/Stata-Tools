@@ -225,13 +225,13 @@ The external layer compares exact pair identities, not only counts. R companions
 
 ## Evidence layers
 
-`rangematch` is a deterministic join: nothing is estimated, so known-truth recovery and inference calibration do not apply. The external layer is reference parity on exact pair identities.
+`rangematch` is a deterministic join: nothing is estimated and no inference is reported, so calibration does not apply. Recovery is the hand-computed known-answer battery (expected pair sets derived from the documented semantics, not from any join command); the external layer is reference parity on exact pair identities.
 
 | Route | Recovery | Reference parity | Published reproduction | Inference calibration |
 |---|---|---|---|---|
-| `rangematch` point-in-interval, all pairs | `none: deterministic transform` | `crossval_datatable_public_studies.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported` |
-| `rangematch` interval overlap, all pairs | `none: deterministic transform` | `crossval_datatable_public_studies.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported` |
-| `rangematch` point-in-interval, `nearest()` | `none: deterministic transform` | `crossval_survival_neardate.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported` |
+| `rangematch` point-in-interval, all pairs | `validation_rangematch_known_answers.do#1`; `validation_rangematch_known_answers.do#12`; `validation_rangematch_known_answers.do#14` | `crossval_datatable_public_studies.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported (rangematch returns matched pairs, signed distances and match-count summaries; it computes no standard error, interval or p-value)` |
+| `rangematch` interval overlap, all pairs | `validation_rangematch_known_answers.do#19`; `validation_rangematch_known_answers.do#20`; `validation_rangematch_known_answers.do#21` | `crossval_datatable_public_studies.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported (rangematch returns matched pairs, signed distances and match-count summaries; it computes no standard error, interval or p-value)` |
+| `rangematch` point-in-interval, `nearest()` | `validation_rangematch_nearest.do#1`; `validation_rangematch_manual.do#2` | `crossval_survival_neardate.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported (rangematch returns matched pairs, signed distances and match-count summaries; it computes no standard error, interval or p-value)` |
 
 ## Known gaps
 

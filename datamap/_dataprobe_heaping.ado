@@ -1,4 +1,4 @@
-*! _dataprobe_heaping Version 1.10.1  2026/10/13
+*! _dataprobe_heaping Version 1.10.2  2026/10/20
 *! dataprobe heaping(): placeholder-date heaping on 1 January, the 1st, the 15th
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

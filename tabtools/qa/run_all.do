@@ -231,6 +231,7 @@ local validation_files "`validation_files' validation_survtab.do"
 local validation_files "`validation_files' validation_table1_tc.do"
 local validation_files "`validation_files' validation_regtab_return_contracts.do"
 local validation_files "`validation_files' validation_tabtools_interval_calibration.do"
+local validation_files "`validation_files' validation_tabtools_known_answers.do"
 
 local crossval_files "crossval_tabtools.do"
 local crossval_files "`crossval_files' crossval_crosstab_cochran.do"

@@ -619,6 +619,7 @@ _run_test `test_count' "`test_desc'"
 if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         _make_forest_data
+        * nullcase: eplot
         capture eplot es lci uci if es > 999
         assert _rc == 2000
     }
