@@ -1,4 +1,4 @@
-*! _dataprobe_qshow Version 1.10.2  2026/10/20
+*! _dataprobe_qshow Version 1.10.3  2026/10/20
 *! Format one summary statistic for display, suppressed under a mask
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -7,7 +7,8 @@ program define _dataprobe_qshow, rclass
     // Format one summary statistic of `varlist' for display.  With mask(#)
     // > 0 the value is suppressed unless at least # nonmissing observations
     // (within cond()) lie at or below it and at least # at or above it; sd
-    // needs # nonmissing observations.  Dates print at month precision
+    // needs # nonmissing observations and, for a variable with two or three values,
+    // # observations of each.  Dates print at month precision
     // under masking and in their own format otherwise.
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -20,7 +21,33 @@ program define _dataprobe_qshow, rclass
         if `mask' > 0 & !missing(scalar(`value')) {
             if "`stat'" == "sd" {
                 quietly count if (`cond') & !missing(`varlist')
-                if r(N) < `mask' local shown = 0
+                local _n = r(N)
+                if `_n' < `mask' local shown = 0
+                // a variable with two values: sd and N give back the share,
+                // so the count of each value (a 0/1 flag held by 3 rows
+                // printed sd .1714 beside N 100) must reach the mask
+                else {
+                    tempname _lo _hi
+                    quietly summarize `varlist' if (`cond'), meanonly
+                    scalar `_lo' = r(min)
+                    scalar `_hi' = r(max)
+                    quietly count if (`cond') & `varlist' == scalar(`_lo')
+                    local _nlo = r(N)
+                    quietly count if (`cond') & `varlist' == scalar(`_hi')
+                    local _nhi = r(N)
+                    if scalar(`_lo') < scalar(`_hi') & `_nlo' + `_nhi' == `_n' & ///
+                        (`_nlo' < `mask' | `_nhi' < `mask') local shown = 0
+                    // three values: N, the mean and the sd are three
+                    // equations in the three counts (0/1/2 with 2 rows of
+                    // 2: mean .52, sd .5409 beside N 100 give 48 and 2),
+                    // so each value's rows must reach the mask as well
+                    else if scalar(`_lo') < scalar(`_hi') {
+                        quietly summarize `varlist' if (`cond') & `varlist' > scalar(`_lo') & ///
+                            `varlist' < scalar(`_hi'), meanonly
+                        if r(N) > 0 & r(min) == r(max) & `_nlo' + `_nhi' + r(N) == `_n' & ///
+                            (`_nlo' < `mask' | `_nhi' < `mask' | r(N) < `mask') local shown = 0
+                    }
+                }
             }
             else {
                 quietly count if (`cond') & !missing(`varlist') & `varlist' <= scalar(`value')

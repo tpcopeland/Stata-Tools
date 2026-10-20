@@ -1,4 +1,4 @@
-*! dataqa Version 1.10.2  2026/10/20
+*! dataqa Version 1.10.3  2026/10/20
 *! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,9 +62,11 @@ program define _dataqa_set, rclass
         exit
     }
     local 0 `", `rest'"'
-    syntax [, MASKrare MINcell(integer -1) LEDger(string) RUN(string) BANDWARN SIGnature COLLect REPLACE ///
+    // the not-given sentinel is out of any typed range: with -1, a typed
+    // mincell(-1) passed as "not given" and the call wiped the defaults
+    syntax [, MASKrare MINcell(integer -999999999) LEDger(string) RUN(string) BANDWARN SIGnature COLLect REPLACE ///
         BASEline(string) BASELEDger(string)]
-    if `mincell' < -1 {
+    if `mincell' < 0 & `mincell' != -999999999 {
         display as error "dataqa set: mincell() must be non-negative"
         exit 198
     }
@@ -292,9 +294,15 @@ program define _dataqa_latest, rclass
     quietly generate strL `gate' = ""
     quietly replace `gate' = "by(" + regexs(1) + ")" if regexm(grp, "^by\(([^()]*) group [0-9]+\)")
     quietly replace `gate' = "by(" + ustrregexs(1) + ")" if ustrregexm(grp, "^by\(([^()|]*) \| ")
+    // kind is part of the gate: a failed stat() invariant rerun as a
+    // bands() band (a warning under bandwarn) is a downgrade, not a rerun
+    tempvar knd nsc lastc h1 h2 byrow
+    capture confirm variable kind
+    if _rc quietly generate str1 `knd' = ""
+    else quietly generate strL `knd' = kind
     quietly replace `gate' = regexr(dataset, " \(modified\)$", "") + char(9) + ///
         family + char(9) + label + char(9) + variable + char(9) + scope + ///
-        char(9) + expected + char(9) + `gate'
+        char(9) + expected + char(9) + `knd' + char(9) + `gate'
     local N0 = _N
     // a run with no rows: by would run nothing and create no variable
     if `N0' == 0 {
@@ -303,8 +311,28 @@ program define _dataqa_latest, rclass
         exit
     }
     quietly bysort run `gate' (seq): generate double `mx' = seq[_N]
+    // The latest call supersedes an earlier row only when it tested the
+    // same rows: the same n_scope (a masked n_scope matches a masked one),
+    // for a by() group row in the same group, for any other row in any row
+    // of the call (an events() level row carries the call's N).  A rerun on
+    // a subset (keep if ..., N 74 -> 12) used to clear a full-data failure.
+    capture confirm variable n_scope
+    if _rc quietly generate double `nsc' = .
+    else quietly generate double `nsc' = n_scope
+    quietly generate byte `lastc' = (seq == `mx')
+    // the by() group of a row, without a helper's level text
+    // ("by(g | g=2); lv = 2" -> "by(g | g=2)")
+    tempvar gb
+    quietly generate strL `gb' = ""
+    quietly replace `gb' = ustrregexs(0) if ustrregexm(grp, "^by\([^()]* group [0-9]+\)")
+    quietly replace `gb' = ustrregexs(0) if ///
+        ustrregexm(grp, "^by\([^()|]* \| ([^\[\])]|\[[^\[\]]*\])*\)")
+    quietly generate byte `byrow' = (`gb' != "")
+    quietly bysort run `gate' `gb' `nsc': egen byte `h1' = max(`lastc')
+    quietly bysort run `gate' `nsc': egen byte `h2' = max(`lastc')
     // an error row (a call that failed to run) is never superseded
-    quietly drop if seq < `mx' & regexr(dataset, " \(modified\)$", "") != "" & status != "error"
+    quietly drop if seq < `mx' & regexr(dataset, " \(modified\)$", "") != "" & status != "error" & ///
+        cond(`byrow', `h1', `h2') == 1
     local nsup = `N0' - _N
     if "`one'" != "" {
         quietly generate strL _key = `gate' + char(9) + grp
@@ -459,9 +487,12 @@ program define _dataqa_report, rclass
             frame `lf' {
                 forvalues j = 1/`=_N' {
                     if status[`j'] != "error" continue
-                    local d = dataset[`j']
-                    if `"`d'"' == "" local d "(unnamed)"
-                    display as error `"    `d': rc `=observed_num[`j']', run `=run[`j']', call `=seq[`j']'"'
+                    // ledger text is shown as text: no SMCL, quote or macro
+                    // character in a dataset or run name is live
+                    mata: st_local("d", _dataqa_show(st_sdata(`j', "dataset")))
+                    if `"`macval(d)'"' == "" local d "(unnamed)"
+                    mata: st_local("rn", _dataqa_show(st_sdata(`j', "run")))
+                    display as error `"    `macval(d)': rc `=observed_num[`j']', run `macval(rn)', call `=seq[`j']'"'
                 }
             }
         }
@@ -474,25 +505,26 @@ program define _dataqa_report, rclass
             local tot_f = 0
             local tot_w = 0
             foreach ds of local dslist {
-                quietly count if _ds == `"`ds'"' & kind != "review"
+                quietly count if _ds == `"`macval(ds)'"' & kind != "review"
                 local ng = r(N)
-                quietly count if _ds == `"`ds'"' & status == "fail"
+                quietly count if _ds == `"`macval(ds)'"' & status == "fail"
                 local nf = r(N)
-                quietly count if _ds == `"`ds'"' & status == "warn"
+                quietly count if _ds == `"`macval(ds)'"' & status == "warn"
                 local nw = r(N)
-                quietly count if _ds == `"`ds'"' & status == "review"
+                quietly count if _ds == `"`macval(ds)'"' & status == "review"
                 local nr = r(N)
                 tempvar tg
-                quietly egen byte `tg' = tag(run seq) if _ds == `"`ds'"'
+                quietly egen byte `tg' = tag(run seq) if _ds == `"`macval(ds)'"'
                 quietly count if `tg' == 1
                 local nc = r(N)
                 quietly drop `tg'
-                quietly count if _ds == `"`ds'"' & status == "error"
+                quietly count if _ds == `"`macval(ds)'"' & status == "error"
                 local nf = `nf' + r(N)
                 local tot_f = `tot_f' + `nf'
                 local tot_w = `tot_w' + `nw'
-                local dshow = substr(`"`ds'"', 1, 31)
-                display as text "  " as result %-32s `"`dshow'"' %7.0f `nc' %7.0f `ng' ///
+                mata: st_local("dshow", _dataqa_show(usubstr(st_local("ds"), 1, 31) + ///
+                    (32 - ustrlen(usubstr(st_local("ds"), 1, 31))) * " "))
+                display as text "  " as result `"`macval(dshow)'"' %7.0f `nc' %7.0f `ng' ///
                     %8.0f `nf' %8.0f `nw' %8.0f `nr'
             }
             local nds : word count `dslist'
@@ -520,16 +552,12 @@ program define _dataqa_report, rclass
                 frame `lf' {
                     forvalues j = 1/`=_N' {
                         if !_bd[`j'] continue
-                        local bds = dataset[`j']
-                        if `"`bds'"' == "" local bds "(unnamed)"
-                        local bg = family[`j'] + "(" + label[`j'] + ")"
-                        local bgr = grp[`j']
-                        if `"`bgr'"' != "" local bg `"`bg' [`bgr']"'
-                        local bex = expected[`j']
-                        if `"`bex'"' == "" local bex "(not recorded)"
-                        local bob = observed[`j']
-                        display as text "  " as result %-16s abbrev(`"`bds'"', 15) as text %-22s abbrev(`"`bg'"', 21) ///
-                            as result %-7s status[`j'] as text %-18s abbrev(`"`bex'"', 17) as result `"`bob'"'
+                        // read and padded in Mata, shown as text
+                        // (_dataqa_show): no SMCL, quote or macro
+                        // character in the ledger is live
+                        mata: _dataqa_bandcells(`j')
+                        display as text "  " as result `"`macval(_c1)'"' as text `"`macval(_c2)'"' ///
+                            as result %-7s status[`j'] as text `"`macval(_c3)'"' as result `"`macval(_c4)'"'
                     }
                 }
             }
@@ -550,48 +578,53 @@ program define _dataqa_report, rclass
             local nrows = 0
             frame `lf' {
                 foreach ds of local dslist {
-                    quietly count if _ds == `"`ds'"' & inlist(status, "fail", "warn", "review", "error")
+                    quietly count if _ds == `"`macval(ds)'"' & inlist(status, "fail", "warn", "review", "error")
                     local nopen = r(N)
-                    quietly count if _ds == `"`ds'"' & inlist(status, "fail", "warn", "error")
+                    quietly count if _ds == `"`macval(ds)'"' & inlist(status, "fail", "warn", "error")
                     local nbad = r(N)
                     // the runs this dataset's rows come from
-                    quietly levelsof run if _ds == `"`ds'"', local(rl)
+                    quietly levelsof run if _ds == `"`macval(ds)'"', local(rl)
                     local rr ""
                     foreach r of local rl {
-                        if `"`rr'"' == "" local rr `"`r'"'
-                        else local rr `"`rr', `r'"'
+                        if `"`macval(rr)'"' == "" local rr `"`macval(r)'"'
+                        else local rr `"`macval(rr)', `macval(r)'"'
                     }
                     // clean-run row: every gate of the dataset passed
                     if `nbad' == 0 {
                         local fams ""
-                        quietly levelsof family if _ds == `"`ds'"' & kind != "review", local(fl) clean
+                        quietly levelsof family if _ds == `"`macval(ds)'"' & kind != "review", local(fl) clean
                         local fams "`fl'"
-                        quietly count if _ds == `"`ds'"' & kind != "review"
+                        quietly count if _ds == `"`macval(ds)'"' & kind != "review"
                         local ng = r(N)
                         if `ng' > 0 {
-                            quietly summarize seq if _ds == `"`ds'"', meanonly
-                            quietly levelsof stamp if _ds == `"`ds'"', local(st) clean
+                            quietly summarize seq if _ds == `"`macval(ds)'"', meanonly
+                            quietly levelsof stamp if _ds == `"`macval(ds)'"', local(st) clean
                             local dt = substr(word(`"`st'"', 1), 1, 10)
-                            local cell_ds = subinstr(`"`ds'"', "|", "\|", .)
-                            local cell_rr = subinstr(`"`rr'"', "|", "\|", .)
-                            file write `fh' `"| `cell_rr' | `cell_ds' | all gates passed: `fams' | 0 violations in `ng' gate entries | as declared | clean | `dt' |  |"' _n
+                            mata: st_local("cell_ds", subinstr(st_local("ds"), "|", "\|"))
+                            mata: st_local("cell_rr", subinstr(st_local("rr"), "|", "\|"))
+                            file write `fh' `"| `macval(cell_rr)' | `macval(cell_ds)' | all gates passed: `fams' | 0 violations in `ng' gate entries | as declared | clean | `dt' |  |"' _n
                             local ++nrows
                         }
                     }
                     forvalues j = 1/`=_N' {
-                        if _ds[`j'] != `"`ds'"' continue
+                        if _ds[`j'] != `"`macval(ds)'"' continue
                         if !inlist(status[`j'], "fail", "warn", "review", "error") continue
-                        local fam = family[`j']
-                        local lab = label[`j']
-                        local obs = observed[`j']
-                        local exp = expected[`j']
-                        local grp = grp[`j']
-                        local knd = kind[`j']
-                        local sts = status[`j']
-                        local rr = run[`j']
+                        // ledger text is data: read in Mata and joined
+                        // with macval(), never re-read as macro syntax
+                        foreach c in family label observed expected grp kind status run {
+                            mata: st_local("_t_`c'", st_sdata(`j', "`c'"))
+                        }
+                        local fam : copy local _t_family
+                        local lab : copy local _t_label
+                        local obs : copy local _t_observed
+                        local exp : copy local _t_expected
+                        local grp : copy local _t_grp
+                        local knd : copy local _t_kind
+                        local sts : copy local _t_status
+                        local rr : copy local _t_run
                         local dt = substr(stamp[`j'], 1, 10)
-                        local check `"`fam'(`lab'): `obs' against `exp'"'
-                        if `"`grp'"' != "" local check `"`check' [`grp']"'
+                        local check `"`macval(fam)'(`macval(lab)'): `macval(obs)' against `macval(exp)'"'
+                        if `"`macval(grp)'"' != "" local check `"`macval(check)' [`macval(grp)']"'
                         _dataqa_allowed `knd'
                         local allow `"`r(s)'"'
                         if "`knd'" == "review" local disp `"open (review item; allowed: `allow')"'
@@ -602,10 +635,9 @@ program define _dataqa_report, rclass
                         }
                         local pic = cond("`knd'" == "invariant", "required if accepted", "")
                         foreach c in check obs exp disp ds rr {
-                            local cell_`c' = subinstr(`"``c''"', "|", "\|", .)
-                            local cell_`c' = subinstr(`"`cell_`c''"', char(10), " ", .)
+                            mata: st_local("cell_`c'", subinstr(subinstr(st_local("`c'"), "|", "\|"), char(10), " "))
                         }
-                        file write `fh' `"| `cell_rr' | `cell_ds' | `cell_check' | `cell_obs' | `cell_exp'; source: | `cell_disp' | `dt' | `pic' |"' _n
+                        file write `fh' `"| `macval(cell_rr)' | `macval(cell_ds)' | `macval(cell_check)' | `macval(cell_obs)' | `macval(cell_exp)'; source: | `macval(cell_disp)' | `dt' | `pic' |"' _n
                         local ++nrows
                     }
                 }
@@ -621,21 +653,8 @@ program define _dataqa_report, rclass
                     frame `lf' {
                         forvalues j = 1/`=_N' {
                             if !_bd[`j'] continue
-                            local bds = dataset[`j']
-                            if `"`bds'"' == "" local bds "(unnamed)"
-                            local bg = family[`j'] + "(" + label[`j'] + ")"
-                            local bgr = grp[`j']
-                            if `"`bgr'"' != "" local bg `"`bg' [`bgr']"'
-                            local bex = expected[`j']
-                            if `"`bex'"' == "" local bex "(not recorded)"
-                            local bob = observed[`j']
-                            local brun = run[`j']
-                            local bst = status[`j']
-                            foreach c in brun bds bg bst bex bob {
-                                local cell_`c' = subinstr(`"``c''"', "|", "\|", .)
-                                local cell_`c' = subinstr(`"`cell_`c''"', char(10), " ", .)
-                            }
-                            file write `fh' `"| `cell_brun' | `cell_bds' | `cell_bg' | `cell_bst' | `cell_bex' | `cell_bob' |"' _n
+                            mata: _dataqa_bandmd(`j')
+                            file write `fh' `"| `macval(cell_brun)' | `macval(cell_bds)' | `macval(cell_bg)' | `macval(cell_bst)' | `macval(cell_bex)' | `macval(cell_bob)' |"' _n
                         }
                     }
                 }
@@ -778,18 +797,19 @@ program define _dataqa_assert, rclass
                     // as text: no quote, macro or SMCL character in a label or
                     // value is live, as dataprobe prints it
                     mata: st_local("m", _dataqa_show(st_sdata(`j', "message")))
-                    local d = dataset[`j']
-                    if `"`d'"' == "" local d "(unnamed)"
+                    mata: st_local("d", _dataqa_show(st_sdata(`j', "dataset")))
+                    if `"`macval(d)'"' == "" local d "(unnamed)"
                     if status[`j'] == "error" {
-                        display as error `"    `d': call error, rc `=observed_num[`j']' (the call did not run its gates): `macval(m)'"'
+                        display as error `"    `macval(d)': call error, rc `=observed_num[`j']' (the call did not run its gates): `macval(m)'"'
                     }
-                    else display as error `"    `d': `macval(m)'"'
+                    else display as error `"    `macval(d)': `macval(m)'"'
                 }
                 local _halt = 1
             }
             foreach e of local _expl {
-                quietly count if dataset == `"`e'"' | strpos(dataset, `"`e' ("') == 1 | ///
-                    strpos(dataset, `"`e',"') == 1
+                // the name, with or without (modified): a prefix match let
+                // expect(cohort) be met by "cohort (2019)"
+                quietly count if dataset == `"`e'"' | dataset == `"`e' (modified)"'
                 if r(N) == 0 {
                     if strpos(`"`e'"', " ") local missing `"`missing' `"`e'"'"'
                     else local missing `"`missing' `e'"'
@@ -864,9 +884,26 @@ program define _dataqa_export, rclass
         _dataqa_canon `"`file'"'
         local cfile `"`r(path)'"'
         _dataqa_canon `"`sfile'"'
-        if `"`r(path)'"' == `"`cfile'"' {
+        local csfile `"`r(path)'"'
+        if `"`csfile'"' == `"`cfile'"' {
             display as error "dataqa export: saving() names the ledger being exported; the release copy needs its own file"
             exit 602
+        }
+        // nor over the session's ledger or baseline ledger when another
+        // ledger is exported with using
+        _datamap_dqdefaults
+        local _sl `"`r(ledger)'"'
+        local _sb `"`r(baseledger)'"'
+        foreach _L in _sl _sb {
+            if `"``_L''"' == "" continue
+            mata: st_local("_lx", pathsuffix(st_local("`_L'")))
+            if `"`_lx'"' == "" local `_L' `"``_L''.dta"'
+            _dataqa_canon `"``_L''"'
+            if `"`r(path)'"' == `"`csfile'"' {
+                display as error "dataqa export: saving() names the session's " ///
+                    cond("`_L'" == "_sl", "ledger", "baseline ledger") "; the release copy needs its own file"
+                exit 602
+            }
         }
         frame `lf': _dataqa_latest
         local nsup = r(n_superseded)
@@ -912,6 +949,36 @@ program define _dataqa_export, rclass
             local n_scope_dropped = r(N)
             quietly replace scope = "" if _lit
             quietly drop _lit
+            // The same test on the text of the gates that are written as
+            // data values (a rule expression, a forbidden or allowed value
+            // list): pnr != "198001010009" and "none of 198001010011" sat in
+            // expected and message beside a masked count.  The message
+            // echoes the expectation, so it goes with it.  Bounds gates
+            // (inrange, stat, ...) keep their numbers.
+            local _vfam `""rule", "review", "byrule", "forbid", "notvalues", "allowed", "regex", "sets", "values""'
+            local n_text_dropped = 0
+            foreach v in expected label message {
+                quietly generate byte _lit_`v' = inlist(family, `_vfam') & ///
+                    (regexm(`v', "[0-9][0-9][0-9][0-9]") | strpos(`v', char(34)) > 0)
+            }
+            quietly replace _lit_message = 1 if _lit_expected | _lit_label
+            foreach v in expected label message {
+                quietly count if _lit_`v'
+                local n_text_dropped = `n_text_dropped' + r(N)
+                quietly replace `v' = "" if _lit_`v'
+                quietly drop _lit_`v'
+            }
+            // signature leads with the dataset's N ("3:12(...)"): blank it
+            // when that N is a small count the row's masking withholds
+            local n_sig_dropped = 0
+            capture confirm string variable signature
+            if !_rc {
+                quietly generate double _sgn = real(regexs(1)) if regexm(signature, "^([0-9]+):")
+                quietly count if _sgn >= 1 & _sgn < `threshold'
+                local n_sig_dropped = r(N)
+                quietly replace signature = "" if _sgn >= 1 & _sgn < `threshold'
+                quietly drop _sgn
+            }
             capture confirm file `"`sfile'"'
             if !_rc & "`replace'" == "" {
                 display as error `"dataqa export: `sfile' exists; specify replace"'
@@ -922,6 +989,10 @@ program define _dataqa_export, rclass
         display as text "dataqa export: " as result "`N'" as text " row(s) of run " as result `"`run'"' ///
             as text " written to " as result `"`sfile'"'
         if `n_scope_dropped' display as text "  `n_scope_dropped' scope expression(s) with literal values blanked"
+        if `n_text_dropped' display as text "  `n_text_dropped' expectation, label, or message text(s) with literal values blanked"
+        if `n_sig_dropped' display as text "  `n_sig_dropped' signature(s) of a dataset with fewer than `threshold' rows blanked"
+        return scalar n_text_dropped = `n_text_dropped'
+        return scalar n_sig_dropped = `n_sig_dropped'
         return scalar N = `N'
         return scalar n_superseded = `nsup'
         return scalar n_scope_dropped = `n_scope_dropped'
@@ -977,9 +1048,9 @@ program define _dataqa_compare, rclass
         frame `lf' {
             forvalues j = 1/`=_N' {
                 if status[`j'] != "error" continue
-                local ds = dataset[`j']
+                mata: st_local("ds", _dataqa_show(st_sdata(`j', "dataset")))
                 if `"`ds'"' == "" local ds "(unnamed)"
-                display as text "  error  " as result `"`ds'"' as text ": the call exited with rc " ///
+                display as text "  error  " as result `"`macval(ds)'"' as text ": the call exited with rc " ///
                     as result `=observed_num[`j']' as text " and ran no gates"
                 local ++nflag
             }
@@ -990,6 +1061,10 @@ program define _dataqa_compare, rclass
             frame `f' {
                 _dataqa_latest, one
                 quietly replace dataset = regexr(dataset, " \(modified\)$", "")
+                // a ledger written before signature() had no column; the
+                // frget below stopped at r(111)
+                capture confirm variable signature
+                if _rc quietly generate strL signature = ""
             }
         }
         // A by() group named by number in one run and by value in the other
@@ -1029,12 +1104,15 @@ program define _dataqa_compare, rclass
                 local a = n_scope[`j']
                 local b = _bn[`j']
                 if missing(`a') & missing(`b') continue
-                local ds = dataset[`j']
+                mata: st_local("ds", _dataqa_show(st_sdata(`j', "dataset")))
                 local fl = subinstr(family[`j'] + "(" + label[`j'] + ")", "{", "{c -(}", .)
+                // the by() group: without it two groups' flags read alike
+                mata: st_local("_g", _dataqa_show(st_sdata(`j', "grp")))
+                if `"`macval(_g)'"' != "" local fl `"`fl' [`macval(_g)']"'
                 if missing(`a') | missing(`b') {
                     local bs = cond(missing(`b'), "withheld", "`b'")
                     local as = cond(missing(`a'), "withheld", "`a'")
-                    display as text "  N  " as result `"`ds'"' as text " `fl': " ///
+                    display as text "  N  " as result `"`macval(ds)'"' as text " `fl': " ///
                         as result "`bs'" as text " -> " as result "`as'" ///
                         as text " (withheld under the mask in one run)"
                     local ++nflag
@@ -1042,7 +1120,7 @@ program define _dataqa_compare, rclass
                 }
                 if `b' == 0 {
                     if `a' != 0 {
-                        display as text "  N  " as result `"`ds'"' as text " `fl': " ///
+                        display as text "  N  " as result `"`macval(ds)'"' as text " `fl': " ///
                             as result "0" as text " -> " as result "`a'" as text " (baseline 0)"
                         local ++nflag
                     }
@@ -1051,7 +1129,7 @@ program define _dataqa_compare, rclass
                 local rel = (`a' - `b') / `b'
                 if abs(`rel') > `ntol' {
                     local pc = strtrim(string(100 * `rel', "%9.1f"))
-                    display as text "  N  " as result `"`ds'"' as text " `fl': " ///
+                    display as text "  N  " as result `"`macval(ds)'"' as text " `fl': " ///
                         as result "`b'" as text " -> " as result "`a'" as text " (`pc'%)"
                     local ++nflag
                 }
@@ -1062,13 +1140,15 @@ program define _dataqa_compare, rclass
                 if missing(observed_num[`j']) & missing(_bo[`j']) continue
                 // a value on one side only: masked or undefined in the other
                 if missing(observed_num[`j']) | missing(_bo[`j']) {
-                    local ds = dataset[`j']
+                    mata: st_local("ds", _dataqa_show(st_sdata(`j', "dataset")))
                     local fl = subinstr("stat(" + label[`j'] + ")", "{", "{c -(}", .)
+                    mata: st_local("_g", _dataqa_show(st_sdata(`j', "grp")))
+                    if `"`macval(_g)'"' != "" local fl `"`fl' [`macval(_g)']"'
                     local bs = cond(_bom[`j'] == 1, "masked", "undefined")
                     if !missing(_bo[`j']) local bs = strtrim(string(_bo[`j'], "%10.4g"))
                     local as = cond(obs_masked[`j'] == 1, "masked", "undefined")
                     if !missing(observed_num[`j']) local as = strtrim(string(observed_num[`j'], "%10.4g"))
-                    display as text "  stat  " as result `"`ds'"' as text " `fl': " ///
+                    display as text "  stat  " as result `"`macval(ds)'"' as text " `fl': " ///
                         as result "`bs'" as text " -> " as result "`as'"
                     local ++nflag
                     continue
@@ -1077,9 +1157,11 @@ program define _dataqa_compare, rclass
                 local b = regexr(string(_bo[`j'], "%21x"), "^[+]", "")
                 local rel = regexr(string(cond(`b' != 0, (`a' - `b') / abs(`b'), `a' - `b'), "%21x"), "^[+]", "")
                 if abs(`rel') > `stattol' {
-                    local ds = dataset[`j']
+                    mata: st_local("ds", _dataqa_show(st_sdata(`j', "dataset")))
                     local fl = subinstr("stat(" + label[`j'] + ")", "{", "{c -(}", .)
-                    display as text "  stat  " as result `"`ds'"' as text " `fl': " ///
+                    mata: st_local("_g", _dataqa_show(st_sdata(`j', "grp")))
+                    if `"`macval(_g)'"' != "" local fl `"`fl' [`macval(_g)']"'
+                    display as text "  stat  " as result `"`macval(ds)'"' as text " `macval(fl)': " ///
                         as result %10.4g `b' as text " -> " as result %10.4g `a'
                     local ++nflag
                 }
@@ -1088,7 +1170,8 @@ program define _dataqa_compare, rclass
             quietly levelsof dataset if !missing(`lk') & signature != "" & _bsig != "" & ///
                 signature != _bsig, local(sigds)
             foreach ds of local sigds {
-                display as text "  signature  " as result `"`ds'"' as text ": the data changed since the baseline"
+                mata: st_local("ds", _dataqa_show(st_local("ds")))
+                display as text "  signature  " as result `"`macval(ds)'"' as text ": the data changed since the baseline"
                 local ++nflag
             }
             quietly drop _bn _bo _bom _bsig
@@ -1102,9 +1185,9 @@ program define _dataqa_compare, rclass
             mata: _dq_l = st_sdata(., "_gkey"); _dq_r = J(rows(_dq_l), 1, 0); for (_dq_i = 1; _dq_i <= rows(_dq_l); _dq_i++) _dq_r[_dq_i] = asarray_contains(_dq_A, _dq_l[_dq_i]); st_store(., st_varindex("`newg'"), _dq_r)
             forvalues j = 1/`=_N' {
                 if missing(`lk'[`j']) & `newg'[`j'] & _gbase[`j'] != "" & grp[`j'] == _gbase[`j'] {
-                    local ds = dataset[`j']
+                    mata: st_local("ds", _dataqa_show(st_sdata(`j', "dataset")))
                     local fl = subinstr(family[`j'] + "(" + label[`j'] + ")", "{", "{c -(}", .)
-                    display as text "  new  " as result `"`ds'"' as text `" `fl' [`=grp[`j']']: a group not in the baseline"'
+                    display as text "  new  " as result `"`macval(ds)'"' as text `" `fl' [`=grp[`j']']: a group not in the baseline"'
                     local ++nflag
                 }
             }
@@ -1116,13 +1199,13 @@ program define _dataqa_compare, rclass
             quietly frlink 1:1 _key, frame(`lf') generate(`bl')
             forvalues j = 1/`=_N' {
                 if !missing(`bl'[`j']) continue
-                local ds = dataset[`j']
+                mata: st_local("ds", _dataqa_show(st_sdata(`j', "dataset")))
                 local fl = subinstr(family[`j'] + "(" + label[`j'] + ")", "{", "{c -(}", .)
                 local g = grp[`j']
                 if `"`g'"' != "" local fl `"`fl' [`g']"'
                 local e = expected[`j']
                 if `"`e'"' != "" local fl `"`fl', expected `e'"'
-                display as text "  absent  " as result `"`ds'"' as text " `fl': in the baseline, not in this run"
+                display as text "  absent  " as result `"`macval(ds)'"' as text " `fl': in the baseline, not in this run"
                 local ++nflag
             }
         }
@@ -1135,6 +1218,8 @@ program define _dataqa_compare, rclass
         return local baseline `"`baseline'"'
     }
     local rc = _rc
+    // the pairing's Mata globals, also when the comparison stopped midway
+    capture mata: mata drop _dq_A _dq_b _dq_l _dq_r _dq_i
     if `_bf_made' capture frame drop `bf'
     if `_lf_made' capture frame drop `lf'
     if `rc' exit `rc'
@@ -1144,6 +1229,9 @@ end
 // break, tab or other control character as \n, \r, \t or \xHH, a brace as
 // {c -(}, and a backtick, double quote and dollar sign as {char N}.
 capture mata: mata drop _dataqa_show()
+capture mata: mata drop _dataqa_bandtext()
+capture mata: mata drop _dataqa_bandcells()
+capture mata: mata drop _dataqa_bandmd()
 mata:
 string scalar _dataqa_show(string scalar s)
 {
@@ -1161,5 +1249,52 @@ string scalar _dataqa_show(string scalar s)
 	out = subinstr(out, char(34), "{char 34}")
 	out = subinstr(out, char(36), "{char 36}")
 	return(out)
+}
+
+// One bands-table row's text fields from ledger row j: dataset, gate
+// (family(label) [grp]), declared range, observed.
+string rowvector _dataqa_bandtext(real scalar j)
+{
+	string scalar ds, g, gr, ex
+	ds = st_sdata(j, "dataset")
+	if (ds == "") ds = "(unnamed)"
+	g = st_sdata(j, "family") + "(" + st_sdata(j, "label") + ")"
+	gr = st_sdata(j, "grp")
+	if (gr != "") g = g + " [" + gr + "]"
+	ex = st_sdata(j, "expected")
+	if (ex == "") ex = "(not recorded)"
+	return((ds, g, ex, st_sdata(j, "observed")))
+}
+
+// Console cells _c1.._c4 for row j: cut and padded as the old %-16s, %-22s
+// and %-18s columns, then shown as text (_dataqa_show).
+void _dataqa_bandcells(real scalar j)
+{
+	string rowvector t
+	real rowvector w
+	real scalar k
+	string scalar c
+	t = _dataqa_bandtext(j)
+	w = (16, 22, 18)
+	for (k = 1; k <= 3; k++) {
+		c = abbrev(t[k], w[k] - 1)
+		c = c + (w[k] - ustrlen(c)) * " "
+		st_local("_c" + strofreal(k), _dataqa_show(c))
+	}
+	st_local("_c4", _dataqa_show(t[4]))
+}
+
+// Markdown cells cell_brun, cell_bds, cell_bg, cell_bst, cell_bex,
+// cell_bob for row j, a pipe escaped and a line break as a space.
+void _dataqa_bandmd(real scalar j)
+{
+	string rowvector t, v, n
+	real scalar k
+	t = _dataqa_bandtext(j)
+	v = (st_sdata(j, "run"), t[1], t[2], st_sdata(j, "status"), t[3], t[4])
+	n = ("brun", "bds", "bg", "bst", "bex", "bob")
+	for (k = 1; k <= 6; k++) {
+		st_local("cell_" + n[k], subinstr(subinstr(v[k], "|", char(92) + "|"), char(10), " "))
+	}
 }
 end

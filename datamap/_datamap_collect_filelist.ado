@@ -1,4 +1,4 @@
-*! _datamap_collect_filelist Version 1.10.2  2026/10/20
+*! _datamap_collect_filelist Version 1.10.3  2026/10/20
 *! Shared datamap/datadict filelist parser
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -29,17 +29,17 @@ program define _datamap_collect_filelist, nclass
 		// and file.dta.  (A bare "my file" is ambiguous and splits; see help.)
 		if strpos(`"`dsname'"', " ") > 0 {
 			local _probe `"`dsname'"'
-			if !regexm(`"`_probe'"', "\.dta$") local _probe `"`_probe'.dta"'
+			if !regexm(lower(`"`_probe'"'), "\.dta$") local _probe `"`_probe'.dta"'
 			capture confirm file `"`_probe'"'
 			if _rc {
-				local _ends = regexm(`"`dsname'"', "\.dta$")
+				local _ends = regexm(lower(`"`dsname'"'), "\.dta$")
 				local _seps = strpos(`"`dsname'"', "/") | strpos(`"`dsname'"', "\")
 				local _split = 1
 				local _allfiles = 1
 				foreach _w of local dsname {
-					if `_ends' & !regexm(`"`_w'"', "\.dta$") local _split = 0
+					if `_ends' & !regexm(lower(`"`_w'"'), "\.dta$") local _split = 0
 					if `_seps' & !(strpos(`"`_w'"', "/") | strpos(`"`_w'"', "\")) local _split = 0
-					if !regexm(`"`_w'"', "\.dta$") local _allfiles = 0
+					if !regexm(lower(`"`_w'"'), "\.dta$") local _allfiles = 0
 					else {
 						capture confirm file `"`_w'"'
 						if _rc local _allfiles = 0
@@ -57,7 +57,7 @@ program define _datamap_collect_filelist, nclass
 		}
 		if `"`dsname'"' != "" {
 			_datamap_validate_path `"`dsname'"', option("filelist()")
-			if !regexm(`"`dsname'"', "\.dta$") {
+			if !regexm(lower(`"`dsname'"'), "\.dta$") {
 				local dsname `"`dsname'.dta"'
 			}
 			capture quietly confirm file `"`dsname'"'

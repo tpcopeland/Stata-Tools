@@ -136,9 +136,16 @@ failures, warnings, and review items. Within a run, {cmd:report},
 gate being matched as in {cmd:dataqa compare} (see below): a gate that
 failed and then passed when the same call was rerun counts once, as
 passed. A rerun with changed bounds is a new gate, so the earlier failure stays in
-the count; widening an expectation cannot clear it. A call without a dataset name (no {opt name()} and no file in memory) is
+the count; widening an expectation cannot clear it. So is the same check
+declared as another kind (a failed {opt stat()} invariant rerun as a
+{opt bands()} band). A rerun supersedes an earlier row only when it tested the
+same rows: the same {cmd:n_scope} (within the same {cmd:by()} group for a
+{cmd:by()} row), so a rerun on a subset of the data ({cmd:keep if ...}) leaves
+the full-data failure standing; start the run afresh to drop it. A call without a dataset name (no {opt name()} and no file in memory) is
 never superseded, since it cannot be told apart from another unnamed
-dataset. {opt markdown(filename)} writes draft
+dataset. Ledger text (a dataset name, label, expectation, or observed value)
+is printed as text in the console and the draft: no SMCL, quote, or macro
+character in it is live. {opt markdown(filename)} writes draft
 register rows in the column order Run | Dataset | Check | Observed |
 Expectation and source | Disposition | Date | PI consulted. The Check cell
 follows one grammar, {it:family}{cmd:(}{it:label}{cmd:):} {it:observed}
@@ -170,8 +177,8 @@ an invariant was downgraded by bare {cmd:warn}, if the run has no rows, or if a
 dataset named in {opt expect()} has no rows in the run. The last condition makes
 the review-loop rule "a QA dataset line not followed by a verdict" mechanical: placed
 last in the QA section, it catches a gate call deleted by mistake. A
-name in {opt expect()} matches a dataset recorded under that name, with or
-without {bf:(modified)}.
+name in {opt expect()} matches a dataset recorded under exactly that name, with or
+without {bf:(modified)}; {cmd:expect(cohort)} is not met by {bf:cohort (2019)}.
 
 {pstd}
 With {opt baseline()}, {cmd:dataqa assert} also exits with return code 9 when a
@@ -198,9 +205,17 @@ refuses with r(459) when any row comes from a call not run under
 {opt threshold()} (default 5), when any row prints a count between 1 and
 {opt threshold()}-1, or when a masked row keeps {cmd:observed_num}. The copy
 blanks {cmd:scope} expressions that contain a quoted string or a number of four
-or more digits, which may be an identifier written in a hurry. The working
+or more digits, which may be an identifier written in a hurry. The same test
+blanks the {cmd:expected}, {cmd:label}, and {cmd:message} text of the gates
+written as data values ({opt rule()}, {opt review()}, {opt byrule()},
+{opt forbid()}, {opt notvalues()}, {opt allowed()}, {opt regex()},
+{opt sets()}); the message, which repeats the expectation, goes with it.
+Bounds gates ({opt inrange()}, {opt stat()}, and the like) keep their numbers.
+A {cmd:signature} whose leading N (the dataset's row count) is between 1 and
+{opt threshold()}-1 is blanked. The working
 ledger stays on the server; only the exported copy leaves it, so the copy is
-a different file: {opt saving()} naming the ledger being read is refused
+a different file: {opt saving()} naming the ledger being read, or the
+session's {opt ledger()} or {opt baseledger()}, is refused
 with r(602), even with {opt replace}. The comparison resolves a relative
 path against the working directory and folds {cmd:./} and
 {cmd:dir/..} segments; on Windows it treats {cmd:\} as {cmd:/} and, as on macOS,
@@ -210,8 +225,8 @@ ignores case. It does not see through a symbolic link or a mapped drive.
 
 {pstd}
 {cmd:dataqa compare} matches the rows of {opt run()} with those of
-{opt baseline()} on dataset, family, label, variable, group, scope, and
-expectation, in the same ledger or in {opt baseledger()}. A gate whose bounds
+{opt baseline()} on dataset, family, label, variable, group, scope,
+expectation, and kind, in the same ledger or in {opt baseledger()}. A gate whose bounds
 changed is therefore a different gate: its baseline row is flagged as
 absent. A {cmd:by()} group is matched on its values ({cmd:site=3 year=2015}), so a level added
 between extracts is reported as a new group ({cmd:new}) and every other group still pairs
@@ -222,7 +237,8 @@ number and the other by value, {cmd:compare} prints {cmd:mixed}, counts one item
 and pairs none of that gate's groups; re-run the baseline to compare them. It flags a change in rows in scope beyond
 {opt ntol()} (a share, default 0.05), a change in a {opt stat()} value beyond
 {opt stattol()} (a relative change, default 0.05), a changed
-{help datasignature}, and a gate present in the baseline but absent now. A
+{help datasignature}, and a gate present in the baseline but absent now; an
+N or {opt stat()} flag of a {cmd:by()} call names its group in brackets. A
 count or {opt stat()} value withheld under the mask (or, for {opt stat()},
 undefined) in one run and shown in the other is flagged without printing the
 withheld number; against a baseline of 0 any change is flagged. The
@@ -243,7 +259,8 @@ run on an extract.
 
 {phang}
 {opt min:cell(#)} sets the mask threshold, a nonnegative integer, passed to
-both commands as {opt mincell()}. Without it, the threshold under
+both commands as {opt mincell()}; a negative value is r(198) and leaves the
+defaults as they were. Without it, the threshold under
 {opt maskrare} is {opt rare()} or 5 in {cmd:dataprobe} and 5 in {cmd:datamvp}.
 
 {phang}
@@ -448,7 +465,9 @@ stores {cmd:r(N)}, {cmd:r(n_failed)}, {cmd:r(n_errors)} (error rows, included in
 datasets without rows now, each in compound quotes),
 {cmd:r(n_optional_absent)} and {cmd:r(optional_absent)} (those waived by
 {opt optional()}); the baseline may come from {cmd:dataqa set baseline()}. {cmd:dataqa export}
-stores {cmd:r(N)}, {cmd:r(n_scope_dropped)}, and {cmd:r(saving)}. {cmd:dataqa compare}
+stores {cmd:r(N)}, {cmd:r(n_scope_dropped)}, {cmd:r(n_text_dropped)} (expected,
+label, and message texts blanked), {cmd:r(n_sig_dropped)} (signatures blanked),
+and {cmd:r(saving)}. {cmd:dataqa compare}
 stores {cmd:r(n_flags)} and {cmd:r(baseline)}, and with {opt baseline()}
 {cmd:r(run)}.
 

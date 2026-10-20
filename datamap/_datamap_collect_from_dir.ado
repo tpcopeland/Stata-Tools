@@ -1,4 +1,4 @@
-*! _datamap_collect_from_dir Version 1.10.2  2026/10/20
+*! _datamap_collect_from_dir Version 1.10.3  2026/10/20
 *! Shared datamap/datadict directory scanner
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -16,7 +16,10 @@ program define _datamap_collect_from_dir, nclass
 	local opened 1
 
 	if `"`recursive'"' == "" {
-		local files : dir `"`directory'"' files "*.dta"
+		// *.DTA too: on a case-sensitive file system "*.dta" skipped X.DTA
+	local files : dir `"`directory'"' files "*.dta"
+	local _filesU : dir `"`directory'"' files "*.DTA"
+	local files : list files | _filesU
 		foreach f of local files {
 			if `"`directory'"' != "." {
 				file write `fh' `"`directory'/`f'"' _n
@@ -47,9 +50,18 @@ program define _datamap_recursive_scan, nclass
 	local _varabbrev = c(varabbrev)
 	set varabbrev off
 	capture noisily {
-	args directory fh
+	args directory fh depth
+	// a symbolic link back to an ancestor made the walk unbounded
+	if "`depth'" == "" local depth 0
+	if `depth' > 32 {
+		display as error `"recursive: directories nested deeper than 32 levels below the start (a symbolic-link loop?) at `directory'"'
+		exit 198
+	}
 
+	// *.DTA too: on a case-sensitive file system "*.dta" skipped X.DTA
 	local files : dir `"`directory'"' files "*.dta"
+	local _filesU : dir `"`directory'"' files "*.DTA"
+	local files : list files | _filesU
 	foreach f of local files {
 		if `"`directory'"' != "." {
 			file write `fh' `"`directory'/`f'"' _n
@@ -63,10 +75,10 @@ program define _datamap_recursive_scan, nclass
 	foreach subdir of local subdirs {
 		if substr(`"`subdir'"', 1, 1) != "." & `"`subdir'"' != "__pycache__" {
 			if `"`directory'"' != "." {
-				_datamap_recursive_scan `"`directory'/`subdir'"' `fh'
+				_datamap_recursive_scan `"`directory'/`subdir'"' `fh' `=`depth' + 1'
 			}
 			else {
-				_datamap_recursive_scan `"`subdir'"' `fh'
+				_datamap_recursive_scan `"`subdir'"' `fh' `=`depth' + 1'
 			}
 		}
 	}

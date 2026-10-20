@@ -1,4 +1,4 @@
-*! _dataprobe_mcount Version 1.10.2  2026/10/20
+*! _dataprobe_mcount Version 1.10.3  2026/10/20
 *! Mask one count for display under maskrare
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -9,23 +9,33 @@
 // n - k is between 1 and m - 1 prints as "all but <m", because k beside n
 // would recover the small cell.  r(num) is the printed number, or missing
 // when the count was masked, so a caller never stores a masked value in a
-// numeric column.
+// numeric column.  hide = 1 (a by() group whose size is withheld) prints a
+// count of m or more as [suppressed] as well: the count is a lower bound on
+// the withheld size, and N minus the shown groups minus it would give back
+// the other withheld groups.
 program define _dataprobe_mcount, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        args k m n
+        args k m n hide
         if "`m'" == "" local m 0
         if "`n'" == "" local n = .
+        if "`hide'" == "" local hide 0
         local masked = (`m' > 0 & `k' >= 1 & `k' < `m')
         local cmask = 0
+        local hmask = (!`masked' & `m' > 0 & `hide' == 1 & `k' >= `m' & `k' < .)
         if !`masked' & `m' > 0 & `n' < . & `k' >= 1 {
             local cmask = ((`n' - `k') >= 1 & (`n' - `k') < `m')
         }
         if `masked' {
             local s "<`m'"
             local num = .
+        }
+        else if `hmask' {
+            local s "[suppressed]"
+            local num = .
+            local masked = 1
         }
         else if `cmask' {
             local s "all but <`m'"

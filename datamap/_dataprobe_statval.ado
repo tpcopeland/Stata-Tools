@@ -1,4 +1,4 @@
-*! _dataprobe_statval Version 1.10.2  2026/10/20
+*! _dataprobe_statval Version 1.10.3  2026/10/20
 *! One summary statistic of a variable over a condition, raw and masked
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -23,14 +23,22 @@
 // mask() observations).  Counts 1..mask()-1 print as <m, and a count whose
 // complement in the rows in scope, or in the nonmissing rows, is
 // 1..mask()-1 as "all but <m".  pmiss
-// prints "." when fewer than mask() values are missing or nonmissing.  ess and ratio print
-// [suppressed] when fewer than mask() rows contribute.
+// prints "." when fewer than mask() values are missing or nonmissing.  A
+// sum is a value of its contributing rows, not only a count: it prints as
+// [suppressed] when the nonmissing rows, the nonzero rows, or, for a
+// variable with two values, the rows of either value number 1..mask()-1
+// (the sum of a 0.5 flag on 3 rows is 1.5; one row's sum is its value),
+// after the count rules above for an integer sum.  hide (a by() group whose
+// size is withheld) prints a count of mask() or more as [suppressed].  ess and ratio print
+// [suppressed] when fewer than mask() rows contribute; ess also when the
+// zero or the nonzero weights number 1..mask()-1, and ratio also when fewer
+// than mask() rows of v/den lie at or below it or at or above it.
 program define _dataprobe_statval, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax anything(name=spec), COND(string) [MASK(integer 0) FMT(string)]
+        syntax anything(name=spec), COND(string) [MASK(integer 0) FMT(string) HIDE]
         gettoken st spec : spec
         gettoken v spec : spec
         gettoken den spec : spec
@@ -137,6 +145,12 @@ program define _dataprobe_statval, rclass
                     local s "all but <`mask'"
                     local shown = 0
                 }
+                else if `mask' > 0 & "`hide'" != "" & scalar(`val') >= `mask' {
+                    // a count in a by() group whose size is withheld bounds
+                    // that size (see _dataprobe_mcount)
+                    local s "[suppressed]"
+                    local shown = 0
+                }
                 else local s = strtrim(string(scalar(`val'), "%20.0f"))
             }
             else if "`st'" == "pmiss" {
@@ -152,9 +166,48 @@ program define _dataprobe_statval, rclass
                     local s "[suppressed]"
                     local shown = 0
                 }
+                // ess of a weight that is 0 for some rows: the ess of a 0/1
+                // weight is the count of ones, so the zero and nonzero
+                // weights are counts under the count rule
+                else if `mask' > 0 & "`st'" == "ess" {
+                    quietly count if (`cond') & !missing(`v') & `v' != 0
+                    local _nz = r(N)
+                    if (`_nz' >= 1 & `_nz' < `mask') | ///
+                        (`n' - `_nz' >= 1 & `n' - `_nz' < `mask') {
+                        local s "[suppressed]"
+                        local shown = 0
+                    }
+                    else local s = strtrim(string(scalar(`val'), "`fmt'"))
+                }
+                // ratio sum(v)/sum(den) is the den-weighted mean of v/den
+                // (the mean of v when den is 1): it is shown under the mean
+                // rule, at least mask() rows of v/den at or below it and at
+                // or above it
+                else if `mask' > 0 & "`st'" == "ratio" {
+                    quietly count if (`cond') & !missing(`v') & !missing(`den') & ///
+                        `den' != 0 & `v' / `den' <= scalar(`val')
+                    local _nle = r(N)
+                    quietly count if (`cond') & !missing(`v') & !missing(`den') & ///
+                        `den' != 0 & `v' / `den' >= scalar(`val')
+                    if `_nle' < `mask' | r(N) < `mask' {
+                        local s "[suppressed]"
+                        local shown = 0
+                    }
+                    else local s = strtrim(string(scalar(`val'), "`fmt'"))
+                }
                 else local s = strtrim(string(scalar(`val'), "`fmt'"))
             }
             else local s = strtrim(string(scalar(`val'), "`fmt'"))
+            // A sum is a value of its rows: shown only when the nonmissing
+            // rows, the nonzero rows, and (two values) each value's rows
+            // number 0 or at least mask()
+            if `mask' > 0 & "`st'" == "sum" & `shown' & `defined' & !missing(scalar(`val')) {
+                _dataprobe_statval_sumok `v', cond(`"`cond'"') mask(`mask')
+                if !r(ok) {
+                    local s "[suppressed]"
+                    local shown = 0
+                }
+            }
         }
     }
     local rc = _rc
@@ -167,4 +220,35 @@ program define _dataprobe_statval, rclass
     return scalar defined = `defined'
     return scalar shown = `shown'
     return local s `"`s'"'
+end
+
+// 1 when a sum of v over cond may be shown under mask m: the nonmissing
+// rows, the nonzero rows, and, when v takes two values, the rows of each
+// value number 0 or at least m.  One rule for stat(sum) here and for the
+// groupstat(sum) cells, which apply it to the same counts per group.
+capture program drop _dataprobe_statval_sumok
+program define _dataprobe_statval_sumok, rclass
+    version 16.0
+    syntax varname, COND(string) MASK(integer)
+    local v "`varlist'"
+    local ok = 1
+    quietly count if (`cond') & !missing(`v')
+    local nn = r(N)
+    quietly count if (`cond') & !missing(`v') & `v' != 0
+    local nz = r(N)
+    if (`nn' >= 1 & `nn' < `mask') | (`nz' >= 1 & `nz' < `mask') local ok = 0
+    if `ok' & `nn' > 0 {
+        quietly summarize `v' if (`cond'), meanonly
+        tempname lo hi
+        scalar `lo' = r(min)
+        scalar `hi' = r(max)
+        if scalar(`lo') < scalar(`hi') {
+            quietly count if (`cond') & `v' == scalar(`lo')
+            local nlo = r(N)
+            quietly count if (`cond') & `v' == scalar(`hi')
+            local nhi = r(N)
+            if `nlo' + `nhi' == `nn' & (`nlo' < `mask' | `nhi' < `mask') local ok = 0
+        }
+    }
+    return scalar ok = `ok'
 end

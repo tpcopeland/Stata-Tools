@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.10.2  2026/10/20
+*! _datamap_post_metadata_rows Version 1.10.3  2026/10/20
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -8,7 +8,23 @@
 // sign, so a label holding any of them cannot be read as quote or macro syntax
 // when the expression is spliced into a -post- line.
 capture mata: mata drop _datamap_strexpr()
+capture mata: mata drop _datamap_ucut()
 mata:
+// Prefix of s at most nb bytes long that never splits a UTF-8 character:
+// steps back over continuation bytes (0x80-0xBF) at the cut.  substr() cuts
+// bytes, and a str# column or name cut mid-character holds invalid UTF-8.
+string scalar _datamap_ucut(string scalar s, real scalar nb)
+{
+	real scalar i, a
+	if (strlen(s) <= nb) return(s)
+	i = nb
+	while (i > 0) {
+		a = ascii(substr(s, i + 1, 1))
+		if (a < 128 | a >= 192) break
+		i--
+	}
+	return(substr(s, 1, i))
+}
 void _datamap_strexpr(string scalar src, string scalar dst)
 {
 	string scalar s, out, run, ch
@@ -40,14 +56,15 @@ program define _datamap_post_metadata_rows, nclass
     capture noisily {
         syntax, POSTName(name) CLASSifications(string) SOURCECommand(string) ///
             SOURCE(string) DSName(string) NVARS(integer) ///
-            [OUtput(string) DSLabel(string) VARLIST(string) DATASIGnature(string) DATESAFE]
+            [OUtput(string) DSLabel(string) VARLIST(string) DATASIGnature(string) DATESAFE ///
+            NOSTATS MINCell(integer 0)]
 
-        local source = substr(`"`macval(source)'"', 1, 2045)
-        local output = substr(`"`macval(output)'"', 1, 2045)
+        mata: st_local("source", _datamap_ucut(st_local("source"), 2045))
+        mata: st_local("output", _datamap_ucut(st_local("output"), 2045))
         // the data label is read here, not passed on the command line: a
         // label with a backtick or quote cannot be carried through syntax
         local dslabel : data label
-        mata: st_local("dslabel", substr(st_local("dslabel"), 1, 2045))
+        mata: st_local("dslabel", _datamap_ucut(st_local("dslabel"), 2045))
 
         // Frame, not -preserve-: preserve costs a full in-memory copy of the
         // dataset (see _datamap_nuniq.ado), and this only reads a small lookup.
@@ -121,12 +138,26 @@ program define _datamap_post_metadata_rows, nclass
 
             capture confirm numeric variable `vname'
             local is_numeric = (_rc == 0)
-            if `is_numeric' & "`varclass'" != "excluded" & ///
-                !("`datesafe'" != "" & "`varclass'" == "date") {
+            // datamap's report prints summaries only for continuous
+            // variables, and none under nostats; a categorical variable is
+            // a frequency table subject to mincell(), and its mean (the
+            // share of a 0/1 flag) would give a suppressed cell back.  The
+            // saved rows follow the report.
+            // The same rule as the report (_datamap_sumpolicy): under
+            // datesafe nothing for a date or a date-formatted variable in
+            // any class; under mincell() no mean or sd for a two-valued
+            // continuous variable.
+            _datamap_sumpolicy, class(`varclass') vfmt("`vfmt'") `datesafe' ///
+                mincell(`mincell') nuniq(`=cond(missing(`nuniq'), -1, `nuniq')')
+            local _dhide = r(datehide)
+            local _mhide = r(momhide)
+            local _nosum = ("`nostats'" != "" & inlist("`varclass'", "continuous", "categorical")) | ///
+                r(cathide)
+            if `is_numeric' & "`varclass'" != "excluded" & !`_nosum' & !`_dhide' {
                 quietly summarize `vname', detail
                 if r(N) > 0 {
-                    local mean = regexr(string(r(mean), "%21x"), "^[+]", "")
-                    local sd = regexr(string(r(sd), "%21x"), "^[+]", "")
+                    if !`_mhide' local mean = regexr(string(r(mean), "%21x"), "^[+]", "")
+                    if !`_mhide' local sd = regexr(string(r(sd), "%21x"), "^[+]", "")
                     local p50 = regexr(string(r(p50), "%21x"), "^[+]", "")
                     local p25 = regexr(string(r(p25), "%21x"), "^[+]", "")
                     local p75 = regexr(string(r(p75), "%21x"), "^[+]", "")
@@ -168,14 +199,14 @@ program define _datamap_post_metadata_rows, nclass
                 local chars ""
             }
 
-            mata: st_local("post_vlab", substr(st_local("vlab"), 1, 2045))
-            mata: st_local("post_notes", substr(st_local("notes"), 1, 2045))
-            mata: st_local("post_chars", substr(st_local("chars"), 1, 2045))
+            mata: st_local("post_vlab", _datamap_ucut(st_local("vlab"), 2045))
+            mata: st_local("post_notes", _datamap_ucut(st_local("notes"), 2045))
+            mata: st_local("post_chars", _datamap_ucut(st_local("chars"), 2045))
             mata: _datamap_strexpr("post_vlab", "_dmx_vlab")
             mata: _datamap_strexpr("post_notes", "_dmx_notes")
             mata: _datamap_strexpr("post_chars", "_dmx_chars")
             mata: _datamap_strexpr("dslabel", "_dmx_dslabel")
-            local post_dsig = substr(`"`macval(datasignature)'"', 1, 2045)
+            mata: st_local("post_dsig", _datamap_ucut(st_local("datasignature"), 2045))
 
             post `postname' (`"`sourcecommand'"') (`"`macval(source)'"') ///
                 (`"`macval(output)'"') (`"`dsname'"') (`_dmx_dslabel') ///

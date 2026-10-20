@@ -1,4 +1,4 @@
-*! _dataprobe_sets Version 1.10.2  2026/10/20
+*! _dataprobe_sets Version 1.10.3  2026/10/20
 *! dataprobe sets(): matched-set structure
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

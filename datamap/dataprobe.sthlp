@@ -73,7 +73,7 @@
 {synopt:{opt gates:only}}run validation gates only{p_end}
 {synopt:{opt expectn(numlist)}}require exact {cmd:_N} or a range{p_end}
 {synopt:{opt isid(keyspec)}}assert unique by a key; {cmd:\}-separate keys{p_end}
-{synopt:{opt nodups}}assert no fully duplicated rows{p_end}
+{synopt:{opt nodups}}assert no duplicated rows (on {it:varlist} if given){p_end}
 {synopt:{opt req:uire(varlist)}}assert these variables exist{p_end}
 {synopt:{opt notmiss:ing(varlist)}}require complete values{p_end}
 {synopt:{opt inrange(spec)}}require ranges; {cmd:\}-separate{p_end}
@@ -198,8 +198,14 @@ excluded variables are listed by name but their distributions, cardinality, and
 value-label coding are never shown. They are never flagged and never appear in
 {cmd:r(flagged_vars)}, {cmd:r(missing_vars)}, the MISSINGNESS section, or the
 {opt patterns} table; the quick-reference table prints {bf:[excluded]} for
-their missing share. An {opt inrange()} violation on an excluded variable reports
-the count only, never the offending minimum and maximum.
+their missing share. A gate on an excluded variable reports its verdict and
+counts, never a value of the variable: an {opt inrange()} violation reports the
+count only, never the offending minimum and maximum; {opt stat()} and a
+{opt groupstat()} cell print {bf:[excluded]}; {opt coverage()} prints
+{bf:[excluded]} for the first and last dates and counts the empty years
+without naming them; and an {opt events()} covariate's level is named by its
+rank, {cmd:rep78 = [excluded] level 3}. A {opt by()} variable still labels its
+groups by value.
 
 {phang}
 {opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt date(varlist)} force the named
@@ -276,7 +282,12 @@ keys, each checked on its own ({cmd:isid(lopnr \ tx_id)}); each {cmd:isid} row
 of {opt checks()} adds a key beside {opt isid()}.
 
 {phang}
-{opt nodups} asserts that no fully duplicated rows exist.
+{opt nodups} asserts that no fully duplicated rows exist. With a
+{it:varlist}, rows are compared on the {it:varlist} together with the
+variables named in other options (such as {opt id()}, {opt inrange()}, or
+{opt exclude()}), not on every variable in the data: {cmd:dataprobe x, nodups}
+fails when two rows share {cmd:x} even if another variable tells them apart.
+Omit the {it:varlist} to compare every variable.
 
 {phang}
 {opt req:uire(varlist)} asserts that the named variables exist in the dataset.
@@ -378,7 +389,9 @@ share missing over all rows in scope; {cmd:ess}, the Kish effective sample size
 are read as spaces in the band, before the {cmd:if}, so a band stored as
 {it:lo, hi} can be reused. A statistic with no value in scope (a mean of no
 observations, {cmd:pmiss} of no rows) is a violation; {cmd:sum}, {cmd:n}, and
-{cmd:distinct} of no rows are 0. A percentile of a float variable is compared
+{cmd:distinct} of no rows are 0. An upper bound written {cmd:.} is open, for a
+date as for any other variable; a lower bound of {cmd:.} is an error (r(198)).
+A percentile of a float variable is compared
 with the bounds at float precision, but a mean, sd, or sum is compared
 exactly, in double precision: a float variable holding 0.2 in every row has
 mean 0.20000000298 and fails {cmd:stat(mean x 0 0.2)}. Set such a band a
@@ -578,14 +591,18 @@ shares expected by chance (1/365.25, 12/365.25, 12/365.25). A share above
 {cmd:fold()} times its chance share (default 5) is marked. With {cmd:max()},
 the 1 January share (and with two or three numbers the 1st and 15th shares)
 must not exceed the given shares; that is a gate, a band inside
-{opt bands()}.
+{opt bands()}. Under {opt maskrare}, 1 January is one of the 1sts, so the 1st
+share prints as {bf:[masked]} when the 1sts of the other months number 1 to
+{it:m}-1.
 
 {phang}
 {opt groupstat(spec)} prints a statistic by group next to its pooled value. Each
 {cmd:\}-separated entry is {it:statistic varlist}{cmd:,}
 {cmd:by(}{it:groupvars}{cmd:)} [{cmd:min(}{it:#}{cmd:)} {cmd:band(}{it:lo hi}{cmd:)}
 {cmd:relative}] [{cmd:if} {it:exp}], with the statistics of {opt stat()} other
-than {cmd:ratio}. Groups with fewer than {cmd:min()} rows (default: the mask
+than {cmd:ratio}. A row whose {it:groupvars} value is missing belongs to no
+group and is left out of the groups and of the pooled value, so the pooled
+value always describes the rows of the groups. Groups with fewer than {cmd:min()} rows (default: the mask
 threshold, or 1 without masking) are pooled into one line. With {cmd:band()},
 every group's statistic must lie in [lo, hi], including a group pooled away
 under the mask, which fails as {cmd:[suppressed]}; only an explicit
@@ -624,9 +641,21 @@ read as before.
 Under {opt maskrare}, a count cell ({cmd:n}, {cmd:sum}, {cmd:distinct}) reads
 {bf:[suppr.]} when the group's rows, or its nonmissing rows, minus the count
 is between 1 and {it:m}-1, and {bf:<}{it:m} when the count itself is in that
-range. A {cmd:pmiss} cell is masked when the group's missing or nonmissing
-count is 1 to {it:m}-1. The pooled value, {cmd:pmiss} included, is withheld
-when any group cell is masked.
+range. A {cmd:sum} cell also reads {bf:[suppr.]} when the group's nonmissing
+rows, its nonzero rows, or, for a variable with two values in the group, the
+rows of either value number 1 to {it:m}-1: a sum is a value of its rows. An
+{cmd:n} cell is withheld as well when the output prints the call's N (the
+profile header, or the PASS line of a call with a gate) and N minus the shown
+{cmd:n} cells is 1 to {it:m}-1, since that difference is the rows of the
+pooled-away groups; the smallest shown cell then reads {bf:[suppr.]}. A {cmd:pmiss} cell is masked when the group's missing or nonmissing
+count is 1 to {it:m}-1. An {cmd:sd} cell is masked when the group has fewer
+than {it:m} nonmissing rows or, for a variable with two or three values in the group,
+fewer than {it:m} rows of any value; an {cmd:ess} cell when the group's
+nonzero or zero weights number 1 to {it:m}-1. The pooled value, {cmd:pmiss} included, is withheld
+when any group cell is masked. A failing group that the table withholds is
+named by its number ({cmd:group #3}), never its values. The mean or a
+percentile of a date prints as a date, at month precision under the mask, as
+the pooled value does.
 
 {pmore}
 A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::} {it:var}{cmd:, by(}{it:groupvars}{cmd:)}
@@ -731,7 +760,8 @@ row.
 {phang}
 {opt comp:are(filename)} compares the current profiled variables with a saved
 baseline. Added, dropped, storage-type, class, and observation-count changes
-are reported as a {cmd:compare} violation.
+are reported as a {cmd:compare} violation. A baseline variable is dropped when it
+is no longer in the data; one left out of {it:varlist} is not.
 
 {phang}
 {opt warn} downgrades every gate, invariant and band alike, from a halt to a
@@ -749,7 +779,9 @@ it does not know the option, so a do-file can reinstall on a nonzero return code
 {phang}
 {opt sav:ing(name[, replace])} saves the per-variable profile. If {it:name}
 ends in {opt .dta} or contains a path separator the profile is written to that
-file; otherwise it is copied into a frame of that name.
+file; otherwise it is copied into a frame of that name. Its {cmd:datasignature}
+column holds the {help datasignature} of the dataset as loaded, before
+{cmd:if}/{cmd:in}, the value {opt signature} returns.
 
 {phang}
 {opt only:flagged} filters console output to flagged variables and groups. It
@@ -849,7 +881,12 @@ revise. They halt in production and warn under {opt bandwarn}.
 {phang2}
 {bf:Review items} ({opt review()}, {opt jumps()}, and {opt heaping()},
 {opt groupstat()}, and {opt complete()} without a threshold) print and never
-halt.
+halt. With a threshold ({opt heaping()} with {cmd:max()}, {opt groupstat()}
+with {cmd:band()}, {opt complete()} with {cmd:min()}) the entry still prints its
+table or line, which is recorded as a review item, and its threshold is
+recorded as a gate: such an entry is one review item in {cmd:r(n_reviews)} and
+one gate in {cmd:r(n_checks)}, and it writes two {opt ledger()} rows, one of
+{cmd:kind} review and one of kind invariant or band.
 
 {pstd}
 One gate call per dataset can therefore hold every invariant and every band,
@@ -894,22 +931,52 @@ would be the small cell. A gate count whose complement in its scope is small
 prints as {bf:all but <}{it:m}, as do the {opt stat()} values {cmd:n},
 {cmd:distinct}, and {cmd:sum} and the {bf:sets(values)} count; {opt stat()}
 {cmd:pmiss} prints as {bf:.} when either the missing or the nonmissing count is
-small. {cmd:r(n_violations)} counts gates, not persons, and is
+small. A {opt stat()} {cmd:sum}, which is a value of its rows and not only a
+count, prints as {bf:[suppressed]} when its nonmissing rows, its nonzero rows,
+or, for a variable with two values, the rows of either value number 1 to
+{it:m}-1. In a {opt by()} group whose size is withheld, every count of {it:m}
+or more prints as {bf:[suppressed]} too, since it bounds the group's size. {cmd:r(n_violations)} counts gates, not persons, and is
 not masked.{p_end}
 {phang2}o  the MISSINGNESS and GROUPWISE blocks print a small missing count as
 {bf:<}{it:m} and its percentage as {bf:[masked]}; a count whose complement is small prints as
 {bf:all but <}{it:m}, while a zero count prints as {bf:0}; a {opt by()} group smaller than {it:m} is not shown and is counted
-in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}.{p_end}
+in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}.
+A count in a GROUPWISE block that has a total printed elsewhere (complete
+cases in the header, a variable's missing count in MISSINGNESS, a level's
+count in the pooled frequency table) is withheld as well when that total
+minus the counts the block prints exactly is 1 to {it:m}-1: the smallest
+exact count reads {bf:[suppr.]} (in a frequency table, {bf:[suppressed]},
+and the group's table pools it). The same test covers the per-group gate
+counts of a profile with {opt by()}: {opt notmissing()}, {opt binary()},
+{opt complete()} over the profile or over one variable, {opt stat()}
+{cmd:n}, {cmd:pmiss} and the {cmd:sum} of a 0/1 variable, {opt inrange()} of
+a profiled date (against the DATE block's count outside the window),
+{opt allowed()}, {opt forbid()} and {opt notvalues()} of a variable with a
+frequency table, and {opt groupstat()} {cmd:n} and {cmd:sum} cells; a group
+withheld for a quantity in one block is withheld wherever that quantity is
+printed for it, and the gate count reads {bf:[suppressed]}. The {bf:Unique} column, a string's
+{bf:unique=} and a categorical variable's level count print as
+{bf:[masked]} when N, or the nonmissing N, minus that count is 1 to
+{it:m}-1.{p_end}
 {phang2}o  no minimum or maximum is printed. The continuous and date profiles and
 {opt inrange()} messages show p1 and p99, dates at month precision, and any
 percentile, mean, or {opt stat()} value is shown only when at least {it:m}
 nonmissing observations lie at or below it and at or above it; otherwise it
-prints as {bf:[suppressed]}.{p_end}
+prints as {bf:[suppressed]}. An {cmd:sd} is shown only with at least {it:m}
+nonmissing observations and, for a variable with two or three values, at least {it:m}
+of each (an {cmd:sd} beside N gives back the share of a 0/1 flag, and with
+the mean the three counts of a three-valued variable); a
+{cmd:ratio} only when at least {it:m} rows of {it:var}/{it:den} lie at or below
+it and at or above it; an {cmd:ess} only with at least {it:m} contributing rows
+and when the nonzero and the zero weights each number 0 or at least {it:m} (the
+{cmd:ess} of a 0/1 weight is the count of ones). The median records per key in
+KEY STRUCTURE follows the same rule over the keys.{p_end}
 {phang2}o  the {opt patterns} table is masked by {help datamvp}.{p_end}
 
 {pstd}
 Every PASS line and violation heading ends with the active masking, such as
-{bf:[masked <5]}. {cmd:r(masked)} is 1 when any printed count was masked. {opt saving()}
+{bf:[masked <5]}. {cmd:r(masked)} is 1 when any printed count was masked,
+a suppressed frequency-table cell included. {opt saving()}
 and {opt makespec()} still write observed minima and maxima. Stored
 results are not masked: {cmd:r()} is not written to the log unless
 displayed.

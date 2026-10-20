@@ -1,4 +1,4 @@
-*! _dataprobe_mshare Version 1.10.2  2026/10/20
+*! _dataprobe_mshare Version 1.10.3  2026/10/20
 *! Mask a count and its share of a known total for display under maskrare
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -9,14 +9,17 @@
 // "all but <m" and the percentage as "." as well.  A zero count prints as 0
 // with its share: it reveals nothing about the total.  r(pcttxt) is the
 // share ready to print: "12.3%", "[masked]" when masked, or "n/a" when n is
-// 0; a caller prints it instead of appending "%" to r(pct).
+// 0; a caller prints it instead of appending "%" to r(pct).  hide = 1 (a
+// by() group whose size is withheld) prints a count of m or more as
+// [suppressed], as _dataprobe_mcount does.
 program define _dataprobe_mshare, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        args k n m
+        args k n m hide
         if "`m'" == "" local m 0
+        if "`hide'" == "" local hide 0
         local masked = 0
         local num = `k'
         local cnt = strtrim(string(`k', "%20.0f"))
@@ -25,6 +28,12 @@ program define _dataprobe_mshare, rclass
         if `m' > 0 & `k' >= 1 & `k' < `m' {
             local masked = 1
             local cnt "<`m'"
+            local pct "."
+            local num = .
+        }
+        else if `m' > 0 & `hide' == 1 & `k' >= `m' & `k' < . {
+            local masked = 1
+            local cnt "[suppressed]"
             local pct "."
             local num = .
         }

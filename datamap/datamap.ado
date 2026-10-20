@@ -1,4 +1,4 @@
-*! datamap Version 1.10.2  2026/10/20
+*! datamap Version 1.10.3  2026/10/20
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -150,6 +150,14 @@ program define datamap, rclass
 				if `mincell' == -999999999 local mincell = 5
 				if `samples' == -999999999 local samples = 0
 				if `uniqcap' == -999999999 local uniqcap = 1000
+				// a config() value is read with real(): 2.5 passed on as
+				// mincell(2.5) failed later with a bare syntax error
+				foreach opt in maxfreq maxcat mincell samples uniqcap {
+					if !missing(``opt'') & ``opt'' != floor(``opt'') {
+						noisily di as error "`opt'() must be an integer"
+						exit 198
+					}
+				}
 				if `maxfreq' <= 0 | missing(`maxfreq') {
 					noisily di as error "maxfreq must be positive"
 					exit 198
@@ -186,6 +194,11 @@ program define datamap, rclass
 		noisily di as error "specify only one of directory(), filelist(), or single()"
 		exit 198
 	}
+	// recursive scans directory(); with any other input it did nothing
+	if "`recursive'" != "" & "`directory'" == "" {
+		noisily di as error "recursive requires directory()"
+		exit 198
+	}
 
 	// Preserve the current dataset ONLY when this run will load files into
 	// memory (single/directory/filelist) -- there, -use- replaces the user's
@@ -199,6 +212,10 @@ program define datamap, rclass
 	// error exit).  Skipping preserve there halves peak memory, because
 	// preserve costs a full in-memory copy: on a 6GB dataset that copy IS the
 	// difference between fitting in RAM and thrashing swap.
+	// the path guard for single() and directory(), as for output():
+	// it used to sit in the no-input branch, where both are empty
+	if `"`single'"' != "" _datamap_validate_path `"`single'"', option("single()")
+	if `"`directory'"' != "" _datamap_validate_path `"`directory'"', option("directory()")
 	if `ninput' > 0 {
 		preserve
 		local _restore_needed = 1
@@ -207,15 +224,15 @@ program define datamap, rclass
 	// If no input specified, document data currently in memory
 	local input_source ""
 	if `ninput' == 0 {
-		if c(N) == 0 | c(k) == 0 {
+		// A dataset with variables but no observations is documentable
+		// (structure only), as single() already allowed.
+		if c(k) == 0 {
 			noisily di as error "no data in memory and no input specified"
 			noisily di as error "specify directory(), filelist(), single(), or load data first"
 			exit 198
 		}
-		if `"`single'"' != "" _datamap_validate_path `"`single'"', option("single()")
-		if `"`directory'"' != "" _datamap_validate_path `"`directory'"', option("directory()")
 		tempfile memdata
-		quietly save "`memdata'"
+		_datamap_memshell `"`memdata'"'
 		local single "`memdata'"
 		local input_source "memory"
 	}
@@ -233,6 +250,11 @@ program define datamap, rclass
 		if "`format'" == "" local format "text"
 		if !inlist("`format'", "text", "json") {
 			noisily di as error "format() must be 'text' or 'json'"
+			exit 198
+		}
+		// separate writes a new file per dataset; append was ignored
+		if "`append'" != "" & "`separate'" != "" {
+			noisily di as error "append cannot be combined with separate"
 			exit 198
 		}
 		if "`append'" != "" & "`format'" == "json" {
@@ -285,6 +307,11 @@ program define datamap, rclass
 			}
 			local saving_replace = regexm(lower(`"`macval(saving_rest)'"'), "replace")
 				_datamap_validate_path `"`macval(saving_file)'"', option("saving()")
+			// -save- adds .dta to a name with no suffix; the existence check
+			// must test that name, or a second run wrote its report and
+			// then failed r(602) at the save
+			mata: st_local("_sext", pathsuffix(st_local("saving_file")))
+			if `"`_sext'"' == "" local saving_file `"`saving_file'.dta"'
 			if !`saving_replace' confirm new file `"`saving_file'"'
 		}
 
@@ -378,7 +405,7 @@ program define datamap, rclass
 		// Single file mode: process one specified file
 		// Add .dta extension if not present (skip for in-memory tempfiles)
 		if "`input_source'" != "memory" {
-			if !regexm(`"`single'"', "\.dta$") {
+			if !regexm(lower(`"`single'"'), "\.dta$") {
 				local single `"`single'.dta"'
 			}
 		}
@@ -418,9 +445,12 @@ program define datamap, rclass
 		// exclude() against every file before any output is written: an
 		// unresolvable range errors here, and a token matching no variable
 		// in any file gets a note (see _datamap_classify, precheck).
-		if `"`exclude'"' != "" {
+		// continuous(), categorical(), and date() tokens are checked there
+		// too: one that names no variable in any file is an error.
+		if `"`exclude'`continuous'`categorical'`date'"' != "" {
 			_datamap_classify using `"`filelist_tmp'"', precheck ///
-				exclude(`"`exclude'"') `memoryopt'
+				exclude(`"`exclude'"') continuous(`"`continuous'"') ///
+				categorical(`"`categorical'"') date(`"`date'"') `memoryopt'
 		}
 	if "`separate'" != "" {
 		// Generate separate output file per dataset
@@ -473,7 +503,7 @@ program define datamap, rclass
 				tempname metadata_post
 				quietly postfile `metadata_post' ///
 					str16 source_command str2045 source str2045 output ///
-					str80 dataset str2045 dataset_label str32 variable ///
+					str2045 dataset str2045 dataset_label str32 variable ///
 					str20 storage_type str32 display_format str32 value_label ///
 					str20 class double N long nvars long missing ///
 					double missing_pct long unique str2045 variable_label ///
@@ -513,7 +543,7 @@ program define datamap, rclass
 							local _mslash = strpos(`"`_mdsname'"', "/")
 							local _mdsname = reverse(substr(`"`_mdsname'"', 1, `_mslash' - 1))
 						}
-						if substr(`"`_mdsname'"', -4, 4) == ".dta" {
+						if lower(substr(`"`_mdsname'"', -4, 4)) == ".dta" {
 							local _mdsname = substr(`"`_mdsname'"', 1, length(`"`_mdsname'"') - 4)
 						}
 					}
@@ -523,11 +553,19 @@ program define datamap, rclass
 						continuous(`"`continuous'"') categorical(`"`categorical'"') ///
 						date(`"`date'"') detect_binary(`detect_binary') ///
 						quality_level(`"`quality_level'"') capacity(`_mcap')
+					// separate: the file this dataset was written to, as
+					// _datamap_ProcessSeparate names it; output() is unused
+					local _mout `"`output'"'
+					if "`separate'" != "" {
+						local _mext = cond("`format'" == "json", "json", "txt")
+						if "`input_source'" == "memory" local _mout "memory_map.`_mext'"
+						else local _mout = ustrregexra(`"`_mfile'"', "(?i)\.dta$", "") + "_map.`_mext'"
+					}
 					_datamap_post_metadata_rows, postname(`metadata_post') ///
 						classifications(`"`_mclass'"') sourcecommand("datamap") ///
-						source(`"`_msource'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
+						source(`"`_msource'"') output(`"`_mout'"') dsname(`"`_mdsname'"') ///
 						nvars(`_mnvars') ///
-						datasignature(`"`_mdsig'"') `datesafe'
+						datasignature(`"`_mdsig'"') `datesafe' `nostats' mincell(`mincell')
 				}
 				else {
 					tempname _mfl
@@ -549,7 +587,7 @@ program define datamap, rclass
 								local _mslash = strpos(`"`_mdsname'"', "/")
 								local _mdsname = reverse(substr(`"`_mdsname'"', 1, `_mslash' - 1))
 							}
-							if substr(`"`_mdsname'"', -4, 4) == ".dta" {
+							if lower(substr(`"`_mdsname'"', -4, 4)) == ".dta" {
 								local _mdsname = substr(`"`_mdsname'"', 1, length(`"`_mdsname'"') - 4)
 							}
 							tempfile _mclass
@@ -558,11 +596,16 @@ program define datamap, rclass
 								continuous(`"`continuous'"') categorical(`"`categorical'"') ///
 								date(`"`date'"') detect_binary(`detect_binary') ///
 								quality_level(`"`quality_level'"') capacity(`_mcap')
+							local _mout `"`output'"'
+							if "`separate'" != "" {
+								local _mext = cond("`format'" == "json", "json", "txt")
+								local _mout = ustrregexra(`"`_mfile'"', "(?i)\.dta$", "") + "_map.`_mext'"
+							}
 							_datamap_post_metadata_rows, postname(`metadata_post') ///
 								classifications(`"`_mclass'"') sourcecommand("datamap") ///
-								source(`"`_mfile'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
+								source(`"`_mfile'"') output(`"`_mout'"') dsname(`"`_mdsname'"') ///
 						nvars(`_mnvars') ///
-								datasignature(`"`_mdsig'"') `datesafe'
+								datasignature(`"`_mdsig'"') `datesafe' `nostats' mincell(`mincell')
 						}
 						file read `_mfl' _mfile
 					}
@@ -593,6 +636,11 @@ program define datamap, rclass
 			local nobs_total = r(N)
 			local nvars_total = r(k)
 		}
+		// the memory shell has no rows; the data are still loaded here
+		if "`input_source'" == "memory" {
+			local nobs_total = c(N)
+			local nvars_total = c(k)
+		}
 	}
 
 		// Restore original dataset (only if this run preserved one)
@@ -608,7 +656,8 @@ program define datamap, rclass
 		return scalar nvars = `nvars_total'
 	}
 		return local format "`format'"
-		return local output "`output'"
+		// separate writes one file per dataset, never `output'
+		if "`separate'" == "" return local output "`output'"
 		return local input_source "`input_source'"
 		return scalar mincell = `mincell'
 		return scalar n_categorical = `n_categorical'
@@ -709,13 +758,22 @@ program define _datamap_ProcessCombined, rclass
 	_datamap_pkgversion
 	local _pkgver "`r(version)'"
 
-	// Open output file (append or replace mode)
+	// Write to a staging file and copy it over `output' only when every
+	// dataset was documented: a failure on a later file used to leave a
+	// header-only file in place of the previous good output.  A new
+	// `output' is created and removed first, so an unwritable path still
+	// fails before any dataset is processed.
 	tempname fh
+	tempfile _stage
+	capture confirm file "`output'"
+	local _out_exists = (_rc == 0)
+	_datamap_stage check `"`output'"'
 	if "`append'" != "" {
-		quietly file open `fh' using "`output'", write text append
+		if `_out_exists' quietly copy "`output'" "`_stage'", replace
+		quietly file open `fh' using "`_stage'", write text append
 	}
 		else {
-			quietly file open `fh' using "`output'", write text replace
+			quietly file open `fh' using "`_stage'", write text replace
 
 			local cdate = c(current_date)
 			local ctime = c(current_time)
@@ -812,6 +870,7 @@ program define _datamap_ProcessCombined, rclass
 		// Always close file handle
 		file close `fh'
 		local _fh_open = 0
+		_datamap_stage commit `"`_stage'"' `"`output'"'
 		noisily di as result `"Output written to: `output'"'
 
 		return scalar n_categorical = `n_categorical'
@@ -882,7 +941,7 @@ program define _datamap_ProcessSeparate, rclass
 
 		// Determine output filename from dataset name
 		local len = length("`thisfile'")
-		if substr("`thisfile'", `len'-3, 4) == ".dta" {
+		if lower(substr("`thisfile'", `len'-3, 4)) == ".dta" {
 			local basename = substr("`thisfile'", 1, `len'-4)
 		}
 			else {
@@ -896,9 +955,15 @@ program define _datamap_ProcessSeparate, rclass
 			if "`format'" == "json" local outfile "`basename'_map.json"
 		else local outfile "`basename'_map.txt"
 
-		// Open output file for this dataset
+		// Stage each dataset's output and copy it over `outfile' only when
+		// that dataset was documented, as the combined mode does: a failure
+		// used to leave a partial file in place of the previous good one.
+		// A new `outfile' is created and removed first, so an unwritable
+		// path still fails before the dataset is processed.
 		tempname fh
-		quietly file open `fh' using "`outfile'", write text replace
+		tempfile _stage
+		_datamap_stage check `"`outfile'"'
+		quietly file open `fh' using "`_stage'", write text replace
 
 		// Process with error handling
 		capture noisily {
@@ -956,6 +1021,7 @@ program define _datamap_ProcessSeparate, rclass
 				noisily di as error "Error closing `outfile' (rc=`close_rc')"
 				exit `close_rc'
 			}
+		_datamap_stage commit `"`_stage'"' `"`outfile'"'
 		noisily di as result `"Output written to: `outfile'"'
 
 		file read `fh_list' thisfile
@@ -1003,7 +1069,9 @@ program define _datamap_ProcessDataset, rclass
             panelid survivalvars quality_level samples missing_detail missing_pattern dateformat uniqcap displayname memory
 
         // Get dataset metadata from describe
-        capture quietly describe using "`filepath'", short
+        // varlist, not short: only -describe using, varlist- returns
+        // r(sortlist), so the Sort Order line was never written
+        capture quietly describe using "`filepath'", varlist
         if _rc != 0 {
             noisily di as error "    ERROR: Could not describe file `filepath' (rc=`=_rc')"
             exit _rc
@@ -1011,6 +1079,13 @@ program define _datamap_ProcessDataset, rclass
         local obs = r(N)
         local nvars = r(k)
         local sortorder "`r(sortlist)'"
+        // memory mode: `filepath' is a zero-observation shell of the loaded
+        // data (_datamap_memshell); N and the sort order come from memory
+        if "`memory'" != "" {
+            local obs = c(N)
+            local nvars = c(k)
+            local sortorder : sortedby
+        }
 
         // Load dataset to get label and datasignature
         quietly {
@@ -1170,7 +1245,8 @@ program define _datamap_ProcessDataset, rclass
                 "`date_vars'" "`datesafe'" `mincell' "`dateformat'"
         }
         if `detect_survey' {
-            _datamap_DetectSurvey `fh' "`filepath'" "`format'" "`excluded_vars'"
+            _datamap_DetectSurvey `fh' "`filepath'" "`format'" "`excluded_vars'" ///
+                "`categorical_vars'" `mincell'
         }
         if `detect_common' {
             _datamap_DetectCommon `fh' "`filepath'" "`format'"
@@ -1322,16 +1398,18 @@ program define _datamap_ProcessVariables, nclass
 	}
 	frame drop `_cfr'
 
-	if "`compact'" != "" {
-		exit
+	// compact omits the per-variable detail sections and the value-label
+	// definitions; the sections asked for by name (detect(binary),
+	// quality, samples()) are still written -- compact used to drop them
+	// silently
+	if "`compact'" == "" {
+		// Detailed variable sections
+		_datamap_ProcessCategorical `fh' "`classifications'" "`format'" "`nofreq'" `maxfreq' `obs' `mincell' "`noguidance'" "`datesafe'"
+		_datamap_ProcessContinuous `fh' "`classifications'" "`format'" "`nostats'" `obs' "`noguidance'" "`datesafe'" `mincell'
+		_datamap_ProcessDate `fh' "`classifications'" "`format'" "`datesafe'" "`dateformat'" "`noguidance'"
+		_datamap_ProcessString `fh' "`classifications'" "`format'" "`noguidance'"
+		_datamap_ProcessExcluded `fh' "`classifications'" "`format'" "`noguidance'"
 	}
-
-	// Detailed variable sections
-	_datamap_ProcessCategorical `fh' "`classifications'" "`format'" "`nofreq'" `maxfreq' `obs' `mincell' "`noguidance'"
-	_datamap_ProcessContinuous `fh' "`classifications'" "`format'" "`nostats'" `obs' "`noguidance'"
-	_datamap_ProcessDate `fh' "`classifications'" "`format'" "`datesafe'" "`dateformat'" "`noguidance'"
-	_datamap_ProcessString `fh' "`classifications'" "`format'" "`noguidance'"
-	_datamap_ProcessExcluded `fh' "`classifications'" "`format'" "`noguidance'"
 
 	// Binary variables section (if detect_binary enabled)
 	if `detect_binary' {
@@ -1349,7 +1427,7 @@ program define _datamap_ProcessVariables, nclass
 	}
 
 	// Value label definitions
-	if "`nolabels'" == "" {
+	if "`nolabels'" == "" & "`compact'" == "" {
 		_datamap_ProcessValueLabels `fh' "`classifications'" "`format'"
 	}
 end
@@ -1437,7 +1515,15 @@ program define _datamap_DateDisplayFormat, rclass
 			local dispfmt "`dateformat'"
 		}
 		else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
-			local dispfmt = subinstr("`dateformat'", "%td", "%tc", 1)
+			// the daily body of dateformat() on the variable's own clock
+			// (%tC keeps leap seconds); dateformat(%d...) used to pass
+			// through unchanged and print 1.2969e+12, and %tC became %tc
+			local _clk = cond(strpos("`vfmt'", "%tC") > 0, "%tC", "%tc")
+			local _df = subinstr("`dateformat'", "%-", "%", 1)
+			if substr("`_df'", 1, 3) == "%td" local dispfmt = "`_clk'" + substr("`_df'", 4, .)
+			else if substr("`_df'", 1, 2) == "%d" local dispfmt = "`_clk'" + substr("`_df'", 3, .)
+			// not a daily format: keep the variable's own format
+			else local dispfmt "`vfmt'"
 		}
 
 		return local display_format `"`dispfmt'"'
@@ -1833,7 +1919,21 @@ program define _datamap_ProcessDatasetJson, nclass
 		else file write `fh' "null," _n
 
 		file write `fh' `"          "summary": {"' _n
-		if "`vclass'" == "continuous" & "`nostats'" == "" {
+		// the text report's rule (_datamap_sumpolicy): under datesafe a
+		// date-formatted continuous variable gets only n; under mincell() a
+		// two-valued one gets no mean or sd
+		_datamap_sumpolicy, class(`vclass') vfmt("`vfmt'") `datesafe' ///
+			mincell(`mincell') nuniq(`nuniq')
+		local _dhide = r(datehide)
+		local _mhide = r(momhide)
+		if "`vclass'" == "continuous" & "`nostats'" == "" & `_dhide' {
+			quietly count if !missing(`vname')
+			if r(N) > 0 {
+				file write `fh' `"            "n": `r(N)',"' _n
+				file write `fh' `"            "withheld": "datesafe""' _n
+			}
+		}
+		else if "`vclass'" == "continuous" & "`nostats'" == "" {
 			quietly summarize `vname', detail
 			if r(N) > 0 {
 				local s_n = r(N)
@@ -1860,6 +1960,10 @@ program define _datamap_ProcessDatasetJson, nclass
 				local j_min "`r(number)'"
 				_datamap_json_number `s_max'
 				local j_max "`r(number)'"
+				if `_mhide' {
+					local j_mean "null"
+					local j_sd "null"
+				}
 				file write `fh' `"            "n": `j_n',"' _n
 				file write `fh' `"            "mean": `j_mean',"' _n
 				file write `fh' `"            "sd": `j_sd',"' _n
@@ -1910,7 +2014,13 @@ program define _datamap_ProcessDatasetJson, nclass
 
 		file write `fh' `"          "frequencies": ["' _n
 		local wrote_freq = 0
-		if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' & ///
+		// datesafe: no frequencies of a date-formatted categorical (its
+		// levels are exact dates)
+		local _dsafe_hide = `_dhide'
+		if `_dsafe_hide' {
+			// frequencies withheld
+		}
+		else if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' & ///
 			substr("`vtype'", 1, 3) == "str" {
 			// String categorical (forced via categorical()): see _datamap_strfreq.
 			tempname _dm_sc _dm_hide
@@ -2005,7 +2115,7 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessCategorical, nclass
 	version 16.0
-	args fh classifications format nofreq maxfreq obs mincell noguidance
+	args fh classifications format nofreq maxfreq obs mincell noguidance datesafe
 
 	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
 	tempname _cfr
@@ -2060,8 +2170,15 @@ program define _datamap_ProcessCategorical, nclass
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
 		file write `fh' "Unique Values: `uniq_disp'" _n _n
 
+		// A date-formatted variable forced into categorical() would list
+		// its exact dates; datesafe withholds them
+		_datamap_sumpolicy, class(categorical) vfmt("`vfmt'") `datesafe'
+		local _dsafe_hide = r(datehide)
+		if `_dsafe_hide' & "`nofreq'" == "" {
+			file write `fh' "  Frequencies: withheld (datesafe; date-formatted variable)" _n _n
+		}
 		// Frequency table
-		if "`nofreq'" == "" & `nuniq' <= `maxfreq' {
+		else if "`nofreq'" == "" & `nuniq' <= `maxfreq' {
 			file write `fh' "  Frequencies:" _n
 			// tempnames: fixed names clobbered caller matrices vals/freqs
 			tempname _dm_vals _dm_freqs _dm_sc _dm_hide
@@ -2137,8 +2254,14 @@ program define _datamap_ProcessCategorical, nclass
 			file write `fh' _n
 		}
 
-		// Add analysis guidance
-		if "`noguidance'" == "" {
+		// Add analysis guidance.  A variable with no nonmissing value has
+		// nothing to stratify on: it used to get the low-cardinality advice.
+		if "`noguidance'" == "" & `nuniq' == 0 & !`ncap_`i'' {
+			file write `fh' "ANALYSIS GUIDANCE: "
+			file write `fh' "No nonmissing values - nothing to analyze; check whether the variable should be dropped or was read incorrectly. "
+			file write `fh' _n _n
+		}
+		else if "`noguidance'" == "" {
 			file write `fh' "ANALYSIS GUIDANCE: "
 			file write `fh' "Use as factor/categorical variable. "
 			if `nuniq' == 2 {
@@ -2165,7 +2288,8 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessContinuous, nclass
 	version 16.0
-	args fh classifications format nostats obs noguidance
+	args fh classifications format nostats obs noguidance datesafe mincell
+	if "`mincell'" == "" local mincell = 0
 
 	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
 	tempname _cfr
@@ -2218,10 +2342,25 @@ program define _datamap_ProcessContinuous, nclass
 		file write `fh' "Unique Values: `uniq_disp'" _n _n
 
 		// Summary statistics
-		if "`nostats'" == "" {
+		// datesafe: a date-formatted variable forced into continuous() has
+		// exact dates for its range, quartiles and mean; mincell(): a
+		// two-valued variable's mean, SD and skewness give its counts back
+		// (_datamap_sumpolicy)
+		_datamap_sumpolicy, class(continuous) vfmt("`vfmt'") `datesafe' ///
+			mincell(`mincell') nuniq(`nuniq')
+		local _dhide = r(datehide)
+		local _mhide = r(momhide)
+		if "`nostats'" == "" & `_dhide' {
+			quietly count if !missing(`vname')
+			file write `fh' "DISTRIBUTION:" _n
+			file write `fh' "  Valid N: `r(N)'" _n
+			file write `fh' "  Summary: withheld (datesafe; date-formatted variable)" _n _n
+		}
+		else if "`nostats'" == "" {
 			quietly summarize `vname', detail
 			local n = r(N)
 			local skewness = r(skewness)
+			if `_mhide' local skewness = .
 
 			// Check if all values are missing
 			if `n' > 0 {
@@ -2236,6 +2375,10 @@ program define _datamap_ProcessContinuous, nclass
 				local p75 = strtrim(cond(abs(r(p75)) < 1 & r(p75) != 0, string(r(p75), "%9.3g"), string(round(r(p75), 0.01), "%14.0g")))
 				local max = strtrim(cond(abs(r(max)) < 1 & r(max) != 0, string(r(max), "%9.3g"), string(round(r(max), 0.01), "%14.0g")))
 
+				if `_mhide' {
+					local mean "withheld (mincell; two-valued variable)"
+					local sd "withheld (mincell; two-valued variable)"
+				}
 				file write `fh' "DISTRIBUTION:" _n
 				file write `fh' "  Valid N: `n'" _n
 				file write `fh' "  Mean: `mean'" _n
@@ -2562,22 +2705,21 @@ program define _datamap_ProcessExcluded, nclass
 	}
 end
 
-// Sorted distinct non-missing values across the variables in `vars', written
-// to the caller's local `levels'.
-capture mata: mata drop _datamap_vllevels()
+// The values a value label defines, in order (extended missing codes such
+// as .a included), written to the caller's local `levels'.  The section
+// documents the label, not the data: listing every distinct data value
+// printed exact dates and unique incomes (unlabelled values as "v = v")
+// past datesafe, maxfreq() and mincell().
+capture mata: mata drop _datamap_vldefs()
 mata:
-void _datamap_vllevels(string scalar vars)
+void _datamap_vldefs(string scalar lab)
 {
-	string rowvector v
-	real colvector d
-	real scalar k
+	real colvector v
+	string colvector t
 
-	v = tokens(vars)
-	d = J(0, 1, .)
-	for (k = 1; k <= cols(v); k++) d = uniqrows(d \ st_data(., v[k]))
-	d = select(d, d :< .)
-	if (rows(d) == 0) st_local("levels", "")
-	else st_local("levels", invtokens(strofreal(d, "%18.0g")'))
+	st_vlload(lab, v, t)
+	if (rows(v) == 0) st_local("levels", "")
+	else st_local("levels", invtokens(strofreal(sort(v, 1), "%18.0g")'))
 }
 end
 
@@ -2634,9 +2776,8 @@ program define _datamap_ProcessValueLabels, nclass
 			// Label exists - extract values by iterating through them
 			local labname "`vl'"
 
-			// Levels present in ANY variable using the label.  Reading only
-			// the first user dropped every level that occurs in the others.
-			mata: _datamap_vllevels("`varlist'")
+			// Every value the label defines, whichever variable uses it
+			mata: _datamap_vldefs("`labname'")
 			foreach lev of local levels {
 				local labtext : label `labname' `lev'
 				mata: _datamap_fwargs("labtext", "_dmw")
@@ -2825,6 +2966,13 @@ program define _datamap_ProcessSamples, nclass
 	// Get variable list
 	quietly describe, varlist
 	local allvars `r(varlist)'
+	foreach vn of local allvars {
+		local cx : list posof "`vn'" in classvars
+		if `cx' == 0 continue
+		_datamap_sumpolicy, class(`class`cx'') vfmt("`: format `vn''") `datesafe'
+		local _dsh`cx' = r(datehide)
+	}
+	local _dsh0 = 0
 
 	// Print header
 	// Mask by the classifier's verdict, not by re-matching exclude() here:
@@ -2861,14 +3009,17 @@ program define _datamap_ProcessSamples, nclass
 				if "`vnclass'" == "excluded" {
 					file write `fh' "[MASKED] | "
 				}
-				else if "`datesafe'" != "" & "`vnclass'" == "date" {
+				// a date, or a date-formatted variable in another class,
+				// prints a date (_datamap_sumpolicy)
+				else if "`datesafe'" != "" & `_dsh`cx'' {
 					file write `fh' "[DATE SUPPRESSED] | "
 				}
 				else {
 					local vtype : type `vn'
 					if substr("`vtype'", 1, 3) == "str" {
 					local val = `vn'[`row']
-					mata: st_local("val", (strlen(st_local("val")) > 20 ? substr(st_local("val"), 1, 17) + "..." : st_local("val")))
+					// characters, not bytes: a byte cut split a UTF-8 character
+					mata: st_local("val", (ustrlen(st_local("val")) > 20 ? usubstr(st_local("val"), 1, 17) + "..." : st_local("val")))
 					mata: _datamap_fwargs("val", "_dmw")
 					file write `fh' `_dmw' " | "
 				}
@@ -3117,7 +3268,8 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_DetectSurvey, nclass
 	version 16.0
-	args fh filepath format excluded
+	args fh filepath format excluded catvars mincell
+	if "`mincell'" == "" local mincell = 0
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
@@ -3164,6 +3316,17 @@ program define _datamap_DetectSurvey, nclass
 		local w_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
 		local w_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
 		local w_mean = strtrim(string(round(r(mean), 0.1), "%14.0g"))
+		// a categorical weight's mean gives back the frequency cells that
+		// mincell() suppresses (two levels: mean = a + (b-a)k/N)
+		// and so does a two-valued one forced into continuous()
+		local _wcls = cond(`: list wvar in catvars', "categorical", "continuous")
+		local _wnu = -1
+		if "`_wcls'" == "continuous" & `mincell' > 0 {
+			_datamap_ndistinct `wvar'
+			local _wnu = r(n)
+		}
+		_datamap_sumpolicy, class(`_wcls') mincell(`mincell') nuniq(`_wnu')
+		if r(cathide) | r(momhide) local w_mean "withheld (mincell)"
 		file write `fh' "  Sampling weight: `wvar' (range: `w_min' to `w_max', mean: `w_mean')" _n
 	}
 
@@ -3430,21 +3593,43 @@ program define _datamap_GenerateDatasetSummary, nclass
 	// Determine structure type
 	local is_cross_sectional 1
 
-	// Check for panel structure
-	if `detect_panel' & "`panelid'" != "" {
+	// Check for panel structure, on the identifier _datamap_DetectPanel uses:
+	// panelid() whether or not detect(panel) is on (that section runs on
+	// panelid() alone), else the name-detected one under detect(panel).
+	// Checking only panelid() under detect(panel) called a panel the panel
+	// section had just reported "cross-sectional".
+	local _pid ""
+	if "`panelid'" != "" {
 		capture confirm variable `panelid'
-		if _rc == 0 {
-			if `: list panelid in excluded' {
-				// The unit count is the cardinality of an excluded variable.
-				local summary "`summary'longitudinal data (panel identifier excluded; unit count withheld). "
+		if _rc == 0 local _pid "`panelid'"
+	}
+	else if `detect_panel' {
+		quietly describe, varlist
+		foreach vn in `r(varlist)' {
+			if `: list vn in excluded' continue
+			if regexm(lower("`vn'"), "id$|_id$|^id_|patient|subject|person") {
+				local _pid "`vn'"
+				continue, break
 			}
-			else {
-				// -tabulate- errors r(134) above ~12k units
-				_datamap_ndistinct `panelid'
-				local n_units = r(n)
-				local summary "`summary'longitudinal data with `n_units' units observed over time. "
-			}
+		}
+	}
+	if "`_pid'" != "" {
+		if `: list _pid in excluded' {
+			// The unit count is the cardinality of an excluded variable.
+			local summary "`summary'longitudinal data (panel identifier excluded; unit count withheld). "
 			local is_cross_sectional 0
+		}
+		else {
+			// -tabulate- errors r(134) above ~12k units
+			_datamap_ndistinct `_pid'
+			local n_units = r(n)
+			quietly count if !missing(`_pid')
+			// a panel when some unit is observed more than once, as in
+			// _datamap_DetectPanel
+			if `n_units' > 0 & `n_units' < r(N) {
+				local summary "`summary'longitudinal data with `n_units' units observed over time. "
+				local is_cross_sectional 0
+			}
 		}
 	}
 

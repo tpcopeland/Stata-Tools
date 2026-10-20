@@ -5,7 +5,7 @@
 
 **Filename:** `test_small.dta`  
 **Source path:** <normalized>
-**Description:** Dataset containing 2 variables and 5 observations.
+**Description:** Small test dataset
 **Observations:** 5
 **Variables in file:** 2
 **Variables documented:** 2

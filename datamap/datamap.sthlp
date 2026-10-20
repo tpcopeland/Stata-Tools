@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.10.2  20oct2026}{...}
+{* *! version 1.10.3  20oct2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -142,8 +142,10 @@ Your data in memory is unchanged by a successful run.
 When {cmd:datamap} documents a file ({opt single()}, {opt directory()},
 {opt filelist()}) it loads that file into memory and restores your original
 data afterwards. When it documents the data already in memory it does not copy
-it at all: it reads the data in place and writes its lookup tables to separate
-frames. That matters on large datasets, because a {helpb preserve} is a full
+the data: it reads them in place, writes its lookup tables to separate frames,
+and saves only an empty copy of the variable definitions to a temporary file,
+so {cmd:c(changed)}, {cmd:c(filename)}, and the sort order are left as they
+were. That matters on large datasets, because a {helpb preserve} is a full
 second copy of the data in memory -- avoiding it roughly halves peak memory,
 which on a multi-gigabyte dataset can be the difference between fitting in RAM
 and paging to disk.
@@ -197,6 +199,8 @@ spaced name unambiguous.
 {phang}
 {opt rec:ursive} makes {opt directory()} also descend into subdirectories. Hidden
 directories (names beginning with {cmd:.}) and {cmd:__pycache__} are always skipped.
+{opt recursive} without {opt directory()} is r(198). A file ending in {cmd:.DTA}
+is found as well as one ending in {cmd:.dta}.
 
 {pstd}
 Only one of {opt single()}, {opt directory()}, or {opt filelist()} may be
@@ -225,7 +229,11 @@ than silently omitting them.
 {opt sep:arate} writes a separate output file for each dataset instead of
 combining them into one file. Output files are named
 {it:datasetname}{cmd:_map.txt} ({cmd:_map.json} with {cmd:format(json)}) and are
-written beside each source dataset; {opt output()} is ignored.
+written beside each source dataset; {opt output()} is ignored,
+{cmd:r(output)} is not set, and {opt append} is not allowed (r(198)). Each file
+is written only once its dataset has been documented, so a dataset that fails
+leaves its previous output in place; with {opt saving()}, each row's
+{bf:output} names its own dataset's file.
 
 {phang}
 {opt app:end} appends to an existing output file rather than replacing it. Useful for
@@ -239,7 +247,21 @@ one row per source variable. The schema is shared with {help datadict} and
 name and label, variable name, storage type, display format, value label, class,
 N, source variable count, missing count and percent, unique count, labels,
 notes, characteristics, numeric summaries, and Stata datasignature when
-available. Specify {cmd:replace} to overwrite an existing file.
+available. Specify {cmd:replace} to overwrite an existing file. A name with no
+extension gets {cmd:.dta}, and that name is checked for existence before any
+output is written.
+
+{pmore}
+The numeric summaries follow the report: they are filled for continuous
+variables (not under {opt nostats}) and for dates (not under {opt datesafe}),
+and left missing for categorical variables while {opt mincell()} is above 0,
+since the mean of a 0/1 variable is the share in a frequency cell the report
+may suppress. For the same reason, while {opt mincell()} is above 0 a
+continuous variable with exactly two distinct values (a 0/1 flag forced into
+{opt continuous()}) has its mean and standard deviation withheld in the report,
+in JSON ({cmd:null}), and in {opt saving()}, and its skewness guidance is not
+written. Under {opt datesafe}, a date-formatted variable in any class has no
+summaries.
 
 {pmore}
 {bf:unique} counts distinct nonmissing values; for a string variable the
@@ -255,7 +277,9 @@ cardinality.
 {cmd:datevars}, {cmd:maxfreq}, {cmd:maxcat}, {cmd:uniqcap}, {cmd:mincell},
 {cmd:datesafe}, {cmd:compact}, {cmd:detect}, {cmd:panelid},
 {cmd:survivalvars}, {cmd:dateformat}, {cmd:samples}, and {cmd:missing}. Command-line
-options override config-file defaults.
+options override config-file defaults. A numeric key ({cmd:maxfreq},
+{cmd:maxcat}, {cmd:mincell}, {cmd:samples}, {cmd:uniqcap}) must be an integer
+(r(198) otherwise). A byte-order mark at the start of the file is ignored.
 
 {dlgtab:Content control}
 
@@ -271,7 +295,10 @@ the value frequencies of binary variables.
 {phang}
 {opt nola:bels} suppresses the "Value Label Definitions" section at the end of
 each dataset. Value labels attached to individual variables in the frequency
-table are unaffected.
+table are unaffected. The section lists, for each value label, the values the
+label defines (extended missing codes such as {cmd:.a} included) and their
+text; it documents the label, not the data, so a data value that has no label
+text is never listed there.
 
 {phang}
 {opt maxf:req(#)} sets the maximum number of unique values for which a frequency
@@ -353,7 +380,11 @@ variables are documented with the number of time units spanned instead of the
 earliest and latest values. Use this when dates of birth or other potentially
 identifying dates are present. This also applies to {opt saving()}: date
 rows have missing mean, standard deviation, quantiles, minimum, and maximum
-in the saved metadata.
+in the saved metadata. A date-formatted variable forced into
+{opt categorical()} gets no frequency table under {opt datesafe}, one forced into
+{opt continuous()} gets only its valid N (no mean, quantiles, or range in text,
+JSON, or {opt saving()}), and in {opt samples()} every date-formatted
+variable is shown as {bf:[DATE SUPPRESSED]}.
 
 {phang}
 {opt datef:ormat(string)} sets the Stata date format used to display all dates. The
@@ -372,7 +403,12 @@ useful when a numeric code should be summarized as continuous despite low
 cardinality, or when a string code should be treated as categorical. A string
 variable forced into the categorical class gets a frequency table of its
 non-empty values, each shown in double quotes, subject to {opt maxfreq()} and
-{opt mincell()}.
+{opt mincell()}. A string variable in {opt continuous()} or {opt date()} is
+r(109). Each name, wildcard, or range must match a variable in at least one
+documented dataset (r(111) otherwise, before any output is written); a name
+absent from only some datasets of a multi-file run is fine. A range whose
+endpoints are in reverse order in a dataset ({cmd:categorical(weight-price)}
+when {it:price} comes first) is r(111), as in {opt exclude()}.
 
 {dlgtab:Detection}
 
@@ -382,9 +418,12 @@ one or more of the following, separated by spaces:
 
 {phang2}{bf:panel} {hline 2} look for repeated observations per unit (longitudinal/panel data).{p_end}
 {phang2}{bf:binary} {hline 2} flag variables with exactly two unique values as potential outcomes or
-indicators.{p_end}
+indicators. A variable with a date format is never flagged, since the section
+lists its values.{p_end}
 {phang2}{bf:survival} {hline 2} search for time-to-event and censoring/event variables.{p_end}
-{phang2}{bf:survey} {hline 2} search for sampling weights, strata, and cluster/PSU variables.{p_end}
+{phang2}{bf:survey} {hline 2} search for sampling weights, strata, and cluster/PSU variables.
+While {opt mincell()} is above 0, the mean of a categorical weight (or of a
+two-valued one) is withheld, since it gives back the counts of its levels.{p_end}
 {phang2}{bf:common} {hline 2} identify IDs, dates, demographics, exposures, and outcomes by name
 patterns.{p_end}
 
@@ -447,8 +486,8 @@ each printed cell, not combinations of cells: per-variable missing counts togeth
 {phang}
 {opt sam:ples(#)} appends a table of the first {it:#} observations. Variables
 in {opt exclude()} are shown as {bf:[MASKED]}. When {opt datesafe} is also
-specified, date variables in the sample table are shown as
-{bf:[DATE SUPPRESSED]}. Use with caution: even aggregate-safe documentation
+specified, date variables, and any variable with a date display format, are
+shown as {bf:[DATE SUPPRESSED]}. Use with caution: even aggregate-safe documentation
 becomes identifiable once raw rows are included. Always combine with
 {opt exclude()} when sample rows are enabled.
 
@@ -659,7 +698,7 @@ Combine multiple privacy and content options:{p_end}
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(format)}}output format used ({bf:text} or {bf:json}){p_end}
-{synopt:{cmd:r(output)}}name of the output file created{p_end}
+{synopt:{cmd:r(output)}}name of the output file created (not set with {opt separate}){p_end}
 {synopt:{cmd:r(metadata)}}metadata dataset path, when {opt saving()} is specified{p_end}
 {synopt:{cmd:r(input_source)}}input mode: {bf:memory}, {bf:single}, {bf:directory}, or {bf:filelist}{p_end}
 {synopt:{cmd:r(categorical_vars)}}categorical variable names{p_end}
@@ -676,7 +715,7 @@ Combine multiple privacy and content options:{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.10.2, 2026-10-20{p_end}
+{pstd}Version 1.10.3, 2026-10-20{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

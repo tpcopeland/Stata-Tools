@@ -1,4 +1,4 @@
-*! dataprobe Version 1.10.2  2026/10/20
+*! dataprobe Version 1.10.3  2026/10/20
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -64,7 +64,7 @@ program define dataprobe, rclass
     local _ledger_rc   = 0
     // syntax reads an explicit nomaskrare as the absence of maskrare, so it
     // is detected here, where it can still override a session default.
-    local _nomask_explicit = regexm(" " + lower(`"`macval(0)'"') + " ", "[ ,]nomask(r|ra|rar|rare)?[ ,]")
+    mata: st_local("_nomask_explicit", strofreal(_datamap_nomask_explicit(st_local("0"))))
     capture noisily {
 
         syntax [anything(name=varlistspec)] [if] [in] , [ ///
@@ -299,10 +299,16 @@ program define dataprobe, rclass
             mata: st_local("_dsname", pathrmsuffix(pathbasename(st_global("c(filename)"))))
             if c(changed) local _dsname "`_dsname' (modified)"
         }
+        // the user's data as it stands: saving() writes this signature too,
+        // not one of the working copy (if/in rows, kept variables, tempvars)
         local _dsig ""
         if "`signature'" != "" {
             quietly datasignature
             local _dsig "`r(datasignature)'"
+        }
+        else if `"`saving'"' != "" {
+            quietly capture datasignature
+            if _rc == 0 local _dsig "`r(datasignature)'"
         }
 
         // ---- checks(): read reusable gate specs from a Stata dataset ----
@@ -862,6 +868,10 @@ program define dataprobe, rclass
                     display as error "expectn: expected one or two integers; got `_e'"
                     exit 198
                 }
+                if real("`_e1'") > real("`_e2'") {
+                    display as error "expectn: lower bound exceeds upper bound; got `_e'"
+                    exit 198
+                }
                 local ++n_expn
                 local expn_lo`n_expn' "`_e1'"
                 local expn_hi`n_expn' "`_e2'"
@@ -936,6 +946,12 @@ program define dataprobe, rclass
                 local lo_num = regexr(strofreal(r(value), "%21x"), "^[+]", "")
                 _dataprobe_bound `sv' `"`hi'"'
                 local hi_num = regexr(strofreal(r(value), "%21x"), "^[+]", "")
+                // a lower bound of . is not open in stat(): it used to be
+                // reported as exceeding the upper bound
+                if missing(`lo_num') {
+                    display as error `"stat() lower bound is missing; give a number: `part'"'
+                    exit 198
+                }
                 if `lo_num' > `hi_num' {
                     display as error `"stat() lower bound exceeds upper bound: `part'"'
                     exit 198
@@ -1405,6 +1421,52 @@ program define dataprobe, rclass
             }
         }
 
+        // ---- value-domain hits over all rows ----
+        // allowed()/forbid()/notvalues() rows, marked once: the scope loop
+        // counts them per group, and the pooled-remainder test below needs
+        // the same rows over the whole call.
+        foreach _vg in allowed forbid notvalues {
+            forvalues k = 1/`n_`_vg'' {
+                local av "``_vg'_var`k''"
+                local vals `"``_vg'_vals`k''"'
+                tempvar _vh
+                local _vhit_`_vg'`k' "`_vh'"
+                quietly gen byte `_vh' = 0 if !missing(`av')
+                capture confirm numeric variable `av'
+                if !_rc {
+                    // A float variable never equals the double literal
+                    // 0.1; compare at the variable's own precision.
+                    local _fcast = cond("`: type `av''" == "float", "float", "")
+                    foreach val of local vals {
+                        // an explicit missing code (. or .a-.z) in
+                        // forbid() or notvalues() matches that code
+                        if "`_vg'" != "allowed" & regexm(`"`val'"', "^\.[a-z]?$") {
+                            quietly replace `_vh' = 1 if `av' == `val'
+                        }
+                        else quietly replace `_vh' = 1 if `av' == `_fcast'(`val') & !missing(`av')
+                    }
+                }
+                else {
+                    // only a wrapping pair of quotes is dropped: removing
+                    // every quote made a value such as x"y unmatchable.
+                    // The value travels as a string scalar, never as
+                    // quoted text in the expression.
+                    tempname _sval
+                    foreach val of local vals {
+                        mata: _dataprobe_valscalar("val", "`_sval'")
+                        quietly replace `_vh' = 1 if `av' == scalar(`_sval') & !missing(`av')
+                    }
+                    capture scalar drop `_sval'
+                }
+                // the rows the gate counts
+                if "`_vg'" == "allowed" quietly replace `_vh' = (!missing(`av') & `_vh' == 0)
+                else quietly replace `_vh' = (`_vh' == 1)
+            }
+        }
+
+        // set below, in profile mode with by() under maskrare
+        local _pfon = 0
+
         if !`_fast' {
         // ---- classify via the shared engine ----
         tempfile proff
@@ -1628,6 +1690,194 @@ program define dataprobe, rclass
         local group_missing_vars : list uniq group_missing_vars
         local n_group_missing_vars : word count `group_missing_vars'
 
+        // ---- pooled remainder across the whole output ----
+        // Under maskrare with by(), a count printed per group (a GROUPWISE
+        // cell, a byfreq cell, or a per-group gate count) has a total printed
+        // elsewhere: a variable's missing count (QUICK REFERENCE,
+        // MISSINGNESS), the complete cases (header), a level's count (the
+        // pooled frequency table), a date's rows outside its window (DATE).
+        // The total minus the counts printed exactly is the pooled-away
+        // groups' and the masked cells' share; 1 to m-1 of it gives a small
+        // cell back.  One test per counted quantity (_dataprobe_premask)
+        // names the group to withhold, and every place that prints that
+        // quantity per group reads the same list _hX: the group
+        // withheld by the test, and the groups whose byfreq cell for those
+        // rows is suppressed (the same count, printed in another block).
+        local _pfon = ("`gatesonly'" == "" & `has_groups' & `_xmask' > 0)
+        if `_pfon' {
+            tempvar _pind
+            quietly generate byte `_pind' = 0
+            // missing, per profiled variable (index i in pvars)
+            foreach v of local profilevars {
+                local i : list posof "`v'" in pvars
+                local pj : list posof "`v'" in profilevars
+                if "`FC`pj''" == "excluded" continue
+                quietly replace `_pind' = missing(`v')
+                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+                local _hm`i' "`r(force)'"
+            }
+            // incomplete rows over the profile (the header's complete cases)
+            quietly replace `_pind' = !`cc'
+            _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+            local _hc "`r(force)'"
+            // inrange() on a profiled date: the DATE block prints the rows
+            // outside the window
+            forvalues k = 1/`n_inr' {
+                local _hi`k' ""
+                local iv "`inr_var`k''"
+                if !`: list iv in f_date' continue
+                local _dlo "`inr_lo`k''"
+                local _dhi "`inr_hi`k''"
+                if "`: type `iv''" == "float" {
+                    local _dlo "cond(missing(float(`_dlo')), `_dlo', float(`_dlo'))"
+                    local _dhi "cond(missing(float(`_dhi')), `_dhi', float(`_dhi'))"
+                }
+                local _doc "0"
+                if !`inr_loopen`k'' local _doc "`iv' < `_dlo'"
+                if !`inr_hiopen`k'' local _doc "(`_doc') | `iv' > `_dhi'"
+                quietly replace `_pind' = (`_doc') & !missing(`iv')
+                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+                local _hi`k' "`r(force)'"
+            }
+            // value domains and binary() of a variable with a frequency
+            // table: a level's count, or a sum of them
+            foreach _vg in allowed forbid notvalues {
+                forvalues k = 1/`n_`_vg'' {
+                    local _hv_`_vg'`k' ""
+                    local av "``_vg'_var`k''"
+                    if !`: list av in f_categorical' & !`: list av in f_string' continue
+                    _dataprobe_premask `dc_group' `_vhit_`_vg'`k'' `_xmask' "`_hideg'"
+                    local _hv_`_vg'`k' "`r(force)'"
+                }
+            }
+            local j = 0
+            foreach bv of local binary {
+                local ++j
+                local _hb`j' ""
+                if !`: list bv in f_categorical' continue
+                quietly replace `_pind' = !missing(`bv') & !inlist(`bv', 0, 1)
+                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+                local _hb`j' "`r(force)'"
+            }
+            // stat(sum) of a 0/1 variable is the count of its ones
+            forvalues k = 1/`n_stat' {
+                local _hs`k' ""
+                local sv "`stat_var`k''"
+                if "`stat_st`k''" != "sum" | "`stat_cond`k''" != "1" continue
+                if !`: list sv in f_categorical' continue
+                quietly count if !missing(`sv') & !inlist(`sv', 0, 1)
+                if r(N) > 0 continue
+                quietly replace `_pind' = (`sv' == 1)
+                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+                local _hs`k' "`r(force)'"
+            }
+
+            // byfreq: each table starts from the withheld groups above (the
+            // missing level, the value-domain and binary rows), and each
+            // list then takes in the groups whose byfreq cell for its rows
+            // is suppressed, so a count withheld in one block is never
+            // printed in another
+            if "`byfreq'" != "" & `_maskcell' > 0 {
+                tempvar _bx
+                foreach v in `f_categorical' `f_string' {
+                    local i : list posof "`v'" in pvars
+                    capture drop `_bx'
+                    quietly generate byte `_bx' = 0
+                    foreach gg of local _hm`i' {
+                        quietly replace `_bx' = 1 if missing(`v') & `dc_group' == `gg'
+                    }
+                    foreach _vg in allowed forbid notvalues {
+                        forvalues k = 1/`n_`_vg'' {
+                            if "``_vg'_var`k''" != "`v'" | "`_hv_`_vg'`k''" == "" continue
+                            quietly replace `_bx' = 1 if `_vhit_`_vg'`k'' == 1 & `dc_group' == `_hv_`_vg'`k''
+                        }
+                    }
+                    local j = 0
+                    foreach bv of local binary {
+                        local ++j
+                        if "`bv'" != "`v'" | "`_hb`j''" == "" continue
+                        quietly replace `_bx' = 1 if !missing(`bv') & !inlist(`bv', 0, 1) & `dc_group' == `_hb`j''
+                    }
+                    forvalues k = 1/`n_stat' {
+                        if "`stat_var`k''" != "`v'" | "`_hs`k''" == "" continue
+                        quietly replace `_bx' = 1 if `v' == 1 & `dc_group' == `_hs`k''
+                    }
+                    tempvar _bff
+                    local _bffv`i' "`_bff'"
+                    _dataprobe_bfforce `v' `dc_group' `maxfreq' `_maskcell' ///
+                        `"`_hideg'"' `_bff' `_bx'
+                    // the byfreq groups of each list's rows
+                    quietly levelsof `dc_group' if missing(`v') & `_bff' == 1, local(_gl)
+                    local _hm`i' : list _hm`i' | _gl
+                    foreach _vg in allowed forbid notvalues {
+                        forvalues k = 1/`n_`_vg'' {
+                            if "``_vg'_var`k''" != "`v'" continue
+                            quietly levelsof `dc_group' if `_vhit_`_vg'`k'' == 1 & `_bff' == 1, local(_gl)
+                            local _hv_`_vg'`k' : list _hv_`_vg'`k' | _gl
+                        }
+                    }
+                    local j = 0
+                    foreach bv of local binary {
+                        local ++j
+                        if "`bv'" != "`v'" continue
+                        quietly levelsof `dc_group' if !missing(`bv') & !inlist(`bv', 0, 1) & `_bff' == 1, local(_gl)
+                        local _hb`j' : list _hb`j' | _gl
+                    }
+                    forvalues k = 1/`n_stat' {
+                        if "`stat_var`k''" != "`v'" | "`stat_st`k''" != "sum" | "`stat_cond`k''" != "1" continue
+                        quietly levelsof `dc_group' if `v' == 1 & `_bff' == 1, local(_gl)
+                        local _hs`k' : list _hs`k' | _gl
+                    }
+                }
+            }
+            // a one-variable profile: its complete count is N minus its
+            // missing count
+            if `: word count `_gvars'' == 1 {
+                local i : list posof "`_gvars'" in pvars
+                local _hc : list _hc | _hm`i'
+            }
+            // complete() and stat(n)/stat(pmiss) per group: complete over the
+            // profile is the header's quantity; over one variable, and n and
+            // pmiss of one, it is that variable's missing count
+            forvalues k = 1/`nf_complete' {
+                local _hcc`k' ""
+                local _cs `"`complete_spec`k''"'
+                local _cp = strpos(`"`_cs'"', ",")
+                if `_cp' local _cs = substr(`"`_cs'"', 1, `_cp' - 1)
+                capture unab _cv : `_cs'
+                if _rc continue
+                local _cv : list uniq _cv
+                if `: word count `_cv'' == 1 {
+                    local i : list posof "`_cv'" in pvars
+                    if `i' > 0 local _hcc`k' "`_hm`i''"
+                }
+                else if `: list _cv === _gvars' local _hcc`k' "`_hc'"
+            }
+            forvalues k = 1/`n_stat' {
+                if !inlist("`stat_st`k''", "n", "pmiss") | "`stat_cond`k''" != "1" continue
+                local i : list posof "`stat_var`k''" in pvars
+                if `i' > 0 local _hs`k' "`_hm`i''"
+            }
+            // groupstat() with the call's by(): its n and pmiss cells give
+            // back the missing count beside the GROUPWISE N, and a sum of a
+            // 0/1 variable the count of ones, so the rows of the withheld
+            // groups are flagged for it
+            local _gsmh ""
+            local _gsfh ""
+            foreach v of local profilevars {
+                local i : list posof "`v'" in pvars
+                if "`_hm`i''" != "" {
+                    tempvar _mf
+                    quietly generate byte `_mf' = 0
+                    foreach gg of local _hm`i' {
+                        quietly replace `_mf' = 1 if `dc_group' == `gg'
+                    }
+                    local _gsmh "`_gsmh' `v' `_mf'"
+                }
+                if "`_bffv`i''" != "" local _gsfh "`_gsfh' `v' `_bffv`i''"
+            }
+        }
+
         // ===================== DISPLAY =====================
         local nv : word count `profilevars'
         if "`gatesonly'" == "" {
@@ -1678,8 +1928,9 @@ program define dataprobe, rclass
                         local _pmasked = 1
                     }
                 }
-                _datamap_fmt_uniq `m_uv`i'' `m_uc`i''
+                _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
                 local uq "`r(s)'"
+                if r(masked) local _pmasked = 1
                 local vshow = substr("`v'", 1, 21)
                 display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
                     %-9s "`vt'" %11s "`mps'" ///
@@ -1783,8 +2034,11 @@ program define dataprobe, rclass
                 if `showflagged' & "`flag`pj''" == "" continue
                 local i : list posof "`v'" in pvars
                 local nlev = `m_uv`i''
+                _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
+                local _nlevs "`r(s)'"
+                if r(masked) local _pmasked = 1
                 display as text "  " as result "`v'" as text ":  " ///
-                    as result `nlev' as text " levels"
+                    as result "`_nlevs'" as text " levels"
                 if `nlev' == 1 {
                     display as text "    " as `_em' "single level (constant)"
                 }
@@ -1792,7 +2046,9 @@ program define dataprobe, rclass
                     display as text "    " as `_em' "level count exceeds maxcat(" ///
                         "`maxcat')" as text " — possible free-text/misclassification"
                 }
+                local _fqmask 0
                 _dataprobe_freq `v' `maxfreq' `rare' `_maskcell'
+                if "`_fqmask'" == "1" local _pmasked = 1
             }
         }
 
@@ -1893,15 +2149,18 @@ program define dataprobe, rclass
                 local ml "."
                 if `m_ml`i'' < . local ml = string(`m_ml`i'', "%9.0f")
                 local ml = strtrim("`ml'")
-                _datamap_fmt_uniq `m_uv`i'' `m_uc`i''
+                _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
                 local uq "`r(s)'"
+                if r(masked) local _pmasked = 1
                 _dataprobe_mshare `nblank' `nobs' `_xmask'
                 local _nbs "`r(cnt)'"
                 if r(masked) local _pmasked = 1
                 display as text "  " as result "`v'" as text ":  unique=" ///
                     as result "`uq'" as text "  blank=" as result "`_nbs'" ///
                     as text "  maxlen=" as result "`ml'"
+                local _fqmask 0
                 _dataprobe_freq `v' `maxfreq' `rare' `_maskcell'
+                if "`_fqmask'" == "1" local _pmasked = 1
             }
         }
 
@@ -1981,6 +2240,8 @@ program define dataprobe, rclass
             // N, completeness and missing-variable count would describe
             // fewer than the mask of persons.  Such groups are pooled into
             // one line.
+            // the pooled-remainder test (see above) names the groups whose
+            // complete count is withheld
             foreach gg of local group_levels {
                 local gn = _frval(`_gframe', n, `gg')
                 if `: list gg in _pooledg' continue
@@ -1989,6 +2250,11 @@ program define dataprobe, rclass
                 local gcs "`r(cnt)'"
                 local gpcts "`r(pcttxt)'"
                 if r(masked) local _pmasked = 1
+                if `_pfon' & `: list gg in _hc' {
+                    local gcs "[suppr.]"
+                    local gpcts "[masked]"
+                    local _pmasked = 1
+                }
                 local gmissvars ""
                 local gj = 0
                 foreach v of local _gvars {
@@ -2026,6 +2292,12 @@ program define dataprobe, rclass
                     local gms "`r(cnt)'"
                     local gmpcts "`r(pcttxt)'"
                     if r(masked) local _pmasked = 1
+                    local i : list posof "`v'" in pvars
+                    if `_pfon' & `: list gg in _hm`i'' {
+                        local gms "[suppr.]"
+                        local gmpcts "[masked]"
+                        local _pmasked = 1
+                    }
                     mata: st_local("gshow", _dataprobe_dshow(usubstr(st_local("group_label`gg'"), 1, 20), 20))
                     display as text "  " as result `"`macval(gshow)'"' ///
                         as result %-22s "`v'" %9s "`gms'" %10s "`gmpcts'"
@@ -2045,12 +2317,28 @@ program define dataprobe, rclass
             display as text "  by: " as result "`byvars'"
             foreach v in `f_categorical' `f_string' {
                 display as text "  " as result "`v'" as text ":"
+                // Pooled remainder, per level: the pooled table's count
+                // minus the shown groups' exact cells is the pooled-away
+                // groups' and the suppressed cells' total; 1 to mask-1 of
+                // them gives a small cell back, so the level's smallest
+                // shown cell is withheld (and the group's table pools it)
+                local _bff ""
+                local i : list posof "`v'" in pvars
+                if `_pfon' local _bff "`_bffv`i''"
+                else if `_maskcell' > 0 {
+                    tempvar _bff
+                    _dataprobe_bfforce `v' `dc_group' `maxfreq' `_maskcell' ///
+                        `"`_pooledg'"' `_bff'
+                }
                 foreach gg of local group_levels {
                     if `: list gg in _pooledg' continue
                     mata: st_local("_gl", _dataprobe_dshow(st_local("group_label`gg'"), 0))
                     display as text "    by group " as result `"`macval(_gl)'"' as text ":"
-                    _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' `"`dc_group' == `gg'"' "      "
+                    local _fqmask 0
+                    _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' `"`dc_group' == `gg'"' "      " `_bff'
+                    if "`_fqmask'" == "1" local _pmasked = 1
                 }
+                if "`_bff'" != "" & !`_pfon' capture drop `_bff'
             }
             if `_npooledg' > 0 {
                 display as text "  groups pooled (each <`_xmask' rows, or pooled with them): " ///
@@ -2125,9 +2413,18 @@ program define dataprobe, rclass
                         local _kmx "[suppressed]"
                         local _pmasked = 1
                     }
+                    // the median follows the order-statistic rule: at least
+                    // the mask of keys at or below it and at or above it
+                    // (ids 1, 2x2, 3x9 printed median 2, held by one key)
+                    tempname _kmedv
+                    scalar `_kmedv' = `kmed'
+                    _dataprobe_qshow `kn', value(`_kmedv') mask(`_xmask') ///
+                        cond(`ktag' == 1) stat(p50)
+                    local _kmd `"`r(s)'"'
+                    if !r(shown) local _pmasked = 1
                     display as text "  key (" as result "`kv'" as text "):  " ///
                         as result "`_kds'" as text " distinct keys, records/key median/max = " ///
-                        as result `kmed' "/" "`_kmx'" as text ", " ///
+                        as result "`_kmd'" "/" "`_kmx'" as text ", " ///
                         as result "`_kms'" as text " key(s) with >1 record"
                 }
                 quietly drop `kn' `ktag'
@@ -2223,6 +2520,16 @@ program define dataprobe, rclass
                 local scope_nnum = .
                 local scope_npost = .
             }
+            // In a withheld group every count of the mask or more is
+            // withheld too: it bounds the group's size, and N minus the
+            // shown groups minus it gives back the other withheld groups
+            // (110 - 100 - 7 = 3).  _hz is the flag the count helpers take.
+            local _hz = ("`scope_hide`si''" == "1" & `_gm' > 0)
+            local _hzopt = cond(`_hz', "hide", "")
+            // the group, for the pooled-remainder lists (_hm, _hc, ...)
+            local _sgg ""
+            if `has_groups' local _sgg : word `si' of `group_levels'
+            local _pfx = (`_pfon' & "`_sgg'" != "")
 
             // expectn
             forvalues k = 1/`n_expn' {
@@ -2252,7 +2559,7 @@ program define dataprobe, rclass
                 local idist = r(N)
                 local ndup = `scope_n' - `idist'
                 local ok = (`ndup' == 0)
-                _dataprobe_mcount `ndup' `_gm' `scope_n'
+                _dataprobe_mcount `ndup' `_gm' `scope_n' `_hz'
                 local nds "`r(s)'"
                 local onum = r(num)
                 local om = r(masked)
@@ -2281,7 +2588,7 @@ program define dataprobe, rclass
                 quietly count if `IF' & `_dfirst'
                 local ndup = `scope_n' - r(N)
                 local ok = (`ndup' == 0)
-                _dataprobe_mcount `ndup' `_gm' `scope_n'
+                _dataprobe_mcount `ndup' `_gm' `scope_n' `_hz'
                 local nds "`r(s)'"
                 local onum = r(num)
                 local om = r(masked)
@@ -2297,11 +2604,20 @@ program define dataprobe, rclass
                 quietly count if `IF' & missing(`v')
                 local nmiss = r(N)
                 local ok = (`nmiss' == 0)
-                _dataprobe_mcount `nmiss' `_gm' `scope_n'
+                _dataprobe_mcount `nmiss' `_gm' `scope_n' `_hz'
                 local nms "`r(s)'"
                 local onum = r(num)
                 local om = r(masked)
                 local mins = cond(`om' | `nmiss' < 1, ., `nmiss')
+                local i : list posof "`v'" in pvars
+                if `_pfx' & `i' > 0 {
+                    if `: list _sgg in _hm`i'' {
+                        local nms "[suppressed]"
+                        local onum = .
+                        local om = 1
+                        local mins = .
+                    }
+                }
                 local msg "`PFX'notmissing: `v' has `nms' missing value(s)"
                 frame post `RF' ("notmissing") ("invariant") (`ok') ("`v'") ("`v'") (`"`GP'"') ///
                     ("`nms' missing") (`onum') ("0 missing") (`scope_npost') ("") ("`msg'") ///
@@ -2330,11 +2646,19 @@ program define dataprobe, rclass
                 local noutr = r(N)
                 local ok = (`noutr' == 0)
                 local exp "[`inr_lolab`k'', `inr_hilab`k'']"
-                _dataprobe_mcount `noutr' `_gm' `scope_n'
+                _dataprobe_mcount `noutr' `_gm' `scope_n' `_hz'
                 local nos "`r(s)'"
                 local onum = r(num)
                 local om = r(masked)
                 local mins = cond(`om' | `noutr' < 1, ., `noutr')
+                if `_pfx' & "`_hi`k''" != "" {
+                    if `: list _sgg in _hi`k'' {
+                        local nos "[suppressed]"
+                        local onum = .
+                        local om = 1
+                        local mins = .
+                    }
+                }
                 if `ok' {
                     local obs "0 outside"
                     local msg "`PFX'inrange(`iv'): 0 obs outside `exp'"
@@ -2387,38 +2711,23 @@ program define dataprobe, rclass
                 forvalues k = 1/`n_`_vg'' {
                     local av "``_vg'_var`k''"
                     local vals `"``_vg'_vals`k''"'
-                    tempvar hit
-                    quietly gen byte `hit' = 0 if `IF' & !missing(`av')
-                    capture confirm numeric variable `av'
-                    if !_rc {
-                        // A float variable never equals the double literal
-                        // 0.1; compare at the variable's own precision.
-                        local _fcast = cond("`: type `av''" == "float", "float", "")
-                        foreach val of local vals {
-                            // an explicit missing code (. or .a-.z) in
-                            // forbid() or notvalues() matches that code
-                            if "`_vg'" != "allowed" & regexm(`"`val'"', "^\.[a-z]?$") {
-                                quietly replace `hit' = 1 if `IF' & `av' == `val'
-                            }
-                            else quietly replace `hit' = 1 if `IF' & `av' == `_fcast'(`val') & !missing(`av')
-                        }
-                    }
-                    else {
-                        foreach val of local vals {
-                            local sval = subinstr(`"`val'"', char(34), "", .)
-                            quietly replace `hit' = 1 if `IF' & `av' == `"`sval'"' & !missing(`av')
-                        }
-                    }
-                    if "`_vg'" == "allowed" quietly count if `IF' & !missing(`av') & `hit' == 0
-                    else quietly count if `IF' & `hit' == 1
+                    // the gate's rows were marked once over the call
+                    quietly count if `IF' & `_vhit_`_vg'`k'' == 1
                     local nbad = r(N)
-                    quietly drop `hit'
                     local ok = (`nbad' == 0)
-                    _dataprobe_mcount `nbad' `_gm' `scope_n'
+                    _dataprobe_mcount `nbad' `_gm' `scope_n' `_hz'
                     local nbs "`r(s)'"
                     local onum = r(num)
                     local om = r(masked)
                     local mins = cond(`om' | `nbad' < 1, ., `nbad')
+                    if `_pfx' & "`_hv_`_vg'`k''" != "" {
+                        if `: list _sgg in _hv_`_vg'`k'' {
+                            local nbs "[suppressed]"
+                            local onum = .
+                            local om = 1
+                            local mins = .
+                        }
+                    }
                     if "`_vg'" == "allowed" {
                         local obs "`nbs' disallowed"
                         local exp `"`vals'"'
@@ -2460,7 +2769,7 @@ program define dataprobe, rclass
                 }
                 local nbad = r(N)
                 local ok = (`nbad' == 0)
-                _dataprobe_mcount `nbad' `_gm' `scope_n'
+                _dataprobe_mcount `nbad' `_gm' `scope_n' `_hz'
                 local nbs "`r(s)'"
                 local onum = r(num)
                 local om = r(masked)
@@ -2476,7 +2785,7 @@ program define dataprobe, rclass
                 quietly count if `IF' & `ruleind`k''
                 local nbad = r(N)
                 local ok = (`nbad' == 0)
-                _dataprobe_mcount `nbad' `_gm' `scope_n'
+                _dataprobe_mcount `nbad' `_gm' `scope_n' `_hz'
                 local nbs "`r(s)'"
                 local onum = r(num)
                 local om = r(masked)
@@ -2492,7 +2801,7 @@ program define dataprobe, rclass
                 quietly count if `IF' & `byruleind`k''
                 local nbad = r(N)
                 local ok = (`nbad' == 0)
-                _dataprobe_mcount `nbad' `_gm' `scope_n'
+                _dataprobe_mcount `nbad' `_gm' `scope_n' `_hz'
                 local nbs "`r(s)'"
                 local onum = r(num)
                 local om = r(masked)
@@ -2512,7 +2821,7 @@ program define dataprobe, rclass
                 local hi "`stat_hi`k''"
                 local cnd "`IF'"
                 if "`stat_cond`k''" != "1" local cnd "(`IF') & `stat_cond`k''"
-                _dataprobe_statval `sst' `sv' `sden', cond(`"`cnd'"') mask(`_gm')
+                _dataprobe_statval `sst' `sv' `sden', cond(`"`cnd'"') mask(`_gm') `_hzopt'
                 local sn = r(n)
                 local sdef = r(defined)
                 local sshown = r(shown)
@@ -2535,11 +2844,29 @@ program define dataprobe, rclass
                     if "`sst'" == "pmiss" local sshow "no rows in scope"
                     else local sshow "no nonmissing values"
                 }
+                // the pooled-remainder test withholds this group's count
+                if `_pfx' & `sdef' & "`_hs`k''" != "" {
+                    if `: list _sgg in _hs`k'' {
+                        local sshow "[suppressed]"
+                        local sshown = 0
+                    }
+                }
+                // exclude() withholds contents, as in inrange(): the verdict
+                // of a statistic of an excluded variable, never its value
+                local _sxc = 0
+                local _sxm = !`sshown'
+                foreach _sxv in `sv' `sden' {
+                    if `: list _sxv in exclude' local _sxc = 1
+                }
+                if `_sxc' & `sdef' {
+                    local sshow "[excluded]"
+                    local sshown = 0
+                }
                 local sname = cond("`sst'" == "p50", "median", "`sst'")
                 local slab "`sname' `sv'"
                 if "`sst'" == "ratio" local slab "ratio `sv'/`sden'"
                 local onum = regexr(string(cond(`sshown' & `sdef', `sval', .), "%21x"), "^[+]", "")
-                local om = !`sshown'
+                local om = cond(`_sxc', `_sxm', !`sshown')
                 local mins = .
                 if `siscount' & `sshown' & `sval' >= 1 local mins = `sval'
                 local iftxt ""
@@ -2552,7 +2879,9 @@ program define dataprobe, rclass
             }
 
             // binary: only 0 and 1, and both observed
+            local _bj = 0
             foreach bv of local binary {
+                local ++_bj
                 quietly count if `IF' & !missing(`bv') & !inlist(`bv', 0, 1)
                 local nnot = r(N)
                 quietly count if `IF' & `bv' == 0
@@ -2561,12 +2890,29 @@ program define dataprobe, rclass
                 local n1 = r(N)
                 quietly count if `IF' & missing(`bv')
                 local nmv = r(N)
-                _dataprobe_mcount `nnot' `_gm' `scope_n'
+                _dataprobe_mcount `nnot' `_gm' `scope_n' `_hz'
                 local nnots "`r(s)'"
                 local om1 = r(masked)
-                _dataprobe_mcount `nmv' `_gm' `scope_n'
+                _dataprobe_mcount `nmv' `_gm' `scope_n' `_hz'
                 local nmvs "`r(s)'"
                 local om2 = r(masked)
+                if `_pfx' {
+                    local i : list posof "`bv'" in pvars
+                    if "`_hb`_bj''" != "" {
+                        if `: list _sgg in _hb`_bj'' {
+                            local nnots "[suppressed]"
+                            local om1 = 1
+                        }
+                    }
+                    if `i' > 0 {
+                        if "`_hm`i''" != "" {
+                            if `: list _sgg in _hm`i'' {
+                                local nmvs "[suppressed]"
+                                local om2 = 1
+                            }
+                        }
+                    }
+                }
                 local om = (`om1' | `om2')
                 local bobs ""
                 if `nnot' > 0 local bobs "`nnots' obs not 0/1"
@@ -2594,14 +2940,14 @@ program define dataprobe, rclass
                 _dataprobe_events, rf(`RF') ev(`ev_var`k'') evcond(`ev_cond`k'') ///
                     vars(`ev_covs`k'') min(`ev_min`k'') cond(`IF') kind(invariant) ///
                     grp(`"`GP'"') scope(`"`ev_if`k''"') pfx(`"`PFX'"') mask(`_gm') ///
-                    nscope(`scope_npost')
+                    nscope(`scope_npost') excluded(`exclude')
             }
 
             // review(): counted conditions, printed and never halting
             forvalues k = 1/`n_review' {
                 quietly count if `IF' & `reviewind`k''
                 local nr = r(N)
-                _dataprobe_mshare `nr' `scope_n' `_gm'
+                _dataprobe_mshare `nr' `scope_n' `_gm' `_hz'
                 local rc_ "`r(cnt)'"
                 local rp_ "`r(pct)'"
                 if "`scope_hide`si''" == "1" local rp_ "."
@@ -2632,9 +2978,13 @@ program define dataprobe, rclass
                     display as text "REVIEW"
                     local _rev_hdr = 1
                 }
+                local _cf = 0
+                if `_pfx' & "`_hcc`k''" != "" {
+                    if `: list _sgg in _hcc`k'' local _cf = 1
+                }
                 _dataprobe_complete, spec(`"`complete_spec`k''"') rf(`RF') ///
                     kind(`complete_kind`k'') grp(`"`GP'"') pfx(`"`PFX'"') mask(`_gm') ///
-                    nscope(`scope_npost') cond(`IF')
+                    nscope(`scope_npost') cond(`IF') force(`_cf')
             }
         }
 
@@ -2658,8 +3008,15 @@ program define dataprobe, rclass
                 mask(`_gm') nscope(`nobs')
         }
         forvalues k = 1/`nf_coverage' {
+            // exclude(): the dates of an excluded variable are withheld
+            local _cvx ""
+            local _cvv : word 1 of `coverage_spec`k''
+            capture unab _cvv : `_cvv'
+            // an unresolvable name is coverage()'s own error, raised below
+            if _rc local _cvv ""
+            if `: list _cvv in exclude' local _cvx "excluded"
             _dataprobe_coverage, spec(`"`coverage_spec`k''"') rf(`RF') kind(band) ///
-                mask(`_gm') nscope(`nobs')
+                mask(`_gm') nscope(`nobs') `_cvx'
         }
         forvalues k = 1/`nf_jumps' {
             if !`_rev_hdr' {
@@ -2674,10 +3031,34 @@ program define dataprobe, rclass
             _dataprobe_heaping, spec(`"`heaping_spec`k''"') rf(`RF') ///
                 kind(`heaping_kind`k'') mask(`_gm') nscope(`nobs')
         }
+        // Is the call's N printed (the profile header, or the PASS line of a
+        // call with any gate)?  groupstat(n) cells are then tested against
+        // it: N minus the shown cells would give back the pooled-away rows.
+        local _nprint = ("`gatesonly'" == "")
+        if !`_nprint' {
+            frame `RF': quietly count if kind != "review"
+            if r(N) > 0 | `nf_smallcells' > 0 | `"`compare'"' != "" local _nprint = 1
+        }
         forvalues k = 1/`nf_groupstat' {
-            _dataprobe_groupstat, spec(`"`groupstat_spec`k''"') rf(`RF') ///
+            if strpos(`"`groupstat_spec`k''"', "band(") local _nprint = 1
+        }
+        // profile totals a groupstat() cell can be set against: the
+        // nonmissing count of a profiled variable, the ones of a 0/1
+        // categorical one; with the call's by(), the rows of the groups
+        // whose missing count or byfreq cell is withheld
+        local _gsopt ""
+        if "`gatesonly'" == "" & `_xmask' > 0 {
+            local _gsprof : list profilevars - f_excluded
+            local _gsopt `"profile(`_gsprof') pcat(`f_categorical')"'
+            if `_pfon' local _gsopt `"`_gsopt' byvars(`byvars') mhide(`_gsmh') fhide(`_gsfh')"'
+        }
+        forvalues k = 1/`nf_groupstat' {
+            _dataprobe_groupstat, spec(`"`groupstat_spec`k''"') rf(`RF') nprint(`_nprint') ///
                 kind(`groupstat_kind`k'') mask(`_gm') nscope(`nobs') ///
-                cond(`groupstat_cond`k'') scope(`"`groupstat_if`k''"')
+                cond(`groupstat_cond`k'') scope(`"`groupstat_if`k''"') ///
+                excluded(`exclude') `_gsopt'
+            // a printed <m or [suppr.] cell is a masked count (r(masked))
+            if r(masked) local _pmasked = 1
         }
 
         forvalues k = 1/`nf_smallcells' {
@@ -2801,8 +3182,11 @@ program define dataprobe, rclass
 	                    }
 	                }
 	            }
+	            // dropped: gone from the data, not merely outside the varlist
+	            // (dataprobe price mpg, compare() listed every other baseline
+	            // variable as dropped)
 	            foreach bv of local basevars {
-	                if !`: list bv in profilevars' {
+	                if !`: list bv in profilevars' & !`: list bv in _datavars' {
 	                    local compare_dropped "`compare_dropped' `bv'"
 	                }
 	            }
@@ -3232,7 +3616,7 @@ program define dataprobe, rclass
 	                tempname dcmeta_post
 	                quietly postfile `dcmeta_post' ///
 	                    str16 source_command str2045 source str2045 output ///
-	                    str80 dataset str2045 dataset_label str32 variable ///
+	                    str2045 dataset str2045 dataset_label str32 variable ///
 	                    str20 storage_type str32 display_format str32 value_label ///
 	                    str20 class double N long nvars long missing ///
 	                    double missing_pct long unique str2045 variable_label ///
@@ -3243,9 +3627,7 @@ program define dataprobe, rclass
 	                local _dcsource "memory"
 	                if `"`single'"' != "" local _dcsource `"`single'"'
 	                local _dclabel : data label
-	                local _dcdsig ""
-	                quietly capture datasignature
-	                if _rc == 0 local _dcdsig `"`r(datasignature)'"'
+	                local _dcdsig `"`_dsig'"'
 	                _datamap_post_metadata_rows, postname(`dcmeta_post') ///
 	                    classifications(`"`proff'"') sourcecommand("dataprobe") ///
 	                    source(`"`_dcsource'"') output("") dsname("current") ///
@@ -3474,6 +3856,43 @@ program define _dataprobe_pathok, nclass
     }
 end
 
+capture program drop _dataprobe_uqmask
+local _drop_uqmask_rc = _rc
+program define _dataprobe_uqmask, rclass
+    // A variable's unique-value count for display.  Under a mask m > 0 the
+    // count beside N is the number of repeated rows: N minus unique, or
+    // nonmissing N minus unique, of 1 to m-1 gives back a small cell (74
+    // rows, 73 unique: one duplicate, which KEY STRUCTURE masks), so the
+    // count prints as [masked].  A censored count (>cap) is not exact.
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args uv uc nobs nmiss m
+        if "`uc'" == "" local uc 0
+        if missing(`uc') local uc 0
+        if "`nmiss'" == "" local nmiss 0
+        if missing(`nmiss') local nmiss 0
+        if "`m'" == "" local m 0
+        _datamap_fmt_uniq `uv' `uc'
+        local s "`r(s)'"
+        local masked = 0
+        if `m' > 0 & !`uc' & !missing(`uv') {
+            local d1 = `nobs' - `uv'
+            local d2 = `nobs' - `nmiss' - `uv'
+            if (`d1' >= 1 & `d1' < `m') | (`d2' >= 1 & `d2' < `m') {
+                local s "[masked]"
+                local masked = 1
+            }
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    return local s "`s'"
+    return scalar masked = `masked'
+end
+
 capture program drop _dataprobe_flag
 local _drop_flag_rc = _rc
 program define _dataprobe_flag, rclass
@@ -3531,7 +3950,73 @@ end
 // columns (measured before the substitution, as %-ws would have).
 capture mata: mata drop _dataprobe_dshow()
 capture mata: mata drop _dataprobe_unwrap()
+capture mata: mata drop _datamap_nomask_explicit()
+capture mata: mata drop _dataprobe_valscalar()
 mata:
+// String scalar sc from the caller's local src with one wrapping pair of
+// double quotes removed (a value written "a" inside a quoted list).
+void _dataprobe_valscalar(string scalar src, string scalar sc)
+{
+	string scalar v
+	v = st_local(src)
+	if (strlen(v) >= 2 & substr(v, 1, 1) == char(34) & substr(v, strlen(v), 1) == char(34)) {
+		v = substr(v, 2, strlen(v) - 2)
+	}
+	st_strscalar(sc, v)
+}
+
+// 1 when the options of command line s (the text after its first comma
+// outside quotes and parentheses) name nomaskrare or an abbreviation of it
+// as an option of their own.  Scanning the whole line read a variable
+// named nomask, or nomask inside an if condition or a suboption's text, as
+// the option, and switched a session's masking off (fail open).
+real scalar _datamap_nomask_explicit(string scalar s)
+{
+	real scalar i, n, depth, inq, cq, seen
+	string scalar ch, nx, top
+	n = strlen(s)
+	depth = 0
+	inq = 0
+	cq = 0
+	seen = 0
+	top = ""
+	for (i = 1; i <= n; i++) {
+		ch = substr(s, i, 1)
+		nx = (i < n ? substr(s, i + 1, 1) : "")
+		if (ch == char(96) & nx == char(34)) {
+			cq++
+			i++
+			if (seen) top = top + "  "
+			continue
+		}
+		if (cq > 0 & ch == char(34) & nx == char(39)) {
+			cq--
+			i++
+			if (seen) top = top + "  "
+			continue
+		}
+		if (cq == 0 & ch == char(34)) {
+			inq = !inq
+			if (seen) top = top + " "
+			continue
+		}
+		if (cq > 0 | inq) {
+			if (seen) top = top + " "
+			continue
+		}
+		if (ch == "(") depth++
+		else if (ch == ")" & depth > 0) depth--
+		else if (ch == "," & depth == 0 & !seen) {
+			seen = 1
+			top = ","
+			continue
+		}
+		if (seen) top = top + (depth > 0 | ch == "(" | ch == ")" ? " " : ch)
+	}
+	if (!seen) return(0)
+	return(regexm(" " + strlower(top) + " ", "[ ,]nomask(r|ra|rar|rare)?[ ,]"))
+}
+
 // One spec entry, trimmed, without a compound quote that wraps all of it:
 // `"a": x > 0"' is "a": x > 0.  The wrapper is removed only when the `" at
 // the start is closed by the "' at the end, so `"a"' \ `"b"' is kept.
@@ -3592,8 +4077,11 @@ program define _dataprobe_freq, nclass
     capture noisily {
         // Frequency table sorted by descending count, capped at maxfreq.
         // cond: a within-group table (rows where cond holds), printed at
-        // indent ind; both empty for the pooled table
-        args v maxfreq rare maskcell cond ind
+        // indent ind; both empty for the pooled table.  force: a 0/1
+        // variable, constant within a level, marking cells withheld by the
+        // caller (byfreq's pooled-remainder test).  The caller's local
+        // _fqmask is set to 1 when a cell printed as [suppressed].
+        args v maxfreq rare maskcell cond ind force
         if "`maskcell'" == "" local maskcell = 0
         if `"`ind'"' == "" local ind "    "
         // Display-only: under quietly, as-error segments would still print.
@@ -3601,12 +4089,13 @@ program define _dataprobe_freq, nclass
             set varabbrev `_orig_varabbrev'
             exit
         }
-        tempvar freq
-        if `"`cond'"' == "" frame put `v', into(`fr')
-        else frame put `v' if `cond', into(`fr')
+        tempvar freq sup grp rk
+        if `"`cond'"' == "" frame put `v' `force', into(`fr')
+        else frame put `v' `force' if `cond', into(`fr')
         local _frame_open = 1
+        local _anysup = 0
         frame `fr' {
-            quietly contract `v', freq(`freq')
+            quietly contract `v' `force', freq(`freq')
             quietly count
             local nlev = r(N)
             quietly summarize `freq'
@@ -3617,33 +4106,11 @@ program define _dataprobe_freq, nclass
             gsort -`freq' `v'
             local lblname : value label `v'
             local show = min(`nlev', `maxfreq')
-            // Secondary suppression: the suppressed cells and the levels
-            // hidden by maxfreq form a pool whose total is N minus the shown
-            // cells.  When the pool holds a small cell but has one member or
-            // fewer than maskcell rows, that total would recover it, so the
-            // smallest shown cell joins the pool until neither holds.
-            tempvar sup
-            quietly generate byte `sup' = (`maskcell' > 0 & `freq' < `maskcell')
-            if `maskcell' > 0 {
-                quietly count if `sup'
-                local _nsup = r(N)
-                while `_nsup' > 0 {
-                    quietly count if `sup' | _n > `show'
-                    local _pn = r(N)
-                    quietly summarize `freq' if `sup' | _n > `show', meanonly
-                    local _ps = r(sum)
-                    if `_pn' >= 2 & `_ps' >= `maskcell' continue, break
-                    local _next = 0
-                    forvalues r = `show'(-1)1 {
-                        if !`sup'[`r'] {
-                            local _next = `r'
-                            continue, break
-                        }
-                    }
-                    if `_next' == 0 continue, break
-                    quietly replace `sup' = 1 in `_next'
-                }
-            }
+            quietly generate byte `grp' = 1
+            quietly generate long `rk' = _n
+            if "`force'" != "" quietly generate byte `sup' = (`force' == 1)
+            else quietly generate byte `sup' = 0
+            _dataprobe_freqsup `grp' `freq' `sup' `rk' `maxfreq' `maskcell'
             forvalues r = 1/`show' {
                 local lv = `v'[`r']
                 local ct = `freq'[`r']
@@ -3665,6 +4132,7 @@ program define _dataprobe_freq, nclass
                 local rflag ""
                 if `rare' > 0 & `ct' < `rare' local rflag "  <rare"
                 if `sup'[`r'] {
+                    local _anysup = 1
                     local _why = cond(`ct' < `maskcell', "suppressed (<`maskcell')", ///
                         "suppressed (complement)")
                     display as text `"`ind'"' as result %-28s "[suppressed]" ///
@@ -3684,12 +4152,169 @@ program define _dataprobe_freq, nclass
         }
         frame drop `fr'
         local _frame_open = 0
+        if `_anysup' c_local _fqmask 1
     }
     local rc = _rc
     if `_frame_open' capture frame drop `fr'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 
+end
+
+capture program drop _dataprobe_freqsup
+local _drop_freqsup_rc = _rc
+program define _dataprobe_freqsup, nclass
+    // Cell suppression of frequency tables held in the current frame, one
+    // table per value of grp, each sorted by descending count (rk is the
+    // rank within its table).  A cell below maskcell is suppressed, as is
+    // a cell already flagged in sup.  Secondary suppression: the suppressed
+    // cells and the levels hidden by maxfreq form a pool whose total is the
+    // table's N minus its shown cells.  When the pool holds a suppressed
+    // cell but has one member or fewer than maskcell rows, that total would
+    // recover it, so the table's smallest shown cell joins the pool until
+    // neither holds.  The pooled table and the byfreq tables share it.
+    version 16.0
+    args grp freq sup rk maxfreq maskcell
+    if `maskcell' <= 0 exit
+    quietly replace `sup' = 1 if `freq' < `maskcell'
+    quietly levelsof `grp' if `sup', local(_gl)
+    foreach g of local _gl {
+        while 1 {
+            quietly count if `grp' == `g' & (`sup' | `rk' > `maxfreq')
+            local _pn = r(N)
+            quietly summarize `freq' if `grp' == `g' & (`sup' | `rk' > `maxfreq'), meanonly
+            local _ps = r(sum)
+            if `_pn' >= 2 & `_ps' >= `maskcell' continue, break
+            quietly summarize `rk' if `grp' == `g' & !`sup' & `rk' <= `maxfreq', meanonly
+            if r(N) == 0 continue, break
+            quietly replace `sup' = 1 if `grp' == `g' & `rk' == r(max)
+        }
+    }
+end
+
+capture program drop _dataprobe_premask
+local _drop_premask_rc = _rc
+program define _dataprobe_premask, rclass
+    // The pooled-remainder test for a count printed per by() group beside
+    // its total over all rows: ind (0/1) marks the rows counted.  A group's
+    // count is exact when the group is shown (not in pooled) and the count
+    // is 0, or neither it nor the group's rows minus it is 1 to m-1.  When
+    // the total minus the exact counts is 1 to m-1, r(force) is the group
+    // whose count is withheld as well: the smallest positive exact count,
+    // the first group on ties.  Withholding a count of m or more leaves a
+    // remainder of m or more, so one group is enough.
+    version 16.0
+    args grp ind m pooled
+    tempname fr
+    tempvar one k1
+    local force ""
+    frame put `grp' `ind', into(`fr')
+    capture noisily {
+        frame `fr' {
+            quietly generate byte `k1' = (`ind' == 1)
+            quietly count if `k1' == 1
+            local tot = r(N)
+            quietly generate byte `one' = 1
+            quietly collapse (sum) `k1' `one', by(`grp')
+            local rem = `tot'
+            local kmin = .
+            forvalues r = 1/`=_N' {
+                local gg = `grp'[`r']
+                local k = `k1'[`r']
+                local n = `one'[`r']
+                if `: list gg in pooled' continue
+                if `k' >= 1 & `k' < `m' continue
+                if `n' - `k' >= 1 & `n' - `k' < `m' continue
+                local rem = `rem' - `k'
+                if `k' > 0 & `k' < `kmin' {
+                    local kmin = `k'
+                    local force "`gg'"
+                }
+            }
+            if !(`rem' >= 1 & `rem' < `m') local force ""
+        }
+    }
+    local rc = _rc
+    capture frame drop `fr'
+    if `rc' exit `rc'
+    return local force "`force'"
+end
+
+capture program drop _dataprobe_bfforce
+local _drop_bfforce_rc = _rc
+program define _dataprobe_bfforce, nclass
+    // byfreq: generate newvar = 1 on the rows of every (group, level) cell
+    // that the pooled-remainder test withholds.  For each level, the pooled
+    // count minus the cells the group tables print exactly (shown, not
+    // suppressed, within maxfreq, in a group not pooled away) must be 0 or
+    // at least maskcell; otherwise the level's smallest exact cell is
+    // withheld.  Each group's table is then re-pooled by
+    // _dataprobe_freqsup, which only withholds cells of maskcell or more,
+    // so a remainder only grows by maskcell or more and the loop ends.
+    version 16.0
+    args v grp maxfreq maskcell pooledg newvar init
+    // init: a 0/1 variable, constant within a cell, marking cells withheld
+    // from the start (a group the remainder test withholds elsewhere)
+    tempname bf
+    tempvar f sup rk hid ex P E rem mn pick
+    frame put `v' `grp' `init', into(`bf')
+    capture noisily {
+        frame `bf' {
+            if "`init'" != "" {
+                quietly bysort `v' `grp': egen byte `sup' = max(`init')
+                quietly drop `init'
+                quietly contract `v' `grp' `sup', freq(`f')
+            }
+            else {
+                quietly contract `v' `grp', freq(`f')
+                quietly generate byte `sup' = 0
+            }
+            quietly generate byte `hid' = 0
+            foreach gg of local pooledg {
+                quietly replace `hid' = 1 if `grp' == `gg'
+            }
+            gsort `grp' -`f' `v'
+            quietly by `grp': generate long `rk' = _n
+            _dataprobe_freqsup `grp' `f' `sup' `rk' `maxfreq' `maskcell'
+            while 1 {
+                capture drop `ex'
+                capture drop `P'
+                capture drop `E'
+                capture drop `rem'
+                capture drop `mn'
+                capture drop `pick'
+                quietly generate byte `ex' = (!`sup' & `rk' <= `maxfreq' & !`hid')
+                quietly bysort `v': egen double `P' = total(`f')
+                quietly by `v': egen double `E' = total(`f' * `ex')
+                quietly generate double `rem' = `P' - `E'
+                quietly by `v': egen double `mn' = min(cond(`ex' & `f' > 0, `f', .))
+                // one cell per level: the smallest exact cell, the first
+                // group on ties
+                quietly generate byte `pick' = (`rem' >= 1 & `rem' < `maskcell' & ///
+                    `ex' & `f' == `mn')
+                quietly bysort `v' `pick' (`grp'): replace `pick' = 0 if `pick' & _n > 1
+                quietly count if `pick'
+                if r(N) == 0 continue, break
+                quietly replace `sup' = 1 if `pick'
+                gsort `grp' -`f' `v'
+                _dataprobe_freqsup `grp' `f' `sup' `rk' `maxfreq' `maskcell'
+            }
+            quietly keep `v' `grp' `sup'
+            // one row per (level, group) cell of the data: none only when
+            // the data have no rows, which byfreq never reaches
+            quietly count
+            assert r(N) > 0 & r(N) < .
+            quietly rename `sup' `newvar'
+        }
+        tempvar lk
+        quietly frlink m:1 `v' `grp', frame(`bf') generate(`lk')
+        quietly frget `newvar' = `newvar', from(`lk')
+        quietly replace `newvar' = 0 if missing(`newvar')
+        quietly drop `lk'
+    }
+    local rc = _rc
+    capture frame drop `bf'
+    if `rc' exit `rc'
 end
 
 capture program drop _dataprobe_numstr

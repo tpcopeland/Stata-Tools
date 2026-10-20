@@ -1,4 +1,4 @@
-*! _dataprobe_bound Version 1.10.2  2026/10/20
+*! _dataprobe_bound Version 1.10.3  2026/10/20
 *! Parse a range bound (number, date literal, or date string) for a variable
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,7 +14,9 @@ program define _dataprobe_bound, rclass
             display as error "empty range bound"
             exit 198
         }
-        tempname val
+        // an expression is evaluated in an empty frame: with the data
+        // visible, a bound such as ub*1 evaluated as the first observation
+        tempname val _ef
         local _bare `raw'
         local _bare = subinstr(`"`_bare'"', char(34), "", .)
         local vfmt : format `v'
@@ -32,13 +34,21 @@ program define _dataprobe_bound, rclass
         // "+ 0" forces a numeric evaluation: a bare date string such as
         // 01jan2020 would otherwise become a string scalar.
         local _rc_eval = 1
-        if real(`"`_bare'"') < . {
+        // a bound written . is missing for every variable: it read as
+        // missing for a number and was a parse error for a date, so stat()
+        // took an upper bound of . as open for one and refused it for the
+        // other.  Each caller decides what a missing bound means.
+        if `"`_bare'"' == "." {
+            scalar `val' = .
+            local _rc_eval = 0
+        }
+        else if real(`"`_bare'"') < . {
             scalar `val' = real(`"`_bare'"')
             local _rc_eval = 0
         }
         else if !`isdate' | strpos(`"`_bare'"', "(") {
-            capture scalar `val' = (`_bare') + 0
-            local _rc_eval = _rc
+            _dataprobe_bound_eval `val' `_ef' `"`_bare'"'
+            local _rc_eval = r(rc)
         }
         if `_rc_eval' {
             local clean `"`_bare'"'
@@ -70,11 +80,12 @@ program define _dataprobe_bound, rclass
             }
             // not a date string: an expression such as 21915 + 1
             if missing(`val') & `isdate' & !strpos(`"`_bare'"', "(") {
-                capture scalar `val' = (`_bare') + 0
-                if _rc scalar `val' = .
+                _dataprobe_bound_eval `val' `_ef' `"`_bare'"'
+                if r(rc) scalar `val' = .
             }
             if missing(`val') {
                 display as error `"could not parse range bound `_bare' for `v'"'
+                display as error "a bound is a number, a date, or an expression of constants; it cannot refer to a variable"
                 exit 198
             }
         }
@@ -85,4 +96,19 @@ program define _dataprobe_bound, rclass
     // the scalar, not a macro copy: a decimal round trip keeps only 16
     // digits and can move a bound off a value the data holds
     return scalar value = scalar(`val')
+end
+
+// Evaluate a bound expression with no data visible, so a variable name in it
+// is an error rather than its first observation.  Returns r(rc).
+capture program drop _dataprobe_bound_eval
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _dataprobe_bound_eval, rclass
+    version 16.0
+    args val fr expr
+    frame create `fr'
+    frame `fr': capture scalar `val' = (`expr') + 0
+    local rc = _rc
+    capture frame drop `fr'
+    return scalar rc = `rc'
 end

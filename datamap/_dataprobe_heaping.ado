@@ -1,4 +1,4 @@
-*! _dataprobe_heaping Version 1.10.2  2026/10/20
+*! _dataprobe_heaping Version 1.10.3  2026/10/20
 *! dataprobe heaping(): placeholder-date heaping on 1 January, the 1st, the 15th
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -93,6 +93,16 @@ program define _dataprobe_heaping, rclass
                     local p`j' "`r(pcttxt)'"
                     local sm`j' = r(masked)
                     if !`sm`j'' & `n' > 0 local p`j' = strtrim(string(100 * `sh`j'', "%9.2f")) + "%"
+                    // 1 January is one of the 1sts: the two shares beside N
+                    // give back the 1sts of the other months, c2 - c1, so the
+                    // 1st share is masked when that difference is 1 to m-1
+                    if `j' == 2 {
+                        if `mask' > 0 & !`sm1' & !`sm2' & ///
+                            `c2' - `c1' >= 1 & `c2' - `c1' < `mask' {
+                            local sm2 = 1
+                            local p2 "[masked]"
+                        }
+                    }
                     if `sm`j'' local om = 1
                     local f`j' = cond(`n' > 0 & `sh`j'' > `fold' * `e`j'' & !`sm`j'', "*", " ")
                     if "`f`j''" == "*" local marks "`marks' `j'"

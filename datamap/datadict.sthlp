@@ -91,9 +91,16 @@ columns are added.
 {pstd}
 The command uses the same shared classification engine as {help datamap}: string,
 date, categorical, and continuous variables are identified using one consistent
-rule set. It formats value labels for categorical variables. For variables
+rule set. It formats value labels for categorical variables; extended missing
+codes the value label defines are listed after the values as, for example,
+{bf:.a=Refused (missing code)}, without counts. For variables
 with more than {opt maxfreq()} unique values it displays a count rather than
-listing every value.
+listing every value. An unlabelled numeric variable named like an identifier
+({cmd:id}, {cmd:lopnr}, or a name containing {cmd:_id}, {cmd:personid}, or
+{cmd:identifier}) is described as "Unique identifier" only when no nonmissing
+value repeats, and one named {cmd:year} or {cmd:yr} as "Year of observation"
+only when every nonmissing value is an integer from 1000 to 2999; otherwise it
+is described like any other variable of its class.
 
 {pstd}
 The generated Markdown files are valid CommonMark and render in GitHub, GitLab,
@@ -110,7 +117,9 @@ Your data in memory is unchanged by a successful run.
 When {cmd:datadict} documents a file ({opt single()}, {opt directory()},
 {opt filelist()}, {opt manifest()}) it loads that file and restores your
 original data afterwards. When it documents the data already in memory it takes
-no snapshot: a {helpb preserve} is a full second copy of the dataset, and
+no snapshot and saves only an empty copy of the variable definitions to a
+temporary file, so {cmd:c(changed)} and {cmd:c(filename)} are left as they
+were: a {helpb preserve} is a full second copy of the dataset, and
 avoiding it roughly halves peak memory on a large file. The trade-off is that a
 run which fails partway through is not rolled back; a successful run always
 leaves the data exactly as it found it.
@@ -158,10 +167,12 @@ spaced name unambiguous.
 {phang}
 {opt rec:ursive} makes {opt directory()} also descend into subdirectories. Hidden
 directories (names beginning with {cmd:.}) and {cmd:__pycache__} are always skipped.
+{opt recursive} without {opt directory()} is r(198). A file ending in {cmd:.DTA}
+is found as well as one ending in {cmd:.dta}.
 
 {pstd}
 {opt man:ifest(filename)} reads one dataset path per line. Blank lines and
-lines beginning with {cmd:#} are ignored.
+lines beginning with {cmd:#} are ignored, as is a UTF-8 byte-order mark.
 
 {pstd}
 Only one of {opt single()}, {opt directory()}, {opt filelist()}, or
@@ -179,6 +190,12 @@ dataset, or in {opt outdir()} if specified.
 {phang}
 {opt sep:arate} writes a separate Markdown file for each dataset instead of
 combining them into one document.
+
+{pmore}
+Each dictionary is written to a temporary file and copied over its destination
+only once its datasets have been documented, so a run that fails on a later
+file leaves the previous dictionary in place; an unwritable destination fails
+before any dataset is read.
 
 {phang}
 {opt outd:ir(path)} writes all separate dictionaries to {it:path}. The
@@ -198,7 +215,12 @@ label name, class, N, number of variables in the source dataset, missing count
 and percent, unique count, variable label, notes, characteristics, numeric
 summary statistics when available, source command, and datasignature. The
 schema is shared with {help datamap} and {help dataprobe}. Specify
-{cmd:replace} to overwrite an existing file.
+{cmd:replace} to overwrite an existing file. A name with no extension gets
+{cmd:.dta}, and that name is checked before any output is written. While
+{opt mincell()} is above 0, a categorical row has no numeric summaries (the
+mean of a 0/1 variable is the share in a cell that may be suppressed), and a
+continuous variable with exactly two distinct values has no mean or standard
+deviation, in the {opt stats} column ({bf:withheld}) or in the saved rows.
 
 {pmore}
 {bf:unique} counts distinct nonmissing values; for a string variable the
@@ -285,7 +307,12 @@ those columns.
 {cmd:stats}, {cmd:detail}, {cmd:datasignature}, {cmd:exclude},
 {cmd:continuous}, {cmd:categorical}, {cmd:datevars}, {cmd:maxcat},
 {cmd:maxfreq}, {cmd:mincell}, and {cmd:dateformat}. Command-line options
-override config-file defaults.
+override config-file defaults. {cmd:missing}, {cmd:stats}, {cmd:detail}, and
+{cmd:datasignature} are switches: {cmd:1}, {cmd:yes}, {cmd:true}, or {cmd:on}
+turns one on ({cmd:missing} also accepts {cmd:detail} and {cmd:pattern}, its
+{help datamap} values), and any other value, such as {cmd:no}, leaves it off.
+{cmd:maxcat}, {cmd:maxfreq}, and {cmd:mincell} must be integers (r(198)
+otherwise).
 
 {phang}
 {opt datasig:nature} computes and reports Stata's {cmd:datasignature} for each
@@ -338,6 +365,9 @@ list the names or use wildcards. Abbreviations are not expanded.
 {opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt datev:ars(varlist)} force the
 named variables into the given class after {opt exclude()} is applied. {opt datevars()} is
 the classification override; {opt date()} remains the document-date metadata option.
+A range whose endpoints are in reverse order in a dataset
+({cmd:categorical(weight-price)} when {it:price} comes first) is r(111). A date
+forced into {opt categorical()} lists its levels in {opt dateformat()}.
 
 {phang}
 {opt datef:ormat(string)} sets the Stata date format used to display all dates. The

@@ -47,6 +47,9 @@ f _datamap_validate_path.ado
 f _datamap_version.ado
 f _datamap_dqdefaults.ado
 f _datamap_missby.ado
+f _datamap_memshell.ado
+f _datamap_sumpolicy.ado
+f _datamap_stage.ado
 f _dataprobe_mcount.ado
 f _dataprobe_mshare.ado
 f _dataprobe_statval.ado

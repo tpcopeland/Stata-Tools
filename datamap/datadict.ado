@@ -1,4 +1,4 @@
-*! datadict Version 1.10.2  2026/10/20
+*! datadict Version 1.10.3  2026/10/20
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -68,7 +68,10 @@ program define datadict, rclass
 					local `opt' = real(`"`r(`opt')'"')
 				}
 			}
-			if "`missing'" == "" & "`r(missing)'" != "" local missing "missing"
+			// missing is datamap's detail/pattern key too, so it is read raw;
+			// here it is a switch: missing = no used to turn the column on
+			if "`missing'" == "" & inlist(lower(strtrim(`"`r(missing)'"')), ///
+				"1", "yes", "true", "on", "missing", "detail", "pattern") local missing "missing"
 			if "`stats'" == "" & "`r(stats)'" != "" local stats "stats"
 			if "`detail'" == "" & "`r(detail)'" != "" local detail "detail"
 			if "`datasignature'" == "" & "`r(datasignature)'" != "" local datasignature "datasignature"
@@ -77,6 +80,13 @@ program define datadict, rclass
 		if `maxfreq' == -999999999 local maxfreq = 25
 		if `mincell' == -999999999 local mincell = 5
 		if `uniqcap' == -999999999 local uniqcap = 1000
+		// a config() value is read with real(); see datamap
+		foreach opt in maxcat maxfreq mincell uniqcap {
+			if !missing(``opt'') & ``opt'' != floor(``opt'') {
+				noisily di as error "`opt'() must be an integer"
+				exit 198
+			}
+		}
 		if `maxcat' <= 0 | missing(`maxcat') {
 			noisily di as error "maxcat() must be positive"
 			exit 198
@@ -108,6 +118,11 @@ program define datadict, rclass
 		noisily di as error "specify only one of single(), directory(), filelist(), or manifest()"
 		exit 198
 	}
+	// recursive scans directory(); with any other input it did nothing
+	if "`recursive'" != "" & "`directory'" == "" {
+		noisily di as error "recursive requires directory()"
+		exit 198
+	}
 	if `"`single'"' != "" _datadict_ValidatePath `"`single'"', option("single()")
 	if `"`directory'"' != "" _datadict_ValidatePath `"`directory'"', option("directory()")
 	if `"`varspec'"' != "" & `ninput' > 0 & `"`single'"' == "" {
@@ -118,13 +133,15 @@ program define datadict, rclass
 	// If no input specified, document data currently in memory
 	local from_memory 0
 	if `ninput' == 0 {
-		if c(N) == 0 | c(k) == 0 {
+		if c(k) == 0 {
 			noisily di as error "no data in memory and no input specified"
 			noisily di as error "specify single(), directory(), filelist(), or load data first"
 			exit 198
 		}
+		// a zero-observation shell, never a -save- of the loaded data, which
+		// reset c(changed) and c(filename) (see _datamap_memshell)
 		tempfile memdata
-		quietly save "`memdata'"
+		_datamap_memshell `"`memdata'"'
 		local single "`memdata'"
 		local from_memory 1
 	}
@@ -176,6 +193,10 @@ program define datadict, rclass
 		local saving_file `"`r(file)'"'
 		local saving_replace = r(replace)
 		_datadict_ValidatePath `"`saving_file'"', option("saving()")
+		// -save- adds .dta to a name with no suffix; check that name, or a
+		// second run wrote the dictionary and then failed r(602)
+		mata: st_local("_sext", pathsuffix(st_local("saving_file")))
+		if `"`_sext'"' == "" local saving_file `"`saving_file'.dta"'
 		if !`saving_replace' {
 			confirm new file `"`saving_file'"'
 		}
@@ -196,7 +217,7 @@ program define datadict, rclass
 	if `"`single'"' != "" {
 		// Add .dta extension if not present (skip for in-memory tempfiles)
 		if !`from_memory' {
-			local single = cond(regexm(`"`single'"', "\.dta$"), `"`single'"', `"`single'.dta"')
+			local single = cond(regexm(lower(`"`single'"'), "\.dta$"), `"`single'"', `"`single'.dta"')
 		}
 		confirm file `"`single'"'
 		local nfiles 1
@@ -231,11 +252,14 @@ program define datadict, rclass
 
 	// exclude() against every file before any output is written (see
 	// _datamap_classify, precheck)
-	if `"`exclude'"' != "" {
+	// continuous(), categorical(), and datevars() tokens too: one that names
+	// no variable in any file is an error
+	if `"`exclude'`continuous'`categorical'`datevars'"' != "" {
 		local _pcm ""
 		if `from_memory' local _pcm "memory"
 		_datamap_classify using `"`filelist_tmp'"', precheck ///
-			exclude(`"`exclude'"') `_pcm'
+			exclude(`"`exclude'"') continuous(`"`continuous'"') ///
+			categorical(`"`categorical'"') date(`"`datevars'"') dateopt(datevars) `_pcm'
 	}
 
 	// Collect dataset names for TOC
@@ -268,7 +292,7 @@ program define datadict, rclass
 		tempname metadata_post
 			quietly postfile `metadata_post' ///
 				str16 source_command str2045 source str2045 output ///
-				str80 dataset str2045 dataset_label ///
+				str2045 dataset str2045 dataset_label ///
 				str32 variable str20 storage_type str32 display_format ///
 				str32 value_label str20 class double N long nvars long missing ///
 				double missing_pct long unique str2045 variable_label str2045 notes ///
@@ -389,9 +413,83 @@ capture mata: mata drop _datadict_transport_decode()
 capture mata: mata drop _datadict_str_levels()
 capture mata: mata drop _datadict_cellmask()
 capture mata: mata drop _datadict_cellmask_locals()
+capture mata: mata drop _datamap_ucut()
+capture mata: mata drop _datadict_uproper()
+capture mata: mata drop _datadict_misscodes()
+capture mata: mata drop _datadict_codespan()
 mata:
+// text as a Markdown code span: verbatim, since a code span decodes no
+// escape or entity (the escaped form showed &#36; and doubled backslashes);
+// a backtick in the text takes a double-backtick fence
+string scalar _datadict_codespan(string scalar text)
+{
+	text = subinstr(subinstr(text, char(10), " "), char(13), " ")
+	if (strpos(text, char(96)) == 0) return(char(96) + text + char(96))
+	return(char(96) + char(96) + " " + text + " " + char(96) + char(96))
+}
+// The extended missing codes (.a-.z) a value label defines, as
+// ".a=Refused (missing code)" items joined by ", " in the caller's local
+// `dst'.  The
+// level lists read non-missing values only, so these labels were never
+// documented.  Definitions only, no counts: nothing here is a cell.
+void _datadict_misscodes(string scalar lab, string scalar dst)
+{
+	real colvector v
+	string colvector t
+	real scalar i
+	string scalar out
+
+	out = ""
+	st_vlload(lab, v, t)
+	for (i = 1; i <= rows(v); i++) {
+		if (v[i] > .) out = out + (out == "" ? "" : ", ") + strofreal(v[i]) + "=" + _datadict_md_escape(t[i]) + " (missing code)"
+	}
+	st_local(dst, out)
+}
+// proper() by character: the first letter and every letter after a
+// non-letter upper case, other letters lower case.  proper() works on
+// bytes, so "örebro" became "öRebro".
+string scalar _datadict_uproper(string scalar s)
+{
+	real scalar i, n, prevl
+	string scalar out, ch
+
+	n = ustrlen(s)
+	out = ""
+	prevl = 0
+	for (i = 1; i <= n; i++) {
+		ch = usubstr(s, i, 1)
+		if (ustrregexm(ch, "^\p{L}$")) {
+			out = out + (prevl ? ustrlower(ch) : ustrupper(ch))
+			prevl = 1
+		}
+		else {
+			out = out + ch
+			prevl = 0
+		}
+	}
+	return(out)
+}
+// Prefix of s at most nb bytes long that never splits a UTF-8 character:
+// steps back over continuation bytes (0x80-0xBF) at the cut.  substr() cuts
+// bytes, and a str# column or name cut mid-character holds invalid UTF-8.
+string scalar _datamap_ucut(string scalar s, real scalar nb)
+{
+	real scalar i, a
+	if (strlen(s) <= nb) return(s)
+	i = nb
+	while (i > 0) {
+		a = ascii(substr(s, i + 1, 1))
+		if (a < 128 | a >= 192) break
+		i--
+	}
+	return(substr(s, 1, i))
+}
 string scalar _datadict_md_escape(string scalar text)
 {
+	// backslash first: Markdown reads a backslash before punctuation as an
+	// escape, so a\|b lost its backslash once the pipe was escaped
+	text = subinstr(text, char(92), char(92) + char(92))
 	text = subinstr(text, "|", char(92) + "|")
 	text = subinstr(text, char(36), "&#36;")
 	text = subinstr(text, char(96), "&#96;")
@@ -566,12 +664,15 @@ program define _datadict_CollectDatasetNames, nclass
 		// Extract basename using Stata's native functions
 		local basename = ustrregexra(`"`macval(filepath)'"', ".*[/\\]", "")
 		// Remove .dta extension
-		local basename = ustrregexra(`"`basename'"', "\.dta$", "")
+		local basename = ustrregexra(`"`basename'"', "(?i)\.dta$", "")
 
 		// Try to get dataset label
 		capture quietly describe using `"`macval(filepath)'"', short
 		if _rc == 0 {
-			local dslabel `"`r(dtalabel)'"'
+			// -describe using- returns r(datalabel); r(dtalabel) does not
+			// exist, so every file-mode dataset label was lost.  Read via
+			// Mata: a label with a quote or backtick is data, not syntax.
+			mata: st_local("dslabel", st_global("r(datalabel)"))
 		}
 		else {
 			local dslabel ""
@@ -600,9 +701,11 @@ program define _datadict_MakeAnchor, rclass
 	// Convert to lowercase and replace spaces/special chars with hyphens
 	// A leading or trailing underscore (_demo_cohort) is not part of the
 	// heading text, so it must not leave a hyphen in the anchor either.
-	local anchor = lower(strtrim(subinstr(`"`name'"', "_", " ", .)))
+	// Letters and digits of any script survive, as in GitHub's anchors: the
+	// ASCII-only class turned "Örebro Data" into the dead link #1-rebro-data.
+	local anchor = ustrlower(strtrim(subinstr(`"`name'"', "_", " ", .)))
 	local anchor = ustrregexra(`"`anchor'"', "[ _]", "-")
-	local anchor = ustrregexra(`"`anchor'"', "[^a-z0-9-]", "")
+	local anchor = ustrregexra(`"`anchor'"', "[^\p{L}\p{N}-]", "")
 
 	return local anchor "`idx'-`anchor'"
 end
@@ -850,10 +953,13 @@ program define _datadict_CollectManifest, rclass
 
 		local nfiles 0
 		file read `fh_in' line
+		// a manifest saved with a UTF-8 byte-order mark (Windows editors)
+		// carried it into the first path, r(601)
 		while r(eof) == 0 {
+			mata: st_local("line", ustrregexra(st_local("line"), "^\x{FEFF}", ""))
 			local path = strtrim(`"`macval(line)'"')
 			if `"`path'"' != "" & substr(`"`path'"', 1, 1) != "#" {
-				local path = cond(regexm(`"`path'"', "\.dta$"), `"`path'"', `"`path'.dta"')
+				local path = cond(regexm(lower(`"`path'"'), "\.dta$"), `"`path'"', `"`path'.dta"')
 				_datadict_ValidatePath `"`path'"', option("manifest() dataset path")
 				confirm file `"`path'"'
 				file write `fh_out' `"`path'"' _n
@@ -976,7 +1082,9 @@ program define _datadict_FormatDisplayName, rclass
 	args dsname
 
 	if `"`dsname'"' == "data_in_memory" local dispname "Data in memory"
-	else local dispname = strtrim(proper(subinstr(`"`dsname'"', "_", " ", .)))
+	// escaped as Markdown text: a name like a<b.dta is a heading and a
+	// link text, not raw HTML
+	else mata: st_local("dispname", _datadict_md_escape(strtrim(_datadict_uproper(subinstr(st_local("dsname"), "_", " ")))))
 
 	return local dispname `"`dispname'"'
 	}
@@ -1004,7 +1112,15 @@ program define _datadict_DateDisplayFormat, rclass
 			local datefmt "`dateformat'"
 		}
 		else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
-			local datefmt = subinstr("`dateformat'", "%td", "%tc", 1)
+			// the daily body of dateformat() on the variable's own clock
+			// (%tC keeps leap seconds); dateformat(%d...) used to pass
+			// through unchanged and print 1.2969e+12, and %tC became %tc
+			local _clk = cond(strpos("`vfmt'", "%tC") > 0, "%tC", "%tc")
+			local _df = subinstr("`dateformat'", "%-", "%", 1)
+			if substr("`_df'", 1, 3) == "%td" local datefmt = "`_clk'" + substr("`_df'", 4, .)
+			else if substr("`_df'", 1, 2) == "%d" local datefmt = "`_clk'" + substr("`_df'", 3, .)
+			// not a daily format: keep the variable's own format
+			else local datefmt "`vfmt'"
 		}
 
 		return local display_format `"`datefmt'"'
@@ -1025,9 +1141,16 @@ program define _datadict_FormatLevelNumber, rclass
 	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
 	capture noisily {
-		args vname num
+		args vname num dateformat
 		confirm numeric variable `vname'
 		local vfmt : format `vname'
+		// a date forced into categorical() lists its levels in dateformat(),
+		// as the date rows do
+		local _f = subinstr("`vfmt'", "%-", "%", 1)
+		if `"`dateformat'"' != "" & inlist(substr("`_f'", 1, 2), "%t", "%d") {
+			_datadict_DateDisplayFormat, vfmt("`vfmt'") dateformat("`dateformat'")
+			local vfmt "`r(display_format)'"
+		}
 		local formatted = strtrim(string(`num', "`vfmt'"))
 		return local formatted `"`formatted'"'
 	}
@@ -1046,10 +1169,13 @@ program define _datadict_GetValueLabelString, rclass
 	version 16.0
 	args vname vallabname maxlevels
 
+	// labelled extended missing codes, appended after the values
+	mata: _datadict_misscodes(st_local("vallabname"), "_mcodes")
+
 	// Get unique non-missing values
 	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
 	if _rc != 0 | `"`levels'"' == "" {
-		return local valstring ""
+		return local valstring `"`_mcodes'"'
 		exit
 	}
 
@@ -1067,7 +1193,8 @@ program define _datadict_GetValueLabelString, rclass
 	foreach lev of local levels {
 		_datadict_FormatLevelNumber `vname' `lev'
 		local levdisplay `"`r(formatted)'"'
-		capture local labtext: label `vallabname' `lev'
+		// strict: an unlabelled value has no label text (not "3=3")
+		capture local labtext: label `vallabname' `lev', strict
 		if _rc != 0 {
 			local labtext ""
 		}
@@ -1093,10 +1220,14 @@ program define _datadict_GetValueLabelString, rclass
 		}
 
 		// Truncate if getting too long
-		if length(`"`valstring'"') > 200 {
-			local valstring = substr(`"`valstring'"', 1, 197) + "..."
+		// characters, not bytes: a byte cut can split a UTF-8 character
+		if ustrlen(`"`valstring'"') > 200 {
+			local valstring = usubstr(`"`valstring'"', 1, 197) + "..."
 			continue, break
 		}
+	}
+	if `"`_mcodes'"' != "" & usubstr(`"`valstring'"', -3, 3) != "..." {
+		local valstring `"`valstring', `_mcodes'"'
 	}
 
 	return local valstring `"`valstring'"'
@@ -1147,6 +1278,28 @@ program define _datadict_FormatStatNumber, rclass
 	return local formatted "`formatted'"
 end
 
+// Join the two ends of an IQR or range.  "a-b" reads wrongly when an end is
+// negative (IQR=-250--83.50), so that pair is written "a to b"; and two
+// different ends that format alike at the default precision (100.2 and
+// 100.4 both print 100) are written with 4 significant digits more.
+capture program drop _datadict_FormatPair
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datadict_FormatPair, rclass
+	version 16.0
+	args lo hi lo_s hi_s
+	if `"`lo_s'"' == `"`hi_s'"' & !missing(`lo') & !missing(`hi') & `lo' != `hi' {
+		local lo_s = strtrim(string(`lo', "%20.8g"))
+		local hi_s = strtrim(string(`hi', "%20.8g"))
+	}
+	local sep "-"
+	// a leading minus, or one inside an exponent (1.30e-04), makes a
+	// hyphen ambiguous
+	if substr(`"`lo_s'"', 1, 1) == "-" | substr(`"`hi_s'"', 1, 1) == "-" | ///
+		strpos(`"`lo_s'`hi_s'"', "e-") local sep " to "
+	return local pair `"`lo_s'`sep'`hi_s'"'
+end
+
 // =============================================================================
 // Helper: GetCategoricalStats - get frequencies with percentages for labeled categoricals
 // =============================================================================
@@ -1158,7 +1311,7 @@ program define _datadict_GetCategoricalStats, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        args vname vallabname maxlevels totalobs mincell
+        args vname vallabname maxlevels totalobs mincell dateformat
         if "`mincell'" == "" local mincell = 0
 
         // Get unique non-missing values
@@ -1198,7 +1351,7 @@ program define _datadict_GetCategoricalStats, rclass
         local li 0
         foreach lev of local levels {
             local ++li
-            _datadict_FormatLevelNumber `vname' `lev'
+            _datadict_FormatLevelNumber `vname' `lev' "`dateformat'"
             local levdisplay `"`r(formatted)'"'
             capture local labtext: label `vallabname' `lev', strict
             if _rc != 0 {
@@ -1252,7 +1405,7 @@ program define _datadict_GetUnlabeledStats, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        args vname maxlevels totalobs mincell
+        args vname maxlevels totalobs mincell dateformat
         if "`mincell'" == "" local mincell = 0
 
         capture confirm string variable `vname'
@@ -1302,7 +1455,7 @@ program define _datadict_GetUnlabeledStats, rclass
         foreach lev of local levels {
             local ++li
             local levcount = `_cnt`li''
-            _datadict_FormatLevelNumber `vname' `lev'
+            _datadict_FormatLevelNumber `vname' `lev' "`dateformat'"
             local levdisplay `"`r(formatted)'"'
 
             if `nvalid' > 0 {
@@ -1423,7 +1576,7 @@ program define _datadict_DeriveSeparateOutput, rclass
 		}
 
 		local basename = ustrregexra(`"`macval(filepath)'"', ".*[/\\]", "")
-		local basename = ustrregexra(`"`basename'"', "\.dta$", "")
+		local basename = ustrregexra(`"`basename'"', "(?i)\.dta$", "")
 		if "`memory'" != "" local basename "memory"
 		if `"`outdir'"' != "" {
 			local outroot = subinstr(`"`outdir'"', "\", "/", .)
@@ -1436,7 +1589,7 @@ program define _datadict_DeriveSeparateOutput, rclass
 			if "`memory'" != "" local outbase "memory"
 			else {
 				local len = length(`"`macval(filepath)'"')
-				if substr(`"`macval(filepath)'"', `len' - 3, 4) == ".dta" {
+				if lower(substr(`"`macval(filepath)'"', `len' - 3, 4)) == ".dta" {
 					local outbase = substr(`"`macval(filepath)'"', 1, `len' - 4)
 				}
 				else {
@@ -1537,17 +1690,37 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	}
 	else {
 		local vname_lower = lower(`"`vname'"')
-		if inlist(`"`vname_lower'"', "id", "lopnr") | ///
+		// The name suggests the role; the values must confirm it.  By name
+		// alone region_id with 4 values read "Unique identifier" and a
+		// constant yr = 5 read "Year of observation".
+		local _isidname = inlist(`"`vname_lower'"', "id", "lopnr") | ///
 		   strpos(`"`vname_lower'"', "_id") > 0 | ///
 		   strpos(`"`vname_lower'"', "personid") > 0 | ///
-		   strpos(`"`vname_lower'"', "identifier") > 0 {
+		   strpos(`"`vname_lower'"', "identifier") > 0
+		local _isuid = 0
+		if `_isidname' {
+			quietly count if !missing(`vname')
+			local _nnm = r(N)
+			// exact distinct count: a capped count is only a lower bound
+			capture _datamap_nuniq `vname', cap(0)
+			if _rc == 0 & `_nnm' > 0 & r(n) == `_nnm' local _isuid = 1
+		}
+		local _isyear = 0
+		if !`_isuid' & inlist(`"`vname_lower'"', "year", "yr") {
+			quietly count if !missing(`vname') & ///
+				(`vname' != floor(`vname') | `vname' < 1000 | `vname' > 2999)
+			local _nbad = r(N)
+			quietly count if !missing(`vname')
+			if `_nbad' == 0 & r(N) > 0 local _isyear = 1
+		}
+		if `_isuid' {
 			local valuesstr "Unique identifier"
 		}
-		else if inlist(`"`vname_lower'"', "year", "yr") {
+		else if `_isyear' {
 			local valuesstr "Year of observation"
 		}
 			else if "`varclass'" == "categorical" {
-				_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs' `mincell'
+				_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs' `mincell' "`dateformat'"
 				local valuesstr `"`r(valstring)'"'
 			}
 	}
@@ -1562,6 +1735,14 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	local vmax_raw = .
 	capture confirm numeric variable `vname'
 	local is_numeric = (_rc == 0)
+	// datamap's rule (_datamap_sumpolicy): under mincell() a categorical
+	// row's saved mean, sd and quantiles give a suppressed cell back (the
+	// mean of a 0/1 flag times N), and so do a two-valued continuous
+	// variable's mean and sd, printed or saved
+	_datamap_sumpolicy, class(`varclass') vfmt("`vfmt'") mincell(`mincell') ///
+		nuniq(`=cond(missing(`nuniq') | `ncapped', -1, `nuniq')')
+	local _cathide = r(cathide)
+	local _momhide = r(momhide)
 	if `is_numeric' {
 		// The percentiles (a sort per variable) are read only by the
 		// continuous row and the saving() post; other rows need min and max.
@@ -1583,12 +1764,12 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 
 		if "`varclass'" == "categorical" {
 			if "`vallabname'" != "" {
-				_datadict_GetCategoricalStats `"`vname'"' `"`vallabname'"' `maxfreq' `obs' `mincell'
+				_datadict_GetCategoricalStats `"`vname'"' `"`vallabname'"' `maxfreq' `obs' `mincell' "`dateformat'"
 				local statsstr `"`r(valstring)'"'
 			}
 			else {
 				if !missing(`nuniq') & `nuniq' <= `maxfreq' {
-					_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs' `mincell'
+					_datadict_GetUnlabeledStats `"`vname'"' `maxfreq' `obs' `mincell' "`dateformat'"
 					local statsstr `"`r(valstring)'"'
 				}
 			else {
@@ -1615,7 +1796,15 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			local max_s `r(formatted)'
 			quietly count if !missing(`vname')
 			local nvalid = r(N)
-			local statsstr "N=`nvalid'<br>Median=`median_s'; IQR=`p25_s'-`p75_s'<br>Mean=`mean_s' (SD=`sd_s')<br>Range=`min_s'-`max_s'"
+			_datadict_FormatPair `p25' `p75' "`p25_s'" "`p75_s'"
+			local iqr_s "`r(pair)'"
+			_datadict_FormatPair `vmin_raw' `vmax_raw' "`min_s'" "`max_s'"
+			local rng_s "`r(pair)'"
+			if `_momhide' {
+				local mean_s "withheld (mincell; two-valued)"
+				local sd_s "withheld"
+			}
+			local statsstr "N=`nvalid'<br>Median=`median_s'; IQR=`iqr_s'<br>Mean=`mean_s' (SD=`sd_s')<br>Range=`rng_s'"
 		}
 		else {
 			local statsstr "All missing"
@@ -1644,6 +1833,13 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 		local statsstr "N=`nvalid'; `r(s)' unique values"
 	}
 
+	// a file with no observations has no values to be missing: "All
+	// missing" beside "Missing 0 (0.0%)" contradicted itself
+	if c(N) == 0 {
+		if `"`valuesstr'"' == "All missing" local valuesstr "No observations"
+		if `"`statsstr'"' == "All missing" local statsstr "No observations"
+	}
+
 	local row "|"
 	foreach col of local columns {
 		local cell ""
@@ -1664,13 +1860,23 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	file write `handle' `"`macval(row)'"' _n
 
 	if "`postname'" != "" {
-		local post_source = substr(`"`macval(source)'"', 1, 2045)
-		local post_output = substr(`"`macval(output)'"', 1, 2045)
-		local post_dslabel = substr(`"`macval(dslabel)'"', 1, 2045)
-		local post_vlab = substr(`"`macval(vlab)'"', 1, 2045)
-		local post_notes = substr(`"`macval(notesstr)'"', 1, 2045)
-		local post_chars = substr(`"`macval(charsstr)'"', 1, 2045)
-			local post_dsig = substr(`"`macval(datasignature)'"', 1, 2045)
+		if `_cathide' {
+			foreach _st in mean sd p50 p25 p75 vmin_raw vmax_raw {
+				local `_st' = .
+			}
+		}
+		if `_momhide' {
+			local mean = .
+			local sd = .
+		}
+		// at most 2045 bytes (str2045) without splitting a UTF-8 character
+		mata: st_local("post_source", _datamap_ucut(st_local("source"), 2045))
+		mata: st_local("post_output", _datamap_ucut(st_local("output"), 2045))
+		mata: st_local("post_dslabel", _datamap_ucut(st_local("dslabel"), 2045))
+		mata: st_local("post_vlab", _datamap_ucut(st_local("vlab"), 2045))
+		mata: st_local("post_notes", _datamap_ucut(st_local("notesstr"), 2045))
+		mata: st_local("post_chars", _datamap_ucut(st_local("charsstr"), 2045))
+			mata: st_local("post_dsig", _datamap_ucut(st_local("datasignature"), 2045))
 			post `postname' (`"datadict"') (`"`macval(post_source)'"') (`"`macval(post_output)'"') ///
 				(`"`dsname'"') (`"`macval(post_dslabel)'"') (`"`vname'"') ///
 				(`"`vtype'"') (`"`vfmt'"') (`"`vallabname'"') (`"`varclass'"') ///
@@ -1693,9 +1899,11 @@ program define _datadict_GetVariableNotes, rclass
 	if "`note0'" == "" local note0 0
 	forvalues i = 1/`note0' {
 		local notei: char `vname'[note`i']
-		if `"`notei'"' != "" {
+		// lengths, not `"`notei'"': a note holding a backtick or `"' was
+		// re-read as macro or quote syntax (r(132), r(109))
+		if `: length local notei' > 0 {
 			mata: st_local("escaped", _datadict_md_escape(st_local("notei")))
-			if `"`notes'"' == "" local notes `"`macval(escaped)'"'
+			if `: length local notes' == 0 local notes `"`macval(escaped)'"'
 			else local notes `"`macval(notes)'<br>`macval(escaped)'"'
 		}
 	}
@@ -1715,7 +1923,7 @@ program define _datadict_GetVariableChars, rclass
 		if !regexm("`cname'", "^note[0-9]+$") {
 			local cval: char `vname'[`cname']
 			mata: st_local("escaped", _datadict_md_escape(st_local("cval")))
-			if `"`chars'"' == "" local chars `"`cname'=`macval(escaped)'"'
+			if `: length local chars' == 0 local chars `"`cname'=`macval(escaped)'"'
 			else local chars `"`macval(chars)'<br>`cname'=`macval(escaped)'"'
 		}
 	}
@@ -1752,8 +1960,13 @@ program define _datadict_ProcessCombined, rclass
 				_datadict_md_escape(_datadict_transport_decode(st_local("`opt'"))))
 		}
 
+		// staged: the dictionary replaces `output' only when every dataset
+		// was documented (_datamap_stage); a failure on a later file used
+		// to leave a truncated file in place of the previous good one
 		tempname fh
-		quietly file open `fh' using `"`output'"', write text replace
+		tempfile _stage
+		_datamap_stage check `"`output'"'
+		quietly file open `fh' using `"`_stage'"', write text replace
 		local _fh_open = 1
 
 		file write `fh' `"# `macval(title_safe)'"' _n _n
@@ -1841,6 +2054,7 @@ program define _datadict_ProcessCombined, rclass
 
 		file close `fh'
 		local _fh_open = 0
+		_datamap_stage commit `"`_stage'"' `"`output'"'
 		di as result `"Output written to: `output'"'
 
 		return scalar nobs_total = `nobs_total'
@@ -1953,8 +2167,11 @@ program define _datadict_ProcessSeparate, rclass
 			local outfile `"`r(output)'"'
 			_datadict_ValidatePath `"`outfile'"', option("separate output path")
 
+			// staged per file, as in the combined mode
 			tempname fh
-			quietly file open `fh' using `"`outfile'"', write text replace
+			tempfile _stage
+			_datamap_stage check `"`outfile'"'
+			quietly file open `fh' using `"`_stage'"', write text replace
 			local _fh_open = 1
 
 			file write `fh' `"# `macval(title_safe)': `macval(dispname)'"' _n _n
@@ -1990,6 +2207,7 @@ program define _datadict_ProcessSeparate, rclass
 
 			file close `fh'
 			local _fh_open = 0
+			_datamap_stage commit `"`_stage'"' `"`outfile'"'
 			di as result `"Output written to: `outfile'"'
 
 			if `"`outputs'"' == "" local outputs `"`outfile'"'
@@ -2055,6 +2273,11 @@ program define _datadict_ProcessOneDataset, rclass
 		}
 		local obs = r(N)
 		local nvars_file = r(k)
+		// memory mode: `filepath' is a zero-observation shell
+		if "`memory'" != "" {
+			local obs = c(N)
+			local nvars_file = c(k)
+		}
 		if `"`dslabel_transport'"' == "" | `"`dslabel_transport'"' == "." {
 			local dslabel "Dataset containing `nvars_file' variables and `obs' observations."
 			mata: st_local("dslabel_transport", ///
@@ -2075,7 +2298,7 @@ program define _datadict_ProcessOneDataset, rclass
 				srcname(`"`_srcn'"') ///
 				maxcat(`maxcat') obs(`obs') exclude(`"`exclude'"') ///
 				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
-				date(`"`datevars'"') cap(`nuniq_cap') `loadedopt'
+				date(`"`datevars'"') dateopt(datevars) cap(`nuniq_cap') `loadedopt'
 			local allvars "`r(all_vars)'"
 			local categorical_vars "`r(categorical_vars)'"
 			local continuous_vars "`r(continuous_vars)'"
@@ -2090,7 +2313,9 @@ program define _datadict_ProcessOneDataset, rclass
 				noisily di as error `"varlist not found in `filepath': `varspec'"'
 				exit `_vrc'
 				}
-				local allvars "`selected_vars'"
+				// a name typed twice is documented once (it was two rows,
+				// and counted twice in r(nvars_total))
+				local allvars : list uniq selected_vars
 			}
 			local docvars ""
 			foreach vn of local allvars {
@@ -2121,17 +2346,22 @@ program define _datadict_ProcessOneDataset, rclass
 				local metadata_source "memory"
 				local metadata_dsname "memory"
 			}
-			else local dispname = strtrim(proper(subinstr(`"`dsname'"', "_", " ", .)))
+			else {
+				_datadict_FormatDisplayName `"`dsname'"'
+				local dispname `"`r(dispname)'"'
+			}
 			mata: st_local("dslabel_safe", _datadict_md_escape(st_local("dslabel")))
-			mata: st_local("filepath_safe", _datadict_md_escape(st_local("filepath")))
+			mata: st_local("filepath_span", _datadict_codespan(st_local("filepath")))
+			// the file's own name: dsname + ".dta" printed UP.dta for UP.DTA
+			mata: st_local("filename_span", _datadict_codespan(ustrregexra(st_local("filepath"), ".*[/" + char(92) + char(92) + "]", "")))
 
 			file write `handle' `"## `idx'. `dispname'"' _n _n
 			if "`memory'" != "" {
 				file write `handle' "**Source:** data in memory  " _n
 			}
 			else {
-				file write `handle' `"**Filename:** \``dsname'.dta\`  "' _n
-				file write `handle' `"**Source path:** \``macval(filepath_safe)'\`  "' _n
+				file write `handle' `"**Filename:** `macval(filename_span)'  "' _n
+				file write `handle' `"**Source path:** `macval(filepath_span)'  "' _n
 			}
 			file write `handle' `"**Description:** `macval(dslabel_safe)'  "' _n
 		file write `handle' `"**Observations:** `obs'  "' _n

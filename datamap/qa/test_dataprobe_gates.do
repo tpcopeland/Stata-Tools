@@ -1959,17 +1959,23 @@ _dg `=_rc' "heaping()/coverage(): an unformatted date is r(198) with the format 
 
 * groupstat(relative): the cells are the ratios band() tests, as the
 * heading says; the pooled row stays raw.  Oracle: summarize, detail.
+* 1.10.3: the pooled value covers the groups' rows only (rows with a
+* missing rep78 are in no group), so the oracle excludes them; the old
+* oracle over every row pinned the pre-1.10.3 pool.
 sysuse auto, clear
 quietly summarize price if rep78 == 4, detail
 local m4 = r(p50)
-quietly summarize price, detail
+quietly summarize price if !missing(rep78), detail
 local m0 = r(p50)
 local r4 = strtrim(string(`m4' / `m0', "%10.4g"))
 local p0 = strtrim(string(`m0', "%10.4g"))
 capture frame drop dg_gr
 capture log close _dgq
 log using "`lg'", text replace name(_dgq)
-capture noisily dataprobe, gatesonly groupstat(median price, by(rep78) relative band(0.9 1.1)) ///
+* 1.10.3: band(0.85 1.1), not band(0.9 1.1): against the groups-only pool
+* group 1's ratio is .8987, so the old band would fail two groups and the
+* one-violation assertion below would test the band edge, not the ratio
+capture noisily dataprobe, gatesonly groupstat(median price, by(rep78) relative band(0.85 1.1)) ///
     warn violations(dg_gr, replace)
 log close _dgq
 capture {

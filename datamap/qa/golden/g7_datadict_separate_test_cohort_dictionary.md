@@ -5,7 +5,7 @@
 
 **Filename:** `test_cohort.dta`  
 **Source path:** <normalized>
-**Description:** Dataset containing 8 variables and 100 observations.
+**Description:** Test cohort dataset
 **Observations:** 100
 **Variables in file:** 8
 **Variables documented:** 8

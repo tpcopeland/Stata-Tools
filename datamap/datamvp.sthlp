@@ -137,11 +137,16 @@ missingness (most missing first).
 
 {phang}
 {opt nodrop} includes variables that have no missing values in the analysis. By
-default, such variables are excluded and listed separately.
+default, such variables are excluded and listed separately. When no variable
+has a missing value, {cmd:datamvp} says so and stops: {opt generate()},
+{opt save()}, {opt graph()}, {opt correlate}, {opt monotone}, and {opt bytable()}
+produce nothing, and a note names the ones that were requested.
 
 {phang}
 {opt w:ide} uses a compact display format suitable for analyses with many
-variables.
+variables. When the patterns are wider than the line, which otherwise cuts
+them (two patterns that differ only past the cut would print alike),
+{opt wide} prints each pattern in full, wrapped, below its counts.
 
 {phang}
 {opt nosummary} suppresses the summary statistics shown at the bottom of
@@ -413,7 +418,11 @@ stronger correlations regardless of sign.
 {opt gb:y(varname)} stratifies graphs by a categorical variable, producing separate
 faceted panels for each level of the variable. This allows direct comparison
 of missingness patterns across groups (e.g., treatment vs control, male vs
-female). Works with {opt graph(bar)} and {opt graph(patterns)}.
+female). Works with {opt graph(bar)} and {opt graph(patterns)}. Observations
+whose {opt gby()} or {opt over()} value is missing are excluded from the whole
+analysis, not only the graph: the table, the stored results such as
+{cmd:r(N)}, and the graphs all use the remaining observations, and a note
+reports how many were excluded.
 
 {phang}
 {opt over(varname)} overlays bars for each level of the categorical variable within

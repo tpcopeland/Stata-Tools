@@ -2,9 +2,9 @@
 
 # datamap — Document and check data without exposing it
 
-**Version 1.10.2** | 2026-10-20
+**Version 1.10.3** | 2026-10-20
 
-[![version](https://img.shields.io/badge/version-1.10.2-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.10.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -413,6 +413,32 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.10.3 (2026-10-20)
+
+- Fix: distinct counts on data with more than 50,000 rows skipped rows 50,001-200,000, so `datamap` and `datadict` could report a variable as constant (Unique 1) or misclassify it; every row is now read.
+- Fix: `datamap` and `datadict` documenting the data in memory no longer reset `c(changed)` or point `c(filename)` at a temporary file (a later `use` without `clear` silently discarded unsaved edits); they no longer write a full copy of the data either. Zero-observation data in memory are documented instead of refused.
+- Fix: `dataprobe` `groupstat()` leaves rows with a missing group out of the pooled value, so the pool matches its groups; a masked `groupstat()` table now sets `r(masked)` and the ledger's `obs_masked`.
+- Fix: under `maskrare`, `stat()` and `groupstat()` withhold `sd`, `ess`, and `ratio` when they would give back a small count (the `ess` of a 0/1 weight is its number of ones), and KEY STRUCTURE withholds a median held by few keys.
+- Fix: `datamap, detect(binary)` never lists a date variable, and a date forced into `categorical()` gets no frequency table under `datesafe`; `saving()` leaves categorical summaries missing while `mincell()` is above 0 and continuous and categorical summaries missing under `nostats`.
+- Fix: a `continuous()`, `categorical()`, `date()`, or `datevars()` name matching no variable is r(111) instead of being ignored (one bad name had also disabled every wildcard in the list), and a string variable in `continuous()` or `date()` is r(109).
+- Fix: `dataprobe` refuses `expectn()` with reversed bounds and a range bound that refers to a variable inside an expression (`ub*1` read the first observation); a missing `stat()` lower bound is reported as missing; `allowed()`, `forbid()`, and `notvalues()` match a value holding a double quote.
+- Fix: a variable named `nomask` no longer switches a session's `maskrare` off in `datamvp` and `dataprobe`.
+- Fix: `datadict` prints dataset labels in file modes, survives notes holding a backtick or `"'`, calls a variable a "Unique identifier" or "Year of observation" only when its values agree, no longer prints `3=3` for an unlabelled value, writes "No observations" for an empty file, and writes `IQR=-224 to -73.50` rather than `IQR=-224--73.50`.
+- Fix: `datamvp` string `gby()`/`over()` levels holding a quote or backtick keep every group, a label holding `"'` prints, `generate()` names and truncated text stay valid UTF-8, `wide` prints patterns wider than the line in full, and notes say when `gby()`/`over()` drop rows or when no missing values leave requested outputs unproduced.
+- Fix: `datamap` keeps the previous output when a later dataset fails, refuses `append` with `separate` and `recursive` without `directory()`, finds `.DTA` files, stops a symbolic-link loop, prints `%tc`/`%tC` dates with `dateformat(%d...)`, reports panel structure from `panelid()` alone, checks `single()` paths, and keeps long dataset names in `saving()`.
+- Fix: `datamap` VALUE LABEL DEFINITIONS lists the values each label defines (with `.a`-style codes) instead of every data value, which printed exact dates under `datesafe` and unique values past `maxfreq()` and `mincell()`.
+- Fix: under `datesafe`, a date-formatted variable forced into `continuous()` prints no mean, quantiles, or range in text, JSON, or `saving()`, and `samples()` suppresses every date-formatted variable.
+- Fix: while `mincell()` is above 0, `datamap` and `datadict` withhold the mean and SD of a two-valued variable forced into `continuous()` and the mean of a categorical survey weight; `datadict, saving()` leaves categorical summaries missing, as `datamap` does.
+- Fix: `datamap` writes the Sort Order (text and JSON), keeps a failing dataset's previous output under `separate`, records each dataset's own `_map` file in `saving()` under `separate`, and writes `samples()`, `quality`, and `detect(binary)` under `compact`.
+- Fix: `datadict` replaces its dictionary only when every dataset was documented; `config()` `missing = no` leaves the Missing column off; a manifest or config file with a byte-order mark is read; a repeated varlist name is documented once; `Filename` keeps the file's own extension; a categorical date follows `dateformat()`; labelled extended missing codes are listed; non-ASCII dataset names get correct headings and working anchors; a backslash before a pipe survives; e-notation ranges read "a to b".
+- Fix: a reversed range in `continuous()`, `categorical()`, `date()`, or `datevars()` is r(111) instead of being ignored; a `saving()` name without `.dta` is checked before any output is written; a non-integer threshold from `config()` is r(198) naming the option.
+- Fix: `dataqa` gate key includes the kind, and a rerun supersedes only when it tested the same rows, so neither a `bands()` band nor a subset rerun clears an earlier failure; `expect()` matches the exact name; `export` blanks the signature of a dataset below `threshold()` rows and literal values in value-gate text, and refuses the session's ledger as `saving()`; `report` prints ledger text literally; `compare` names the `by()` group, reads ledgers without a signature column, and `dataqa set mincell(-1)` is r(198).
+- Fix: under `maskrare`, `dataprobe` `stat(sum)` and `groupstat(sum)` cells are suppressed when their nonmissing rows, nonzero rows, or either value of a two-valued variable number 1..m-1.
+- Fix: under `maskrare`, `dataprobe` GROUPWISE SUMMARY, MISSINGNESS, and FREQUENCIES withhold a cell when the total printed elsewhere minus the exactly printed cells is 1..m-1, and `groupstat(n)` does the same against the printed N; in a `by()` group whose size is withheld, every count of m or more prints `[suppressed]`; Unique, `unique=`, and level counts are masked when N minus unique is 1..m-1.
+- Fix: under `maskrare`, in a `dataprobe` profile with `by()`, a count printed per group can no longer be set against its total printed elsewhere in the same output to give back 1..m-1 (GROUPWISE blocks, `byfreq`, `notmissing()`, `binary()`, `complete()`, `stat(n/pmiss/sum)`, `inrange()` on a date, `allowed()`/`forbid()`/`notvalues()`, `groupstat(n/sum)`); every block withholds the same group.
+- Fix: under `maskrare`, the `dataprobe` heaping 1st-of-month share is masked when the other 1sts are 1..m-1; `sd` needs m rows of each value for variables with two or three values; `groupstat` band failures name a withheld group by number, and date cells print as dates.
+- Fix: `dataprobe` sets `r(masked)` when only frequency cells were suppressed; `exclude()` withholds variable values in `stat()`, `coverage()`, `events()`, and `groupstat()`; `saving()` writes the loaded data's datasignature; a `stat()` upper bound of `.` is open for dates too and `coverage()` names a missing bound; `compare()` with a varlist no longer reports out-of-varlist variables as dropped.
 
 ### 1.10.2 (2026-10-20)
 

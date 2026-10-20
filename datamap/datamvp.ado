@@ -1,4 +1,4 @@
-*! datamvp Version 1.10.2  2026/10/20
+*! datamvp Version 1.10.3  2026/10/20
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -16,7 +16,7 @@ program define datamvp, rclass byable(recall) sortpreserve
     }
 
     local _uservarabbrev `c(varabbrev)'
-    local _nomask_explicit = regexm(" " + lower(`"`macval(0)'"') + " ", "[ ,]nomask(r|ra|rar|rare)?[ ,]")
+    mata: st_local("_nomask_explicit", strofreal(_datamap_nomask_explicit(st_local("0"))))
     local _return_ready = 0
     local _owned_preserved = 0
     local _return_has_missby = 0
@@ -370,6 +370,11 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     * Mark sample
     marksample touse, novarlist
+    // gby() and over() restrict the whole analysis -- table, r(N), and
+    // graphs -- to rows with a nonmissing group, which used to happen with
+    // no word; the dropped rows are now counted in a note
+    qui count if `touse'
+    local _N_before = r(N)
     if "`gby'" != "" {
         markout `touse' `gby', strok
     }
@@ -378,6 +383,12 @@ program define datamvp, rclass byable(recall) sortpreserve
     }
     qui count if `touse'
     local N = r(N)
+    if `N' < `_N_before' {
+        local _gbo = strtrim("`gby' `over'")
+        local _ndrop = `_N_before' - `N'
+        if `_m' > 0 & `_ndrop' < `_m' local _ndrop "<`_m'"
+        di as txt "note: `_ndrop' observation(s) with missing `_gbo' excluded from the analysis"
+    }
     if `N' == 0 {
         di as err "no observations"
         exit 2000
@@ -390,14 +401,22 @@ program define datamvp, rclass byable(recall) sortpreserve
     if "`gby'" != "" {
         capture confirm string variable `gby'
         if _rc == 0 local gby_isstr = 1
-        qui levelsof `gby' if `touse', local(gby_levels)
-        local gby_nlev : word count `gby_levels'
         // Level k of `gby_levels' is group k: compare on this index, never on
         // the level text.  A float level such as 0.1 travels through levelsof
         // as .1000000014901161, which no float value equals, so every bar
         // came out missing.  group() and levelsof share the same sort order.
         tempvar gby_grp
         qui egen long `gby_grp' = group(`gby') if `touse'
+        // A string level is read per group in Mata: levelsof's list of a
+        // level holding a backtick or `"' could not be re-parsed, and a
+        // group vanished from the panels.
+        if `gby_isstr' {
+            mata: _datamvp_str_levels("`gby'", "`gby_grp'", "gby")
+        }
+        else {
+            qui levelsof `gby' if `touse', local(gby_levels)
+            local gby_nlev : word count `gby_levels'
+        }
         if `gby_nlev' < 2 {
             di as err "gby() variable must have at least 2 levels"
             exit 198
@@ -405,14 +424,13 @@ program define datamvp, rclass byable(recall) sortpreserve
         * Get value labels if available
         local gby_vallbl : value label `gby'
         * Pre-extract label texts (labels are lost after preserve/clear in graph code)
-        local _gbi = 0
-        foreach _lev of local gby_levels {
-            local ++_gbi
-            if "`gby_vallbl'" != "" {
-                local _gby_lt_`_gbi' : label `gby_vallbl' `_lev'
+        forvalues _gbi = 1/`gby_nlev' {
+            if !`gby_isstr' local _lev : word `_gbi' of `gby_levels'
+            if `gby_isstr' {
+                // set by _datamvp_str_levels
             }
-            else if `gby_isstr' {
-                local _gby_lt_`_gbi' `"`macval(_lev)'"'
+            else if "`gby_vallbl'" != "" {
+                local _gby_lt_`_gbi' : label `gby_vallbl' `_lev'
             }
             else {
                 local _gby_lt_`_gbi' "`gby' = `_lev'"
@@ -427,11 +445,17 @@ program define datamvp, rclass byable(recall) sortpreserve
     if "`over'" != "" {
         capture confirm string variable `over'
         if _rc == 0 local over_isstr = 1
-        qui levelsof `over' if `touse', local(over_levels)
-        local over_nlev : word count `over_levels'
-        // See gby(): compare on the group index, not the level text.
+        // See gby(): compare on the group index, not the level text, and
+        // read a string level per group in Mata.
         tempvar over_grp
         qui egen long `over_grp' = group(`over') if `touse'
+        if `over_isstr' {
+            mata: _datamvp_str_levels("`over'", "`over_grp'", "over")
+        }
+        else {
+            qui levelsof `over' if `touse', local(over_levels)
+            local over_nlev : word count `over_levels'
+        }
         if `over_nlev' < 2 {
             di as err "over() variable must have at least 2 levels"
             exit 198
@@ -439,14 +463,13 @@ program define datamvp, rclass byable(recall) sortpreserve
         * Get value labels if available
         local over_vallbl : value label `over'
         * Pre-extract label texts
-        local _ovi = 0
-        foreach _lev of local over_levels {
-            local ++_ovi
-            if "`over_vallbl'" != "" {
-                local _over_lt_`_ovi' : label `over_vallbl' `_lev'
+        forvalues _ovi = 1/`over_nlev' {
+            if !`over_isstr' local _lev : word `_ovi' of `over_levels'
+            if `over_isstr' {
+                // set by _datamvp_str_levels
             }
-            else if `over_isstr' {
-                local _over_lt_`_ovi' `"`macval(_lev)'"'
+            else if "`over_vallbl'" != "" {
+                local _over_lt_`_ovi' : label `over_vallbl' `_lev'
             }
             else {
                 local _over_lt_`_ovi' "`over' = `_lev'"
@@ -517,6 +540,18 @@ program define datamvp, rclass byable(recall) sortpreserve
     local nvar : word count `varlist'
     if `nvar' == 0 {
         di as txt "No missing values found in specified variables."
+        // nothing to write, draw, test, or tabulate: say which requested
+        // outputs were not produced instead of skipping them in silence
+        local _ign ""
+        if "`generate'" != "" local _ign "`_ign' generate()"
+        if `"`save'"' != "" local _ign "`_ign' save()"
+        if "`graph'" != "" local _ign "`_ign' graph()"
+        if "`correlate'" != "" local _ign "`_ign' correlate"
+        if "`monotone'" != "" local _ign "`_ign' monotone"
+        if "`bytable'" != "" local _ign "`_ign' bytable()"
+        if "`_ign'" != "" {
+            di as txt "note: nothing produced for" "`_ign'" " (no missing values)"
+        }
         return scalar N = `N'
         return scalar N_complete = `N'
         return scalar N_incomplete = 0
@@ -554,7 +589,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         local len 14
         foreach v of local varlist {
             local vlab : var label `v'
-            local len = max(`len', length(`"`macval(vlab)'"'))
+            local len = max(`len', `: ustrlen local vlab')
         }
         
         if "`wide'" != "" {
@@ -613,22 +648,23 @@ program define datamvp, rclass byable(recall) sortpreserve
 
             local vt : type `v'
             local vlab : var label `v'
-            local vl : piece 1 `vlwidth' of `"`macval(vlab)'"'
+            // the label is cut into lines and printed in Mata: -piece- and
+            // display of a compound-quoted label holding `"' failed r(132)
+            mata: _datamvp_pieces("vlab", `vlwidth', "_vlp")
 
             di as txt "{lalign 12:`v'}" "{col 14}{c |}" as res ///
                 _col(16) "`:di %7s abbrev("`vt'",7)'" ///
                 _col(`c_obs') %`cw's "`s_obs'" ///
                 _col(`c_miss') %`cw's "`s_miss'" ///
                 _col(`c_pct') %6s "`s_pct'" ///
-                _col(`c_lab') as txt `"`macval(vl)'"'
+                _col(`c_lab') _c
+            if `_vlpn' > 0 mata: printf("{txt}%s\n", st_local("_vlp1"))
+            else di ""
 
             * Rest of variable label
-            local j 2
-            local vl : piece `j' `vlwidth' of `"`macval(vlab)'"'
-            while `"`macval(vl)'"' != "" {
-                di as txt "{col 14}{c |}{col `c_lab'}" `"`macval(vl)'"'
-                local ++j
-                local vl : piece `j' `vlwidth' of `"`macval(vlab)'"'
+            forvalues j = 2/`_vlpn' {
+                di as txt "{col 14}{c |}{col `c_lab'}" _c
+                mata: printf("{txt}%s\n", st_local("_vlp`j'"))
             }
 
             * Separator line every 5 variables
@@ -644,6 +680,10 @@ program define datamvp, rclass byable(recall) sortpreserve
     * ===================================================================
 
     local nskip = cond("`skip'" != "", int((`nvar'-1)/5), 0)
+    // a pattern wider than the line was cut by -list-, and wide patterns
+    // that differ only past the cut printed identically; under -wide- they
+    // are listed in display mode, which prints each pattern in full
+    local _ptrunc = 0
     if `nvar' > 244 {
         di as err "too many variables (max 244)"
         exit 198
@@ -654,8 +694,11 @@ program define datamvp, rclass byable(recall) sortpreserve
             local skip
             local nskip 0
         }
-        else if "`wide'" == "" {
-            di as txt "(pattern display truncated; use -wide- option for compact view)"
+        else {
+            local _ptrunc = 1
+            if "`wide'" == "" {
+                di as txt "(patterns are wider than the line and are cut; use -wide- to list them in full)"
+            }
         }
     }
     local nstr = `nvar' + `nskip'
@@ -850,7 +893,30 @@ program define datamvp, rclass byable(recall) sortpreserve
             format _pattern %-`_pw's
         }
 
-        if "`percent'" != "" & "`cumulative'" != "" {
+        if `_ptrunc' & "`wide'" != "" {
+            // -list- cuts a string to the line in any mode; print each
+            // pattern whole, wrapped, with its counts on the line above
+            local _pw = max(20, c(linesize) - 6)
+            forvalues _r = 1/`=_N' {
+                local _line `"as txt "  _miss " as res _miss[`_r']"'
+                foreach _c in _freq _pct _cumpct {
+                    if "`_c'" == "_pct" & "`percent'" == "" continue
+                    if "`_c'" == "_cumpct" & "`cumulative'" == "" continue
+                    capture confirm string variable `_c'
+                    if !_rc local _cv = strtrim(`_c'[`_r'])
+                    else if "`_c'" == "_freq" local _cv = strtrim(string(`_c'[`_r'], "%12.0fc"))
+                    else local _cv = strtrim(string(`_c'[`_r'], "%7.2f"))
+                    local _line `"`_line' as txt "  `_c' " as res "`_cv'""'
+                }
+                display `_line'
+                local _pt = _pattern[`_r']
+                local _pl : strlen local _pt
+                forvalues _o = 1(`_pw')`_pl' {
+                    display as res "    " substr("`_pt'", `_o', `_pw')
+                }
+            }
+        }
+        else if "`percent'" != "" & "`cumulative'" != "" {
             list _pattern _miss _freq _pct _cumpct, noobs sep(0) subvarname
         }
         else if "`percent'" != "" {
@@ -1189,16 +1255,18 @@ program define datamvp, rclass byable(recall) sortpreserve
     * ===================================================================
 
     if "`generate'" != "" {
-        if length("`generate'") > 23 {
+        // names are counted in characters (a Stata name holds 32), and a
+        // byte substr() cut a UTF-8 character in half
+        if ustrlen("`generate'") > 23 {
             di as err "generate() stub too long (max 23 characters)"
             exit 198
         }
-        local maxvlen = 32 - length("`generate'") - 1
+        local maxvlen = 32 - ustrlen("`generate'") - 1
         local _gennames ""
         tokenize `varlist'
         forv i = 1/`nvar' {
             local source_name "``i''"
-            local vname = substr("`source_name'", 1, `maxvlen')
+            local vname = usubstr("`source_name'", 1, `maxvlen')
             local outname "`generate'_`vname'"
             if inlist("`outname'", "`generate'_pattern", "`generate'_nmiss") {
                 di as err "generate() output for `source_name' conflicts with reserved summary name `outname'"
@@ -1209,7 +1277,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 local ++collision_index
                 local tag "_`i'"
                 if `collision_index' > 2 local tag "_`i'_`collision_index'"
-                local vname = substr("`source_name'", 1, `maxvlen' - length("`tag'")) + "`tag'"
+                local vname = usubstr("`source_name'", 1, `maxvlen' - ustrlen("`tag'")) + "`tag'"
                 local outname "`generate'_`vname'"
             }
             capture confirm new variable `outname'
@@ -1399,10 +1467,8 @@ program define datamvp, rclass byable(recall) sortpreserve
                     tempname gby_graph_label
 
                     local row = 1
-                    local _gbi = 0
                     tokenize `varlist'
-                    foreach lev of local gby_levels {
-                        local ++_gbi
+                    forvalues _gbi = 1/`gby_nlev' {
                         mata: st_vlmodify(st_local("gby_graph_label"), ///
                             `_gbi', st_local("_gby_gt_`_gbi'"))
                         forv i = 1/`nvar' {
@@ -1484,10 +1550,8 @@ program define datamvp, rclass byable(recall) sortpreserve
                     tempname over_graph_label
 
                     local row = 1
-                    local _ovi = 0
                     tokenize `varlist'
-                    foreach lev of local over_levels {
-                        local ++_ovi
+                    forvalues _ovi = 1/`over_nlev' {
                         mata: st_vlmodify(st_local("over_graph_label"), ///
                             `_ovi', st_local("_over_gt_`_ovi'"))
                         forv i = 1/`nvar' {
@@ -1707,9 +1771,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                     * Get group labels (use pre-extracted texts)
                     gen int _gbyid = .
                     tempname pattern_gby_label
-                    local _gbi = 0
-                    foreach lev of local gby_levels {
-                        local ++_gbi
+                    forvalues _gbi = 1/`gby_nlev' {
                         replace _gbyid = `_gbi' if `gby_grp' == `_gbi'
                         mata: st_vlmodify(st_local("pattern_gby_label"), ///
                             `_gbi', st_local("_gby_gt_`_gbi'"))
@@ -2144,11 +2206,11 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
         if "`gby'" != "" {
             return local gby "`gby'"
-            return local gby_levels "`gby_levels'"
+            return local gby_levels `"`macval(gby_levels)'"'
         }
         if "`over'" != "" {
             return local over "`over'"
-            return local over_levels "`over_levels'"
+            return local over_levels `"`macval(over_levels)'"'
         }
         if `_return_has_monotone' {
             return local monotone_status "`mono_status'"
@@ -2164,7 +2226,133 @@ capture mata: mata drop _datamvp_graph_text()
 capture mata: mata drop _datamvp_graph_lines()
 capture mata: mata drop _datamvp_graph_parse()
 capture mata: mata drop _datamvp_axis_text()
+capture mata: mata drop _datamap_nomask_explicit()
+capture mata: mata drop _datamvp_str_levels()
+capture mata: mata drop _datamvp_pieces()
 mata:
+// Cut the caller's local src into lines of at most w characters, broken at
+// blanks where possible (as -piece-), into locals <pfx>1 ... and <pfx>n.
+// Read and written in Mata, so a label holding `"' is never re-read as
+// quote syntax.
+void _datamvp_pieces(string scalar src, real scalar w, string scalar pfx)
+{
+	string scalar s, line, word, ch
+	real scalar i, n, k
+	s = st_local(src)
+	n = ustrlen(s)
+	k = 0
+	line = ""
+	word = ""
+	for (i = 1; i <= n + 1; i++) {
+		ch = (i <= n ? usubstr(s, i, 1) : " ")
+		if (ch != " ") {
+			word = word + ch
+			continue
+		}
+		if (word == "") continue
+		while (ustrlen(word) > w) {
+			if (line != "") {
+				k++
+				st_local(pfx + strofreal(k), line)
+				line = ""
+			}
+			k++
+			st_local(pfx + strofreal(k), usubstr(word, 1, w))
+			word = usubstr(word, w + 1, .)
+		}
+		if (word == "") continue
+		if (line == "") line = word
+		else if (ustrlen(line) + 1 + ustrlen(word) <= w) line = line + " " + word
+		else {
+			k++
+			st_local(pfx + strofreal(k), line)
+			line = word
+		}
+		word = ""
+	}
+	if (line != "") {
+		k++
+		st_local(pfx + strofreal(k), line)
+	}
+	st_local(pfx + "n", strofreal(k))
+}
+
+// String levels of variable v by group index g (egen group order): sets
+// the caller's locals <p>_nlev, <p>_lt_<k> (the level text), and <p>_levels
+// (the levels compound-quoted, for r()).  Read from the data, never through a
+// levelsof list, so no level text is re-read as syntax.
+void _datamvp_str_levels(string scalar v, string scalar g, string scalar p)
+{
+	real colvector gv, idx
+	string colvector sv
+	real scalar G, k, i
+	string scalar lst
+	gv = st_data(., g)
+	G = max(select(gv, gv :< .))
+	if (G >= .) G = 0
+	lst = ""
+	for (k = 1; k <= G; k++) {
+		idx = selectindex(gv :== k)
+		sv = st_sdata(idx[1], v)
+		st_local("_" + p + "_lt_" + strofreal(k), sv)
+		lst = lst + (k > 1 ? " " : "") + char(96) + char(34) + sv + char(34) + char(39)
+	}
+	st_local(p + "_nlev", strofreal(G))
+	st_local(p + "_levels", lst)
+}
+
+// 1 when the options of command line s (the text after its first comma
+// outside quotes and parentheses) name nomaskrare or an abbreviation of it
+// as an option of their own.  Scanning the whole line read a variable
+// named nomask, or nomask inside an if condition or a suboption's text, as
+// the option, and switched a session's masking off (fail open).
+real scalar _datamap_nomask_explicit(string scalar s)
+{
+	real scalar i, n, depth, inq, cq, seen
+	string scalar ch, nx, top
+	n = strlen(s)
+	depth = 0
+	inq = 0
+	cq = 0
+	seen = 0
+	top = ""
+	for (i = 1; i <= n; i++) {
+		ch = substr(s, i, 1)
+		nx = (i < n ? substr(s, i + 1, 1) : "")
+		if (ch == char(96) & nx == char(34)) {
+			cq++
+			i++
+			if (seen) top = top + "  "
+			continue
+		}
+		if (cq > 0 & ch == char(34) & nx == char(39)) {
+			cq--
+			i++
+			if (seen) top = top + "  "
+			continue
+		}
+		if (cq == 0 & ch == char(34)) {
+			inq = !inq
+			if (seen) top = top + " "
+			continue
+		}
+		if (cq > 0 | inq) {
+			if (seen) top = top + " "
+			continue
+		}
+		if (ch == "(") depth++
+		else if (ch == ")" & depth > 0) depth--
+		else if (ch == "," & depth == 0 & !seen) {
+			seen = 1
+			top = ","
+			continue
+		}
+		if (seen) top = top + (depth > 0 | ch == "(" | ch == ")" ? " " : ch)
+	}
+	if (!seen) return(0)
+	return(regexm(" " + strlower(top) + " ", "[ ,]nomask(r|ra|rar|rare)?[ ,]"))
+}
+
 // Escape text for a graph string: $, `, and " print literally
 string scalar _datamvp_graph_text(string scalar text)
 {

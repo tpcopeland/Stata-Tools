@@ -1,4 +1,4 @@
-*! _dataprobe_events Version 1.10.2  2026/10/20
+*! _dataprobe_events Version 1.10.3  2026/10/20
 *! dataprobe events(): every level of a covariate carries enough events
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -22,18 +22,26 @@ program define _dataprobe_events, rclass
     capture noisily {
         syntax , RF(name) EV(varname) EVCOND(string) VARS(varlist) MIN(real) ///
             COND(string) KIND(string) [GRP(string) SCOPE(string) PFX(string) ///
-            MASK(integer 0) NSCOPE(real 0)]
+            MASK(integer 0) NSCOPE(real 0) EXCLuded(string)]
         local mtxt = strtrim(string(`min', "%12.0g"))
-        tempvar tot tg rr
+        // a by() group whose size is withheld (missing nscope): an event
+        // count of the mask or more bounds that size and is withheld too
+        local _hz = (`mask' > 0 & missing(`nscope'))
+        tempvar tot tg rr ord
         foreach v of local vars {
             capture drop `tot'
             capture drop `tg'
             capture drop `rr'
+            capture drop `ord'
+            // exclude(): a covariate's levels are its contents, so a level
+            // is named by its rank among the in-scope levels, never its value
+            local isexc : list v in excluded
             quietly bysort `v': egen double `tot' = total(`ev' * (`evcond')) ///
                 if (`cond') & !missing(`v')
             // one tagged row per in-scope level; row numbers are taken after
             // the last sort so they address the rows as they now stand
             quietly egen byte `tg' = tag(`v') if (`cond') & !missing(`v')
+            if `isexc' quietly egen long `ord' = group(`v') if (`cond') & !missing(`v')
             quietly generate long `rr' = _n
             quietly levelsof `rr' if `tg' == 1 & `tot' < `min', local(rows)
             local vlab : value label `v'
@@ -42,7 +50,8 @@ program define _dataprobe_events, rclass
             local nf_v = 0
             foreach r of local rows {
                 local k = `tot'[`r']
-                if `isstr' local lev = `v'[`r']
+                if `isexc' local lev = "[excluded] level " + strtrim(string(`ord'[`r'], "%12.0f"))
+                else if `isstr' local lev = `v'[`r']
                 else {
                     local lev = strtrim(string(`v'[`r'], "%16.0g"))
                     if "`vlab'" != "" {
@@ -50,7 +59,7 @@ program define _dataprobe_events, rclass
                         if `"`ltxt'"' != "" local lev `"`lev' (`ltxt')"'
                     }
                 }
-                _dataprobe_mcount `k' `mask'
+                _dataprobe_mcount `k' `mask' . `_hz'
                 local ks "`r(s)'"
                 local knum = r(num)
                 local km = r(masked)
@@ -59,6 +68,10 @@ program define _dataprobe_events, rclass
                 // the ledger records the level's value, not its label
                 quietly _dataprobe_gtext `v', row(`r')
                 local g `"`v' = `r(val)'"'
+                if `isexc' {
+                    local _ok = `ord'[`r']
+                    local g `"`v' level `_ok'"'
+                }
                 if `"`grp'"' != "" local g `"`grp'; `g'"'
                 local msg `"`pfx'events(`ev'): `v' = `lev' has `ks' events, expected >= `mtxt'"'
                 frame post `rf' ("events") ("`kind'") (0) ("`ev'") ("`v'") ///
@@ -83,7 +96,7 @@ program define _dataprobe_events, rclass
                 quietly summarize `tot' if `tg' == 1, meanonly
                 local nlev = r(N)
                 local k = cond(r(N) > 0, r(min), 0)
-                _dataprobe_mcount `k' `mask'
+                _dataprobe_mcount `k' `mask' . `_hz'
                 local ks "`r(s)'"
                 local knum = r(num)
                 local km = r(masked)

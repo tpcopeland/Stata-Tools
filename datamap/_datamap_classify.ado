@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.10.2  2026/10/20
+*! _datamap_classify Version 1.10.3  2026/10/20
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -41,7 +41,9 @@ program define _datamap_classify, rclass
         syntax using/ , [SAVing(string) MAXCat(integer 25) OBS(integer -1) ///
             EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
             DETECT_binary(integer 0) QUality_level(string) LOADED ///
-            CAPacity(integer 1000) SRCname(string) PRECHECK MEMory]
+            CAPacity(integer 1000) SRCname(string) PRECHECK MEMory DATEOPT(name)]
+        // the caller's name for date() in messages (datadict: datevars)
+        if "`dateopt'" == "" local dateopt "date"
 
         // precheck: `using' is a text file listing one dataset per line.
         // Before any output is written, check every exclude() token against
@@ -56,6 +58,18 @@ program define _datamap_classify, rclass
             local _ntok : word count `exclude'
             forvalues t = 1/`_ntok' {
                 local _hit`t' = 0
+            }
+            // continuous(), categorical(), and date() tokens: one that names
+            // no variable in any file is a typo, and was silently ignored
+            local _ovr ""
+            foreach _o in continuous categorical date {
+                foreach _otok of local `_o' {
+                    local _ovr `"`_ovr' `_o':`_otok'"'
+                }
+            }
+            local _novr : word count `_ovr'
+            forvalues t = 1/`_novr' {
+                local _ohit`t' = 0
             }
             tempname _pfh
             file open `_pfh' using `"`using'"', read text
@@ -106,6 +120,36 @@ program define _datamap_classify, rclass
                             if `_m' > 0 local _hit`t' = 1
                         }
                     }
+                    local t = 0
+                    foreach _oent of local _ovr {
+                        local ++t
+                        local _otok = substr(`"`_oent'"', strpos(`"`_oent'"', ":") + 1, .)
+                        if strpos(`"`_otok'"', "-") {
+                            gettoken _lo _hi : _otok, parse("-")
+                            local _hi = substr(`"`_hi'"', 2, .)
+                            if `: list _lo in _pvars' & `: list _hi in _pvars' {
+                                // reversed (weight-price): -unab- refuses it
+                                // later and the override was silently dropped
+                                local _plo : list posof "`_lo'" in _pvars
+                                local _phi : list posof "`_hi'" in _pvars
+                                if `_plo' > `_phi' {
+                                    local _o = substr(`"`_oent'"', 1, strpos(`"`_oent'"', ":") - 1)
+                                    if "`_o'" == "date" local _o "`dateopt'"
+                                    file close `_pfh'
+                                    local _pfh_open = 0
+                                    noisily display as error ///
+                                        `"`_o'(): range `_otok' cannot be resolved in `_plab' (`_hi' comes before `_lo')"'
+                                    exit 111
+                                }
+                                local _ohit`t' = 1
+                            }
+                        }
+                        else {
+                            mata: st_local("_m", strofreal(sum(strmatch(tokens(st_local("_pvars")), ///
+                                subinstr(st_local("_otok"), "~", "*")))))
+                            if `_m' > 0 local _ohit`t' = 1
+                        }
+                    }
                 }
                 file read `_pfh' _pf
             }
@@ -115,6 +159,18 @@ program define _datamap_classify, rclass
             foreach _etok of local exclude {
                 local ++t
                 if !`_hit`t'' local _unmatched `"`_unmatched' `_etok'"'
+            }
+            local t = 0
+            foreach _oent of local _ovr {
+                local ++t
+                if !`_ohit`t'' {
+                    local _o = substr(`"`_oent'"', 1, strpos(`"`_oent'"', ":") - 1)
+                    if "`_o'" == "date" local _o "`dateopt'"
+                    local _otok = substr(`"`_oent'"', strpos(`"`_oent'"', ":") + 1, .)
+                    noisily display as error ///
+                        `"`_o'(): `_otok' matches no variable in any dataset"'
+                    exit 111
+                }
             }
             local _unmatched = strtrim(`"`_unmatched'"')
             if `"`_unmatched'"' != "" {
@@ -193,20 +249,35 @@ program define _datamap_classify, rclass
         }
         local exclude `"`_exclude_x'"'
 
-        local force_continuous "`continuous'"
-        if `"`continuous'"' != "" {
-            capture unab force_continuous : `continuous'
-            if _rc local force_continuous "`continuous'"
-        }
-        local force_categorical "`categorical'"
-        if `"`categorical'"' != "" {
-            capture unab force_categorical : `categorical'
-            if _rc local force_categorical "`categorical'"
-        }
-        local force_date "`date'"
-        if `"`date'"' != "" {
-            capture unab force_date : `date'
-            if _rc local force_date "`date'"
+        // Expanded token by token: one name absent from this file (normal
+        // in a multi-file run) used to leave the whole list unexpanded, so
+        // categorical(w* other) forced nothing that w* matched.  A token
+        // that matches no variable in any file is refused by the precheck.
+        foreach _o in continuous categorical date {
+            local force_`_o' ""
+            foreach _otok of local `_o' {
+                capture unab _oexp : `_otok'
+                if _rc {
+                    // a range whose endpoints are both here but reversed
+                    // cannot be meant for another file: refuse it rather
+                    // than keep it as text that forces nothing
+                    if strpos(`"`_otok'"', "-") {
+                        gettoken _lo _hi : _otok, parse("-")
+                        local _hi = substr(`"`_hi'"', 2, .)
+                        local _plo : list posof "`_lo'" in all_vars
+                        local _phi : list posof "`_hi'" in all_vars
+                        if `_plo' > 0 & `_phi' > 0 & `_plo' > `_phi' {
+                            local _on "`_o'"
+                            if "`_on'" == "date" local _on "`dateopt'"
+                            noisily display as error ///
+                                `"`_on'(): range `_otok' cannot be resolved in `srcname' (`_hi' comes before `_lo')"'
+                            exit 111
+                        }
+                    }
+                    local _oexp `"`_otok'"'
+                }
+                local force_`_o' : list force_`_o' | _oexp
+            }
         }
         local _overlap : list force_continuous & force_categorical
         if `"`_overlap'"' != "" {
@@ -287,7 +358,8 @@ program define _datamap_classify, rclass
                     }
 
                     tempvar _slen
-                    quietly gen double `_slen' = length(`vname')
+                    // characters, not bytes: reported as "N characters"
+                    quietly gen double `_slen' = ustrlen(`vname')
                     quietly summarize `_slen'
                     if r(N) > 0 local maxlen = r(max)
                     quietly drop `_slen'
@@ -329,6 +401,18 @@ program define _datamap_classify, rclass
             }
 
             local _v "`vname'"
+            if !`isexcluded' & strpos("`vtype'", "str") == 1 {
+                // a string has no mean or date range: forcing it printed
+                // "(all values missing)" beside 0% missing
+                foreach _o in continuous date {
+                    if `: list _v in force_`_o'' {
+                        local _on = cond("`_o'" == "date", "`dateopt'", "`_o'")
+                        noisily display as error ///
+                            "`_on'(): `vname' is a string variable; only categorical() accepts strings"
+                        exit 109
+                    }
+                }
+            }
             if !`isexcluded' {
                 if `: list _v in force_continuous' {
                     local class "continuous"
@@ -339,6 +423,15 @@ program define _datamap_classify, rclass
                 else if `: list _v in force_date' {
                     local class "date"
                 }
+            }
+
+            // A date variable is never reported as binary: the Binary section
+            // prints raw values and ignored datesafe (dob with two dates
+            // printed 7368 and 7376).  A date-formatted variable forced into
+            // categorical() is still a date for this purpose.
+            if "`class'" == "date" | strpos(subinstr("`vfmt'", "%-", "%", 1), "%t") > 0 | ///
+                strpos(subinstr("`vfmt'", "%-", "%", 1), "%d") > 0 {
+                local is_binary = 0
             }
 
             local qflag ""

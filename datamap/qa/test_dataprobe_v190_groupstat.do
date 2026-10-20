@@ -161,6 +161,9 @@ program define _u_miss
     quietly _u_block "`lgf'" "GROUPWISE MISSINGNESS"
     local nblk = r(n)
     local nshown = 0
+    foreach v of local vars {
+        local sx_`v' = 0
+    }
     if `nblk' > 0 {
         forvalues i = 2/`nblk' {
             local L `"`r(l`i')'"'
@@ -184,11 +187,27 @@ program define _u_miss
                 assert `mask' > 0 & `exact' < `mask'
                 assert "`ctxt'" == "<`mask'"
             }
+            else if "`ctxt'" == "[suppr.]" {
+                * withheld by the pooled-remainder test: a cell of the mask
+                * or more, withheld only under the mask
+                assert `mask' > 0 & `exact' >= `mask'
+            }
             else {
                 assert real("`ctxt'") == `exact'
                 * no small cell is ever printed unmasked
                 assert `mask' == 0 | `exact' >= `mask'
+                local sx_`vtxt' = `sx_`vtxt'' + `exact'
             }
+        }
+    }
+    * the MISSINGNESS total minus the exact counts printed here is never a
+    * small cell (pooled groups and masked cells together)
+    if `mask' > 0 & `nblk' > 0 {
+        foreach v of local vars {
+            if substr("`: type `v''", 1, 3) == "str" quietly count if `v' == ""
+            else quietly count if missing(`v')
+            local _rem = r(N) - `sx_`v''
+            assert !(`_rem' >= 1 & `_rem' < `mask')
         }
     }
     if `mask' == 0 {
@@ -200,6 +219,7 @@ program define _u_miss
     quietly _u_block "`lgf'" "GROUPWISE SUMMARY"
     local nblk = r(n)
     local nsum = 0
+    local sxc = 0
     forvalues i = 3/`nblk' {
         local L `"`r(l`i')'"'
         local gtxt = strtrim(substr(`"`L'"', 3, 20))
@@ -217,8 +237,27 @@ program define _u_miss
         if substr("`ctxt'", 1, 3) == "all" {
             assert `mask' > 0 & (`on`hit'' - `cc`hit'') >= 1 & (`on`hit'' - `cc`hit'') < `mask'
         }
-        else assert real("`ctxt'") == `cc`hit''
+        else if "`ctxt'" == "[suppr.]" {
+            * withheld by the pooled-remainder test
+            assert `mask' > 0 & `cc`hit'' >= `mask'
+        }
+        else {
+            assert real("`ctxt'") == `cc`hit''
+            local sxc = `sxc' + `cc`hit''
+        }
         assert real("`mvtxt'") == `nmv`hit''
+    }
+    * the header's complete cases minus the exact counts printed here is
+    * never a small cell
+    if `mask' > 0 & `nblk' > 0 {
+        local cnd3 "1"
+        foreach v of local vars {
+            if substr("`: type `v''", 1, 3) == "str" local cnd3 `"`cnd3' & `v' != """'
+            else local cnd3 "`cnd3' & !missing(`v')"
+        }
+        quietly count if `cnd3'
+        local _rem = r(N) - `sxc'
+        assert !(`_rem' >= 1 & `_rem' < `mask')
     }
     if `mask' == 0 assert `nsum' == `nl'
     else assert `nsum' <= `nl'

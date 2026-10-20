@@ -1,4 +1,4 @@
-*! _dataprobe_complete Version 1.10.2  2026/10/20
+*! _dataprobe_complete Version 1.10.3  2026/10/20
 *! dataprobe complete(): complete cases over a varlist
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -19,7 +19,7 @@ program define _dataprobe_complete, rclass
     local isgate = 0
     capture noisily {
         syntax , SPEC(string) [PARSEonly RF(name) KIND(string) GRP(string) ///
-            PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string)]
+            PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) FORCE(integer 0)]
         * nscope() may be passed as missing (.)
         local head `"`spec'"'
         local opts ""
@@ -48,7 +48,10 @@ program define _dataprobe_complete, rclass
             local n = r(N)
             quietly count if `cc'
             local k = r(N)
-            _dataprobe_mshare `k' `n' `mask'
+            // a by() group whose size is withheld (missing nscope): a
+            // complete count of the mask or more bounds that size
+            local _hz = (`mask' > 0 & missing(`nscope'))
+            _dataprobe_mshare `k' `n' `mask' `_hz'
             local kc "`r(cnt)'"
             local kp "`r(pcttxt)'"
             local om = r(masked)
@@ -61,6 +64,14 @@ program define _dataprobe_complete, rclass
             if `mask' > 0 & missing(`nscope') {
                 local ns "[suppressed]"
                 local kp "[masked]"
+                local om = 1
+            }
+            // force(1): the pooled-remainder test withholds this group's
+            // count (dataprobe's _dataprobe_premask)
+            if `force' & `mask' > 0 {
+                local kc "[suppressed]"
+                local kp "[masked]"
+                local knum = .
                 local om = 1
             }
             if `om' local anymask = 1

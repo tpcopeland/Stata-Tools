@@ -1,4 +1,4 @@
-*! _dataprobe_coverage Version 1.10.2  2026/10/20
+*! _dataprobe_coverage Version 1.10.3  2026/10/20
 *! dataprobe coverage(): delivered-file date coverage (a band family)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -27,7 +27,7 @@ program define _dataprobe_coverage, rclass
     local vars ""
     capture noisily {
         syntax , SPEC(string) [PARSEonly RF(name) KIND(string) GRP(string) ///
-            PFX(string) MASK(integer 0) NSCOPE(real 0)]
+            PFX(string) MASK(integer 0) NSCOPE(real 0) EXCLuded]
         local head `"`spec'"'
         local opts ""
         local cp = strpos(`"`spec'"', ",")
@@ -105,6 +105,14 @@ program define _dataprobe_coverage, rclass
         scalar `HI' = r(value)
         local lo_num "`LO'"
         local hi_num "`HI'"
+        if missing(`lo_num') {
+            display as error `"coverage(): lower bound is missing; give a date: `spec'"'
+            exit 198
+        }
+        if missing(`hi_num') {
+            display as error `"coverage(): upper bound is missing; give a date: `spec'"'
+            exit 198
+        }
         if `lo_num' > `hi_num' {
             display as error `"coverage(): lower bound exceeds upper bound: `spec'"'
             exit 198
@@ -153,6 +161,12 @@ program define _dataprobe_coverage, rclass
                     local firsttxt = "p`pplo' " + strtrim(string(`emin', "%td"))
                     local lasttxt = "p`pphi' " + strtrim(string(`emax', "%td"))
                 }
+            }
+            // exclude(): the first and last dates are contents of the
+            // variable, withheld as inrange() withholds its extremes
+            if "`excluded'" != "" {
+                local firsttxt "[excluded]"
+                local lasttxt "[excluded]"
             }
             local checks "outside late_end early_start"
             if `gapnone' {
@@ -222,6 +236,8 @@ program define _dataprobe_coverage, rclass
                     local ne : word count `empty'
                     local ok = (`ne' == 0)
                     local onum = `ne'
+                    // exclude(): the count of empty years, not which ones
+                    if "`excluded'" != "" & !`ok' local empty "`ne' year(s) ([excluded])"
                     local obs = cond(`ok', "no empty year", "no rows in `empty'")
                     local exp "every calendar year between the first and last date has rows"
                     if `ok' local msg `"`pfx'coverage(`ck'): `dv' has rows in every calendar year it spans"'

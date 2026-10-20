@@ -1,4 +1,4 @@
-*! _datamap_nuniq Version 1.10.2  2026/10/20
+*! _datamap_nuniq Version 1.10.3  2026/10/20
 *! Distinct-value count for one variable, without sorting the dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -83,10 +83,12 @@ real rowvector _datamap_nuniq_num(string scalar vname, real scalar cap)
 	slack    = 27
 	d = J(0, 1, .)
 
-	for (lo = 1; lo <= N; lo = lo + chunk) {
+	for (lo = 1; lo <= N; lo = hi + 1) {
 		hi = min((lo + chunk - 1, N))
 		d = uniqrows(d \ st_data((lo, hi), vname))
 		if (rows(d) > cap + slack) return((cap + 1, 1))
+		// grow the NEXT chunk; the loop advances past the rows just read
+		// (lo = hi + 1), never by the grown size, or rows are skipped
 		chunk = min((chunk * 4, maxchunk))
 	}
 
@@ -125,7 +127,7 @@ real rowvector _datamap_nuniq_str(string scalar vname, real scalar countempty,
 	slack    = (countempty ? 0 : 1)
 	d = J(0, 1, "")
 
-	for (lo = 1; lo <= N; lo = lo + chunk) {
+	for (lo = 1; lo <= N; lo = hi + 1) {
 		hi = min((lo + chunk - 1, N))
 		d = uniqrows(d \ st_sdata((lo, hi), vname))
 		if (rows(d) > cap + slack) return((cap + 1, 1))

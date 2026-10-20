@@ -1,4 +1,4 @@
-*! _datamap_load_config Version 1.10.2  2026/10/20
+*! _datamap_load_config Version 1.10.3  2026/10/20
 *! Shared key=value project config parser for datamap commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -14,7 +14,10 @@ program define _datamap_load_config, rclass
         file open `fh' using `"`config'"', read text
         local _fh_open = 1
         file read `fh' line
+        // a file saved with a UTF-8 byte-order mark carried it into the
+        // first key, which then matched nothing
         while r(eof) == 0 {
+            mata: st_local("line", ustrregexra(st_local("line"), "^\x{FEFF}", ""))
             local raw = strtrim(`"`macval(line)'"')
             if `"`raw'"' != "" & substr(`"`raw'"', 1, 1) != "#" & ///
                substr(`"`raw'"', 1, 1) != "*" & substr(`"`raw'"', 1, 2) != "//" {

@@ -36,10 +36,11 @@ format dob %td
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 
-datamap,  datesafe output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap,  datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
+* 1.10.3: continuous(age) -- a categorical row has no summaries under mincell()
 assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
@@ -72,10 +73,11 @@ format dob %tc
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 
-datamap,  datesafe output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap,  datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
+* 1.10.3: continuous(age) -- a categorical row has no summaries under mincell()
 assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
@@ -108,10 +110,11 @@ format dob %td
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 clear
-datamap, single("`work'/source.dta") datesafe output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap, single("`work'/source.dta") datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
+* 1.10.3: continuous(age) -- a categorical row has no summaries under mincell()
 assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
@@ -144,10 +147,11 @@ format dob %tc
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 clear
-datamap, single("`work'/source.dta") datesafe output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap, single("`work'/source.dta") datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
+* 1.10.3: continuous(age) -- a categorical row has no summaries under mincell()
 assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
