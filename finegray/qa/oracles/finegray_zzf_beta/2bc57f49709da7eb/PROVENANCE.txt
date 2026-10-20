@@ -1,3 +1,4 @@
+Re-keyed 2026-10-20 (FG_ORACLE_REFRESH=1) after a comment-only edit to crossval_finegray_zzf_r.R (ZZF equation renumbering, eq. 5 to eq. 4 and eq. 7 to eq. 6); all 110 output blobs and index.md5 are byte-identical to the superseded entry 3208f9ede71ca86a, so the toolchain below is the one that produced them.
 R version 4.6.1 (2026-06-24)
 Platform: x86_64-pc-linux-gnu
 Running under: Ubuntu 24.04.5 LTS
