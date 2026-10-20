@@ -619,8 +619,14 @@ capture noisily {
     assert r(n) == 0
     _priv_count using "`mlog'", needle("          14")
     assert r(n) == 0
+    * 1.10.4: the n cells are tested against their own total (103) even
+    * when the output prints no N, so one of the tied 50s is withheld as
+    * well (103 - 50 - 50 = 3 rows of the pooled group); 1.10.3 printed both
+    * and this assertion counted 2
     _priv_count using "`mlog'", needle("[suppr.]")
-    assert r(n) == 2
+    assert r(n) == 3
+    _priv_count using "`mlog'", needle("                                 50")
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "  PASS: groupstat withholds pooled n and sum when a group is pooled away"

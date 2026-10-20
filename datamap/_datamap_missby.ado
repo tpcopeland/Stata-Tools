@@ -1,4 +1,4 @@
-*! _datamap_missby Version 1.10.3  2026/10/20
+*! _datamap_missby Version 1.10.4  2026/10/21
 *! Missing counts and shares of a varlist by group
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -138,10 +138,15 @@ failed and then passed when the same call was rerun counts once, as
 passed. A rerun with changed bounds is a new gate, so the earlier failure stays in
 the count; widening an expectation cannot clear it. So is the same check
 declared as another kind (a failed {opt stat()} invariant rerun as a
-{opt bands()} band). A rerun supersedes an earlier row only when it tested the
-same rows: the same {cmd:n_scope} (within the same {cmd:by()} group for a
-{cmd:by()} row), so a rerun on a subset of the data ({cmd:keep if ...}) leaves
-the full-data failure standing; start the run afresh to drop it. A call without a dataset name (no {opt name()} and no file in memory) is
+{opt bands()} band). A rerun supersedes the earlier rows of its gate, so a
+file fixed on disk, reloaded, and rerun ({cmd:duplicates drop}, {cmd:save},
+{cmd:use}) clears its failure, with one exception: a rerun on data changed in
+memory, recorded as {bf:(modified)}, never supersedes a row of the unmodified
+data, so a rerun on a subset ({cmd:keep if ...}) leaves the full-data failure
+standing; start the run afresh to drop it. A call's {cmd:if} or {cmd:in} is
+part of its gate, so a rerun on {cmd:if} rows is a different gate. A call under
+{opt name()} carries no {bf:(modified)} marker, so give a subset its own
+{opt name()}. A call without a dataset name (no {opt name()} and no file in memory) is
 never superseded, since it cannot be told apart from another unnamed
 dataset. Ledger text (a dataset name, label, expectation, or observed value)
 is printed as text in the console and the draft: no SMCL, quote, or macro

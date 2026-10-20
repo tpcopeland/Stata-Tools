@@ -1,4 +1,4 @@
-*! _datamap_memshell Version 1.10.3  2026/10/20
+*! _datamap_memshell Version 1.10.4  2026/10/21
 *! Write a zero-observation copy of the data in memory to a file
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

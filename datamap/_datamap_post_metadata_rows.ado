@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.10.3  2026/10/20
+*! _datamap_post_metadata_rows Version 1.10.4  2026/10/21
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -145,7 +145,7 @@ program define _datamap_post_metadata_rows, nclass
             // saved rows follow the report.
             // The same rule as the report (_datamap_sumpolicy): under
             // datesafe nothing for a date or a date-formatted variable in
-            // any class; under mincell() no mean or sd for a two-valued
+            // any class; under mincell() no mean or sd for a two- or three-valued
             // continuous variable.
             _datamap_sumpolicy, class(`varclass') vfmt("`vfmt'") `datesafe' ///
                 mincell(`mincell') nuniq(`=cond(missing(`nuniq'), -1, `nuniq')')

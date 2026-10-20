@@ -1,4 +1,4 @@
-*! datadict Version 1.10.3  2026/10/20
+*! datadict Version 1.10.4  2026/10/21
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1737,7 +1737,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	local is_numeric = (_rc == 0)
 	// datamap's rule (_datamap_sumpolicy): under mincell() a categorical
 	// row's saved mean, sd and quantiles give a suppressed cell back (the
-	// mean of a 0/1 flag times N), and so do a two-valued continuous
+	// mean of a 0/1 flag times N), and so do a two- or three-valued continuous
 	// variable's mean and sd, printed or saved
 	_datamap_sumpolicy, class(`varclass') vfmt("`vfmt'") mincell(`mincell') ///
 		nuniq(`=cond(missing(`nuniq') | `ncapped', -1, `nuniq')')
@@ -1801,7 +1801,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			_datadict_FormatPair `vmin_raw' `vmax_raw' "`min_s'" "`max_s'"
 			local rng_s "`r(pair)'"
 			if `_momhide' {
-				local mean_s "withheld (mincell; two-valued)"
+				local mean_s "withheld (mincell; two or three values)"
 				local sd_s "withheld"
 			}
 			local statsstr "N=`nvalid'<br>Median=`median_s'; IQR=`iqr_s'<br>Mean=`mean_s' (SD=`sd_s')<br>Range=`rng_s'"

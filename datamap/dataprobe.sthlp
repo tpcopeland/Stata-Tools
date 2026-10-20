@@ -644,10 +644,17 @@ is between 1 and {it:m}-1, and {bf:<}{it:m} when the count itself is in that
 range. A {cmd:sum} cell also reads {bf:[suppr.]} when the group's nonmissing
 rows, its nonzero rows, or, for a variable with two values in the group, the
 rows of either value number 1 to {it:m}-1: a sum is a value of its rows. An
-{cmd:n} cell is withheld as well when the output prints the call's N (the
-profile header, or the PASS line of a call with a gate) and N minus the shown
-{cmd:n} cells is 1 to {it:m}-1, since that difference is the rows of the
-pooled-away groups; the smallest shown cell then reads {bf:[suppr.]}. A {cmd:pmiss} cell is masked when the group's missing or nonmissing
+{cmd:n} cell is withheld as well when N minus the shown {cmd:n} cells is 1 to
+{it:m}-1, since that difference is the rows of the pooled-away groups and the
+masked cells; N is the call's N, which the output always prints or records
+(the profile header, a PASS line, a {opt review()} or {opt complete()} item,
+the ledger's {cmd:n_scope}), and the cells' own total over the entry's rows
+(its {cmd:if}, a nonmissing {cmd:by()} value), whose count another item may
+print. The same holds for the rows of the groups not shown exactly minus that
+difference (a group printed with a small complement), and in a profile for
+the profiled variable's nonmissing count and, for the {cmd:sum} of a 0/1
+categorical variable, its count of ones. The smallest shown cell (for the
+complement, the cell with the smallest complement) then reads {bf:[suppr.]}. A {cmd:pmiss} cell is masked when the group's missing or nonmissing
 count is 1 to {it:m}-1. An {cmd:sd} cell is masked when the group has fewer
 than {it:m} nonmissing rows or, for a variable with two or three values in the group,
 fewer than {it:m} rows of any value; an {cmd:ess} cell when the group's
@@ -655,7 +662,11 @@ nonzero or zero weights number 1 to {it:m}-1. The pooled value, {cmd:pmiss} incl
 when any group cell is masked. A failing group that the table withholds is
 named by its number ({cmd:group #3}), never its values. The mean or a
 percentile of a date prints as a date, at month precision under the mask, as
-the pooled value does.
+the pooled value does; a date format wider than the column prints as a
+{cmd:%td} date. Every cell fits its column, and a withheld pooled value reads
+{bf:[suppr.]}. Without the mask, a failing band on a date prints the value
+with the date beside it, {cmd:1865.5 (08feb1965)}, so a value just outside the
+band never reads as the bound.
 
 {pmore}
 A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::} {it:var}{cmd:, by(}{it:groupvars}{cmd:)}
@@ -944,9 +955,14 @@ in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}.
 A count in a GROUPWISE block that has a total printed elsewhere (complete
 cases in the header, a variable's missing count in MISSINGNESS, a level's
 count in the pooled frequency table) is withheld as well when that total
-minus the counts the block prints exactly is 1 to {it:m}-1: the smallest
-exact count reads {bf:[suppr.]} (in a frequency table, {bf:[suppressed]},
-and the group's table pools it). The same test covers the per-group gate
+minus the counts the block prints exactly is 1 to {it:m}-1, or when the
+rows of the groups not printed exactly (every group's size is printed, or is
+N minus the shown sizes) minus that remainder is 1 to {it:m}-1, as when one
+group prints {bf:all but <}{it:m} beside exact ones: the smallest exact count
+(for the second test, the one with the smallest complement) reads
+{bf:[suppr.]} (in a frequency table, {bf:[suppressed]}, and the group's table
+pools it), and further groups follow until neither difference is 1 to
+{it:m}-1. The same test covers the per-group gate
 counts of a profile with {opt by()}: {opt notmissing()}, {opt binary()},
 {opt complete()} over the profile or over one variable, {opt stat()}
 {cmd:n}, {cmd:pmiss} and the {cmd:sum} of a 0/1 variable, {opt inrange()} of
@@ -954,7 +970,10 @@ a profiled date (against the DATE block's count outside the window),
 {opt allowed()}, {opt forbid()} and {opt notvalues()} of a variable with a
 frequency table, and {opt groupstat()} {cmd:n} and {cmd:sum} cells; a group
 withheld for a quantity in one block is withheld wherever that quantity is
-printed for it, and the gate count reads {bf:[suppressed]}. The {bf:Unique} column, a string's
+printed for it, and the gate count reads {bf:[suppressed]}. {bf:[suppr.]} and
+{bf:[suppressed]} in these GROUPWISE cells and per-group gate counts stand for
+an exact count of {it:m} or more withheld by this test: a count already
+printed {bf:<}{it:m} or {bf:all but <}{it:m} keeps that text. The {bf:Unique} column, a string's
 {bf:unique=} and a categorical variable's level count print as
 {bf:[masked]} when N, or the nonmissing N, minus that count is 1 to
 {it:m}-1.{p_end}

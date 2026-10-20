@@ -219,7 +219,7 @@ schema is shared with {help datamap} and {help dataprobe}. Specify
 {cmd:.dta}, and that name is checked before any output is written. While
 {opt mincell()} is above 0, a categorical row has no numeric summaries (the
 mean of a 0/1 variable is the share in a cell that may be suppressed), and a
-continuous variable with exactly two distinct values has no mean or standard
+continuous variable with two or three distinct values has no mean or standard
 deviation, in the {opt stats} column ({bf:withheld}) or in the saved rows.
 
 {pmore}

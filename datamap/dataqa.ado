@@ -1,4 +1,4 @@
-*! dataqa Version 1.10.3  2026/10/20
+*! dataqa Version 1.10.4  2026/10/21
 *! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -296,7 +296,7 @@ program define _dataqa_latest, rclass
     quietly replace `gate' = "by(" + ustrregexs(1) + ")" if ustrregexm(grp, "^by\(([^()|]*) \| ")
     // kind is part of the gate: a failed stat() invariant rerun as a
     // bands() band (a warning under bandwarn) is a downgrade, not a rerun
-    tempvar knd nsc lastc h1 h2 byrow
+    tempvar knd
     capture confirm variable kind
     if _rc quietly generate str1 `knd' = ""
     else quietly generate strL `knd' = kind
@@ -311,28 +311,19 @@ program define _dataqa_latest, rclass
         exit
     }
     quietly bysort run `gate' (seq): generate double `mx' = seq[_N]
-    // The latest call supersedes an earlier row only when it tested the
-    // same rows: the same n_scope (a masked n_scope matches a masked one),
-    // for a by() group row in the same group, for any other row in any row
-    // of the call (an events() level row carries the call's N).  A rerun on
-    // a subset (keep if ..., N 74 -> 12) used to clear a full-data failure.
-    capture confirm variable n_scope
-    if _rc quietly generate double `nsc' = .
-    else quietly generate double `nsc' = n_scope
+    // The latest call supersedes an earlier row of its gate, as a fixed
+    // file reloaded and rerun clears its failure (duplicates drop, save,
+    // use).  The exception: a latest call on data changed in memory, a
+    // "(modified)" dataset, never supersedes a row of the unmodified data,
+    // so a rerun on a subset (keep if ..., N 74 -> 12) cannot clear a
+    // full-data failure.  A call's if/in is its scope, part of the gate.
+    tempvar lastc dmod lmod
     quietly generate byte `lastc' = (seq == `mx')
-    // the by() group of a row, without a helper's level text
-    // ("by(g | g=2); lv = 2" -> "by(g | g=2)")
-    tempvar gb
-    quietly generate strL `gb' = ""
-    quietly replace `gb' = ustrregexs(0) if ustrregexm(grp, "^by\([^()]* group [0-9]+\)")
-    quietly replace `gb' = ustrregexs(0) if ///
-        ustrregexm(grp, "^by\([^()|]* \| ([^\[\])]|\[[^\[\]]*\])*\)")
-    quietly generate byte `byrow' = (`gb' != "")
-    quietly bysort run `gate' `gb' `nsc': egen byte `h1' = max(`lastc')
-    quietly bysort run `gate' `nsc': egen byte `h2' = max(`lastc')
+    quietly generate byte `dmod' = regexm(dataset, " \(modified\)$")
+    quietly bysort run `gate': egen byte `lmod' = max(`lastc' & `dmod')
     // an error row (a call that failed to run) is never superseded
     quietly drop if seq < `mx' & regexr(dataset, " \(modified\)$", "") != "" & status != "error" & ///
-        cond(`byrow', `h1', `h2') == 1
+        !(`lmod' == 1 & `dmod' == 0)
     local nsup = `N0' - _N
     if "`one'" != "" {
         quietly generate strL _key = `gate' + char(9) + grp

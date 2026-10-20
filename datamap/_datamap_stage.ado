@@ -1,4 +1,4 @@
-*! _datamap_stage Version 1.10.3  2026/10/20
+*! _datamap_stage Version 1.10.4  2026/10/21
 *! Staged report output: check the destination, copy the stage on success
 *! Author: Timothy P Copeland, Karolinska Institutet
 

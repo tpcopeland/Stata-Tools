@@ -197,7 +197,7 @@ capture noisily {
     quietly datamap, output("`W'/m3b.txt") continuous(flag) saving("`W'/m3b.dta", replace)
     _r2_count "`W'/m3b.txt" "Mean: .05"
     assert r(n) == 0
-    _r2_count "`W'/m3b.txt" "Mean: withheld (mincell; two-valued variable)"
+    _r2_count "`W'/m3b.txt" "Mean: withheld (mincell; two or three values)"
     assert r(n) == 1
     _r2_count "`W'/m3b.txt" "skewness="
     assert r(n) == 0
@@ -829,6 +829,11 @@ else {
 }
 
 **# Q3 a rerun on a subset does not supersede a full-data failure
+* 1.10.4 (user decision, narrow rule): only a "(modified)" rerun is kept from
+* superseding an unmodified row.  A call under name() carries no
+* (modified) marker, so the named-subset cases r2 and r4 below now
+* supersede, as a fixed file reloaded and rerun does; they pinned the
+* 1.10.3 n_scope rule and were updated, not dropped.
 
 local ++test_count
 capture noisily {
@@ -841,7 +846,7 @@ capture noisily {
     quietly dataprobe, gatesonly stat(mean mpg 25 30) notmissing(rep78)
     capture dataqa assert, expect(auto)
     assert _rc == 9 & r(n_failed) == 2
-    * named, data subset in memory (no (modified) marker)
+    * named, data subset in memory (no (modified) marker): supersedes
     dataqa set maskrare mincell(5) ledger("`L'") run(r2) collect
     sysuse auto, clear
     quietly dataprobe, gatesonly stat(mean mpg 25 30) name(auto2)
@@ -850,7 +855,7 @@ capture noisily {
     quietly dataprobe, gatesonly stat(mean mpg 25 30) name(auto2)
     restore
     capture dataqa assert, expect(auto2)
-    assert _rc == 9 & r(n_failed) == 1
+    assert _rc == 0 & r(n_failed) == 0 & r(n_superseded) == 1
     * a by() group: the subset changes the group's rows
     dataqa set maskrare mincell(5) ledger("`L'") run(r4) collect
     sysuse auto, clear
@@ -859,9 +864,9 @@ capture noisily {
     quietly replace rep78 = 3 if missing(rep78)
     quietly dataprobe, gatesonly by(foreign) notmissing(rep78) name(auto4)
     capture dataqa assert, expect(auto4)
-    * foreign = 1 lost its missing row (22 -> 21): its failure stands;
-    * foreign = 0 was fixed on the same 52 rows: superseded
-    assert _rc == 9 & r(n_failed) == 1 & r(n_superseded) == 1
+    * both groups' failures are superseded by the named rerun (1.10.3 kept
+    * foreign = 1's, whose rows went 22 -> 21)
+    assert _rc == 0 & r(n_failed) == 0 & r(n_superseded) == 2
     * control: the same rows rerun after a fix still supersede
     dataqa set maskrare mincell(5) ledger("`L'") run(r3) collect
     sysuse auto, clear
@@ -874,11 +879,11 @@ capture noisily {
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: Q3 a subset rerun does not supersede; a same-rows rerun does"
+    display as result "  PASS: Q3 a (modified) subset rerun does not supersede; a named or same-rows rerun does"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Q3 a subset rerun does not supersede; a same-rows rerun does"
+    display as error "  FAIL: Q3 a (modified) subset rerun does not supersede; a named or same-rows rerun does"
 }
 
 **# Q4 export blanks literal identifiers in expected, label and message

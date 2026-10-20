@@ -1,4 +1,4 @@
-*! _dataprobe_complete Version 1.10.3  2026/10/20
+*! _dataprobe_complete Version 1.10.4  2026/10/21
 *! dataprobe complete(): complete cases over a varlist
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -55,6 +55,7 @@ program define _dataprobe_complete, rclass
             local kc "`r(cnt)'"
             local kp "`r(pcttxt)'"
             local om = r(masked)
+            local kom = r(masked)
             local knum = r(num)
             _dataprobe_mcount `n' `mask'
             local ns "`r(s)'"
@@ -67,8 +68,10 @@ program define _dataprobe_complete, rclass
                 local om = 1
             }
             // force(1): the pooled-remainder test withholds this group's
-            // count (dataprobe's _dataprobe_premask)
-            if `force' & `mask' > 0 {
+            // count (dataprobe's _dataprobe_premask); a count already
+            // printed <m or all but <m keeps that text, so [suppressed]
+            // always stands for an exact count of the mask or more
+            if `force' & `mask' > 0 & !`kom' {
                 local kc "[suppressed]"
                 local kp "[masked]"
                 local knum = .

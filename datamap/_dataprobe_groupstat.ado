@@ -1,4 +1,4 @@
-*! _dataprobe_groupstat Version 1.10.3  2026/10/20
+*! _dataprobe_groupstat Version 1.10.4  2026/10/21
 *! dataprobe groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -437,6 +437,8 @@ program define _dataprobe_groupstat, rclass
                     display as text "  " %-24s "Group" `hdr'
                 }
                 local nsmall = 0
+                // column width: 13 in this table, 10 in a multi-statistic one
+                local _cw = cond("`cellframe'" == "", 13, 10)
                 local j = 0
                 foreach v of local gvars {
                     local ++j
@@ -446,6 +448,7 @@ program define _dataprobe_groupstat, rclass
                     local _vf : format `v'
                     local _vf = subinstr("`_vf'", "%-", "%", 1)
                     local isdate_`j' = (substr("`_vf'", 1, 2) == "%t" | substr("`_vf'", 1, 2) == "%d")
+                    local isday_`j' = (strpos("`_vf'", "%td") | substr("`_vf'", 1, 2) == "%d") > 0
                     local istc_`j' = (strpos("`_vf'", "%tc") | strpos("`_vf'", "%tC")) > 0
                     local dfmt_`j' "`_vf'"
                     if `mask' > 0 & (strpos("`_vf'", "%td") | substr("`_vf'", 1, 2) == "%d") local dfmt_`j' "%tdCCYY-NN"
@@ -560,112 +563,144 @@ program define _dataprobe_groupstat, rclass
                         }
                         local sh_`k'_`j' = `shown'
                         local s_`k'_`j' "`s'"
+                        // every cell fits its column
+                        if `shown' & !missing(`x') & !`exc_`j'' {
+                            _dataprobe_gsfit `x', s(`"`s_`k'_`j''"') w(`_cw') ///
+                                date(`isday_`j'') tc(`istc_`j'')
+                            local s_`k'_`j' `"`r(s)'"'
+                        }
                         if `exc_`j'' & !missing(`x') local s_`k'_`j' "[excluded]"
-                    }
-                }
-                // n: the call's N (the PASS line) minus the shown n cells is
-                // the rows of the pooled-away groups, of the masked cells, and
-                // outside the groups.  When that is 1 to mask-1 rows, the
-                // smallest shown cell is withheld with them.  nprint(0): the
-                // output prints no N (gatesonly with review items only).
-                if `mask' > 0 & `nprint' & "`st'" == "n" & `nscope' > 0 & `nscope' < . {
-                    local j = 0
-                    foreach v of local gvars {
-                        local ++j
-                        local _rem = `nscope'
-                        local _kmin = 0
-                        local _xmin = .
-                        forvalues k = 1/`G' {
-                            if `sup_`k'' continue
-                            if !`sh_`k'_`j'' continue
-                            local _xk = `val_`k'_`j''
-                            if missing(`_xk') continue
-                            local _rem = `_rem' - `_xk'
-                            if `_xk' > 0 & `_xk' < `_xmin' {
-                                local _xmin = `_xk'
-                                local _kmin = `k'
-                            }
-                        }
-                        if `_rem' >= 1 & `_rem' < `mask' & `_kmin' > 0 {
-                            local sh_`_kmin'_`j' = 0
-                            local s_`_kmin'_`j' "[suppr.]"
-                            local cm_`j' = 1
-                            local anymask = 1
-                        }
                     }
                 }
                 // Profile totals (dataprobe passes them in profile mode under
                 // the mask).  With the call's by(), a group whose missing
                 // count (n, pmiss) or count of ones (sum of a 0/1 variable)
-                // another block withholds is withheld here too; then the
-                // printed total (the nonmissing count of a profiled
-                // variable, the ones of a 0/1 categorical one) minus the
-                // shown cells must not be 1 to mask-1.
+                // another block withholds is withheld here too.
+                local _sameby = 0
                 if `mask' > 0 & `"`profile'`pcat'"' != "" {
                     local _sameby = ("`byvars'" != "" & `: list byv === byvars')
+                }
+                local j = 0
+                foreach v of local gvars {
+                    local ++j
+                    local _is01_`j' = 0
+                    if `mask' == 0 | `"`profile'`pcat'"' == "" continue
+                    if "`st'" == "sum" & `: list v in pcat' {
+                        quietly count if !missing(`v') & !inlist(`v', 0, 1)
+                        local _is01_`j' = (r(N) == 0)
+                    }
+                    // flagged rows of the withheld groups
+                    local _fl ""
+                    local _flc ""
+                    if `_sameby' & inlist("`st'", "n", "pmiss") {
+                        local _pp : list posof "`v'" in mhide
+                        if `_pp' > 0 {
+                            local _fl : word `=`_pp' + 1' of `mhide'
+                            local _flc "1"
+                        }
+                    }
+                    if `_sameby' & `_is01_`j'' {
+                        local _pp : list posof "`v'" in fhide
+                        if `_pp' > 0 {
+                            local _fl : word `=`_pp' + 1' of `fhide'
+                            local _flc "`v' == 1"
+                        }
+                    }
+                    if "`_fl'" != "" {
+                        forvalues k = 1/`G' {
+                            if `sup_`k'' continue
+                            if !`sh_`k'_`j'' continue
+                            quietly count if `g' == `k' & `_fl' == 1 & (`_flc')
+                            if r(N) > 0 {
+                                local sh_`k'_`j' = 0
+                                local s_`k'_`j' "[suppr.]"
+                                local cm_`j' = 1
+                                local anymask = 1
+                            }
+                        }
+                    }
+                }
+                // Pooled remainders of a count column (n, or the sum of a
+                // 0/1 variable in profile mode).  A total of the column
+                // minus its shown cells is the share of the pooled-away
+                // groups, of the masked cells and of the rows outside the
+                // cells; 1 to mask-1 of it gives a small cell back, and so
+                // does its complement, the rows of the groups not shown
+                // exactly minus that share, when it is 1 to mask-1 (one
+                // group printed all but <m).  The totals: the cells' own
+                // total over the pooled rows, set against the rows of the
+                // groups (a review() or complete() item, a PASS line, or a
+                // ledger row prints an N; the rows outside the entry's if
+                // or with a missing by() value are no protection); the
+                // call's N (a PASS line, the profile header, the ledger's
+                // n_scope); and in profile mode the printed total (the
+                // nonmissing count of a profiled variable, the ones of a
+                // 0/1 categorical one), over all rows.  Each test
+                // withholds the smallest shown cell (or, for the
+                // complement, the cell with the smallest positive
+                // complement), the first group on ties, until it holds.
+                if `mask' > 0 {
                     local j = 0
                     foreach v of local gvars {
                         local ++j
-                        local _is01 = 0
-                        if "`st'" == "sum" & `: list v in pcat' {
-                            quietly count if !missing(`v') & !inlist(`v', 0, 1)
-                            local _is01 = (r(N) == 0)
+                        if "`st'" != "n" & !`_is01_`j'' continue
+                        if `exc_`j'' continue
+                        // the cells' total over the pooled rows
+                        local _T1 = 0
+                        forvalues k = 1/`G' {
+                            local _xk = `val_`k'_`j''
+                            if !missing(`_xk') local _T1 = `_T1' + `_xk'
                         }
-                        // flagged rows of the withheld groups
-                        local _fl ""
-                        local _flc ""
-                        if `_sameby' & inlist("`st'", "n", "pmiss") {
-                            local _pp : list posof "`v'" in mhide
-                            if `_pp' > 0 {
-                                local _fl : word `=`_pp' + 1' of `mhide'
-                                local _flc "1"
-                            }
-                        }
-                        if `_sameby' & `_is01' {
-                            local _pp : list posof "`v'" in fhide
-                            if `_pp' > 0 {
-                                local _fl : word `=`_pp' + 1' of `fhide'
-                                local _flc "`v' == 1"
-                            }
-                        }
-                        if "`_fl'" != "" {
-                            forvalues k = 1/`G' {
-                                if `sup_`k'' continue
-                                if !`sh_`k'_`j'' continue
-                                quietly count if `g' == `k' & `_fl' == 1 & (`_flc')
-                                if r(N) > 0 {
-                                    local sh_`k'_`j' = 0
-                                    local s_`k'_`j' "[suppr.]"
-                                    local cm_`j' = 1
-                                    local anymask = 1
-                                }
-                            }
-                        }
-                        local _T = .
+                        local _tots "`_T1'"
+                        if "`st'" == "n" & `nprint' & `nscope' > 0 & `nscope' < . local _tots "`_tots' `nscope'"
                         if "`st'" == "n" & `: list v in profile' {
                             quietly count if !missing(`v')
-                            local _T = r(N)
+                            local _tots "`_tots' `r(N)'"
                         }
-                        if `_is01' {
+                        if `_is01_`j'' {
                             quietly count if `v' == 1
-                            local _T = r(N)
+                            local _tots "`_tots' `r(N)'"
                         }
-                        if `_T' < . {
-                            local _rem = `_T'
-                            local _kmin = 0
-                            local _xmin = .
-                            forvalues k = 1/`G' {
-                                if `sup_`k'' continue
-                                if !`sh_`k'_`j'' continue
-                                local _xk = `val_`k'_`j''
-                                if missing(`_xk') continue
-                                local _rem = `_rem' - `_xk'
-                                if `_xk' > 0 & `_xk' < `_xmin' {
-                                    local _xmin = `_xk'
-                                    local _kmin = `k'
+                        local _ti = 0
+                        foreach _T of local _tots {
+                            local ++_ti
+                            while 1 {
+                                local _rem = `_T'
+                                local _nm = 0
+                                forvalues k = 1/`G' {
+                                    local _xk = `val_`k'_`j''
+                                    if !`sup_`k'' & `sh_`k'_`j'' & !missing(`_xk') local _rem = `_rem' - `_xk'
+                                    else if `sup_`k'' | !`sh_`k'_`j'' {
+                                        // the rows a hidden cell counts within
+                                        if "`st'" == "n" local _nm = `_nm' + `n_`k''
+                                        else local _nm = `_nm' + `nn_`k'_`j''
+                                    }
                                 }
-                            }
-                            if `_rem' >= 1 & `_rem' < `mask' & `_kmin' > 0 {
+                                local _rbad = (`_rem' >= 1 & `_rem' < `mask')
+                                // the complement only against the cells' own
+                                // total, the one whose rows are the groups'
+                                local _cbad = 0
+                                if `_ti' == 1 {
+                                    local _crem = `_nm' - `_rem'
+                                    local _cbad = (`_rem' >= 1 & `_crem' >= 1 & `_crem' < `mask')
+                                }
+                                if !`_rbad' & !`_cbad' continue, break
+                                local _kmin = 0
+                                local _xmin = .
+                                forvalues k = 1/`G' {
+                                    if `sup_`k'' continue
+                                    if !`sh_`k'_`j'' continue
+                                    local _xk = `val_`k'_`j''
+                                    if missing(`_xk') continue
+                                    if `_rbad' local _xc = `_xk'
+                                    else if "`st'" == "n" local _xc = `n_`k'' - `_xk'
+                                    else local _xc = `nn_`k'_`j'' - `_xk'
+                                    if `_xc' > 0 & `_xc' < `_xmin' {
+                                        local _xmin = `_xc'
+                                        local _kmin = `k'
+                                    }
+                                }
+                                if !`_kmin' continue, break
                                 local sh_`_kmin'_`j' = 0
                                 local s_`_kmin'_`j' "[suppr.]"
                                 local cm_`j' = 1
@@ -720,14 +755,26 @@ program define _dataprobe_groupstat, rclass
                         frame post `cellframe' (`cellidx') (`k') (`"`s_`k'_1'"')
                     }
                 }
+                // the pooled cell as printed: a withheld value reads
+                // [suppr.], as a withheld cell does ([suppressed] and
+                // all but <m overran a multi-statistic table's column), and
+                // a shown one fits the column
                 local line ""
                 local j = 0
                 foreach v of local gvars {
                     local ++j
-                    local line `"`line' as result %13s "`pools_`j''""'
+                    local pdisp_`j' `"`pools_`j''"'
+                    if !`pshown_`j'' & substr(`"`pools_`j''"', 1, 1) != "<" & "`pools_`j''" != "[excluded]" ///
+                        local pdisp_`j' "[suppr.]"
+                    else if `pshown_`j'' & !missing(`pool_`j'') & "`pools_`j''" != "[excluded]" {
+                        _dataprobe_gsfit `pool_`j'', s(`"`pools_`j''"') w(`_cw') ///
+                            date(`isday_`j'') tc(`istc_`j'')
+                        local pdisp_`j' `"`r(s)'"'
+                    }
+                    local line `"`line' as result %13s "`pdisp_`j''""'
                 }
                 if "`cellframe'" == "" display as text "  " as text %-24s "pooled" `line'
-                else frame post `cellframe' (`cellidx') (0) (`"`pools_1'"')
+                else frame post `cellframe' (`cellidx') (0) (`"`pdisp_1'"')
                 if `nsmall' > 0 {
                     local smtxt "groups with fewer than `gmin' rows: `nsmall'"
                     if `mask' > 0 local smtxt "groups with <`gmin' rows: `nsmall'"
@@ -864,9 +911,14 @@ program define _dataprobe_groupstat, rclass
                             // full precision, as stat() prints: a value just
                             // outside the band must not round onto its bound
                             local xs = strtrim(string(`x', "%14.0g"))
-                            // a date as the table prints it (month precision
-                            // under the mask)
-                            if `isdate_`j'' & "`relative'" == "" & !missing(`x') local xs `"`s_`k'_`j''"'
+                            // a date: under the mask as the table prints it
+                            // (month precision); without it the full value
+                            // and, beside it, the date, since 1865.5 printed
+                            // as 08feb1965 could round onto a bound
+                            if `isdate_`j'' & "`relative'" == "" & !missing(`x') {
+                                if `mask' > 0 local xs `"`s_`k'_`j''"'
+                                else local xs `"`xs' (`=strtrim(string(`x', "`dfmt_`j''"))')"'
+                            }
                             local onum = regexr(string(`x', "%21x"), "^[+]", "")
                             local om = 0
                         }
@@ -924,4 +976,22 @@ program define _dataprobe_groupstat, rclass
     return scalar isgate = `isgate'
     return scalar nfail = `nfail'
     return scalar masked = `anymask'
+end
+
+// A groupstat cell that would overrun its column (w characters: 13 in a
+// one-statistic table, 10 in a multi-statistic one) is shortened: a daily
+// date, or the day of a %tc value, to Stata's %td (27sep1961), otherwise
+// the value at %10.4g, as the group cells print.  A cell that fits is left
+// as it is.
+capture program drop _dataprobe_gsfit
+local _drop_gsfit_rc = _rc
+program define _dataprobe_gsfit, rclass
+    version 16.0
+    syntax anything(name=x), [S(string) W(integer 13) DATE(integer 0) TC(integer 0)]
+    if ustrlen(`"`s'"') > `w' & (`date' | `tc') {
+        if `tc' local s = string(dofc(`x'), "%td")
+        else local s = string(floor(`x'), "%td")
+    }
+    if ustrlen(`"`s'"') > `w' local s = strtrim(string(`x', "%10.4g"))
+    return local s `"`s'"'
 end

@@ -1,4 +1,4 @@
-*! _datamap_sumpolicy Version 1.10.3  2026/10/20
+*! _datamap_sumpolicy Version 1.10.4  2026/10/21
 *! Which summaries of one variable a datamap/datadict output may print
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -9,9 +9,10 @@
 //   r(cathide)   1 for a categorical variable while mincell() is above 0:
 //                its mean is the share in a frequency cell that may be
 //                suppressed.
-//   r(momhide)   1 for a continuous variable with exactly two distinct
-//                values while mincell() is above 0: the mean, SD and
-//                skewness give the count of each value back.
+//   r(momhide)   1 for a continuous variable with two or three distinct
+//                values while mincell() is above 0: the mean and SD (and
+//                skewness) give the count of each value back, as
+//                dataprobe's rule for an sd.
 //   r(datefmt)   1 when the display format is a date format.
 program define _datamap_sumpolicy, rclass
     version 16.0
@@ -21,5 +22,5 @@ program define _datamap_sumpolicy, rclass
     return scalar datefmt = `isdf'
     return scalar datehide = ("`datesafe'" != "" & (`"`class'"' == "date" | `isdf'))
     return scalar cathide = (`mincell' > 0 & `"`class'"' == "categorical")
-    return scalar momhide = (`mincell' > 0 & `"`class'"' == "continuous" & `nuniq' == 2)
+    return scalar momhide = (`mincell' > 0 & `"`class'"' == "continuous" & inlist(`nuniq', 2, 3))
 end

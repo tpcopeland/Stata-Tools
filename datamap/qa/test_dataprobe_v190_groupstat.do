@@ -157,7 +157,19 @@ program define _u_miss
     assert `ngr' == `nl'
     assert "`gmv'" == "`expmv'"
     assert `ngmv' == `: word count `expmv''
-    * GROUPWISE MISSINGNESS block
+    * GROUPWISE MISSINGNESS block.  Per group k and variable index j:
+    * ln (a line is printed) and ex (it prints the exact count); a shown
+    * group without a line has 0 missing, which is exact too.
+    forvalues k = 1/`nl' {
+        local sh_`k' = 0
+        local exc_`k' = 0
+        local j = 0
+        foreach v of local vars {
+            local ++j
+            local ln_`k'_`j' = 0
+            local ex_`k'_`j' = 0
+        }
+    }
     quietly _u_block "`lgf'" "GROUPWISE MISSINGNESS"
     local nblk = r(n)
     local nshown = 0
@@ -180,9 +192,15 @@ program define _u_miss
             }
             assert `hit' > 0
             assert `: list vtxt in vars'
+            local vj : list posof "`vtxt'" in vars
+            local ln_`hit'_`vj' = 1
             local exact = `m`hit'_`vtxt''
             assert `exact' > 0
-            if substr("`ctxt'", 1, 1) == "<" {
+            if substr("`ctxt'", 1, 3) == "all" {
+                * all but <m: the group's nonmissing count is small
+                assert `mask' > 0 & (`on`hit'' - `exact') >= 1 & (`on`hit'' - `exact') < `mask'
+            }
+            else if substr("`ctxt'", 1, 1) == "<" {
                 * masked: the true count is positive and below the mask
                 assert `mask' > 0 & `exact' < `mask'
                 assert "`ctxt'" == "<`mask'"
@@ -197,16 +215,21 @@ program define _u_miss
                 * no small cell is ever printed unmasked
                 assert `mask' == 0 | `exact' >= `mask'
                 local sx_`vtxt' = `sx_`vtxt'' + `exact'
+                local ex_`hit'_`vj' = 1
             }
         }
     }
     * the MISSINGNESS total minus the exact counts printed here is never a
     * small cell (pooled groups and masked cells together)
+    local nblkm = `nblk'
     if `mask' > 0 & `nblk' > 0 {
+        local j = 0
         foreach v of local vars {
+            local ++j
             if substr("`: type `v''", 1, 3) == "str" quietly count if `v' == ""
             else quietly count if missing(`v')
             local _rem = r(N) - `sx_`v''
+            local _remm_`j' = `_rem'
             assert !(`_rem' >= 1 & `_rem' < `mask')
         }
     }
@@ -234,7 +257,13 @@ program define _u_miss
         local ctxt = strtrim(substr(`"`L'"', 32, 12))
         local mvtxt = strtrim(substr(`"`L'"', -9, 9))
         assert real("`ntxt'") == `on`hit''
-        if substr("`ctxt'", 1, 3) == "all" {
+        local sh_`hit' = 1
+        if substr("`ctxt'", 1, 1) == "<" {
+            * masked: the true complete count is positive and below the mask
+            assert `mask' > 0 & `cc`hit'' >= 1 & `cc`hit'' < `mask'
+            assert "`ctxt'" == "<`mask'"
+        }
+        else if substr("`ctxt'", 1, 3) == "all" {
             assert `mask' > 0 & (`on`hit'' - `cc`hit'') >= 1 & (`on`hit'' - `cc`hit'') < `mask'
         }
         else if "`ctxt'" == "[suppr.]" {
@@ -244,6 +273,7 @@ program define _u_miss
         else {
             assert real("`ctxt'") == `cc`hit''
             local sxc = `sxc' + `cc`hit''
+            local exc_`hit' = 1
         }
         assert real("`mvtxt'") == `nmv`hit''
     }
@@ -258,6 +288,30 @@ program define _u_miss
         quietly count if `cnd3'
         local _rem = r(N) - `sxc'
         assert !(`_rem' >= 1 & `_rem' < `mask')
+        * complements: every group's size is printed (or is N minus the
+        * shown sizes), so the rows of the groups not printed exactly minus
+        * the remainder are known as well.  A single group printed
+        * "all but <m" beside an exact one gave its small count back as
+        * that difference (1.10.3, R1).  Incomplete rows: nm - rem.
+        local _nm = 0
+        forvalues k = 1/`nl' {
+            if !(`sh_`k'' & `exc_`k'') local _nm = `_nm' + `on`k''
+        }
+        local _ri = `_nm' - `_rem'
+        assert !(`_ri' >= 1 & `_ri' < `mask')
+        * missing counts: rem and the nonmissing rows of the same groups
+        if `nblkm' > 0 {
+            local j = 0
+            foreach v of local vars {
+                local ++j
+                local _nm = 0
+                forvalues k = 1/`nl' {
+                    if !(`sh_`k'' & (!`ln_`k'_`j'' | `ex_`k'_`j'')) local _nm = `_nm' + `on`k''
+                }
+                local _cr = `_nm' - `_remm_`j''
+                assert !(`_remm_`j'' >= 1 & `_cr' >= 1 & `_cr' < `mask')
+            }
+        }
     }
     if `mask' == 0 assert `nsum' == `nl'
     else assert `nsum' <= `nl'
@@ -333,6 +387,28 @@ capture noisily {
 }
 local rc = _rc
 _u_tally `rc' "B1 multi-variable by(): missvars only the variables with missing values"
+
+**# B1 complements (1.10.4 R1): a group printed "all but <m" beside an exact group
+* 100 rows, groups 1 and 2 of 50; x missing on 48 rows of group 1 and 10 of
+* group 2.  On 1.10.3 MISSINGNESS printed 58 and group 2 printed 10, so group
+* 1's "all but <5" was 48 and its 2 nonmissing rows came back as 50 - 48;
+* the header's 42 complete cases minus group 2's 40 gave the same 2.
+capture noisily {
+    clear
+    set obs 100
+    gen g = cond(_n <= 50, 1, 2)
+    gen double x = _n
+    replace x = . if _n <= 48 | inrange(_n, 51, 60)
+    gen double y = 1
+    gen double z = _n
+    replace z = . if inrange(_n, 1, 3) | inrange(_n, 51, 70)
+    _u_miss g x 5 ""
+    _u_miss g "x y" 5 ""
+    _u_miss g "x z" 5 ""
+    _u_miss g x 0 ""
+}
+local rc = _rc
+_u_tally `rc' "B1 complements: all but <m beside exact groups never gives a small count back"
 
 **# B1 helper contract: r(missvars) empty with and without missing
 capture noisily {

@@ -1,4 +1,4 @@
-*! _dataprobe_bound Version 1.10.3  2026/10/20
+*! _dataprobe_bound Version 1.10.4  2026/10/21
 *! Parse a range bound (number, date literal, or date string) for a variable
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! _dataprobe_errrow Version 1.10.3  2026/10/20
+*! _dataprobe_errrow Version 1.10.4  2026/10/21
 *! Append one error row to the QA ledger for a dataprobe call that failed
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

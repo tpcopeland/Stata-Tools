@@ -1,4 +1,4 @@
-*! _datamap_nuniq Version 1.10.3  2026/10/20
+*! _datamap_nuniq Version 1.10.4  2026/10/21
 *! Distinct-value count for one variable, without sorting the dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 

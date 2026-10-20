@@ -54,6 +54,28 @@ program define _r2_eq, rclass
     return scalar n = `n'
 end
 
+* Tied groups 1 and 2: exactly one prints the withheld form of a line (@
+* stands for the group) and the other the exact form, whichever group the
+* pooled-remainder test picks on the tie; r(g) is the withheld group.
+* mode is eq (whole line, blanks collapsed) or count (substring).
+capture program drop _r2_tie
+program define _r2_tie, rclass
+    args mode file sup ex
+    forvalues gg = 1/2 {
+        local s = subinstr(`"`sup'"', "@", "`gg'", .)
+        _r2_`mode' "`file'" `"`s'"'
+        local ns`gg' = r(n)
+        local e = subinstr(`"`ex'"', "@", "`gg'", .)
+        _r2_`mode' "`file'" `"`e'"'
+        local ne`gg' = r(n)
+    }
+    assert `ns1' + `ns2' == 1
+    local w = cond(`ns1' == 1, 1, 2)
+    local o = 3 - `w'
+    assert `ne`o'' == 1 & `ne`w'' == 0
+    return scalar g = `w'
+end
+
 * D1: a sum is a value of its rows -------------------------------------
 local ++test_count
 capture noisily {
@@ -188,15 +210,9 @@ capture noisily {
     log close r2log
     * complete cases 52 in the header; groups 1 and 2 printed 24 and 24, so
     * the pooled groups held 4.  One of the two is now withheld.
-    _r2_eq "`W'/d3.log" "1 30 [suppr.] [masked] 1"
-    assert r(n) == 1
-    _r2_eq "`W'/d3.log" "2 30 24 80.0% 1"
-    assert r(n) == 1
+    _r2_tie eq "`W'/d3.log" "@ 30 [suppr.] [masked] 1" "@ 30 24 80.0% 1"
     * missing 14 in MISSINGNESS; groups printed 6 and 6, so 2 pooled
-    _r2_eq "`W'/d3.log" "1 x [suppr.] [masked]"
-    assert r(n) == 1
-    _r2_eq "`W'/d3.log" "2 x 6 20.0%"
-    assert r(n) == 1
+    _r2_tie eq "`W'/d3.log" "@ x [suppr.] [masked]" "@ x 6 20.0%"
     * level 0: 22 pooled, groups 10 and 10 (2 pooled away); group 1's table
     * withholds it and pools the rest
     _r2_eq "`W'/d3.log" "0 10 (33.3%)"
@@ -289,13 +305,9 @@ capture noisily {
     log using "`W'/d5.log", text replace name(r2log)
     capture noisily dataprobe, gatesonly groupstat(n x, by(g) band(0 1000)) maskrare
     log close r2log
-    * 63 - 30 - 30 = 3 gave the pooled-away group back
-    _r2_eq "`W'/d5.log" "1 30"
-    local n1 = r(n)
-    _r2_eq "`W'/d5.log" "2 30"
-    assert `n1' + r(n) == 1
-    _r2_eq "`W'/d5.log" "1 [suppr.]"
-    assert r(n) == 1
+    * 63 - 30 - 30 = 3 gave the pooled-away group back: one of the tied
+    * groups is withheld, the other printed
+    _r2_tie eq "`W'/d5.log" "@ [suppr.]" "@ 30"
 }
 if _rc == 0 {
     local ++pass_count
@@ -587,10 +599,11 @@ capture noisily {
     * GROUPWISE MISSINGNESS block.
     _r2_count "`W'/x1.log" "x has 6 missing value(s)"
     assert r(n) == 1
-    _r2_count "`W'/x1.log" "by(g | g=1): notmissing: x has [suppressed] missing value(s)"
-    assert r(n) == 1
-    _r2_eq "`W'/x1.log" "1 x [suppr.] [masked]"
-    assert r(n) == 1
+    _r2_tie count "`W'/x1.log" "by(g | g=@): notmissing: x has [suppressed] missing value(s)" ///
+        "by(g | g=@): notmissing: x has 6 missing value(s)"
+    local w = r(g)
+    _r2_tie eq "`W'/x1.log" "@ x [suppr.] [masked]" "@ x 6 20.0%"
+    assert r(g) == `w'
 }
 if _rc == 0 {
     local ++pass_count
@@ -614,10 +627,7 @@ capture noisily {
     * the CATEGORICAL table prints 14 ones; cells 6 and 6 gave back 2
     _r2_eq "`W'/x2.log" "1 14 (22.2%)"
     assert r(n) == 1
-    _r2_eq "`W'/x2.log" "1 [suppr.]"
-    assert r(n) == 1
-    _r2_eq "`W'/x2.log" "2 6"
-    assert r(n) == 1
+    _r2_tie eq "`W'/x2.log" "@ [suppr.]" "@ 6"
 }
 if _rc == 0 {
     local ++pass_count
@@ -637,25 +647,35 @@ capture noisily {
         binary(flag) stat(n x 0 1 \ sum flag 0 1) groupstat(sum flag, by(g) \ n x, by(g)) ///
         maskrare warn
     log close r2log
-    * every block that prints group 1's count of a quantity whose total is
-    * printed elsewhere withholds it; group 2's exact counts leave
-    * remainders of 5 or more (14 - 6, 22 - 10, 14 - 6, 52 - 24)
+    * every block that prints the withheld group's count of a quantity
+    * whose total is printed elsewhere withholds it, the same group in every
+    * block (groups 1 and 2 tie; either may be picked); the other group's
+    * exact counts leave remainders of 5 or more (14 - 6, 22 - 10, 14 - 6,
+    * 52 - 24)
+    _r2_tie eq "`W'/x3.log" "@ 30 [suppr.] [masked] 1" "@ 30 24 80.0% 1"
+    local w = r(g)
+    local o = 3 - `w'
     foreach t in "notmissing: x has [suppressed]" "forbid(c): [suppressed]" ///
-        "stat(n x): [suppressed]" "stat(sum flag): [suppressed]" {
-        _r2_count "`W'/x3.log" `"by(g | g=1): `t'"'
+        "stat(n x): [suppressed]" "stat(sum flag): [suppressed]" ///
+        "complete(x): [suppressed] of 30 complete" {
+        _r2_count "`W'/x3.log" `"by(g | g=`w'): `t'"'
         assert r(n) == 1
+        _r2_count "`W'/x3.log" `"by(g | g=`o'): `t'"'
+        assert r(n) == 0
     }
-    _r2_count "`W'/x3.log" "by(g | g=1): complete(x): [suppressed] of 30 complete"
+    _r2_eq "`W'/x3.log" "`w' x [suppr.] [masked]"
     assert r(n) == 1
-    _r2_eq "`W'/x3.log" "1 30 [suppr.] [masked] 1"
-    assert r(n) == 1
-    _r2_eq "`W'/x3.log" "1 x [suppr.] [masked]"
+    _r2_eq "`W'/x3.log" "`o' x 6 20.0%"
     assert r(n) == 1
     * groupstat with the call's by(): n of x and the sum of flag
-    _r2_eq "`W'/x3.log" "1 [suppr.]"
+    _r2_eq "`W'/x3.log" "`w' [suppr.]"
     assert r(n) == 2
-    * no line prints group 1's count of 24 complete or 6 missing
-    _r2_count "`W'/x3.log" "by(g | g=1): notmissing: x has 6"
+    _r2_eq "`W'/x3.log" "`o' [suppr.]"
+    assert r(n) == 0
+    * no line prints the withheld group's count of 24 complete or 6 missing
+    _r2_count "`W'/x3.log" "by(g | g=`w'): notmissing: x has 6"
+    assert r(n) == 0
+    _r2_count "`W'/x3.log" "by(g | g=`w'): complete(x): 24 of 30"
     assert r(n) == 0
     _r2_count "`W'/x3.log" "24 of 30 (80.0%) complete"
     assert r(n) == 1
@@ -684,10 +704,8 @@ capture noisily {
     * the DATE block prints 14 outside the window; 6 and 6 gave back 2
     _r2_count "`W'/x4.log" "14 obs outside declared window"
     assert r(n) == 1
-    _r2_count "`W'/x4.log" "by(g | g=1): inrange(d): [suppressed] obs outside"
-    assert r(n) == 1
-    _r2_count "`W'/x4.log" "by(g | g=2): inrange(d): 6 obs outside"
-    assert r(n) == 1
+    _r2_tie count "`W'/x4.log" "by(g | g=@): inrange(d): [suppressed] obs outside" ///
+        "by(g | g=@): inrange(d): 6 obs outside"
 }
 if _rc == 0 {
     local ++pass_count

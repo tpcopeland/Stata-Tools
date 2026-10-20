@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.10.3  20oct2026}{...}
+{* *! version 1.10.4  21oct2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -257,8 +257,8 @@ variables (not under {opt nostats}) and for dates (not under {opt datesafe}),
 and left missing for categorical variables while {opt mincell()} is above 0,
 since the mean of a 0/1 variable is the share in a frequency cell the report
 may suppress. For the same reason, while {opt mincell()} is above 0 a
-continuous variable with exactly two distinct values (a 0/1 flag forced into
-{opt continuous()}) has its mean and standard deviation withheld in the report,
+continuous variable with two or three distinct values (a 0/1 flag forced into
+{opt continuous()}, or a 0/1/2 count) has its mean and standard deviation withheld in the report,
 in JSON ({cmd:null}), and in {opt saving()}, and its skewness guidance is not
 written. Under {opt datesafe}, a date-formatted variable in any class has no
 summaries.
@@ -350,10 +350,14 @@ when either cell is below {it:#}.
 leaving statistics, frequency tables, and metadata in place.
 
 {phang}
-{opt com:pact} writes a shorter text map containing dataset metadata, disclosure-risk
-summary, description, and the quick-reference variable table. It implies
-{opt noguidance}. JSON output is already structured and ignores this text-only
-shortening.
+{opt com:pact} writes a shorter text map: the dataset metadata, the disclosure-risk
+summary, the description, the quick-reference variable table, and for each
+variable its type, format, label, missing count, and class. It leaves out the
+per-class detail sections (frequency tables, summary statistics, date ranges,
+string and excluded-variable details) and the value-label definitions, and it
+implies {opt noguidance}. Sections asked for by name are still written:
+{opt detect()}, {opt quality}, {opt samples()}, and {opt missing()}. JSON
+output is already structured and ignores this text-only shortening.
 
 {dlgtab:Privacy}
 
@@ -715,7 +719,7 @@ Combine multiple privacy and content options:{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.10.3, 2026-10-20{p_end}
+{pstd}Version 1.10.4, 2026-10-21{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -2,9 +2,9 @@
 
 # datamap — Document and check data without exposing it
 
-**Version 1.10.3** | 2026-10-20
+**Version 1.10.4** | 2026-10-21
 
-[![version](https://img.shields.io/badge/version-1.10.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.10.4-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -413,6 +413,16 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.10.4 (2026-10-21)
+
+- Fix: under `maskrare` with `by()`, a group printed "all but <m" beside a group printed exactly no longer gives its small count back as the total minus the exact count (MISSINGNESS 58 minus a group's 10 was 48, the masked group's 50 rows minus 2); every per-group count with a total printed elsewhere is tested on its complement as well, in the GROUPWISE blocks and the per-group gates.
+- Fix: `groupstat(n)` cells are tested against the call's N when only a `review()` or `complete()` item prints it, and against the cells' own total over the entry's `if` rows, so a printed scope count minus the shown cells no longer gives back a pooled-away group; a 0/1 `sum` column follows the same test in profile mode.
+- Fix: `datamap` and `datadict` withhold the mean, SD, and skewness of a `continuous()` variable with three distinct values under `mincell()`, as for two (mean and SD with N gave back each value's count), in text, JSON, `saving()`, and the `stats` column.
+- Fix: `dataqa` again lets a file fixed on disk, reloaded, and rerun supersede its earlier failure (1.10.3 required the same `n_scope`); only a rerun on `(modified)` data cannot supersede a row of the unmodified data.
+- Fix: every `groupstat()` cell fits its column: a withheld pooled `sd` reads `[suppr.]`, and a long date format or a `%tc` value prints as a `%td` date; a small cell keeps `<m` rather than `[suppr.]`, which stands only for an exact count of the mask or more.
+- Fix: an unmasked `groupstat()` band failure on a date prints the value beside the date (`1865.5 (08feb1965)`), so a value just outside the band cannot read as the bound; under the mask it stays at month precision.
+- Docs: `datamap` help describes what `compact` writes and leaves out.
 
 ### 1.10.3 (2026-10-20)
 

@@ -1,4 +1,4 @@
-*! datamap Version 1.10.3  2026/10/20
+*! datamap Version 1.10.4  2026/10/21
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1921,7 +1921,7 @@ program define _datamap_ProcessDatasetJson, nclass
 		file write `fh' `"          "summary": {"' _n
 		// the text report's rule (_datamap_sumpolicy): under datesafe a
 		// date-formatted continuous variable gets only n; under mincell() a
-		// two-valued one gets no mean or sd
+		// two- or three-valued one gets no mean or sd
 		_datamap_sumpolicy, class(`vclass') vfmt("`vfmt'") `datesafe' ///
 			mincell(`mincell') nuniq(`nuniq')
 		local _dhide = r(datehide)
@@ -2344,7 +2344,7 @@ program define _datamap_ProcessContinuous, nclass
 		// Summary statistics
 		// datesafe: a date-formatted variable forced into continuous() has
 		// exact dates for its range, quartiles and mean; mincell(): a
-		// two-valued variable's mean, SD and skewness give its counts back
+		// two- or three-valued variable's mean, SD and skewness give its counts back
 		// (_datamap_sumpolicy)
 		_datamap_sumpolicy, class(continuous) vfmt("`vfmt'") `datesafe' ///
 			mincell(`mincell') nuniq(`nuniq')
@@ -2376,8 +2376,8 @@ program define _datamap_ProcessContinuous, nclass
 				local max = strtrim(cond(abs(r(max)) < 1 & r(max) != 0, string(r(max), "%9.3g"), string(round(r(max), 0.01), "%14.0g")))
 
 				if `_mhide' {
-					local mean "withheld (mincell; two-valued variable)"
-					local sd "withheld (mincell; two-valued variable)"
+					local mean "withheld (mincell; two or three values)"
+					local sd "withheld (mincell; two or three values)"
 				}
 				file write `fh' "DISTRIBUTION:" _n
 				file write `fh' "  Valid N: `n'" _n
@@ -3318,7 +3318,7 @@ program define _datamap_DetectSurvey, nclass
 		local w_mean = strtrim(string(round(r(mean), 0.1), "%14.0g"))
 		// a categorical weight's mean gives back the frequency cells that
 		// mincell() suppresses (two levels: mean = a + (b-a)k/N)
-		// and so does a two-valued one forced into continuous()
+		// and so does a two- or three-valued one forced into continuous()
 		local _wcls = cond(`: list wvar in catvars', "categorical", "continuous")
 		local _wnu = -1
 		if "`_wcls'" == "continuous" & `mincell' > 0 {

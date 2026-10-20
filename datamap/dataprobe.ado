@@ -1,4 +1,4 @@
-*! dataprobe Version 1.10.3  2026/10/20
+*! dataprobe Version 1.10.4  2026/10/21
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1789,18 +1789,24 @@ program define dataprobe, rclass
                     foreach _vg in allowed forbid notvalues {
                         forvalues k = 1/`n_`_vg'' {
                             if "``_vg'_var`k''" != "`v'" | "`_hv_`_vg'`k''" == "" continue
-                            quietly replace `_bx' = 1 if `_vhit_`_vg'`k'' == 1 & `dc_group' == `_hv_`_vg'`k''
+                            foreach gg of local _hv_`_vg'`k' {
+                                quietly replace `_bx' = 1 if `_vhit_`_vg'`k'' == 1 & `dc_group' == `gg'
+                            }
                         }
                     }
                     local j = 0
                     foreach bv of local binary {
                         local ++j
                         if "`bv'" != "`v'" | "`_hb`j''" == "" continue
-                        quietly replace `_bx' = 1 if !missing(`bv') & !inlist(`bv', 0, 1) & `dc_group' == `_hb`j''
+                        foreach gg of local _hb`j' {
+                            quietly replace `_bx' = 1 if !missing(`bv') & !inlist(`bv', 0, 1) & `dc_group' == `gg'
+                        }
                     }
                     forvalues k = 1/`n_stat' {
                         if "`stat_var`k''" != "`v'" | "`_hs`k''" == "" continue
-                        quietly replace `_bx' = 1 if `v' == 1 & `dc_group' == `_hs`k''
+                        foreach gg of local _hs`k' {
+                            quietly replace `_bx' = 1 if `v' == 1 & `dc_group' == `gg'
+                        }
                     }
                     tempvar _bff
                     local _bffv`i' "`_bff'"
@@ -2249,8 +2255,11 @@ program define dataprobe, rclass
                 _dataprobe_mshare `gc' `gn' `_xmask'
                 local gcs "`r(cnt)'"
                 local gpcts "`r(pcttxt)'"
-                if r(masked) local _pmasked = 1
-                if `_pfon' & `: list gg in _hc' {
+                local _gmk = r(masked)
+                if `_gmk' local _pmasked = 1
+                // a count already printed <m or all but <m keeps that text:
+                // [suppr.] stands for an exact count of the mask or more
+                if `_pfon' & `: list gg in _hc' & !`_gmk' {
                     local gcs "[suppr.]"
                     local gpcts "[masked]"
                     local _pmasked = 1
@@ -2291,9 +2300,10 @@ program define dataprobe, rclass
                     _dataprobe_mshare `gm' `gn' `_xmask'
                     local gms "`r(cnt)'"
                     local gmpcts "`r(pcttxt)'"
-                    if r(masked) local _pmasked = 1
+                    local _gmk = r(masked)
+                    if `_gmk' local _pmasked = 1
                     local i : list posof "`v'" in pvars
-                    if `_pfon' & `: list gg in _hm`i'' {
+                    if `_pfon' & `: list gg in _hm`i'' & !`_gmk' {
                         local gms "[suppr.]"
                         local gmpcts "[masked]"
                         local _pmasked = 1
@@ -2611,7 +2621,7 @@ program define dataprobe, rclass
                 local mins = cond(`om' | `nmiss' < 1, ., `nmiss')
                 local i : list posof "`v'" in pvars
                 if `_pfx' & `i' > 0 {
-                    if `: list _sgg in _hm`i'' {
+                    if `: list _sgg in _hm`i'' & !`om' {
                         local nms "[suppressed]"
                         local onum = .
                         local om = 1
@@ -2652,7 +2662,7 @@ program define dataprobe, rclass
                 local om = r(masked)
                 local mins = cond(`om' | `noutr' < 1, ., `noutr')
                 if `_pfx' & "`_hi`k''" != "" {
-                    if `: list _sgg in _hi`k'' {
+                    if `: list _sgg in _hi`k'' & !`om' {
                         local nos "[suppressed]"
                         local onum = .
                         local om = 1
@@ -2721,7 +2731,7 @@ program define dataprobe, rclass
                     local om = r(masked)
                     local mins = cond(`om' | `nbad' < 1, ., `nbad')
                     if `_pfx' & "`_hv_`_vg'`k''" != "" {
-                        if `: list _sgg in _hv_`_vg'`k'' {
+                        if `: list _sgg in _hv_`_vg'`k'' & !`om' {
                             local nbs "[suppressed]"
                             local onum = .
                             local om = 1
@@ -2846,7 +2856,7 @@ program define dataprobe, rclass
                 }
                 // the pooled-remainder test withholds this group's count
                 if `_pfx' & `sdef' & "`_hs`k''" != "" {
-                    if `: list _sgg in _hs`k'' {
+                    if `: list _sgg in _hs`k'' & `sshown' {
                         local sshow "[suppressed]"
                         local sshown = 0
                     }
@@ -2899,14 +2909,14 @@ program define dataprobe, rclass
                 if `_pfx' {
                     local i : list posof "`bv'" in pvars
                     if "`_hb`_bj''" != "" {
-                        if `: list _sgg in _hb`_bj'' {
+                        if `: list _sgg in _hb`_bj'' & !`om1' {
                             local nnots "[suppressed]"
                             local om1 = 1
                         }
                     }
                     if `i' > 0 {
                         if "`_hm`i''" != "" {
-                            if `: list _sgg in _hm`i'' {
+                            if `: list _sgg in _hm`i'' & !`om2' {
                                 local nmvs "[suppressed]"
                                 local om2 = 1
                             }
@@ -3031,17 +3041,12 @@ program define dataprobe, rclass
             _dataprobe_heaping, spec(`"`heaping_spec`k''"') rf(`RF') ///
                 kind(`heaping_kind`k'') mask(`_gm') nscope(`nobs')
         }
-        // Is the call's N printed (the profile header, or the PASS line of a
-        // call with any gate)?  groupstat(n) cells are then tested against
-        // it: N minus the shown cells would give back the pooled-away rows.
-        local _nprint = ("`gatesonly'" == "")
-        if !`_nprint' {
-            frame `RF': quietly count if kind != "review"
-            if r(N) > 0 | `nf_smallcells' > 0 | `"`compare'"' != "" local _nprint = 1
-        }
-        forvalues k = 1/`nf_groupstat' {
-            if strpos(`"`groupstat_spec`k''"', "band(") local _nprint = 1
-        }
+        // The call's N is always printed or recorded (the profile header,
+        // a PASS line, a review() or complete() item's "63 of 63", the
+        // ledger's n_scope), so groupstat(n) cells are always tested
+        // against it: N minus the shown cells would give back the
+        // pooled-away rows.
+        local _nprint = 1
         // profile totals a groupstat() cell can be set against: the
         // nonmissing count of a profiled variable, the ones of a 0/1
         // categorical one; with the call's by(), the rows of the groups
@@ -4198,11 +4203,18 @@ program define _dataprobe_premask, rclass
     // The pooled-remainder test for a count printed per by() group beside
     // its total over all rows: ind (0/1) marks the rows counted.  A group's
     // count is exact when the group is shown (not in pooled) and the count
-    // is 0, or neither it nor the group's rows minus it is 1 to m-1.  When
-    // the total minus the exact counts is 1 to m-1, r(force) is the group
-    // whose count is withheld as well: the smallest positive exact count,
-    // the first group on ties.  Withholding a count of m or more leaves a
-    // remainder of m or more, so one group is enough.
+    // is 0, or neither it nor the group's rows minus it is 1 to m-1.  The
+    // other groups (pooled away, or printed <m or all but <m) hold the
+    // total minus the exact counts, rem, and, since every group's size is
+    // printed or is N minus the shown sizes, their rows minus rem, crem.
+    // Either of 1 to m-1 gives a masked cell back (one group printed
+    // all but <m: rem is its count, crem its small complement), so a group
+    // with an exact count is withheld as well: for rem the one with the
+    // smallest positive count, for crem the one with the smallest positive
+    // complement, the first group on ties, until neither is 1 to m-1.
+    // Withholding a count of m or more leaves a remainder of m or more.
+    // When rem is 0, crem is the pooled-away groups' size, printed anyway.
+    // r(force) lists the groups withheld.
     version 16.0
     args grp ind m pooled
     tempname fr
@@ -4216,22 +4228,58 @@ program define _dataprobe_premask, rclass
             local tot = r(N)
             quietly generate byte `one' = 1
             quietly collapse (sum) `k1' `one', by(`grp')
+            local exact ""
             local rem = `tot'
-            local kmin = .
+            local nm = 0
             forvalues r = 1/`=_N' {
                 local gg = `grp'[`r']
                 local k = `k1'[`r']
                 local n = `one'[`r']
-                if `: list gg in pooled' continue
-                if `k' >= 1 & `k' < `m' continue
-                if `n' - `k' >= 1 & `n' - `k' < `m' continue
-                local rem = `rem' - `k'
-                if `k' > 0 & `k' < `kmin' {
-                    local kmin = `k'
-                    local force "`gg'"
+                local ex = 1
+                if `: list gg in pooled' local ex = 0
+                else if `k' >= 1 & `k' < `m' local ex = 0
+                else if `n' - `k' >= 1 & `n' - `k' < `m' local ex = 0
+                if `ex' {
+                    local rem = `rem' - `k'
+                    local exact "`exact' `r'"
                 }
+                else local nm = `nm' + `n'
             }
-            if !(`rem' >= 1 & `rem' < `m') local force ""
+            while 1 {
+                local crem = `nm' - `rem'
+                local rbad = (`rem' >= 1 & `rem' < `m')
+                local cbad = (`rem' >= 1 & `crem' >= 1 & `crem' < `m')
+                if !`rbad' & !`cbad' continue, break
+                // rem first: the smallest positive count; then the
+                // smallest positive complement, among groups with a positive
+                // count first (a withheld zero still reads as one where an
+                // absent line or MissVars says so)
+                local pick = 0
+                local xmin = .
+                forvalues pass = 1/2 {
+                    if `pick' continue, break
+                    foreach r of local exact {
+                        local k = `k1'[`r']
+                        local c = `one'[`r'] - `k'
+                        local x = cond(`rbad', `k', `c')
+                        if !`rbad' & `pass' == 1 & `k' == 0 continue
+                        if `x' > 0 & `x' < `xmin' {
+                            local xmin = `x'
+                            local pick = `r'
+                        }
+                    }
+                }
+                if !`pick' continue, break
+                local exact : list exact - pick
+                local rem = `rem' + `k1'[`pick']
+                local nm = `nm' + `one'[`pick']
+                // the group's integer index (egen group), as text
+                local gp = string(`grp'[`pick'], "%12.0f")
+                local force "`force' `gp'"
+            }
+            // nothing left to withhold: rem and crem are then the total
+            // and its complement, printed anyway
+            local force : list retokenize force
         }
     }
     local rc = _rc
