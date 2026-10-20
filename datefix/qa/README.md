@@ -41,6 +41,7 @@ archetypes: A4
 | `test_datefix.do` | Core conversion, every option, error handling, data preservation, varabbrev restoration, and install discoverability |
 | `test_datefix_expanded.do` | Separators, tie-breaking, `topyear()`, mixed input types, labels, formats, larger data, and option combinations |
 | `test_diagnose.do` | Diagnostic failure paths, command-wide rollback, capped reporting, abbreviation, and incidental `r()` cleanup |
+| `test_datefix_message.do` | Summary wording: numeric inputs are reported as reformatted, never as converted |
 | `test_datefix_v112.do` | Colon-separated dates, zero-result guards, atomic all-missing rejection, and literal Unicode-safe diagnostic output |
 | `test_package_release.do` | Fresh-install resolution, helper-dependent execution, help rendering, executable help examples, and the repo-root installed-user demo |
 

@@ -39,6 +39,7 @@ Stata 16+, Python 3 with matplotlib, Pillow and openpyxl. Unix executable-path t
 | `test_consort_v106.do` | Literal macro labels and zero matches |
 | `test_consort_v110.do` | CSV/XLSX content and data preservation |
 | `test_consort_v112.do` | Review regressions: population identities, path aliases, quotes, records, renderer failures and label parity |
+| `test_consort_v113.do` | Box text keeps a visible margin inside its box |
 | `validation_consort.do` | Known-answer counts |
 | `validation_consort_expanded.do` | Additional count invariants |
 | `test_consort_help.do` | Viewer render and deliberately broken positive control |
@@ -57,8 +58,8 @@ Stata 16+, Python 3 with matplotlib, Pillow and openpyxl. Unix executable-path t
 
 | Lane | Membership |
 |---|---|
-| quick | `test_consort_v112`, `test_consort_help` |
-| core | quick plus `test_consort`, `test_consort_v104`, `test_consort_v106`, `test_consort_v110`, `validation_consort` |
+| quick | `test_consort_v112`, `test_consort_v113`, `test_consort_help` |
+| core | quick plus `validation_consort_precision`, `validation_consort_fixture_contract`, `validation_consort_fixture_primitives`, `test_consort`, `test_consort_v104`, `test_consort_v106`, `test_consort_v110`, `validation_consort` |
 | full | core plus `test_consort_expanded`, `test_consort_edge_cases`, `validation_consort_expanded` |
 
 `quick` is a subset of `core`, which is a subset of the default release gate `full`.

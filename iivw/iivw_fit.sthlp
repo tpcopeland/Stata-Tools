@@ -1276,6 +1276,8 @@ command in {cmd:e()}, plus the following:
 {synopt:{cmd:e(b)}}coefficient vector{p_end}
 {synopt:{cmd:e(V)}}covariance matrix; absent for point-only FIPTIW{p_end}
 {synopt:{cmd:e(sample)}}rows the outcome engine used{p_end}
+{synopt:{cmd:e(depvar)}}outcome variable{p_end}
+{synopt:{cmd:e(offset)}}{cmd:geeopts()} offset, or {cmd:ln(}{it:varname}{cmd:)} for an exposure; kept on point-only fits{p_end}
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Macros}{p_end}
