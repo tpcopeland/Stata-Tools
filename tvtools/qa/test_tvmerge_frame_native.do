@@ -204,7 +204,7 @@ _tfn_nframes
 local extra_err = r(n)
 local extra_names3 "`r(extra)'"
 local ok = (`extra_err' == 0 & `errrc' == 601)
-_tfn_check `ok' "F7 a failed merge leaves no frame behind" ///
+_tfn_check `ok' "F7 a merge that errors leaves no frame behind" ///
     "rc=`errrc' `extra_err' extra frame(s): `extra_names3'"
 
 

@@ -36,7 +36,9 @@ foreach strict in off on {
     mata: mata set matastrict `strict'
     capture noisily {
         qa_state_snapshot, tag(tv_compile)
-        capture noisily do "`broken'"
+        * The compile fault is deliberate; keep its r(3000) out of the lane log
+        * so the log scanner stays a real-failure detector. The rc is asserted.
+        capture quietly do "`broken'"
         local call_rc=_rc
         assert `call_rc'==3000
         assert c(matastrict)=="`strict'"

@@ -396,7 +396,7 @@ capture tvbuild, specframe(trspec) id(pid) entry(study_entry) ///
     exit(no_such_variable) frameout(trout) replace
 local rc = _rc
 local ok = (`rc' != 0 & "`c(varabbrev)'" == "on")
-_tvr_check `ok' "S3 varabbrev on is restored after a failed run" ///
+_tvr_check `ok' "S3 varabbrev on is restored after a run that errors" ///
     "rc=`rc' varabbrev=`c(varabbrev)'"
 set varabbrev off
 

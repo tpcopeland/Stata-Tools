@@ -4,8 +4,10 @@ version 16.0
 args mode
 if "`mode'" == "" local mode "full"
 if !inlist("`mode'", "quick", "core", "full") exit 198
+* No runner-level log: batch mode already writes run_all.log, and suites close
+* every open log (capture log close _all), so an inner log would be truncated
+* and the closing `log close' would fail with r(606).
 capture log close _all
-log using run_all.log, text replace
 local oldplus "`c(sysdir_plus)'"
 local oldpersonal "`c(sysdir_personal)'"
 tempfile sandbox_base
@@ -60,5 +62,4 @@ file open `fh' using run_all_status.txt, write replace text
 file write `fh' "mode=`mode' pass=`passed' fail=`failed' skip=`skipped'" _n
 file close `fh'
 display "RESULT: run_all tests=`= `passed' + `failed' + `skipped'' pass=`passed' fail=`failed' skip=`skipped'"
-log close
 if `failed' exit 1

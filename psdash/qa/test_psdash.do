@@ -1221,8 +1221,11 @@ capture {
         "capture ado uninstall psdash") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
         "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") > 0
+    * one binary and one multi-group worked workflow stay in the README
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "The README keeps one binary and one multi-group workflow") > 0
+        "### 1. Binary manual workflow") > 0
+    assert strpos(fileread("`pkg_dir'/README.md"), ///
+        "### 4. Multi-group treatment with generalized propensity scores") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
         "sysuse auto, clear") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
@@ -1247,9 +1250,14 @@ _test_result `=_rc'
 
 _test_start 112 "README only promises implemented detection workflows"
 capture {
-    assert strpos(substr(fileread("`pkg_dir'/README.md"), 1, 400), ///
-        "manually supplied propensity scores") > 0
-    assert strpos(substr(fileread("`pkg_dir'/README.md"), 1, 400), ///
+    * the intro paragraph (after the logo and badges) promises manual scores
+    * and names no unsupported producer
+    local intro = strpos(fileread("`pkg_dir'/README.md"), ///
+        char(10) + char(96) + "psdash" + char(96) + " checks")
+    assert `intro' > 0
+    assert strpos(substr(fileread("`pkg_dir'/README.md"), `intro', 450), ///
+        "takes a treatment, propensity score, and weights you supply") > 0
+    assert strpos(substr(fileread("`pkg_dir'/README.md"), `intro', 450), ///
         "psmatch2") == 0
 }
 _test_result `=_rc'

@@ -76,7 +76,7 @@ program define _rm_assert_value_edge
     assert `bad' == 0
 end
 
-tempfile using_display normal_log dryrun_log count_log frame_log save_log save_out1 save_out2 style_log inv_using by_log by_using
+tempfile using_display normal_log dryrun_log count_log frame_log save_log save_dir style_log inv_using by_log by_using
 
 clear
 set obs 101
@@ -171,30 +171,55 @@ input int id double(keyval lo hi)
 1 50 1 101
 end
 
+* The column-55 edge applies to values of 38 characters or fewer, so save
+* under short relative names from inside a scratch directory. A tempfile path
+* is as long as c(tmpdir), which a caller's TMPDIR can push past 38 characters
+* and onto the long-path layout asserted further down.
+mkdir "`save_dir'"
+local keep_pwd "`c(pwd)'"
+quietly cd "`save_dir'"
 capture log close _rm_display_log
 quietly log using "`save_log'", replace text name(_rm_display_log)
-rangematch keyval lo hi using "`using_display'", ///
-    keepusing(uid) saving("`save_out1'", replace)
-rangematch keyval lo hi using "`using_display'", ///
-    keepusing(uid) saving("`save_out2'")
+capture noisily {
+    rangematch keyval lo hi using "`using_display'", ///
+        keepusing(uid) saving("rm_dc_out1.dta", replace)
+    rangematch keyval lo hi using "`using_display'", ///
+        keepusing(uid) saving("rm_dc_out2.dta")
+}
+local save_rc = _rc
 quietly log close _rm_display_log
+quietly cd "`keep_pwd'"
+assert `save_rc' == 0
 
 _rm_assert_log_has "`save_log'", needle("Output file")
 _rm_assert_log_lacks "`save_log'", needle(" saved")
 _rm_assert_log_lacks "`save_log'", needle("not found)")
-confirm file "`save_out1'"
-confirm file "`save_out2'"
+confirm file "`save_dir'/rm_dc_out1.dta"
+confirm file "`save_dir'/rm_dc_out2.dta"
+_rm_assert_log_has "`save_log'", needle("rm_dc_out1.dta")
+_rm_assert_log_has "`save_log'", needle("rm_dc_out2.dta")
 _rm_assert_value_edge "`save_log'", label("    Output file") edge(55)
+erase "`save_dir'/rm_dc_out1.dta"
+erase "`save_dir'/rm_dc_out2.dta"
+rmdir "`save_dir'"
 
 * A path too wide to end at column 55 starts two spaces after its label.
 local long_out "`c(tmpdir)'/rm_display_contract_long_output_name_`=floor(runiform()*1e6)'.dta"
 local long_out : subinstr local long_out "//" "/", all
 capture erase "`long_out'"
+* The row is as long as c(tmpdir) makes it; widen the log so a long caller
+* TMPDIR cannot wrap it onto a "> " continuation line, then restore.
+local keep_linesize = c(linesize)
+set linesize 255
 capture log close _rm_display_log
 quietly log using "`save_log'", replace text name(_rm_display_log)
-rangematch keyval lo hi using "`using_display'", ///
+capture noisily rangematch keyval lo hi using "`using_display'", ///
     keepusing(uid) saving("`long_out'")
+local save_rc = _rc
 quietly log close _rm_display_log
+set linesize `keep_linesize'
+assert `save_rc' == 0
+assert strlen("    Output file  `long_out'") <= 255
 _rm_assert_log_has "`save_log'", needle("    Output file  `long_out'")
 capture erase "`long_out'"
 

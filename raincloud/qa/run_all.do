@@ -2,8 +2,8 @@ clear all
 set varabbrev off
 version 16.0
 
-capture log close _all
-log using "run_all.log", replace nomsg
+* No runner-owned log: `stata-mp -b do run_all.do' writes run_all.log in this
+* directory already, and a second writer on that file corrupts it.
 
 * run_all.do - curated compact-package QA gate for raincloud
 * Usage: stata-mp -b do run_all.do [quick|full]
@@ -12,12 +12,10 @@ args mode extra
 if "`mode'" == "" local mode "full"
 if "`extra'" != "" {
     display as error "run_all.do accepts at most one mode argument"
-    capture log close _all
     exit 198
 }
 if !inlist("`mode'", "quick", "full") {
     display as error "mode must be quick or full"
-    capture log close _all
     exit 198
 }
 
@@ -46,8 +44,8 @@ foreach suite of local suites {
         local failed "`failed' `suite'"
         display as error "RUNNER FAIL: `suite' (rc `suite_rc')"
     }
+    * Suites close every log on exit; leave no suite log open behind them.
     capture log close _all
-    log using "run_all.log", append nomsg
 }
 
 local runner_rc = cond(`suite_fail' > 0, 1, 0)
@@ -65,5 +63,4 @@ file write _raincloud_status "suites=`suite_count' pass=`suite_pass' fail=`suite
 file write _raincloud_status "RESULT: run_all tests=`suite_count' pass=`suite_pass' fail=`suite_fail'" _n
 file close _raincloud_status
 
-capture log close _all
 exit `runner_rc'

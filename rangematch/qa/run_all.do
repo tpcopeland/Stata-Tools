@@ -9,7 +9,11 @@ if !inlist("`mode'", "full", "quick") {
 }
 
 capture log close _all
-log using "run_all.log", replace text nomsg
+* The lane keeps its own transcript for the sentinel scan below, under a name
+* distinct from run_all.log: `stata-mp -b do run_all.do' writes its batch log
+* to run_all.log in this directory, and two writers on one file corrupt it
+* (interleaved output, NUL-filled gaps, a lost tail).
+log using "run_all_lane.log", replace text nomsg
 
 * Sandbox PLUS and PERSONAL under c(tmpdir) and install the package under test
 * once, before any suite runs (RM-I17).
@@ -174,11 +178,11 @@ log close _all
 
 * The final suite may have run `clear all', so reload the shared validator.
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
-capture noisily _rm_qa_scan_sentinels using "run_all.log"
+capture noisily _rm_qa_scan_sentinels using "run_all_lane.log"
 local scanner_rc = _rc
 local bad_sentinel `"`r(issues)'"'
 
-log using "run_all.log", append text nomsg
+log using "run_all_lane.log", append text nomsg
 
 * Restore the caller's real ado trees, on the pass path and the fail path
 * alike, and PROVE the restore happened. A teardown that silently no-ops would

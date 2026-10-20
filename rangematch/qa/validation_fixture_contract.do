@@ -5,7 +5,7 @@ clear all
 set more off
 set varabbrev off
 * A NAMED log, so the caller's log stays open. Closing all logs here once shut
-* run_all.log, and every later suite's RESULT sentinel went unscanned.
+* run_all_lane.log, and every later suite's RESULT sentinel went unscanned.
 capture log close fxcontract
 log using "validation_fixture_contract.log", replace text nomsg name(fxcontract)
 local qa_dir "`c(pwd)'"

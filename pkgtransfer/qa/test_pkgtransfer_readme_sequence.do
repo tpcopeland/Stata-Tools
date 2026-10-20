@@ -89,12 +89,13 @@ capture noisily {
     tempfile seq
     mata: _pt_readme_extract("`pkg_dir'/README.md", "`seq'")
     local nblocks = scalar(r_nblocks)
-    * Quick Start (2 blocks) and Examples 1-5 (7 blocks)
-    assert `nblocks' >= 9
+    * Quick Start (1 block) and Examples 1-5 (7 blocks); a block added or
+    * dropped must be reflected in the output list below
+    assert `nblocks' == 8
     quietly cd "`t'"
     do "`seq'"
     * every example's output exists next to the others
-    foreach f in pkgtransfer.do source_install.do online_bundle.do ///
+    foreach f in _all_packages.do source_install.do online_bundle.do ///
         online_bundle.zip local_setup.do local_setup.zip all_packages.do one_package.do ///
         without_one.do {
         confirm file "`t'/`f'"

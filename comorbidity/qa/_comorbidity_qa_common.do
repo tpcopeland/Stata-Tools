@@ -48,12 +48,16 @@ capture program drop _comorbidity_result
 program define _comorbidity_result
     version 16.0
     args name tests pass fail
+    * A suite re-run inside test_qa_isolation.do must not emit a second
+    * RESULT row for the same name into the outer runner's log.
+    local tag "RESULT:"
+    if "$COMORBIDITY_QA_NESTED" == "1" local tag "nested result,"
     display as result "Results: `pass'/`tests' passed, `fail' failed"
     if `fail' > 0 {
         display as error "SOME TESTS FAILED"
-        display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail'"
+        display "`tag' `name' tests=`tests' pass=`pass' fail=`fail'"
         exit 1
     }
     display as result "ALL TESTS PASSED"
-    display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail'"
+    display "`tag' `name' tests=`tests' pass=`pass' fail=`fail'"
 end

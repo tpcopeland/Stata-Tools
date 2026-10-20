@@ -36,7 +36,9 @@ foreach suite of local suites {
 }
 
 display as result _n "QA suites: `suite_pass'/`suite_count' passed, `suite_fail' failed"
-display "RESULT: run_all tests=`suite_count' pass=`suite_pass' fail=`suite_fail'"
+local tag "RESULT:"
+if "$COMORBIDITY_QA_NESTED" == "1" local tag "nested result,"
+display "`tag' run_all tests=`suite_count' pass=`suite_pass' fail=`suite_fail'"
 if `suite_fail' > 0 {
     exit 1
 }

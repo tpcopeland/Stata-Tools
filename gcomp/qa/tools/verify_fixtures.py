@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -94,6 +95,39 @@ def compare_csv(expected: Path, actual: Path, tolerance: float) -> list[str]:
     return problems
 
 
+REEXEC_ENV = "GCOMP_FIXTURE_PINNED_REEXEC"
+
+
+def pinned_interpreter(want: str) -> str | None:
+    """Return an interpreter whose version is exactly the manifest's pin.
+
+    The running one if it matches; otherwise whatever ``uv python find``
+    resolves for that exact version. None when neither exists, in which case
+    the runtime check below reports the mismatch and the run fails closed.
+    """
+    if ".".join(map(str, sys.version_info[:3])) == want:
+        return sys.executable
+    uv = shutil.which("uv")
+    if uv is None:
+        return None
+    proc = subprocess.run(
+        [uv, "python", "find", f"=={want}"],
+        check=False, text=True, capture_output=True,
+    )
+    found = proc.stdout.strip()
+    if proc.returncode != 0 or not found or not Path(found).is_file():
+        return None
+    return found
+
+
+def generator_command(command: str) -> list[str]:
+    """Run Python generators on this (pinned) interpreter, not PATH python3."""
+    parts = command.split()
+    if parts and parts[0] in {"python", "python3"}:
+        parts[0] = sys.executable
+    return parts
+
+
 def write_result(path: Path | None, status: str) -> None:
     if path is not None:
         path.write_text(status + "\n", encoding="utf-8")
@@ -106,6 +140,17 @@ def main() -> int:
     args = parser.parse_args()
 
     manifest = json.loads((DATA_DIR / "fixture_manifest.json").read_text())
+    # The fixtures were generated under a pinned Python stack. Re-run under an
+    # interpreter of exactly that version when the caller's python3 differs
+    # (the OS interpreter drifts with system upgrades); the package pins are
+    # still checked below, and an absent interpreter fails closed.
+    want_python = manifest["environment"].get("python")
+    if want_python and not os.environ.get(REEXEC_ENV):
+        pinned = pinned_interpreter(want_python)
+        if pinned is not None and Path(pinned).resolve() != Path(sys.executable).resolve():
+            print(f"PINNED-PYTHON: {want_python} -> {pinned}", flush=True)
+            env = dict(os.environ, **{REEXEC_ENV: "1"})
+            os.execve(pinned, [pinned, str(Path(__file__).resolve()), *sys.argv[1:]], env)
     observed = version_tuple()
     observed.update(r_versions())
     problems = [
@@ -120,7 +165,7 @@ def main() -> int:
         for spec in manifest["generators"]:
             if selected and spec["script"] not in selected:
                 continue
-            command = spec["command"].split()
+            command = generator_command(spec["command"])
             print(f"GENERATE: {spec['command']}", flush=True)
             proc = subprocess.run(command, cwd=work, check=False)
             if proc.returncode != 0:

@@ -198,20 +198,34 @@ def run_suite(suite: Suite, artifact_dir: Path) -> tuple[bool, float, list[str]]
     qa_smcl.unlink(missing_ok=True)
     started = time.monotonic()
     problems: list[str] = []
+    # Each child Stata runs single-threaded. Stata/MP otherwise starts one
+    # thread per licensed core and spin-waits at barriers, so a lane competing
+    # with other jobs collapses throughput; results do not depend on it. The
+    # wrapper keeps the suite's basename because Stata names the batch log
+    # after it, in the working directory (qa/), where the parser reads it.
+    wrapper_dir = Path(tempfile.mkdtemp(prefix=f"gcomp-qa-{suite.name}-"))
+    wrapper = wrapper_dir / source.name
+    wrapper.write_text(
+        "capture set processors 1\n"
+        f'do `"{source}"\'\n',
+        encoding="utf-8",
+    )
     try:
         proc = subprocess.run(
-            [os.environ.get("STATA_BIN", "stata-mp"), "-b", "do", source.name],
+            [os.environ.get("STATA_BIN", "stata-mp"), "-b", "do", str(wrapper)],
             cwd=QA_DIR,
             timeout=suite.timeout_seconds,
             check=False,
         )
     except subprocess.TimeoutExpired:
+        shutil.rmtree(wrapper_dir, ignore_errors=True)
         elapsed = time.monotonic() - started
         if qa_log.exists():
             shutil.move(str(qa_log), artifact_dir / qa_log.name)
         qa_smcl.unlink(missing_ok=True)
         return False, elapsed, [f"timeout after {suite.timeout_seconds}s"]
     elapsed = time.monotonic() - started
+    shutil.rmtree(wrapper_dir, ignore_errors=True)
     if proc.returncode != 0:
         problems.append(f"Stata exited {proc.returncode}")
     if not qa_log.is_file():

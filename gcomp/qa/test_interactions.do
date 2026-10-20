@@ -464,7 +464,9 @@ else {
 capture erase "`testdir'/_itest_i12.xlsx"
 
 * ============================================================
-* I13: Failed export clears r(xlsx), r(sheet), and r(ci)
+* I13: Failed export leaves the caller's r() intact (gcomptab.sthlp:
+* "Failed calls also preserve the caller's ... results in r()"), so none of
+* the failed call's xlsx()/sheet() values can surface as if it succeeded
 * ============================================================
 
 local ++test_count
@@ -482,18 +484,18 @@ capture noisily {
 
     capture gcomptab, xlsx("`export_blocker'/fail.xlsx") sheet("Fail")
     assert _rc != 0
-    assert `"`r(xlsx)'"' == ""
-    assert `"`r(sheet)'"' == ""
-    assert `"`r(ci)'"' == ""
+    assert `"`r(xlsx)'"' == "`testdir'/_itest_i13_ok.xlsx"
+    assert `"`r(sheet)'"' == "Good"
+    assert `"`r(ci)'"' == "normal"
 
     capture erase "`export_blocker'"
 }
 if _rc == 0 {
-    display as result "  PASS: I13 failed export clears stale r() macros"
+    display as result "  PASS: I13 an erroring export preserves the caller r()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: I13 stale r() after export failure (error `=_rc')"
+    display as error "  FAIL: I13 caller r() after export error (error `=_rc')"
     local ++fail_count
 }
 capture erase "`testdir'/_itest_i13_ok.xlsx"

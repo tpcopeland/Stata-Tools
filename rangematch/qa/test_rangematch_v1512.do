@@ -40,6 +40,73 @@
 *!       review 2026-10-12: seed()/generate()/masterid()/usingid()/distance()/
 *!       by() still stranded the workspace frames after the saving() fix)
 
+* Child-session role for T1-T4 (see "T1-T4 run in a child Stata session").
+* The lane runs this file with no arguments; only the parent below starts it
+* as `do test_rangematch_v1512.do v1512_child <spec file>'.
+args v1512_role v1512_spec
+if "`v1512_role'" == "v1512_child" {
+    version 16.1
+    capture set processors 1
+    set varabbrev off
+    set linesize 255
+    tempname sf of
+    file open `sf' using `"`v1512_spec'"', read text
+    foreach key in strict plus personal broken master using lg lg2 lg3 out {
+        file read `sf' c_`key'
+    }
+    file close `sf'
+    sysdir set PLUS `"`c_plus'"'
+    sysdir set PERSONAL `"`c_personal'"'
+    adopath ++ `"`c_broken'"'
+    capture findfile rangematch.ado
+    local r_cmd_fn `"`r(fn)'"'
+    capture findfile _rangematch_mata.ado
+    local r_fn1 `"`r(fn)'"'
+    quietly use `"`c_master'"', clear
+    mata: mata set matastrict `c_strict'
+    log using `"`c_lg'"', text replace name(v1512) nomsg
+    capture noisily rangematch key lo hi using `"`c_using'"'
+    local r_rc1 = _rc
+    log close v1512
+    local r_ms1 = c(matastrict)
+    capture mata: st_local("still", _rm_mata_version())
+    local r_still_rc = _rc
+    local r_n1 = _N
+    local r_k1 = c(k)
+    log using `"`c_lg2'"', text replace name(v1512b) nomsg
+    capture noisily rangematch key lo hi using `"`c_using'"'
+    local r_rc2 = _rc
+    log close v1512b
+    local r_ms2 = c(matastrict)
+    local r_n2 = _N
+    local r_k2 = c(k)
+    local r_rc3 = .
+    local r_ms3 "none"
+    if "`c_strict'" == "off" {
+        log using `"`c_lg3'"', text replace name(v1512c) nomsg
+        capture noisily run `"`c_broken'/_rangematch_mata.ado"' verbose
+        local r_rc3 = _rc
+        log close v1512c
+        local r_ms3 = c(matastrict)
+    }
+    adopath - `"`c_broken'"'
+    capture findfile _rangematch_mata.ado
+    local r_fn4 `"`r(fn)'"'
+    capture quietly rangematch key lo hi using `"`c_using'"'
+    local r_rc4 = _rc
+    local r_pairs4 = r(N_matched_pairs)
+    local r_n4 = _N
+    local r_ver4 "none"
+    capture mata: st_local("r_ver4", _rm_mata_version())
+    local r_done "done"
+    file open `of' using `"`c_out'"', write text replace
+    foreach key in cmd_fn fn1 rc1 ms1 still_rc n1 k1 rc2 ms2 n2 k2 rc3 ms3 fn4 rc4 pairs4 n4 ver4 done {
+        file write `of' `"`r_`key''"' _n
+    }
+    file close `of'
+    exit
+}
+
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
 _rm_qa_bootstrap
 local pkg_dir "`r(pkg_dir)'"
@@ -134,48 +201,73 @@ program define _v1512_data
     quietly gen double hi = 5
 end
 
-tempfile u
+tempfile u m
 _v1512_data, using(`"`u'"')
+quietly save `"`m'"'
 
-**# T1 and T2: two calls against the broken backend, matastrict off and on
-* Each provoked call runs with the unnamed lane log suspended: the expected
-* compile diagnostic would otherwise read as a lane failure. The named capture
-* logs keep recording, and every message is asserted from them.
+**# T1-T4 run in a child Stata session, one per matastrict setting
+* The provoked compile diagnostics are this file's subject, and every one is
+* asserted as text. In batch mode everything a session prints also lands in
+* its batch log, and `log off' cannot suspend that, so a provoked
+* "failed to compile" would read as a lane failure. A child session per
+* matastrict setting runs the provoked calls and writes their named logs and
+* outcomes to files; the batch log it writes stays in its own directory. T4
+* runs in the same child, after the failed loads, so "reloads after a failed
+* compile" still means the session that failed.
+local child_dir "`c(tmpdir)'/rm1512_child_`tok'"
+capture mkdir "`child_dir'"
+local stata_bin "`c(sysdir_stata)'stata-mp"
+if !c(MP) local stata_bin = cond(c(SE), "`c(sysdir_stata)'stata-se", "`c(sysdir_stata)'stata")
+capture findfile rangematch.ado
+local parent_cmd_fn "`r(fn)'"
+local child_keys cmd_fn fn1 rc1 ms1 still_rc n1 k1 rc2 ms2 n2 k2 rc3 ms3 fn4 rc4 pairs4 n4 ver4 done
+tempname sf
 foreach strict in off on {
-    capture mata: mata drop _rm_mata_version()
-    mata: mata set matastrict `strict'
+    tempfile spec_`strict' out_`strict' lg_`strict' lg2_`strict' lg3_`strict'
+    file open `sf' using `"`spec_`strict''"', write text replace
+    foreach v in "`strict'" "`c(sysdir_plus)'" "`c(sysdir_personal)'" ///
+        "`broken_dir'" "`m'" "`u'" "`lg_`strict''" "`lg2_`strict''" ///
+        "`lg3_`strict''" "`out_`strict''" {
+        file write `sf' `"`v'"' _n
+    }
+    file close `sf'
+    capture erase "`child_dir'/test_rangematch_v1512.log"
+    shell cd "`child_dir'" && "`stata_bin'" -b do "`qa_dir'/test_rangematch_v1512.do" v1512_child "`spec_`strict''"
+    local c_ok_`strict' 0
+    capture confirm file `"`out_`strict''"'
+    if _rc == 0 {
+        file open `sf' using `"`out_`strict''"', read text
+        foreach key of local child_keys {
+            file read `sf' `key'_`strict'
+        }
+        file close `sf'
+        local c_ok_`strict' = ("`done_`strict''" == "done")
+    }
+    if !`c_ok_`strict'' {
+        display as error "strict=`strict' child session wrote no complete result file"
+        capture noisily type "`child_dir'/test_rangematch_v1512.log"
+    }
+
     local ++TESTS
     capture noisily {
+        assert `c_ok_`strict'' == 1
         assert "`inject_seen'" == "1"
-        adopath ++ "`broken_dir'"
-        capture findfile _rangematch_mata.ado
-        assert "`r(fn)'" == "`broken_dir'/_rangematch_mata.ado"
-        tempfile lg
-        log using `"`lg'"', text replace name(v1512) nomsg
-        capture log off
-        capture noisily rangematch key lo hi using `"`u'"'
-        local rc1 = _rc
-        capture log on
-        log close v1512
-        display as text "strict=`strict' call 1 rc=`rc1'"
-        assert `rc1' == 3000
-        assert c(matastrict) == "`strict'"
-        capture mata: st_local("still", _rm_mata_version())
-        assert _rc != 0
-        mata: _v1512_scan(st_local("lg"), "failed to compile (r(3000)) under Stata `c(stata_version)'")
+        assert `"`cmd_fn_`strict''"' == `"`parent_cmd_fn'"'
+        assert `"`fn1_`strict''"' == "`broken_dir'/_rangematch_mata.ado"
+        display as text "strict=`strict' call 1 rc=`rc1_`strict''"
+        assert `rc1_`strict'' == 3000
+        assert "`ms1_`strict''" == "`strict'"
+        assert `still_rc_`strict'' != 0
+        mata: _v1512_scan(st_local("lg_`strict'"), "failed to compile (r(3000)) under Stata `c(stata_version)'")
         assert `n_hits' == 1
-        mata: _v1512_scan(st_local("lg"), "requires Stata 16.1 or newer")
+        mata: _v1512_scan(st_local("lg_`strict'"), "requires Stata 16.1 or newer")
         assert `n_hits' == 1
-        mata: _v1512_scan(st_local("lg"), "_rangematch_mata.ado" + char(34) + " verbose")
+        mata: _v1512_scan(st_local("lg_`strict'"), "_rangematch_mata.ado" + char(34) + " verbose")
         assert `n_hits' == 1
         * The caller's data are untouched.
-        assert _N == 2 & c(k) == 2
+        assert `n1_`strict'' == 2 & `k1_`strict'' == 2
     }
-    local body_rc = _rc
-    capture log on
-    capture log close v1512
-    capture adopath - "`broken_dir'"
-    if `body_rc' {
+    if _rc {
         local ++FAIL
         display as error "FAIL: T1 [strict=`strict'] first call reports the compile failure"
     }
@@ -186,28 +278,17 @@ foreach strict in off on {
 
     local ++TESTS
     capture noisily {
-        adopath ++ "`broken_dir'"
-        tempfile lg2
-        log using `"`lg2'"', text replace name(v1512b) nomsg
-        capture log off
-        capture noisily rangematch key lo hi using `"`u'"'
-        local rc2 = _rc
-        capture log on
-        log close v1512b
-        display as text "strict=`strict' call 2 rc=`rc2'"
-        assert `rc2' == 3000
-        assert c(matastrict) == "`strict'"
-        mata: _v1512_scan(st_local("lg2"), "failed to compile (r(3000))")
+        assert `c_ok_`strict'' == 1
+        display as text "strict=`strict' call 2 rc=`rc2_`strict''"
+        assert `rc2_`strict'' == 3000
+        assert "`ms2_`strict''" == "`strict'"
+        mata: _v1512_scan(st_local("lg2_`strict'"), "failed to compile (r(3000))")
         assert `n_hits' == 1
-        mata: _v1512_scan(st_local("lg2"), "not found")
+        mata: _v1512_scan(st_local("lg2_`strict'"), "not found")
         assert `n_hits' == 0
-        assert _N == 2 & c(k) == 2
+        assert `n2_`strict'' == 2 & `k2_`strict'' == 2
     }
-    local body_rc = _rc
-    capture log on
-    capture log close v1512b
-    capture adopath - "`broken_dir'"
-    if `body_rc' {
+    if _rc {
         local ++FAIL
         display as error "FAIL: T2 [strict=`strict'] second call retries the load, not r(3499)"
     }
@@ -216,29 +297,19 @@ foreach strict in off on {
         display as result "PASS: T2 [strict=`strict'] second call retries the load, not r(3499)"
     }
 }
-mata: mata set matastrict off
 
-**# T3: the verbose route shows the Mata diagnostic
+**# T3: the verbose route shows the Mata diagnostic (matastrict off child)
 local ++TESTS
 capture noisily {
-    tempfile lg3
-    log using `"`lg3'"', text replace name(v1512c) nomsg
-    capture log off
-    capture noisily run "`broken_dir'/_rangematch_mata.ado" verbose
-    local rc3 = _rc
-    capture log on
-    log close v1512c
-    assert `rc3' == 3000
-    mata: _v1512_scan(st_local("lg3"), "v1512_x")
+    assert `c_ok_off' == 1
+    assert `rc3_off' == 3000
+    mata: _v1512_scan(st_local("lg3_off"), "v1512_x")
     assert `n_hits' >= 1
-    mata: _v1512_scan(st_local("lg3"), "undeclared")
+    mata: _v1512_scan(st_local("lg3_off"), "undeclared")
     assert `n_hits' >= 1
-    assert c(matastrict) == "off"
+    assert "`ms3_off'" == "off"
 }
-local body_rc = _rc
-capture log on
-capture log close v1512c
-if `body_rc' {
+if _rc {
     local ++FAIL
     display as error "FAIL: T3 run ... verbose prints the Mata diagnostic"
 }
@@ -248,16 +319,17 @@ else {
 }
 
 **# T4: with the broken copy gone, the next call reloads and matches
+* Checked in both child sessions, each after its own failed loads.
 local ++TESTS
 capture noisily {
-    capture findfile _rangematch_mata.ado
-    assert "`r(fn)'" == "`shipped'"
-    quietly rangematch key lo hi using `"`u'"'
-    assert r(N_matched_pairs) == 6
-    assert _N == 6
-    local got ""
-    mata: st_local("got", _rm_mata_version())
-    assert "`got'" == "1.0.0"
+    foreach strict in off on {
+        assert `c_ok_`strict'' == 1
+        assert `"`fn4_`strict''"' == `"`shipped'"'
+        assert `rc4_`strict'' == 0
+        assert `pairs4_`strict'' == 6
+        assert `n4_`strict'' == 6
+        assert "`ver4_`strict''" == "1.0.0"
+    }
 }
 if _rc {
     local ++FAIL
@@ -267,6 +339,8 @@ else {
     local ++PASS
     display as result "PASS: T4 the shipped backend reloads after a failed compile"
 }
+capture erase "`child_dir'/test_rangematch_v1512.log"
+capture rmdir "`child_dir'"
 
 **# T5: the sentinel is the last function the shipped backend defines
 local ++TESTS

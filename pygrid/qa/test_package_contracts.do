@@ -217,21 +217,18 @@ _pygrid_record, rc(`case_rc') name("help render axis") ///
     tests(`test_count') passes(`pass_count') fails(`fail_count')
 
 **## Demo dependencies resolve from a public, relocatable source
+* Search the demo source as an expression: building the text in a Stata
+* macro would re-expand its `c(pwd)' references into the runner's own path.
 capture noisily {
-    tempname fh
-    file open `fh' using "`pkg_dir'/demo/demo_pygrid.do", read text
-    local demo_text ""
-    file read `fh' line
-    while r(eof) == 0 {
-        local demo_text `"`demo_text' `line'"'
-        file read `fh' line
-    }
-    file close `fh'
-    assert strpos(`"`demo_text'"', "~/Stata-Tools") == 0
-    assert strpos(`"`demo_text'"', "/home/tpcopeland") == 0
-    local dev_repo = "Stata" + "-" + "Dev"
-    assert strpos(`"`demo_text'"', "`dev_repo'") == 0
-    assert strpos(`"`demo_text'"', "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/logdoc") > 0
+    local demo_file "`pkg_dir'/demo/demo_pygrid.do"
+    local demo_home = strpos(fileread("`demo_file'"), "/home/tpcopeland")
+    local demo_tilde = strpos(fileread("`demo_file'"), "~/Stata-Tools")
+    local demo_dev = strpos(fileread("`demo_file'"), "Stata" + "-" + "Dev")
+    local demo_logdoc = strpos(fileread("`demo_file'"), "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/logdoc")
+    assert `demo_tilde' == 0
+    assert `demo_home' == 0
+    assert `demo_dev' == 0
+    assert `demo_logdoc' > 0
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("demo dependency is public and relocatable") ///

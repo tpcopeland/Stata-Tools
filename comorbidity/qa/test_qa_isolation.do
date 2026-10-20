@@ -26,7 +26,9 @@ foreach entry in "run_all.do quick" "test_dictionary.do" "test_weights.do" "test
         local ado_checksum = r(checksum)
         checksum "`seeded_plus'stata.trk"
         local trk_checksum = r(checksum)
+        global COMORBIDITY_QA_NESTED 1
         do `entry'
+        global COMORBIDITY_QA_NESTED
         confirm file "`seeded_plus'c/comorbidity.ado"
         checksum "`seeded_plus'c/comorbidity.ado"
         assert r(checksum) == `ado_checksum'
@@ -35,13 +37,15 @@ foreach entry in "run_all.do quick" "test_dictionary.do" "test_weights.do" "test
         sysdir set PLUS "`seeded_plus'"
         ado dir
     }
-    if _rc == 0 {
+    local rc = _rc
+    global COMORBIDITY_QA_NESTED
+    if `rc' == 0 {
         local ++pass_count
         display as result "PASS: outer installation survives `entry'"
     }
     else {
         local ++fail_count
-        display as error "FAIL: outer installation survives `entry' (error `=_rc')"
+        display as error "FAIL: outer installation survives `entry' (error `rc')"
     }
 }
 capture log close _all

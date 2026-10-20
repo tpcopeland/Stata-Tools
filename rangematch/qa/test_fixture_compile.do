@@ -5,7 +5,7 @@ clear all
 set more off
 set varabbrev off
 * A NAMED log, so the caller's log stays open. Closing all logs here once shut
-* run_all.log, and every later suite's RESULT sentinel went unscanned.
+* run_all_lane.log, and every later suite's RESULT sentinel went unscanned.
 capture log close fxcompile
 log using "test_fixture_compile.log", replace text nomsg name(fxcompile)
 local qa_dir "`c(pwd)'"
@@ -45,12 +45,9 @@ foreach strict in off on {
         qa_state_snapshot, tag(compile_error)
         * The provoked compile diagnostic is expected; keep it out of the lane
         * log, whose scanner reads it as a failure. compile_rc is asserted below.
-        capture log off
-        capture log off fxcompile
-        capture noisily do "`broken1'"
+        * Run it quietly: `log off' cannot suspend a batch-mode log.
+        capture quietly do "`broken1'"
         local compile_rc=_rc
-        capture log on fxcompile
-        capture log on
         di "ORACLE compile fault _rangematch_mata strict=`strict' rc=`compile_rc'"
         assert `compile_rc'==3000
         assert c(matastrict)=="`strict'"

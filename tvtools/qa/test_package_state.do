@@ -237,7 +237,9 @@ program define _state_error, rclass
             set obs 20
             generate byte x = _n > 10
             generate byte a = x
-            tvweight a, covariates(x) generate(w) nolog
+            * Perfect separation: the convergence refusal is deliberate, so its
+            * message stays out of the lane log; cmd_rc is asserted by callers.
+            quietly tvweight a, covariates(x) generate(w) nolog
         }
         else if "`command'" == "tvdiagnose" {
             clear

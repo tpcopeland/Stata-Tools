@@ -250,11 +250,18 @@ capture noisily {
         file read `fh' line
     }
     file close `fh'
-    assert "`pkg_date'" == "`dist_date'"
+    * A doc-only .sthlp render fix advances the .pkg Distribution-Date and the
+    * README date without a version bump (package-updates rule), so the .pkg
+    * date may be later than the .ado/.sthlp release date but never earlier,
+    * and the README carries the .pkg date.
+    assert regexm("`pkg_date'", "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$")
+    assert !missing(date("`pkg_date'", "YMD"))
+    assert date("`pkg_date'", "YMD") >= date("`dist_date'", "YMD")
+    local pkg_iso = substr("`pkg_date'", 1, 4) + "-" + substr("`pkg_date'", 5, 2) + "-" + substr("`pkg_date'", 7, 2)
 
     mata: st_numscalar("r_pkg_readme", ///
         any(strpos(cat(st_local("pkg_dir") + "/README.md"), ///
-        "**Version " + st_local("version") + "** | " + st_local("iso_date")) :> 0))
+        "**Version " + st_local("version") + "** | " + st_local("pkg_iso")) :> 0))
     assert r_pkg_readme == 1
 
     * The repository README is intentionally outside the package copied by
@@ -326,15 +333,21 @@ capture noisily {
 
     * Positive control: the width oracle must reject a valid-SMCL table whose
     * description is one character wider than its Viewer column.
-    tempfile width_probe width_probe_status
+    tempfile width_probe width_probe_status width_probe_out
     tempname wpfh
     file open `wpfh' using "`width_probe'", write replace text
     file write `wpfh' "{smcl}" _n
     file write `wpfh' "{synoptset 20 tabbed}{...}" _n
     file write `wpfh' "{synopt:{opt probe}}1234567890123456789012345678901234567890123456789012{p_end}" _n
     file close `wpfh'
+    * The probe's report is a deliberate FAIL; send it to a file, not the lane
+    * log, where a "RESULT: FAIL" line reads as a failed suite. The verdict and
+    * the exact width finding are asserted from the files.
     capture noisily shell python3 "`width_checker'" "`width_probe'" ///
-        --result-file "`width_probe_status'"
+        --result-file "`width_probe_status'" > "`width_probe_out'" 2>&1
+    mata: st_numscalar("r_probe_line", ///
+        any(strpos(cat(st_local("width_probe_out")), ":3: description 52>51") :> 0))
+    assert r_probe_line == 1
     file open `wsfh' using "`width_probe_status'", read text
     file read `wsfh' width_probe_result
     file close `wsfh'

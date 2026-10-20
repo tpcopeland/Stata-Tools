@@ -33,14 +33,38 @@ def after():
 mod.before=before;mod.after=after
 sys.modules['_qa_rain_file']=mod
 end
+capture mata: mata drop _qa_rain_split()
+mata:
+void _qa_rain_split(string scalar target)
+{
+    string scalar dir, base
+    pathsplit(target, dir, base)
+    st_local("save_dir", dir)
+    st_local("save_as", base)
+}
+end
 capture program drop _qa_rain_writer
 program define _qa_rain_writer
     version 16.0
     args root target variant
     mata: st_local("filename",st_local("target")+(st_local("variant")=="path_noext" ? ".gph" : ""))
     python: __import__("_qa_rain_file").before()
+    * Stata appends .gph only when no character of the whole path is a dot, so
+    * an absolute extensionless target under a dotted c(tmpdir) (~/.cache/...)
+    * is written without .gph. Save that variant by its bare name from inside
+    * its own directory, so the appended extension does not depend on TMPDIR.
+    local save_as `"`macval(target)'"'
+    local keep_pwd `"`c(pwd)'"'
     qa_state_snapshot,tag(writer)
-    quietly raincloud x,nocloud norain name(fxfile,replace) saving(`"`macval(target)'"',replace)
+    if "`variant'"=="path_noext" {
+        mata: _qa_rain_split(st_local("target"))
+        assert strpos(`"`macval(save_as)'"',".")==0
+        quietly cd `"`macval(save_dir)'"'
+    }
+    capture quietly raincloud x,nocloud norain name(fxfile,replace) saving(`"`macval(save_as)'"',replace)
+    local save_rc=_rc
+    quietly cd `"`macval(keep_pwd)'"'
+    if `save_rc' exit `save_rc'
     qa_state_compare,tag(writer)
     assert r(N)==40 & r(n_groups)==1
     matrix stats=r(stats)
