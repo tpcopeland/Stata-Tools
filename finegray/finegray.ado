@@ -1227,11 +1227,11 @@ program define finegray, eclass sortpreserve
     local _prev_owner `"`_dta[_finegray_owner]'"'
     local _fg_owner_tok ""
     if !`_fg_is_mi' {
-        capture confirm number $finegray_bh_ctr
+        capture confirm number $finegray_bh_ctr // stata-dev-ignore: globals - session salt counter; must outlive mata clear (see bh_key note)
         if _rc global finegray_bh_ctr = 0
-        global finegray_bh_ctr = $finegray_bh_ctr + 1
+        global finegray_bh_ctr = $finegray_bh_ctr + 1 // stata-dev-ignore: globals - session salt counter; must outlive mata clear (see bh_key note)
         local _fg_owner_tok = "fg" + string(clock("`c(current_date)' `c(current_time)'", ///
-            "DMYhms"), "%21x") + "." + "$finegray_bh_ctr"
+            "DMYhms"), "%21x") + "." + "$finegray_bh_ctr" // stata-dev-ignore: globals - session salt counter; must outlive mata clear (see bh_key note)
     }
 
     local _prev_estimated `"`_dta[_finegray_estimated]'"'
@@ -2804,11 +2804,11 @@ program define finegray, eclass sortpreserve
     if `"`_fg_bh_seq'"' != "" {
         * A GLOBAL, not a Mata scalar: `mata clear' is the event this key exists
         * to survive.  (A global macro name may not begin with an underscore.)
-        capture confirm number $finegray_bh_ctr
+        capture confirm number $finegray_bh_ctr // stata-dev-ignore: globals - session salt counter; must outlive mata clear (see bh_key note)
         if _rc global finegray_bh_ctr = 0
-        global finegray_bh_ctr = $finegray_bh_ctr + 1
+        global finegray_bh_ctr = $finegray_bh_ctr + 1 // stata-dev-ignore: globals - session salt counter; must outlive mata clear (see bh_key note)
         local _fg_bh_salt = string(clock("`c(current_date)' `c(current_time)'", ///
-            "DMYhms"), "%21x") + "." + "$finegray_bh_ctr"
+            "DMYhms"), "%21x") + "." + "$finegray_bh_ctr" // stata-dev-ignore: globals - session salt counter; must outlive mata clear (see bh_key note)
         mata: _finegray_bh_setkey("`_fg_bh_salt'")
         ereturn local bh_key "`_fg_bh_key'"
     }

@@ -203,29 +203,43 @@ def run_suite(suite: Suite, artifact_dir: Path) -> tuple[bool, float, list[str]]
     # with other jobs collapses throughput; results do not depend on it. The
     # wrapper keeps the suite's basename because Stata names the batch log
     # after it, in the working directory (qa/), where the parser reads it.
+    # `set processors' is an MP-only setting, so on a non-MP STATA_BIN the
+    # wrapper notes that and continues; on MP a refusal, or a count other
+    # than 1 afterwards, stops the wrapper before the suite runs. Either way
+    # no terminal RESULT sentinel is written, so the lane fails closed and
+    # the reason is in the suite's batch log.
     wrapper_dir = Path(tempfile.mkdtemp(prefix=f"gcomp-qa-{suite.name}-"))
-    wrapper = wrapper_dir / source.name
-    wrapper.write_text(
-        "capture set processors 1\n"
-        f'do `"{source}"\'\n',
-        encoding="utf-8",
-    )
     try:
-        proc = subprocess.run(
-            [os.environ.get("STATA_BIN", "stata-mp"), "-b", "do", str(wrapper)],
-            cwd=QA_DIR,
-            timeout=suite.timeout_seconds,
-            check=False,
+        wrapper = wrapper_dir / source.name
+        wrapper.write_text(
+            "if c(MP) {\n"
+            "    capture noisily set processors 1\n"
+            "    if _rc | c(processors) != 1 {\n"
+            '        display as error "run_qa: set processors 1 failed '
+            '(rc=`=_rc\', processors=`c(processors)\')"\n'
+            "        exit 459\n"
+            "    }\n"
+            "}\n"
+            'else display as text "run_qa: not Stata/MP; processors not set"\n'
+            f'do `"{source}"\'\n',
+            encoding="utf-8",
         )
-    except subprocess.TimeoutExpired:
+        try:
+            proc = subprocess.run(
+                [os.environ.get("STATA_BIN", "stata-mp"), "-b", "do", str(wrapper)],
+                cwd=QA_DIR,
+                timeout=suite.timeout_seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            elapsed = time.monotonic() - started
+            if qa_log.exists():
+                shutil.move(str(qa_log), artifact_dir / qa_log.name)
+            qa_smcl.unlink(missing_ok=True)
+            return False, elapsed, [f"timeout after {suite.timeout_seconds}s"]
+    finally:
         shutil.rmtree(wrapper_dir, ignore_errors=True)
-        elapsed = time.monotonic() - started
-        if qa_log.exists():
-            shutil.move(str(qa_log), artifact_dir / qa_log.name)
-        qa_smcl.unlink(missing_ok=True)
-        return False, elapsed, [f"timeout after {suite.timeout_seconds}s"]
     elapsed = time.monotonic() - started
-    shutil.rmtree(wrapper_dir, ignore_errors=True)
     if proc.returncode != 0:
         problems.append(f"Stata exited {proc.returncode}")
     if not qa_log.is_file():
