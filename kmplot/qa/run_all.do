@@ -19,8 +19,8 @@ if !inlist("`mode'", "quick", "core", "full", "calibration") {
 }
 
 local quick_suites "test_kmplot.do test_kmplot_errors.do"
-local core_suites "validation_fixture_truth.do test_fixture_domains.do `quick_suites' test_kmplot_v124.do test_kmplot_v125.do test_kmplot_v126.do test_kmplot_v127.do test_kmplot_v129.do test_kmplot_v1210.do test_kmplot_v130.do test_kmplot_v131.do test_kmplot_v140.do test_kmplot_v141.do test_kmplot_v142.do test_kmplot_v143.do test_kmplot_output.do validation_kmplot_recovery.do validation_kmplot.do"
-local full_suites "`core_suites' crossval_kmplot_sts.do crossval_kmplot_survfit.do"
+local core_suites "validation_fixture_truth.do test_fixture_domains.do `quick_suites' test_kmplot_v124.do test_kmplot_v125.do test_kmplot_v126.do test_kmplot_v127.do test_kmplot_v129.do test_kmplot_v1210.do test_kmplot_v130.do test_kmplot_v131.do test_kmplot_v140.do test_kmplot_v141.do test_kmplot_v142.do test_kmplot_v143.do test_kmplot_output.do validation_kmplot_recovery.do validation_kmplot.do validation_kmplot_cif_oracle.do test_kmplot_compete_errors.do test_kmplot_riskweight_mask.do test_kmplot_axis_layout.do"
+local full_suites "`core_suites' crossval_kmplot_sts.do crossval_kmplot_survfit.do crossval_kmplot_cif.do"
 * Coverage simulation (R = 1000, ~40 min). Not in full: the bounds it
 * calibrates are pinned exactly by validation_kmplot.do (closed form) and
 * crossval_kmplot_survfit.do (R survfit, all three transforms). Run it when

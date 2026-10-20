@@ -1,21 +1,29 @@
-*! kmplot Version 1.0.0  2026/10/15
-*! Publication-ready Kaplan-Meier survival and cumulative failure plots
+*! kmplot Version 1.0.0  2026/10/20
+*! Publication-ready Kaplan-Meier survival, cumulative failure and cumulative incidence plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
 Basic syntax:
-  kmplot [if] [in] , [by(varname) failure ci risktable median censor
-                       pvalue export(string) options]
+  kmplot [if] [in] , [by(varname) failure compete(exp) ci risktable median
+                       censor pvalue export(string) options]
 
 Description:
-  Kaplan-Meier survival or cumulative failure curves with confidence bands,
-  number-at-risk tables, median lines, censoring marks, and log-rank p-values.
+  Kaplan-Meier survival or cumulative failure curves, or Aalen-Johansen
+  cumulative incidence curves with a competing event, with confidence bands,
+  number-at-risk tables (optionally unweighted and masked), median lines,
+  censoring marks, and log-rank p-values.
 
 Method:
   Estimates the Kaplan-Meier product-limit survival function S(t), or 1-S(t)
   with failure. Greenwood standard errors come from sts generate.
   Reference: Kaplan EL, Meier P. JASA 1958;53:457-481.
+  With compete(exp): the Aalen-Johansen cumulative incidence of the stset
+  failure, F1(t) = sum_{t_j <= t} S(t_j-) d1_j / n_j, with S the all-cause
+  Kaplan-Meier (Aalen and Johansen, Scand J Stat 1978;5:141-150).  Variance
+  of Marubini and Valsecchi (1995, eq. 10.12) with ln(-ln) bounds (Choudhury,
+  Stat Med 2002;21:1129-1140), as in stcompet (Coviello and Boggess, Stata
+  Journal 2004;4:103-112).  Computed in _kmplot_cif.ado.
 
 Requires: Data must be stset
 
@@ -48,7 +56,9 @@ program define kmplot, rclass
             XLAbel(string asis) YLAbel(string asis) ///
             LEGend(string asis) NOTE(string asis) ///
             SCHeme(string) NAME(string asis) ASPectratio(string) ///
-            EXPort(string asis) SAVing(string asis) RISKSAVing(string asis) *]
+            EXPort(string asis) SAVing(string asis) RISKSAVing(string asis) ///
+            COMPete(string asis) RISKWeight(string) RISKMASK(string asis) NORISKMASK ///
+            PERcent YMAX(string) TMAX(string) BYOrder(string) COMBineopts(string asis) *]
 
         * Validate numlist grammar, retaining double precision through dispatch.
         foreach _times in timepoints landmark {
@@ -57,10 +67,128 @@ program define kmplot, rclass
                 local `_times' "`r(times)'"
             }
         }
+        local has_compete = (`"`compete'"' != "")
         local st_wt : char _dta[st_wt]
         local is_pweight = ("`st_wt'" == "pweight")
         if `is_pweight' & ("`ci'" != "" | "`pvalue'" != "") {
             noisily display as error "ci and pvalue are not supported with stset probability weights"
+            exit 198
+        }
+        if `has_compete' {
+            if "`st_wt'" == "iweight" & ("`ci'" != "" | "`pvalue'" != "") {
+                noisily display as error "ci and pvalue are not supported with compete() and stset importance weights"
+                exit 198
+            }
+            if "`pvalue'" != "" {
+                noisily display as error "pvalue is not supported with compete(); the log-rank test does not compare cumulative incidence (Gray's test is not implemented)"
+                exit 198
+            }
+            if "`median'" != "" | "`medianannotate'" != "" {
+                noisily display as error "median and medianannotate are not supported with compete()"
+                exit 198
+            }
+            * compete() implies a cumulative incidence plot; failure is redundant.
+            local failure "failure"
+        }
+        local estimator = cond(`has_compete', "aalen_johansen", ///
+            cond("`failure'" != "", "km_failure", "km"))
+        local plot_scale = cond("`percent'" != "", 100, 1)
+
+        * ymax(), tmax()
+        local ymax_user = .
+        if "`ymax'" != "" {
+            capture confirm number `ymax'
+            if _rc {
+                noisily display as error "ymax() must be numeric"
+                exit 198
+            }
+            local ymax_user = real("`ymax'")
+            if `ymax_user' <= 0 {
+                noisily display as error "ymax() must be greater than 0"
+                exit 198
+            }
+        }
+        local tmax_user = .
+        if "`tmax'" != "" {
+            capture confirm number `tmax'
+            if _rc {
+                noisily display as error "tmax() must be numeric"
+                exit 198
+            }
+            local tmax_user = real("`tmax'")
+            if `tmax_user' <= 0 {
+                noisily display as error "tmax() must be greater than 0"
+                exit 198
+            }
+        }
+        * graphregion(), plotregion(), xsize(), ysize() among the passthrough
+        * options; reused for the risk-table panel and the combined graph.
+        _kmplot_regionopts `macval(options)'
+        * nodraw is applied by kmplot to the final graph only (the combined
+        * graph with risktable); the main panel is always built with nodraw.
+        local user_nodraw = 0
+        mata: st_local("_km_opts_nd", ustrregexra(st_local("options"), "(^|\s)nodraw(?=\s|$)", " "))
+        if `"`macval(_km_opts_nd)'"' != `"`macval(options)'"' {
+            local user_nodraw = 1
+            local options `"`macval(_km_opts_nd)'"'
+        }
+        local nodraw_opt = cond(`user_nodraw', "nodraw", "")
+        if `user_nodraw' & `"`export'"' != "" {
+            noisily display as error "export() cannot be combined with nodraw: graph export needs a drawn graph"
+            noisily display as error "omit nodraw, or run {bf:graph display} and {bf:graph export} afterwards"
+            exit 198
+        }
+        if `"`combineopts'"' != "" & "`risktable'" == "" {
+            noisily display as error "combineopts() requires risktable"
+            exit 198
+        }
+
+        * Risk-table count basis and masking
+        local need_rt = ("`risktable'" != "" | `"`risksaving'"' != "")
+        if "`riskweight'" != "" & !`need_rt' {
+            noisily display as error "riskweight() requires risktable or risksaving()"
+            exit 198
+        }
+        if "`riskweight'" != "" & !inlist("`riskweight'", "none", "stset") {
+            noisily display as error "riskweight() must be {bf:none} or {bf:stset}"
+            exit 198
+        }
+        if "`riskweight'" == "" {
+            local riskweight = cond("`st_wt'" == "fweight", "stset", "none")
+        }
+        if "`st_wt'" == "" local riskweight "none"
+        if `"`riskmask'"' != "" & "`noriskmask'" != "" {
+            noisily display as error "riskmask() and noriskmask may not be combined"
+            exit 198
+        }
+        if (`"`riskmask'"' != "" | "`noriskmask'" != "") & !`need_rt' {
+            noisily display as error "riskmask() and noriskmask require risktable or risksaving()"
+            exit 198
+        }
+        local riskmask_k = 0
+        local riskmask_text ""
+        local riskmask_source ""
+        if `"`riskmask'"' != "" {
+            _kmplot_parse_mask `riskmask'
+            local riskmask_k = `_km_mask_k'
+            local riskmask_text `"`_km_mask_text'"'
+        }
+        else if "`noriskmask'" == "" & `need_rt' & `"$TABTOOLS_set_smallcells"' != "" {
+            * Session default set by -tabtools set smallcells #-.
+            capture confirm integer number $TABTOOLS_set_smallcells
+            if _rc | real(`"$TABTOOLS_set_smallcells"') < 2 {
+                noisily display as error `"session smallcells default "$TABTOOLS_set_smallcells" is not an integer of 2 or more; reset it with tabtools set smallcells #"'
+                exit 198
+            }
+            local riskmask_k = real(`"$TABTOOLS_set_smallcells"')
+            local riskmask_source "tabtools"
+            display as text "(kmplot: using tabtools session smallcells(`riskmask_k') for riskmask())"
+        }
+        if `riskmask_k' > 0 & "`riskweight'" == "stset" & "`st_wt'" != "fweight" {
+            noisily display as error "riskmask() requires people counts; it cannot be combined with riskweight(stset) under `st_wt's"
+            if "`riskmask_source'" == "tabtools" {
+                noisily display as error "masking comes from the tabtools session default (smallcells(`riskmask_k')); add noriskmask to turn it off for this call, or use riskweight(none)"
+            }
             exit 198
         }
 
@@ -153,6 +281,8 @@ program define kmplot, rclass
         local N = r(N)
 
         local has_medians_mat = 0
+        local ymax_used = .
+        local n_compete = 0
         local has_landmarks_mat = 0
         local has_risktable_mat = 0
         local has_stepband = 0
@@ -169,7 +299,7 @@ program define kmplot, rclass
         local pvalue_x = .
         local pvalue_place ""
 
-        tempname medians_mat landmarks_mat risktable_mat
+        tempname medians_mat landmarks_mat risktable_mat risktable_w_mat risktable_f_mat
 
         * Reject subordinate options that would otherwise be silently ignored
         if "`medianannotate'" != "" & "`median'" == "" {
@@ -310,12 +440,19 @@ program define kmplot, rclass
             exit 198
         }
         if `"`macval(ytitle)'"' == "" {
-            if "`failure'" != "" {
+            if `has_compete' {
+                local ytitle "Cumulative incidence"
+            }
+            else if "`failure'" != "" {
                 local ytitle "Cumulative failure"
+            }
+            else if "`percent'" != "" {
+                local ytitle "Survival"
             }
             else {
                 local ytitle "Survival probability"
             }
+            if "`percent'" != "" local ytitle "`ytitle' (%)"
         }
         if `"`macval(xtitle)'"' == "" local xtitle "Analysis time"
         * Strip outer quotes from string-asis options (asis preserves user quotes)
@@ -432,7 +569,60 @@ program define kmplot, rclass
         else {
             quietly gen byte `grpid' = 1
             local ngroups = 1
-            local grplbl1 "KM estimate"
+            local grplbl1 = cond(`has_compete', "Cumulative incidence", "KM estimate")
+        }
+
+        * byorder(): renumber the groups so that drawing, legend, colours,
+        * patterns and risk-table rows follow the requested level order.
+        if "`byorder'" != "" {
+            if "`by'" == "" {
+                noisily display as error "byorder() requires by()"
+                exit 198
+            }
+            if !`by_numeric' {
+                noisily display as error "byorder() requires a numeric by() variable"
+                exit 109
+            }
+            capture numlist "`byorder'"
+            if _rc {
+                noisily display as error "byorder() must be a numeric list of by() levels"
+                exit 198
+            }
+            local _bo_list "`r(numlist)'"
+            local _bo_new ""
+            foreach _bo of local _bo_list {
+                local _bo_hit = 0
+                local g = 0
+                foreach lev of local bylevels {
+                    local ++g
+                    if `lev' == `_bo' | float(`lev') == float(`_bo') local _bo_hit = `g'
+                }
+                if `_bo_hit' == 0 {
+                    noisily display as error "byorder(): `_bo' is not a level of `by' in the analysis sample"
+                    exit 198
+                }
+                if `: list _bo_hit in _bo_new' {
+                    noisily display as error "byorder(): level `_bo' is listed more than once"
+                    exit 198
+                }
+                local _bo_new "`_bo_new' `_bo_hit'"
+            }
+            forvalues g = 1/`ngroups' {
+                if !`: list g in _bo_new' local _bo_new "`_bo_new' `g'"
+            }
+            tempvar _grp_new
+            quietly gen int `_grp_new' = .
+            local h = 0
+            foreach g of local _bo_new {
+                local ++h
+                quietly replace `_grp_new' = `h' if `grpid' == `g'
+                local _bo_lbl`h' `"`grplbl`g''"'
+            }
+            forvalues h = 1/`ngroups' {
+                local grplbl`h' `"`_bo_lbl`h''"'
+            }
+            quietly replace `grpid' = `_grp_new'
+            drop `_grp_new'
         }
 
         * Skip p-value for single group
@@ -442,15 +632,84 @@ program define kmplot, rclass
             local pval_text ""
         }
 
-        * Time range
+        * Time range; tmax() caps the plotted range only
         quietly summarize _t
         local tmax = r(max)
+        if `tmax_user' < . local tmax = `tmax_user'
+
+        * =========================================================================
+        * COMPETING EVENT INDICATOR
+        * =========================================================================
+        * A record is a competing event when _d == 0, compete() is true on it,
+        * and stset exit() did not cut the record short.
+
+        tempvar km_comp km_sall
+        quietly gen byte `km_comp' = 0
+        if `has_compete' {
+            tempvar _cexp
+            capture gen double `_cexp' = (`compete')
+            if _rc {
+                local _crc = _rc
+                noisily display as error `"compete() is not a valid expression: `compete'"'
+                exit `_crc'
+            }
+            quietly count if missing(`_cexp')
+            if r(N) > 0 {
+                noisily display as error "compete() evaluates to missing for `r(N)' observations"
+                exit 416
+            }
+            quietly count if `_cexp' != 0 & _d == 1
+            if r(N) > 0 {
+                noisily display as error "compete() is true on `r(N)' records that are also stset failures; an event cannot be both the failure of interest and the competing event"
+                exit 459
+            }
+            local _st_exit : char _dta[st_exit]
+            local _st_exexp : char _dta[st_exexp]
+            local _st_bt : char _dta[st_bt]
+            local _cut ""
+            if `"`_st_exit'"' != "" & `"`_st_exit'"' != "failure" {
+                if substr(`"`_st_exit'"', 1, 5) == "time " & `"`_st_exexp'"' != "" {
+                    local _cut `"& !(`_st_bt' > (`_st_exexp'))"'
+                }
+                else {
+                    noisily display as error `"compete() supports stset exit() only in the form exit(time exp); found exit(`_st_exit')"'
+                    exit 198
+                }
+            }
+            quietly replace `km_comp' = 1 if _d == 0 & `_cexp' != 0 `_cut'
+            local _st_id_c : char _dta[st_id]
+            if `"`_st_id_c'"' != "" {
+                tempvar _cnext
+                quietly bysort `_st_id_c' (_t0 _t): gen byte `_cnext' = ///
+                    (_n < _N & _t0[_n + 1] <= _t)
+                quietly count if `km_comp' & `_cnext'
+                if r(N) > 0 {
+                    noisily display as error "compete() is true on `r(N)' records that are followed by further follow-up for the same `_st_id_c'; a competing event must end follow-up"
+                    exit 459
+                }
+                drop `_cnext'
+            }
+            drop `_cexp'
+            quietly count if `km_comp'
+            local n_compete = r(N)
+        }
 
         * =========================================================================
         * GENERATE KM ESTIMATES
         * =========================================================================
 
-        if `ngroups' > 1 {
+        if `has_compete' {
+            local _st_wv : char _dta[st_wv]
+            local _cif_w ""
+            if `"`_st_wv'"' != "" local _cif_w "wvar(`_st_wv')"
+            local _cif_se ""
+            if !inlist("`st_wt'", "pweight", "iweight") local _cif_se "se(`km_se')"
+            _kmplot_cif, grpvar(`grpid') compvar(`km_comp') ///
+                generate(`km_s') sall(`km_sall') `_cif_se' `_cif_w'
+            capture confirm variable `km_se'
+            if _rc quietly gen double `km_se' = .
+        }
+        else if `ngroups' > 1 {
             quietly sts generate `km_s' = s, by(`grpid')
             if !`is_pweight' quietly sts generate `km_se' = se(s), by(`grpid')
         }
@@ -459,7 +718,7 @@ program define kmplot, rclass
             if !`is_pweight' quietly sts generate `km_se' = se(s)
         }
 
-        if `is_pweight' quietly gen double `km_se' = .
+        if `is_pweight' & !`has_compete' quietly gen double `km_se' = .
         * sts generate carries the last Greenwood SE onto rows where S has
         * reached 0; -sts list- reports no SE there, and neither do we.
         quietly replace `km_se' = . if `km_s' == 0
@@ -476,7 +735,33 @@ program define kmplot, rclass
         * CONFIDENCE INTERVALS
         * =========================================================================
 
-        if "`ci'" != "" {
+        if "`ci'" != "" & `has_compete' {
+            quietly {
+                gen double `km_lb' = .
+                gen double `km_ub' = .
+                * Bounds for the cumulative incidence F exist where 0 < F < 1.
+                * loglog is the ln(-ln F) interval of stcompet (Choudhury 2002,
+                * eq. 4): F^exp(-/+ z se / (F ln F)).
+                local _fok "`km_s' > 0 & `km_s' < 1 & `km_se' > 0 & !missing(`km_se')"
+                if "`citransform'" == "loglog" {
+                    replace `km_lb' = `km_s' ^ exp(-`zcrit' * `km_se' / ///
+                        (`km_s' * log(`km_s'))) if `_fok'
+                    replace `km_ub' = `km_s' ^ exp(`zcrit' * `km_se' / ///
+                        (`km_s' * log(`km_s'))) if `_fok'
+                }
+                else if "`citransform'" == "log" {
+                    replace `km_lb' = `km_s' * exp(-`zcrit' * `km_se' / `km_s') if `_fok'
+                    replace `km_ub' = `km_s' * exp(`zcrit' * `km_se' / `km_s') if `_fok'
+                }
+                else {
+                    replace `km_lb' = `km_s' - `zcrit' * `km_se' if `_fok'
+                    replace `km_ub' = `km_s' + `zcrit' * `km_se' if `_fok'
+                }
+                replace `km_lb' = 0 if `km_lb' < 0 & !missing(`km_lb')
+                replace `km_ub' = 1 if `km_ub' > 1 & !missing(`km_ub')
+            }
+        }
+        else if "`ci'" != "" {
             quietly {
                 gen double `km_lb' = .
                 gen double `km_ub' = .
@@ -521,7 +806,7 @@ program define kmplot, rclass
         * FAILURE MODE (invert S -> 1-S)
         * =========================================================================
 
-        if "`failure'" != "" {
+        if "`failure'" != "" & !`has_compete' {
             quietly replace `km_s' = 1 - `km_s' if !missing(`km_s')
             if "`ci'" != "" {
                 quietly {
@@ -545,10 +830,10 @@ program define kmplot, rclass
                     (_n < _N & _t0[_n + 1] <= _t & ///
                     `grpid'[_n + 1] == `grpid')
                 quietly gen byte `km_cens' = ///
-                    (_d == 0 & `km_continues' == 0 & !missing(`km_s'))
+                    (_d == 0 & !`km_comp' & `km_continues' == 0 & !missing(`km_s'))
             }
             else {
-                quietly gen byte `km_cens' = (_d == 0 & !missing(`km_s'))
+                quietly gen byte `km_cens' = (_d == 0 & !`km_comp' & !missing(`km_s'))
             }
             if "`censor'" != "" & `censorthin' > 1 {
                 tempvar _ccnt
@@ -562,6 +847,82 @@ program define kmplot, rclass
         * =========================================================================
         * RISK TABLE (compute before adding anchors)
         * =========================================================================
+
+        * =========================================================================
+        * Y AXIS: automatic range, or the numeric positions of a user ylabel()
+        * =========================================================================
+
+        local ylab_auto ""
+        local ylab_ok = 0
+        local ylab_lo = 0
+        local ylab_hi = `plot_scale'
+        quietly summarize `km_s' if _t <= `tmax', meanonly
+        local _ytop = cond(r(N) > 0, r(max), 0)
+        if "`ci'" != "" {
+            quietly summarize `km_ub' if _t <= `tmax', meanonly
+            if r(N) > 0 local _ytop = max(`_ytop', r(max))
+        }
+        if "`failure'" == "" local _ytop = 1
+        if "`median'" != "" local _ytop = max(`_ytop', 0.5)
+        local _ytop = `_ytop' * `plot_scale'
+        * ymax() can only widen the axis (Stata never clips), so a limit below
+        * what is drawn is refused rather than reported as the axis used.
+        if `ymax_user' < . & `_ytop' - `ymax_user' > 1e-12 * max(1, `_ytop') {
+            local _ytop_s = strtrim(string(`_ytop', "%12.0g"))
+            local _yscale_s = cond(`plot_scale' == 100, " on the percent scale", "")
+            noisily display as error "ymax(`ymax_user') is below the plotted maximum, `_ytop_s'`_yscale_s' (curves, drawn confidence limits, and median lines up to tmax())"
+            exit 198
+        }
+        if `"`ylabel'"' == "" {
+            if "`failure'" == "" & `ymax_user' >= . {
+                if `plot_scale' == 100 {
+                    local ylab_auto "0(25)100, format(%3.0f) angle(0) nogrid"
+                }
+                else {
+                    local ylab_auto "0(0.25)1, format(%4.2f) angle(0) nogrid"
+                }
+            }
+            else {
+                if `ymax_user' < . local _ytop = `ymax_user'
+                if !(`_ytop' > 0) local _ytop = `plot_scale'
+                _natscale 0 `_ytop' 5
+                local _ydelta = r(delta)
+                if `ymax_user' < . {
+                    local _yhi = `ymax_user'
+                }
+                else {
+                    local _yhi = `_ydelta' * ceil(`_ytop' / `_ydelta' - 1e-9)
+                }
+                local _ydec = 0
+                while `_ydec' < 8 & ///
+                    abs(`_ydelta' * 10^`_ydec' - round(`_ydelta' * 10^`_ydec')) > 1e-6 {
+                    local ++_ydec
+                }
+                local _yint = max(1, floor(log10(max(`_yhi', 1))) + 1)
+                local _ywid = `_yint' + `_ydec' + (`_ydec' > 0)
+                local _yhi_s = strtrim(string(`_yhi', "%12.0g"))
+                local _ydel_s = strtrim(string(`_ydelta', "%12.0g"))
+                local ylab_auto "0(`_ydel_s')`_yhi_s', format(%`_ywid'.`_ydec'f) angle(0) nogrid"
+                local ylab_hi = `_yhi'
+            }
+            local ylab_ok = 1
+            local ymax_used = `ylab_hi'
+        }
+        else {
+            _kmplot_ylabnums `ylabel'
+            if `_km_yl_ok' {
+                local ylab_ok = 1
+                local ylab_lo = `_km_yl_lo'
+                local ylab_hi = `_km_yl_hi'
+            }
+            else {
+                local ylab_lo = 0
+                local ylab_hi = `_ytop'
+                if !(`ylab_hi' > `ylab_lo') local ylab_hi = `plot_scale'
+            }
+            local ymax_used = max(`ylab_hi', `_ytop')
+            if `ymax_user' < . local ymax_used = max(`ylab_hi', `ymax_user')
+        }
 
         local need_risktable_data = ("`risktable'" != "" | `"`risksaving'"' != "")
         if `need_risktable_data' {
@@ -601,6 +962,9 @@ program define kmplot, rclass
             if `"`ylabel'"' != "" {
                 local rt_ylabel_opt ylabel(`ylabel')
             }
+            else {
+                local rt_ylabel_opt ylabel(`ylab_auto')
+            }
 
             * Reload the installed helper so an older in-memory definition cannot
             * survive a package update and mix layouts with the current command.
@@ -619,14 +983,24 @@ program define kmplot, rclass
                 local rt_flags "`rt_flags' events"
             }
             if "`riskmono'" != "" local rt_flags "`rt_flags' mono"
+            local rt_ylabhi_opt ""
+            if `ylab_ok' local rt_ylabhi_opt "ylabhi(`ylab_hi')"
+            local rt_mask_opt ""
+            if `riskmask_k' > 0 {
+                local rt_mask_opt `"mask(`riskmask_k') masktext(`riskmask_text')"'
+            }
 
             _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
                 colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
                 graphname(`_kmplot_risk_graph') ///
                 `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' ///
                 `rt_height_opt' `rt_flags' ///
+                compvar(`km_comp') riskweight(`riskweight') `rt_mask_opt' ///
+                regionopts(`macval(_km_region_only)') `rt_ylabhi_opt' ///
                 callerversion("1.0.0") toptimeaxis
             matrix `risktable_mat' = r(risktable)
+            matrix `risktable_w_mat' = r(risktable_w)
+            matrix `risktable_f_mat' = r(risktable_flag)
             local has_risktable_mat = 1
             local risk_timepoints "`r(timepoints)'"
             local n_timepoints = r(n_timepoints)
@@ -674,9 +1048,46 @@ program define kmplot, rclass
                 quietly replace `km_cens' = 0 in `row'
             }
             quietly replace `km_anchor' = 1 in `row'
+            if `has_compete' quietly replace `km_sall' = 1 in `row'
         }
 
         sort `grpid' _t
+
+        * tmax(): carry each curve that continues past tmax() to exactly
+        * tmax() with a plot-only row (dropped before saving()), and draw
+        * nothing beyond it.
+        tempvar km_tend km_inplot km_obs_t
+        quietly gen byte `km_tend' = 0
+        if `tmax_user' < . {
+            quietly gen long `km_obs_t' = _n
+            local _N_t = _N
+            forvalues g = 1/`ngroups' {
+                quietly count if `grpid' == `g' & `km_anchor' == 0 & _t > `tmax_user'
+                if r(N) == 0 continue
+                quietly summarize `km_obs_t' if `grpid' == `g' & ///
+                    _t <= `tmax_user' & !missing(`km_s'), meanonly
+                if r(N) == 0 continue
+                local _src = r(max)
+                local ++_N_t
+                quietly set obs `_N_t'
+                quietly replace `grpid' = `g' in `_N_t'
+                quietly replace _t = `tmax_user' in `_N_t'
+                foreach _v in `km_s' `km_se' `km_lb' `km_ub' `km_sall' {
+                    capture confirm variable `_v'
+                    if _rc == 0 quietly replace `_v' = `_v'[`_src'] in `_N_t'
+                }
+                capture confirm variable `km_cens'
+                if _rc == 0 quietly replace `km_cens' = 0 in `_N_t'
+                quietly replace `km_anchor' = 0 in `_N_t'
+                quietly replace `km_tend' = 1 in `_N_t'
+            }
+            drop `km_obs_t'
+            sort `grpid' _t `km_tend'
+            quietly gen byte `km_inplot' = (_t <= `tmax_user')
+        }
+        else {
+            quietly gen byte `km_inplot' = 1
+        }
 
         * =========================================================================
         * LANDMARK ESTIMATES
@@ -701,7 +1112,14 @@ program define kmplot, rclass
                         _t <= `tp' & !missing(`km_s'), meanonly
                     if r(N) > 0 {
                         local _lm_obs = r(max)
-                        if `tp' > scalar(`lm_max') & ///
+                        * Past the group's last time the curve is known only
+                        * if it has reached its end state: S = 0 (F = 1), or
+                        * all-cause survival 0 for a cumulative incidence.
+                        if `has_compete' {
+                            if `tp' > scalar(`lm_max') & ///
+                                `km_sall'[`_lm_obs'] != 0 continue
+                        }
+                        else if `tp' > scalar(`lm_max') & ///
                             `km_s'[`_lm_obs'] != ("`failure'" != "") continue
                         matrix `landmarks_mat'[`_lm_row', 3] = `km_s'[`_lm_obs']
                         if "`ci'" != "" {
@@ -794,6 +1212,8 @@ program define kmplot, rclass
         * interval on [t(k-1), t(k)) belongs to S(t(k-1)) > 0.  As -sts graph-
         * does, the drawn band and CI lines carry the last bounds to the time
         * the curve reaches 0, so they end where the curve ends.
+        tempvar km_y
+        quietly gen double `km_y' = `km_s' * `plot_scale'
         if "`ci'" != "" {
             tempvar plb pub cseen cend cendn cendt clb cub
             quietly {
@@ -814,6 +1234,8 @@ program define kmplot, rclass
                 replace `plb' = `clb' if `cend' & _t == `cendt'
                 replace `pub' = `cub' if `cend' & _t == `cendt'
                 drop `cseen' `cend' `cendn' `cendt' `clb' `cub'
+                replace `plb' = `plb' * `plot_scale'
+                replace `pub' = `pub' * `plot_scale'
             }
         }
 
@@ -821,7 +1243,7 @@ program define kmplot, rclass
             tempvar bgrp btime blo bhi btag
             * Use source row indices; event times and bounds never pass through text.
             quietly bysort `grpid' _t: gen byte `btag' = ///
-                (_n == 1 & !missing(`plb', `pub'))
+                (_n == 1 & !missing(`plb', `pub') & `km_inplot' == 1)
             quietly count if `btag'
             local band_pts = 2 * r(N)
             if `band_pts' > 0 {
@@ -889,7 +1311,7 @@ program define kmplot, rclass
             else {
                 local pat "solid"
             }
-            local tw_layers `"`macval(tw_layers)' (line `km_s' _t if `grpid' == `g' & !missing(`km_s'), lcolor("`col'") lwidth(`lwidth') lpattern(`pat') sort connect(J))"'
+            local tw_layers `"`macval(tw_layers)' (line `km_y' _t if `grpid' == `g' & !missing(`km_y') & `km_inplot' == 1, lcolor("`col'") lwidth(`lwidth') lpattern(`pat') sort connect(J))"'
         }
 
         * --- CI lines (alternative to bands) ---
@@ -898,8 +1320,8 @@ program define kmplot, rclass
                 local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`macval(tw_layers)' (line `plb' _t if `grpid' == `g' & !missing(`plb'), lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
-                local tw_layers `"`macval(tw_layers)' (line `pub' _t if `grpid' == `g' & !missing(`pub'), lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
+                local tw_layers `"`macval(tw_layers)' (line `plb' _t if `grpid' == `g' & !missing(`plb') & `km_inplot' == 1, lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
+                local tw_layers `"`macval(tw_layers)' (line `pub' _t if `grpid' == `g' & !missing(`pub') & `km_inplot' == 1, lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
             }
         }
 
@@ -909,7 +1331,7 @@ program define kmplot, rclass
                 local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`macval(tw_layers)' (scatter `km_s' _t if `grpid' == `g' & `km_cens' == 1, msymbol(pipe) mcolor("`col'") msize(medsmall))"'
+                local tw_layers `"`macval(tw_layers)' (scatter `km_y' _t if `grpid' == `g' & `km_cens' == 1 & `km_inplot' == 1, msymbol(pipe) mcolor("`col'") msize(medsmall))"'
             }
         }
 
@@ -926,7 +1348,7 @@ program define kmplot, rclass
             }
             if `any_med' {
                 * Thin horizontal line from x=0 to just past the rightmost median
-                local tw_layers `"`macval(tw_layers)' (pci 0.5 0 0.5 `=`max_med' * 1.05', lcolor(gs12) lpattern(shortdash) lwidth(vthin))"'
+                local tw_layers `"`macval(tw_layers)' (pci `=0.5 * `plot_scale'' 0 `=0.5 * `plot_scale'' `=`max_med' * 1.05', lcolor(gs12) lpattern(shortdash) lwidth(vthin))"'
             }
             * Short vertical drop at each group's median
             forvalues g = 1/`ngroups' {
@@ -934,7 +1356,7 @@ program define kmplot, rclass
                     local colidx = mod(`g' - 1, `ncolors') + 1
                     local col : word `colidx' of `colors'
                     if "`col'" == "" local col "black"
-                    local tw_layers `"`macval(tw_layers)' (pci 0 `median_`g'' 0.5 `median_`g'', lcolor("`col'") lpattern(shortdash) lwidth(vthin))"'
+                    local tw_layers `"`macval(tw_layers)' (pci 0 `median_`g'' `=0.5 * `plot_scale'' `median_`g'', lcolor("`col'") lpattern(shortdash) lwidth(vthin))"'
                 }
             }
         }
@@ -982,7 +1404,13 @@ program define kmplot, rclass
             local tw_opts `"`macval(tw_opts)' ylabel(`ylabel')"'
         }
         else {
-            local tw_opts `"`macval(tw_opts)' ylabel(0(0.25)1, format(%4.2f) angle(0) nogrid)"'
+            local tw_opts `"`macval(tw_opts)' ylabel(`ylab_auto')"'
+        }
+        if `ymax_user' < . {
+            local tw_opts `"`macval(tw_opts)' yscale(range(0 `ymax_user'))"'
+        }
+        if `tmax_user' < . & "`risktable'" == "" {
+            local tw_opts `"`macval(tw_opts)' xscale(range(0 `tmax_user'))"'
         }
 
         if `"`xlabel'"' != "" & "`risktable'" == "" {
@@ -1012,7 +1440,7 @@ program define kmplot, rclass
                 * ylabel()/yscale(range()) can only widen that range, so the
                 * union of the plotted values and the ylabel() numlist is
                 * always on the axis.
-                quietly summarize `km_s', meanonly
+                quietly summarize `km_y' if `km_inplot' == 1, meanonly
                 local p_ylo = r(min)
                 local p_yhi = r(max)
                 local p_yvars ""
@@ -1032,36 +1460,19 @@ program define kmplot, rclass
                 if "`median'" != "" {
                     if `any_med' {
                         local p_ylo = min(`p_ylo', 0)
-                        local p_yhi = max(`p_yhi', 0.5)
+                        local p_yhi = max(`p_yhi', 0.5 * `plot_scale')
                     }
                 }
-                local p_lab_ok = 1
-                local p_lab_lo = 0
-                local p_lab_hi = 1
-                if `"`ylabel'"' != "" {
-                    local p_lab_ok = 0
-                    local p_lab_spec `"`ylabel'"'
-                    local p_lab_comma = strpos(`"`p_lab_spec'"', ",")
-                    if `p_lab_comma' > 0 {
-                        local p_lab_spec = ///
-                            strtrim(substr(`"`p_lab_spec'"', 1, `p_lab_comma' - 1))
-                    }
-                    capture numlist `"`p_lab_spec'"', sort
-                    if _rc == 0 {
-                        local p_lab_ok = 1
-                        local p_lab_vals `r(numlist)'
-                        local p_lab_n : word count `p_lab_vals'
-                        local p_lab_lo : word 1 of `p_lab_vals'
-                        local p_lab_hi : word `p_lab_n' of `p_lab_vals'
-                    }
-                }
+                local p_lab_ok = `ylab_ok'
+                local p_lab_lo = `ylab_lo'
+                local p_lab_hi = `ylab_hi'
                 if `p_lab_ok' {
                     local p_ylo = min(`p_ylo', `p_lab_lo')
                     local p_yhi = max(`p_yhi', `p_lab_hi')
                 }
                 if !(`p_yhi' > `p_ylo') {
                     local p_ylo = min(`p_ylo', 0)
-                    local p_yhi = max(`p_yhi', 1)
+                    local p_yhi = max(`p_yhi', `plot_scale')
                 }
                 local p_ytop = `p_yhi' - 0.05 * (`p_yhi' - `p_ylo')
                 local p_ybot = `p_ylo' + 0.05 * (`p_yhi' - `p_ylo')
@@ -1130,26 +1541,11 @@ program define kmplot, rclass
             * placed inside the main y range at values a user's ylabel() will not
             * land on, since a collision would make ylabel(..., add) replace one
             * of the visible labels.
-            local _gy_lo = 0
-            local _gy_hi = 1
-            if `"`ylabel'"' != "" {
-                local _gy_spec `"`ylabel'"'
-                local _gy_comma = strpos(`"`_gy_spec'"', ",")
-                if `_gy_comma' > 0 {
-                    local _gy_spec = ///
-                        strtrim(substr(`"`_gy_spec'"', 1, `_gy_comma' - 1))
-                }
-                capture numlist `"`_gy_spec'"', sort
-                if _rc == 0 {
-                    local _gy_vals `r(numlist)'
-                    local _gy_n : word count `_gy_vals'
-                    local _gy_lo : word 1 of `_gy_vals'
-                    local _gy_hi : word `_gy_n' of `_gy_vals'
-                }
-            }
+            local _gy_lo = `ylab_lo'
+            local _gy_hi = `ylab_hi'
             if `_gy_hi' <= `_gy_lo' {
                 local _gy_lo = 0
-                local _gy_hi = 1
+                local _gy_hi = `plot_scale'
             }
             local rt_grp_ylabels ""
             forvalues g = 1/`ngroups' {
@@ -1166,14 +1562,17 @@ program define kmplot, rclass
             if `"`macval(_plot_note)'"' == "" & `"`med_note'"' != "" {
                 local combine_note `"note(`"`med_note'"', size(vsmall) color(gs5))"'
             }
+            * The user's region and size options also shape the combined
+            * graph; combineopts() goes last, so it wins.
             graph combine `_kmplot_main_graph' `_kmplot_risk_graph', ///
                 cols(1) xcommon ///
                 imargin(0 0 0 0) ///
                 name(`name', replace) ///
-                scheme(`scheme') `macval(combine_note)'
+                scheme(`scheme') `macval(_km_region_opts)' `macval(combine_note)' ///
+                `nodraw_opt' `macval(combineopts)'
         }
         else {
-            twoway `macval(tw_layers)', `macval(tw_opts)' name(`name', replace)
+            twoway `macval(tw_layers)', `macval(tw_opts)' `nodraw_opt' name(`name', replace)
         }
 
         * Remove the stepped-band helper rows now that the graph is rendered,
@@ -1181,6 +1580,7 @@ program define kmplot, rclass
         if `has_stepband' {
             quietly drop if !missing(`bgrp')
         }
+        quietly drop if `km_tend' == 1
 
         * =========================================================================
         * EXPORT
@@ -1296,8 +1696,14 @@ program define kmplot, rclass
             label variable group "KM group index"
             label variable group_label "KM group label"
             label variable time "Analysis time"
-            label variable estimate "KM survival or cumulative failure estimate"
-            label variable se "Greenwood standard error"
+            if `has_compete' {
+                label variable estimate "Aalen-Johansen cumulative incidence"
+                label variable se "Standard error (Marubini-Valsecchi)"
+            }
+            else {
+                label variable estimate "KM survival or cumulative failure estimate"
+                label variable se "Greenwood standard error"
+            }
             label variable lower "Lower confidence bound"
             label variable upper "Upper confidence bound"
             label variable censor "Displayed censor marker"
@@ -1354,17 +1760,35 @@ program define kmplot, rclass
             }
             clear
             quietly svmat double `risktable_mat', names(col)
+            tempname _rt_extra
+            matrix `_rt_extra' = `risktable_w_mat'
+            if `riskmask_k' > 0 {
+                matrix `_rt_extra' = `_rt_extra', `risktable_f_mat'
+            }
+            quietly svmat double `_rt_extra', names(col)
             quietly gen str80 group_label = ""
             forvalues g = 1/`ngroups' {
                 quietly replace group_label = `"`grplbl`g''"' if group == `g'
             }
+            local _rt_basis = cond("`riskweight'" == "stset", "summed stset weight", "people")
             label variable group "KM group index"
             label variable group_label "KM group label"
             label variable time "Analysis time"
-            label variable at_risk "Number at risk"
-            label variable events "Cumulative events"
-            label variable censored "Cumulative censoring exits"
-            order group group_label time at_risk events censored
+            label variable at_risk "Number at risk (`_rt_basis')"
+            label variable events "Cumulative events (`_rt_basis')"
+            label variable censored "Cumulative censoring exits (`_rt_basis')"
+            label variable at_risk_w "Number at risk (summed stset weight)"
+            label variable events_w "Cumulative events (summed stset weight)"
+            label variable censored_w "Cumulative censoring exits (summed stset weight)"
+            local _rt_order "group group_label time at_risk events censored at_risk_w events_w censored_w"
+            if `riskmask_k' > 0 {
+                foreach _rv in at_risk events censored {
+                    quietly recast byte `_rv'_masked
+                    label variable `_rv'_masked "`_rv' masked by riskmask(`riskmask_k')"
+                }
+                local _rt_order "`_rt_order' at_risk_masked events_masked censored_masked"
+            }
+            order `_rt_order'
             if lower(`"`risk_opts'"') == "replace" {
                 capture noisily quietly save `"`risk_file'"', replace
             }
@@ -1385,9 +1809,18 @@ program define kmplot, rclass
         * DISPLAY SUMMARY
         * =========================================================================
 
-        display as text "Kaplan-Meier plot"
+        if `has_compete' {
+            display as text "Aalen-Johansen cumulative incidence plot"
+        }
+        else {
+            display as text "Kaplan-Meier plot"
+        }
         display as text "  Observations: " as result `N'
         display as text "  Groups:       " as result `ngroups'
+        if `has_compete' {
+            display as text "  Competing:    " as result `"`compete'"' ///
+                as text " (" as result `n_compete' as text " records)"
+        }
         if "`ci'" != "" {
             display as text "  CI transform: " as result "`citransform'"
         }
@@ -1464,6 +1897,13 @@ program define kmplot, rclass
         }
     }
     return local cmd "kmplot"
+    return local estimator "`estimator'"
+    return local scale = cond(`plot_scale' == 100, "percent", "proportion")
+    if `has_compete' return local compete `"`compete'"'
+    if `need_rt' return local riskweight "`riskweight'"
+    if `riskmask_k' > 0 return scalar riskmask = `riskmask_k'
+    if `ymax_used' < . return scalar ymax = `ymax_used'
+    if `tmax_user' < . return scalar tmax = `tmax_user'
     return local graph_name `"`name'"'
     local plot_type = cond("`failure'" != "", "failure", "survival")
     return local plot_type "`plot_type'"
@@ -1507,4 +1947,108 @@ program define kmplot, rclass
         return matrix risktable = `risktable_mat'
     }
     if `_kmplot_side_rc' exit `_kmplot_side_rc'
+end
+
+* Parse riskmask(# [, text(string)]).  Sets _km_mask_k and _km_mask_text in
+* the caller; an invalid specification exits with 198 (the caller stops).
+program define _kmplot_parse_mask
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local k ""
+    local text ""
+    capture noisily {
+        gettoken k rest : 0, parse(",")
+        local k = strtrim(`"`k'"')
+        capture confirm integer number `k'
+        if _rc | `"`k'"' == "" {
+            noisily display as error "riskmask() must be an integer of 2 or more, optionally followed by , text(string)"
+            exit 198
+        }
+        if `k' < 2 {
+            noisily display as error "riskmask() must be an integer of 2 or more"
+            exit 198
+        }
+        local 0 `"`rest'"'
+        syntax [, TEXT(string)]
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    c_local _km_mask_k `k'
+    c_local _km_mask_text `"`text'"'
+end
+
+* Numeric positions of a ylabel() specification: the numbers outside quoted
+* label text, before the first comma.  Sets _km_yl_ok (1 when a numeric list
+* was found) and _km_yl_lo/_km_yl_hi in the caller.
+program define _kmplot_ylabnums
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local ok = 0
+    local lo = .
+    local hi = .
+    capture noisily {
+        local rest `"`0'"'
+        local nums ""
+        while `"`rest'"' != "" {
+            gettoken tok rest : rest, parse(" ,") quotes
+            if `"`tok'"' == "," continue, break
+            if `"`tok'"' == "" continue
+            mata: st_local("_isq", strofreal(anyof((char(34), char(96)), substr(st_local("tok"), 1, 1))))
+            if `_isq' continue
+            local nums `"`nums' `tok'"'
+        }
+        if `"`nums'"' != "" {
+            capture numlist `"`nums'"', sort
+            if _rc == 0 {
+                local vals `r(numlist)'
+                local n : word count `vals'
+                local lo : word 1 of `vals'
+                local hi : word `n' of `vals'
+                local ok = 1
+            }
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    c_local _km_yl_ok `ok'
+    c_local _km_yl_lo `lo'
+    c_local _km_yl_hi `hi'
+end
+
+* graphregion(), plotregion(), xsize() and ysize() from the passthrough
+* options, for graph combine.  Sets _km_region_opts in the caller.
+program define _kmplot_regionopts
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local keep ""
+    local regs ""
+    capture noisily {
+        local rest `"`0'"'
+        while `"`rest'"' != "" {
+            gettoken tok rest : rest, bind
+            if `"`tok'"' == "" continue
+            local p = strpos(`"`tok'"', "(")
+            if `p' < 2 continue
+            local nm = lower(substr(`"`tok'"', 1, `p' - 1))
+            local l = strlen("`nm'")
+            local hit = 0
+            if `l' >= 6 & "`nm'" == substr("graphregion", 1, `l') local hit = 1
+            if `l' >= 5 & "`nm'" == substr("plotregion", 1, `l') local hit = 1
+            if inlist("`nm'", "xsize", "ysize") local hit = 1
+            if `hit' local keep `"`macval(keep)' `macval(tok)'"'
+            if `hit' & !inlist("`nm'", "xsize", "ysize") {
+                local regs `"`macval(regs)' `macval(tok)'"'
+            }
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    c_local _km_region_opts `"`macval(keep)'"'
+    c_local _km_region_only `"`macval(regs)'"'
 end

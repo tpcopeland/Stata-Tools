@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.0.0  2026/10/15
+*! _kmplot_risktable Version 1.0.0  2026/10/20
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -7,8 +7,15 @@ Internal helper program. Generates a number-at-risk table graph
 to be combined with the main KM plot via graph combine.
 
 Options:
-  events  - show cumulative events in compact "N (E)" format
-  mono    - display all numbers in black (default: match line colors)
+  events        - show cumulative events in compact "N (E)" format
+  mono          - display all numbers in black (default: match line colors)
+  compvar()     - competing-event indicator; those exits are not censored
+  riskweight()  - none (count records/people) or stset (sum the stset weight)
+  mask(#)       - counts 1 to #-1 print as masktext() (default <#) and are
+                  missing in r(risktable) and r(risktable_w)
+
+Returns r(risktable) (displayed basis), r(risktable_w) (summed stset weight)
+and r(risktable_flag) (1 = cell masked), all in the same row order.
 
 Called from kmplot.ado. Not intended for direct use.
 */
@@ -24,7 +31,15 @@ program define _kmplot_risktable, rclass
             [TIMEpoints(string) ///
             COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
             XTItle(string asis) XLAbel(string asis) YLAbel(string asis) ///
-            EVents MONO TOPTimeaxis CALLERVersion(string)]
+            EVents MONO TOPTimeaxis CALLERVersion(string) ///
+            COMPvar(varname) RISKWeight(string) MASK(integer 0) MASKText(string) ///
+            REGIONopts(string asis) YLABHi(real -1)]
+        if "`riskweight'" == "" local riskweight "stset"
+        if !inlist("`riskweight'", "none", "stset") {
+            noisily display as error "riskweight() must be none or stset"
+            exit 198
+        }
+        if `"`masktext'"' == "" local masktext "<`mask'"
 
         * Layout is split across two files: this one places the row labels and
         * reports the reserves, kmplot mirrors them onto the main panel.  A
@@ -88,6 +103,16 @@ program define _kmplot_risktable, rclass
         * labels and shrink this panel's label column below the main panel's.
         local rt_row_offset = 0.137
 
+        * The main panel's y labels are added here invisibly to reserve the
+        * same label-column width.  When they reach above this panel's own
+        * range (a percent or other large-valued axis) they would stretch it,
+        * so every y coordinate of the table is then scaled by rt_yk to span
+        * the main axis instead.
+        local rt_ytop = `ngroups' + 0.5 + `rt_row_offset'
+        if "`toptimeaxis'" != "" local rt_ytop = `ngroups' + 1.50 + `rt_row_offset'
+        local rt_yk = 1
+        if `ylabhi' > `rt_ytop' local rt_yk = `ylabhi' / `rt_ytop'
+
         * Determine time range
         if `xmax' <= 0 {
             quietly summarize _t
@@ -140,18 +165,25 @@ program define _kmplot_risktable, rclass
             quietly replace `rt_weight' = `st_wv'
         }
 
+        tempvar rt_comp
+        quietly gen byte `rt_comp' = 0
+        if "`compvar'" != "" quietly replace `rt_comp' = (`compvar' == 1)
         if `"`st_id'"' != "" {
             quietly bysort `st_id' (_t0 _t): gen byte `rt_loss' = ///
-                (_d == 0 & (_n == _N | _t < _t0[_n + 1] | ///
+                (_d == 0 & !`rt_comp' & (_n == _N | _t < _t0[_n + 1] | ///
                 `grpvar' != `grpvar'[_n + 1]))
         }
         else {
-            quietly gen byte `rt_loss' = (_d == 0)
+            quietly gen byte `rt_loss' = (_d == 0 & !`rt_comp')
         }
 
-        tempname rtmat
+        tempname rtmat rtwmat rtfmat
         matrix `rtmat' = J(`ngroups' * `ntp', 5, .)
         matrix colnames `rtmat' = group time at_risk events censored
+        matrix `rtwmat' = J(`ngroups' * `ntp', 3, .)
+        matrix colnames `rtwmat' = at_risk_w events_w censored_w
+        matrix `rtfmat' = J(`ngroups' * `ntp', 3, 0)
+        matrix colnames `rtfmat' = at_risk_masked events_masked censored_masked
 
         forvalues g = 1/`ngroups' {
             local j = 0
@@ -169,7 +201,9 @@ program define _kmplot_risktable, rclass
                             if _t >= `tp' & `grpvar' == `g'
                     }
                     quietly summarize `rt_weight' if `rt_tag' == 1, meanonly
-                    local nrisk_`g'_`j' = r(sum)
+                    local wrisk_`g'_`j' = r(sum)
+                    quietly count if `rt_tag' == 1
+                    local prisk_`g'_`j' = r(N)
                     quietly drop `rt_tag'
                 }
                 else {
@@ -183,7 +217,8 @@ program define _kmplot_risktable, rclass
                         quietly summarize `rt_weight' ///
                             if _t >= `tp' & `grpvar' == `g', meanonly
                     }
-                    local nrisk_`g'_`j' = r(sum)
+                    local wrisk_`g'_`j' = r(sum)
+                    local prisk_`g'_`j' = r(N)
                 }
             }
         }
@@ -198,10 +233,31 @@ program define _kmplot_risktable, rclass
                 local ++j
                 quietly summarize `rt_weight' ///
                     if _t <= `tp' & _d == 1 & `grpvar' == `g', meanonly
-                local nevt_`g'_`j' = r(sum)
+                local wevt_`g'_`j' = r(sum)
+                local pevt_`g'_`j' = r(N)
                 quietly summarize `rt_weight' ///
                     if _t <= `tp' & `rt_loss' == 1 & `grpvar' == `g', meanonly
-                local ncens_`g'_`j' = r(sum)
+                local wcens_`g'_`j' = r(sum)
+                local pcens_`g'_`j' = r(N)
+                * Displayed basis, then masking of people counts 1 .. mask-1.
+                * A masked cell's exact value is kept nowhere past this point.
+                foreach _q in risk evt cens {
+                    if "`riskweight'" == "stset" {
+                        local n`_q'_`g'_`j' = `w`_q'_`g'_`j''
+                    }
+                    else {
+                        local n`_q'_`g'_`j' = `p`_q'_`g'_`j''
+                    }
+                    local m`_q'_`g'_`j' = 0
+                    if `mask' > 0 {
+                        if `n`_q'_`g'_`j'' > 0 & `n`_q'_`g'_`j'' < `mask' {
+                            local m`_q'_`g'_`j' = 1
+                            local n`_q'_`g'_`j' = .
+                            local w`_q'_`g'_`j' = .
+                            local p`_q'_`g'_`j' = .
+                        }
+                    }
+                }
             }
         }
 
@@ -216,6 +272,12 @@ program define _kmplot_risktable, rclass
                 matrix `rtmat'[`_rt_row', 3] = `nrisk_`g'_`j''
                 matrix `rtmat'[`_rt_row', 4] = `nevt_`g'_`j''
                 matrix `rtmat'[`_rt_row', 5] = `ncens_`g'_`j''
+                matrix `rtwmat'[`_rt_row', 1] = `wrisk_`g'_`j''
+                matrix `rtwmat'[`_rt_row', 2] = `wevt_`g'_`j''
+                matrix `rtwmat'[`_rt_row', 3] = `wcens_`g'_`j''
+                matrix `rtfmat'[`_rt_row', 1] = `mrisk_`g'_`j''
+                matrix `rtfmat'[`_rt_row', 2] = `mevt_`g'_`j''
+                matrix `rtfmat'[`_rt_row', 3] = `mcens_`g'_`j''
             }
         }
 
@@ -247,14 +309,17 @@ program define _kmplot_risktable, rclass
                 local ++row
                 quietly replace `rt_time' = `tp' in `row'
                 quietly replace `rt_ypos' = ///
-                    `ngroups' - `g' + 1 + `rt_row_offset' in `row'
+                    (`ngroups' - `g' + 1 + `rt_row_offset') * `rt_yk' in `row'
                 * Unweighted and frequency-weighted counts are whole numbers;
                 * probability and importance weights give fractional ones,
                 * printed to one decimal place (r(risktable) keeps the value).
                 local nr = `nrisk_`g'_`j''
                 * A weighted sum that is whole up to rounding error prints as
                 * an integer, not as 3.0.
-                if abs(`nr' - round(`nr')) < 1e-9 * max(1, abs(`nr')) {
+                if `mrisk_`g'_`j'' {
+                    local nr `"`masktext'"'
+                }
+                else if abs(`nr' - round(`nr')) < 1e-9 * max(1, abs(`nr')) {
                     local nr = strtrim(string(round(`nr'), "%21.0fc"))
                 }
                 else {
@@ -263,7 +328,10 @@ program define _kmplot_risktable, rclass
                 if "`events'" != "" {
                     * Compact "N (E)" format
                     local ne = `nevt_`g'_`j''
-                    if abs(`ne' - round(`ne')) < 1e-9 * max(1, abs(`ne')) {
+                    if `mevt_`g'_`j'' {
+                        local ne `"`masktext'"'
+                    }
+                    else if abs(`ne' - round(`ne')) < 1e-9 * max(1, abs(`ne')) {
                         local ne = strtrim(string(round(`ne'), "%21.0fc"))
                     }
                     else {
@@ -331,7 +399,7 @@ program define _kmplot_risktable, rclass
 
         * Keep breathing room below the final risk-table row.
         local ymin = 0.0
-        local ymax = `ngroups' + 0.5 + `rt_row_offset'
+        local ymax = (`ngroups' + 0.5 + `rt_row_offset') * `rt_yk'
         if `riskheight' > 0 {
             local fysize = `riskheight'
         }
@@ -437,7 +505,7 @@ program define _kmplot_risktable, rclass
         * therefore the two time axes, come out the same width.
         local grp_ylabels ""
         forvalues g = 1/`ngroups' {
-            local _gy = `ngroups' - `g' + 1 + `rt_row_offset'
+            local _gy = (`ngroups' - `g' + 1 + `rt_row_offset') * `rt_yk'
             local grp_ylabels `"`grp_ylabels' `_gy' `"`grplbl`g''"'"'
         }
         * custom scopes these style options to the row labels alone, so the
@@ -465,11 +533,11 @@ program define _kmplot_risktable, rclass
             local xlabel_cmd `"xlabel(, nolabels noticks nogrid axis(1)) `top_xlabel_cmd'"'
             local xtitle_cmd `"xtitle("", axis(1)) xtitle("", axis(2))"'
             local xscale_cmd `"xscale(range(`xstart' `xmax') noextend noline axis(1)) xscale(range(`xstart' `xmax') noextend noline axis(2))"'
-            local ymax = `ngroups' + 1.50 + `rt_row_offset'
-            local time_title_y = `ngroups' + 1.025 + `rt_row_offset'
+            local ymax = (`ngroups' + 1.50 + `rt_row_offset') * `rt_yk'
+            local time_title_y = (`ngroups' + 1.025 + `rt_row_offset') * `rt_yk'
             local time_title_x = (`xstart' + `xmax') / 2
             local time_title_cmd `"text(`time_title_y' `time_title_x' `"`macval(xtitle)'"', placement(c) size(small))"'
-            local separator_y = `ngroups' + 0.55 + `rt_row_offset'
+            local separator_y = (`ngroups' + 0.55 + `rt_row_offset') * `rt_yk'
             local separator_cmd "yline(`separator_y', lcolor(gs8) lpattern(solid) lwidth(thin))"
         }
 
@@ -485,6 +553,7 @@ program define _kmplot_risktable, rclass
             `separator_cmd' ///
             title("") subtitle("") ///
             scheme(`scheme') ///
+            `macval(regionopts)' ///
             name(`graphname', replace) nodraw ///
             plotregion(margin(l=`plot_margin_left' r=`plot_margin_right' t=2 b=0) lcolor(none) lwidth(none)) ///
             graphregion(margin(l=0 t=0 b=0)) ///
@@ -509,5 +578,7 @@ program define _kmplot_risktable, rclass
     return scalar row_labgap = `rt_row_labgap'
     return scalar title_gap = `rt_title_gap'
     return local timepoints "`timepoints'"
+    return matrix risktable_flag = `rtfmat'
+    return matrix risktable_w = `rtwmat'
     return matrix risktable = `rtmat'
 end

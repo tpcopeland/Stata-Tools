@@ -4,12 +4,13 @@
 
     Uses sysuse cancer to produce publication-ready Kaplan-Meier plots,
     then the repository's synthetic registry cohort (_data/) for a
-    registry-scale panel and fixed-time landmark estimates.
+    registry-scale panel, fixed-time landmark estimates, and a weighted
+    competing-risks figure with a masked risk table.
     Each section showcases a different feature or combination.
 
     Outputs:
-      1. Graphs (10 PNGs) -> .png
-      2. Console output (landmark estimates) -> .log -> .md via logdoc
+      1. Graphs (12 PNGs) -> .png
+      2. Console output (landmark and competing-risk estimates) -> .log -> .md via logdoc
 */
 
 version 16.0
@@ -81,8 +82,12 @@ capture noisily {
 adopath ++ "`pkg_root'"
 capture program drop kmplot
 capture program drop _kmplot_risktable
+capture program drop _kmplot_cif
+capture program drop _kmplot_times
 quietly run "`pkg_root'/kmplot.ado"
 quietly run "`pkg_root'/_kmplot_risktable.ado"
+quietly run "`pkg_root'/_kmplot_cif.ado"
+quietly run "`pkg_root'/_kmplot_times.ado"
 
 **# Setup data
 sysuse cancer, clear
@@ -223,9 +228,78 @@ matrix list r(landmarks), format(%7.4f)
 log close demo
 capture graph close _all
 
-**## Convert console log to markdown via logdoc
+**## 12. Weighted competing risks: self-harm with death as a competing event
+
+* Same cohort; self-harm is the event of interest and death before it is a
+* competing event.  Stabilized inverse-probability-of-treatment weights enter
+* through stset as pweights.  compete() draws the Aalen-Johansen cumulative
+* incidence; percent rescales the axis, whose upper limit is chosen from the
+* curves; tmax() stops the plot at 10 years; byorder(1 0) draws SNRI first so
+* colors() and lpattern() apply in that order; the risk table counts people,
+* not summed weights (the default riskweight(none) under pweights).
+use "`data_dir'/cohort.dta", clear
+merge 1:1 id using "`data_dir'/treatment.dta", nogenerate
+merge 1:1 id using "`data_dir'/outcomes.dta", nogenerate keepusing(selfharm_date)
+generate byte status = cond(!missing(selfharm_date) & selfharm_date <= study_exit, 1, ///
+    cond(!missing(death_date) & death_date <= study_exit, 2, 0))
+label define status 0 "Censored" 1 "Self-harm" 2 "Death"
+label values status status
+generate double exit = cond(status == 1, selfharm_date, study_exit)
+quietly logit treated index_age female i.education
+quietly predict double ps, pr
+quietly summarize treated, meanonly
+generate double sw = cond(treated, r(mean) / ps, (1 - r(mean)) / (1 - ps))
+stset exit [pw=sw], failure(status == 1) origin(study_entry) scale(365.25)
+
+kmplot, by(treated) byorder(1 0) compete(status == 2) percent tmax(10) ///
+    risktable timepoints(0(2)10) colors(black black) lpattern(solid dash) ///
+    title("Self-harm, with death as a competing event") ///
+    xtitle("Years since initiation") ///
+    name(demo12, replace)
+graph export "`pkg_dir'/km_compete_weighted.png", replace width(1200)
+capture graph close _all
+
+**## 13. Small-count masking in the risk table
+
+* A small subgroup (men aged 70 or older in one region) followed to 16 years:
+* riskmask(5) prints any count of 1-4 as "<5", in the drawn table, in
+* r(risktable) (missing), and in risksaving() output.
+preserve
+keep if region == 1 & female == 0 & index_age >= 70
+kmplot, by(treated) byorder(1 0) compete(status == 2) percent ///
+    tmax(16) risktable riskmask(5) timepoints(0(4)16) colors(black black) lpattern(solid dash) ///
+    title("Small subgroup, counts of 1-4 masked") ///
+    xtitle("Years since initiation") ///
+    name(demo13, replace)
+graph export "`pkg_dir'/km_riskmask.png", replace width(1200)
+capture graph close _all
+restore
+
+**## 14. Competing-risk estimates versus 1 - Kaplan-Meier
+
+log using "`pkg_dir'/console_compete.log", replace text name(demo) nomsg
+
+* # Aalen-Johansen cumulative incidence at 1, 5, and 10 years
+
+kmplot, by(treated) byorder(1 0) compete(status == 2) landmark(1 5 10) nodraw
+display as text "Estimator: " as result "`r(estimator)'" ///
+    as text "   Groups: " as result `"`r(group_labels)'"'
+matrix list r(landmarks), format(%7.4f)
+
+* # 1 - Kaplan-Meier treats deaths as censored and overstates the risk
+
+kmplot, by(treated) byorder(1 0) failure landmark(10) nodraw
+display as text "Estimator: " as result "`r(estimator)'"
+matrix list r(landmarks), format(%7.4f)
+
+log close demo
+capture graph close _all
+
+**## Convert console logs to markdown via logdoc
 logdoc using "`pkg_dir'/console_landmarks.log", ///
     output("`pkg_dir'/console_landmarks.md") format(md) replace quiet
+logdoc using "`pkg_dir'/console_compete.log", ///
+    output("`pkg_dir'/console_compete.md") format(md) replace quiet
 
 }
 local rc = _rc
@@ -237,4 +311,4 @@ capture log close _all
 capture set scheme `old_scheme'
 capture clear
 if `rc' exit `rc'
-display as result "RESULT: demo_kmplot tests=11 pass=11 fail=0"
+display as result "RESULT: demo_kmplot tests=14 pass=14 fail=0"

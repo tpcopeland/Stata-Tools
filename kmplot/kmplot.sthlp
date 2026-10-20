@@ -1,8 +1,9 @@
 {smcl}
-{* *! version 1.0.0  15oct2026}{...}
+{* *! version 1.0.0  20oct2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
+{vieweralsosee "stcrreg" "help stcrreg"}{...}
 {viewerjumpto "Syntax" "kmplot##syntax"}{...}
 {viewerjumpto "Description" "kmplot##description"}{...}
 {viewerjumpto "Options" "kmplot##options"}{...}
@@ -14,8 +15,8 @@
 {title:Title}
 
 {p2colset 5 18 20 2}{...}
-{p2col:{cmd:kmplot} {hline 2}}Publication-ready Kaplan-Meier survival and cumulative
-failure plots{p_end}
+{p2col:{cmd:kmplot} {hline 2}}Publication-ready Kaplan-Meier survival, cumulative
+failure, and competing-risk cumulative incidence plots{p_end}
 {p2colreset}{...}
 
 
@@ -34,6 +35,8 @@ failure plots{p_end}
 {syntab:Model}
 {synopt:{opt by(varname)}}group variable for stratified curves{p_end}
 {synopt:{opt fail:ure}}plot cumulative failure (1-KM){p_end}
+{synopt:{opt comp:ete(exp)}}plot the Aalen-Johansen cumulative incidence, with {it:exp} marking the competing event{p_end}
+{synopt:{opt byo:rder(numlist)}}order of the {opt by()} levels for drawing, legend, and risk table{p_end}
 
 {syntab:Confidence intervals}
 {synopt:{opt ci}}show confidence intervals{p_end}
@@ -54,6 +57,9 @@ failure plots{p_end}
 {synopt:{opt riskm:ono}}display risk-table numbers in black{p_end}
 {synopt:{opt riskh:eight(#)}}risk-table height; default auto{p_end}
 {synopt:{opt time:points(numlist)}}timepoints for risk table; default auto{p_end}
+{synopt:{opt riskw:eight(none|stset)}}count people or sum the {cmd:stset} weight; default depends on the weight type{p_end}
+{synopt:{opt riskmask(# [, text(string)])}}print counts from 1 to #-1 as {cmd:<}{it:#}{p_end}
+{synopt:{opt noriskmask}}ignore the {cmd:tabtools} session small-cell default{p_end}
 
 {syntab:Fixed-time summaries}
 {synopt:{opt land:mark(numlist)}}return fixed-time estimates{p_end}
@@ -80,7 +86,10 @@ failure plots{p_end}
 {synopt:{opt xti:tle(string)}}x-axis title; default Analysis time{p_end}
 {synopt:{opt yti:tle(string)}}y-axis title; auto from model{p_end}
 {synopt:{opt xla:bel(string)}}x-axis labels and risk-table columns{p_end}
-{synopt:{opt yla:bel(string)}}y-axis labels; default 0(0.25)1{p_end}
+{synopt:{opt yla:bel(string)}}y-axis labels; default automatic{p_end}
+{synopt:{opt ymax(#)}}upper limit of the y axis{p_end}
+{synopt:{opt per:cent}}plot on the percent scale{p_end}
+{synopt:{opt tmax(#)}}stop the curves, x axis, and default risk-table timepoints at {it:#}{p_end}
 {synopt:{opt leg:end(string)}}custom legend specification{p_end}
 {synopt:{opt note(string)}}graph note{p_end}
 
@@ -91,6 +100,7 @@ failure plots{p_end}
 {synopt:{opt exp:ort(string)}}export graph{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save curve data used for the graph{p_end}
 {synopt:{opt risksav:ing(filename[, replace])}}save risk-table counts{p_end}
+{synopt:{opt comb:ineopts(string)}}options passed to {cmd:graph combine} with {opt risktable}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -102,11 +112,14 @@ Data must be {cmd:stset} before using {cmd:kmplot}.
 {title:Description}
 
 {pstd}
-{cmd:kmplot} draws Kaplan-Meier survival curves, or cumulative failure
-curves, for {cmd:stset} data. One call can add pointwise confidence bands, a
-number-at-risk table aligned with the time axis, median reference lines,
-censoring marks, and the log-rank p-value. It can also return fixed-time
-estimates and save the plotted curve and risk-table data.
+{cmd:kmplot} draws Kaplan-Meier survival curves, cumulative failure curves,
+or, with {opt compete()}, Aalen-Johansen cumulative incidence curves in the
+presence of a competing event, for {cmd:stset} data. One call can add
+pointwise confidence bands, a number-at-risk table aligned with the time axis
+(with counts of people under weights and optional small-count masking),
+median reference lines, censoring marks, and the log-rank p-value. It can
+also return fixed-time estimates and save the plotted curve and risk-table
+data.
 
 {pstd}
 Curves are drawn as step functions with {cmd:twoway} in the current
@@ -132,9 +145,43 @@ precision if that format would make two levels look alike).{p_end}
 the survival function. The y-axis title changes to "Cumulative failure"
 and the curve starts at 0 instead of 1.{p_end}
 
+{phang}{opt compete(exp)} plots the Aalen-Johansen cumulative incidence of the
+{cmd:stset} failure event, treating the records on which {it:exp} is true as
+a competing event: a person with a competing event leaves the risk set and
+can no longer fail from the event of interest, instead of being censored.
+For example, after {cmd:stset exit, failure(cause == 1)},
+{cmd:compete(cause == 2)} makes death from other causes the competing event.
+{it:exp} is evaluated on the records in the analysis sample; a record is a
+competing event when {cmd:_d} is 0, {it:exp} is true, and {cmd:stset}
+{cmd:exit()} did not cut the record short. {opt compete()} implies a
+cumulative incidence plot ({opt failure} is accepted and redundant); the
+default y-axis title is "Cumulative incidence". It is an error (r(459)) for
+{it:exp} to be true on a record that is also an {cmd:stset} failure, or, with
+{cmd:id()}, on a record followed by further follow-up of the same subject;
+{it:exp} evaluating to missing on any record is an error (r(416)), so write,
+for example, {cmd:compete(cause == 2)} rather than {cmd:compete(death)} when
+{cmd:death} can be missing. {cmd:stset exit()} is supported only in the form
+{cmd:exit(time} {it:exp}{cmd:)}. {opt compete()} may not be combined with
+{opt pvalue} (Gray's test is not implemented) or {opt median}. See
+{it:{help kmplot##methods:Method notes}}.{p_end}
+
+{phang}{opt byorder(numlist)} gives the order of the {opt by()} levels for
+drawing, for the default legend, and for the risk-table rows; levels not
+listed follow in sort order. {opt colors()} and {opt lpattern()} are then
+assigned in this order. For example, with a 0/1 variable, {cmd:byorder(1 0)}
+draws level 1 first. {opt byorder()} requires a numeric {opt by()} variable
+(otherwise r(109)); a listed value that is not a level of {opt by()} in the
+analysis sample, or a repeated value, is an error (r(198)). The {cmd:group}
+column of {cmd:r(landmarks)}, {cmd:r(medians)}, {cmd:r(risktable)}, and the
+saved datasets, and the {it:#} in {cmd:r(median_#)}, are positions in the
+drawing order (1, 2, ...), not level values; {cmd:r(group_labels)} lists the
+groups in that order.{p_end}
+
 {dlgtab:Confidence intervals}
 
-{phang}{opt ci} displays confidence intervals around the KM curve.{p_end}
+{phang}{opt ci} displays confidence intervals around the KM curve, or around
+the cumulative incidence with {opt compete()}. With {opt compete()},
+{opt ci} is allowed without weights and with frequency weights.{p_end}
 
 {phang}{opt level(#)} sets the confidence level for {opt ci}. The default is
 {cmd:level(95)} or as set by {helpb set level}. As elsewhere in Stata, the value
@@ -149,7 +196,10 @@ bands; {bf:line} shows dashed lines. Requires {opt ci}.{p_end}
 
 {phang}{opt citransform(string)} sets the CI transformation. {bf:loglog} (default) uses the
 log-log transform (Stata's default for KM). {bf:log} uses the log transform. {bf:plain}
-uses untransformed (Wald) intervals. Requires {opt ci}.{p_end}
+uses untransformed (Wald) intervals. With {opt compete()} the transforms apply
+to the cumulative incidence F: {bf:loglog} is the ln(-ln F) interval of
+{cmd:stcompet}, {bf:log} is F exp(-/+z se/F), and {bf:plain} is F -/+ z se,
+clipped to [0, 1]. Requires {opt ci}.{p_end}
 
 {dlgtab:Median}
 
@@ -182,10 +232,11 @@ space inside either plotting region. Schemes that place the y axis on the
 right-hand side, such as {cmd:economist}, mirror that column and are not
 supported with {opt risktable}.{p_end}
 
-{phang}With probability or importance weights, at-risk and event counts can be
-fractional; such cells are printed to one decimal place (for example,
-{cmd:13.3}). {cmd:r(risktable)} and {opt risksaving()} keep the full
-values.{p_end}
+{phang}Under {cmd:stset} probability or importance weights the table counts
+people by default (see {opt riskweight()}), while the curve stays weighted.
+With {cmd:riskweight(stset)}, at-risk and event counts can be fractional;
+such cells are printed to one decimal place (for example, {cmd:13.3}).
+{cmd:r(risktable)} and {opt risksaving()} keep the full values.{p_end}
 
 {phang}{opt riskevents} adds cumulative event counts to the risk table
 in compact {it:N (events)} format (e.g., {cmd:14 (3)}, {cmd:5,682 (424)}). This is the
@@ -204,12 +255,67 @@ three groups. Requires {opt risktable}.{p_end}
 
 {phang}{opt timepoints(numlist)} specifies the timepoints for the risk
 table. Default: approximately 6 evenly spaced timepoints from 0 to the
-maximum observed time. Requires {opt risktable} or {opt risksaving()}.{p_end}
+maximum observed time, or to {opt tmax()}. Requires {opt risktable} or
+{opt risksaving()}.{p_end}
+
+{phang}{opt riskweight(none|stset)} chooses what the risk table counts.
+{bf:none} counts people (records, or subjects with {cmd:id()}), ignoring the
+{cmd:stset} weight; {bf:stset} sums the {cmd:stset} weight. The default is
+{bf:none} under probability and importance weights, since journals expect
+numbers of people beside a weighted curve, and {bf:stset} under frequency
+weights, which are real counts. Without weights the two are the same and
+{cmd:r(riskweight)} reports {bf:none}. The choice applies to the at-risk,
+event, and censored counts in the drawn table, in {cmd:r(risktable)}, and in
+the {cmd:at_risk}, {cmd:events}, and {cmd:censored} variables of
+{opt risksaving()}; the weighted sums are always saved as well (see
+{opt risksaving()}). Nothing is added to the graph note; describe the basis in
+your own note. Requires {opt risktable} or {opt risksaving()}.{p_end}
+
+{phang}{opt riskmask(# [, text(string)])} masks small counts for disclosure
+control. Any at-risk, event, or censored count from 1 to {it:#}-1 is printed
+as {cmd:<}{it:#} (or as {opt text()}); 0 is printed as 0. {it:#} must be an
+integer of 2 or more. Masking is decided on people counts, so it may not be
+combined with {cmd:riskweight(stset)} under probability or importance weights
+(frequency-weighted sums are counts and are allowed). Masked cells are missing
+in {cmd:r(risktable)} and, together with their weighted companions, in
+{opt risksaving()}, which also gets 0/1 flags {cmd:at_risk_masked},
+{cmd:events_masked}, and {cmd:censored_masked}. The exact values of masked
+cells appear nowhere in the risk-table output: the drawn table,
+{cmd:r(risktable)}, and {opt risksaving()}. Masking applies only to those
+risk-table cells; sample totals that {cmd:kmplot} prints or returns, such as
+{cmd:r(N)} and the number of competing-event records in the console summary,
+are not masked. Nor does {opt riskmask()} alter the curve: its step sizes and
+censoring ticks can reveal small counts, so judge the curve itself against
+your disclosure rule.
+{opt riskmask()} masks cells, not differences: two adjacent at-risk counts and
+the events between them can still reveal a small censored count by
+subtraction, particularly with {opt riskevents}. No complementary suppression
+is attempted; publish at-risk counts only when that matters. Requires
+{opt risktable} or {opt risksaving()}.{p_end}
+
+{phang}Session default: after {cmd:tabtools set smallcells} {it:#} (which
+stores {it:#} in the global macro {cmd:TABTOOLS_set_smallcells}), every
+{cmd:kmplot} call that draws a risk table or uses {opt risksaving()} masks
+with that {it:#} unless {opt riskmask()} or {opt noriskmask} is given, and
+prints {cmd:(kmplot: using tabtools session smallcells(}{it:#}{cmd:) for riskmask())}.
+An explicit {opt riskmask()} takes precedence. The {cmd:primary}/full mode
+that {cmd:tabtools} stores in {cmd:TABTOOLS_set_smallcells_mode} is ignored:
+{cmd:kmplot} masks cells only. A session value that is not an integer of 2 or
+more is an error (r(198)). {cmd:tabtools} need not be installed; only the
+global is read.{p_end}
+
+{phang}{opt noriskmask} turns off the {cmd:tabtools} session default for this
+call. It may not be combined with {opt riskmask()} and requires
+{opt risktable} or {opt risksaving()}.{p_end}
 
 {dlgtab:Fixed-time summaries}
 
 {phang}{opt landmark(numlist)} returns estimates at fixed analysis times. In survival mode,
-the returned estimate is S(t). With {opt failure}, it is 1 - S(t). If {opt ci} is
+the returned estimate is S(t). With {opt failure}, it is 1 - S(t); with
+{opt compete()}, the cumulative incidence F(t). Estimates are always
+proportions, also with {opt percent}, and times beyond {opt tmax()} are still
+computed. With {opt compete()}, values beyond a group's last follow-up are
+missing unless all-cause survival has reached zero. If {opt ci} is
 specified, lower and upper bounds are included in {cmd:r(landmarks)}. Explicit
 times retain double precision. Beyond a group's last observed follow-up,
 estimates and bounds are missing unless survival has reached zero (failure has
@@ -219,7 +325,7 @@ the survival estimate is exactly 1 or 0 (see {it:{help kmplot##methods:Method no
 {dlgtab:Censoring}
 
 {phang}{opt censor} displays tick marks at censoring times on the
-KM curve.{p_end}
+KM curve. With {opt compete()}, competing events are not marked.{p_end}
 
 {phang}{opt censorthin(#)} shows every Nth censor mark to reduce clutter. Default 1 (show
 all). Values must be at least 1, and the option requires {opt censor}.{p_end}
@@ -288,10 +394,36 @@ title from the first risk-table row. Numeric positions are also used when
 {opt timepoints()} is omitted.{p_end}
 
 {phang}{opt ytitle(string)} sets the y-axis title. The default is "Survival
-probability" or "Cumulative failure", according to the plot type.{p_end}
+probability", "Cumulative failure", or "Cumulative incidence", according to
+the plot type; with {opt percent}, "Survival (%)", "Cumulative failure (%)",
+or "Cumulative incidence (%)".{p_end}
 
-{phang}{opt ylabel(string)} sets y-axis labels; the default is
-{cmd:0(0.25)1}.{p_end}
+{phang}{opt ylabel(string)} sets y-axis labels. Without it, survival plots
+use {cmd:0(0.25)1} ({cmd:0(25)100} with {opt percent}), and failure and
+cumulative incidence plots run from 0 to a rounded value just above the
+largest plotted value, including drawn confidence limits, with about five
+labels formatted to the precision of the step (a step of 0.002 gives
+{cmd:%5.3f}). Text labels such as {cmd:ylabel(0 "0" 0.002 "0.2")} are
+accepted; the numbers before the quoted texts give the axis range used to
+lay out the risk table and the p-value.{p_end}
+
+{phang}{opt ymax(#)} sets the upper limit of the y axis, on the plotted
+scale (percent with {opt percent}), keeping automatic labels. Stata cannot
+clip a graph, so a limit below the plotted maximum (curves, drawn confidence
+limits, and median lines up to {opt tmax()}) is refused with r(198), and the
+message gives that maximum. {it:#} must be positive.{p_end}
+
+{phang}{opt percent} plots 100 times the estimate and its bounds, with
+percent axis labels and titles. {cmd:r(landmarks)}, {cmd:r(risktable)}, and
+the {opt saving()} data stay in proportions; {cmd:r(scale)} records the
+plotted scale.{p_end}
+
+{phang}{opt tmax(#)} stops the curves, bands, censoring marks, the x axis,
+and the default risk-table timepoints at {it:#} analysis-time units, without
+re-declaring {cmd:stset} with {cmd:exit()}. Estimates are not recomputed:
+values up to {it:#} are those of the full curve. {opt saving()} still holds
+the whole curve, and {opt landmark()} times beyond {it:#} are computed.
+{it:#} must be positive.{p_end}
 
 {phang}{opt legend(string)} supplies a custom Stata legend
 specification. Without it, {cmd:kmplot} constructs a legend from the plotted
@@ -321,20 +453,44 @@ paths with spaces are supported, for example {cmd:export("figure 1.pdf", replace
 graph. The saved dataset contains {cmd:group}, {cmd:group_label},
 {cmd:time}, {cmd:estimate}, {cmd:se}, {cmd:lower}, {cmd:upper},
 {cmd:censor}, and {cmd:anchor}. The estimate is survival in the default
-mode and cumulative failure with {opt failure}. {cmd:se}, {cmd:lower}, and
-{cmd:upper} are missing where the survival estimate is 1 or 0.{p_end}
+mode, cumulative failure with {opt failure}, and cumulative incidence with
+{opt compete()} (with its standard error and bounds when computed). It is
+always a proportion. {cmd:se}, {cmd:lower}, and
+{cmd:upper} are missing where the survival estimate is 1 or 0 (the cumulative
+incidence 0 or 1).{p_end}
 
 {phang}{opt risksaving(filename[, replace])} saves risk-table counts in a
 Stata dataset with {cmd:group}, {cmd:group_label}, {cmd:time},
-{cmd:at_risk}, {cmd:events}, and {cmd:censored}. It can be used with or
-without displaying {opt risktable}. The {cmd:censored} variable records
-cumulative censoring exits from each plotted group.{p_end}
+{cmd:at_risk}, {cmd:events}, and {cmd:censored} on the basis chosen by
+{opt riskweight()}, followed by {cmd:at_risk_w}, {cmd:events_w}, and
+{cmd:censored_w}, the same counts as summed {cmd:stset} weights (equal to the
+people counts without weights). With masking it also holds
+{cmd:at_risk_masked}, {cmd:events_masked}, and {cmd:censored_masked}. It can
+be used with or without displaying {opt risktable}. {cmd:events} counts
+failures of interest; the {cmd:censored} variable records cumulative
+censoring exits from each plotted group, excluding competing events.{p_end}
+
+{phang}{opt combineopts(string)} passes options to the {cmd:graph combine}
+that joins the plot and the risk table, after all others, so they win.
+Requires {opt risktable}.{p_end}
 
 {dlgtab:Graph passthrough}
 
 {phang}Additional {help twoway_options} (e.g., {cmd:xsize()}, {cmd:ysize()},
 {cmd:plotregion()}, {cmd:graphregion()}) are passed through to the
-underlying {cmd:twoway} call.{p_end}
+underlying {cmd:twoway} call. With {opt risktable}, {cmd:graphregion()},
+{cmd:plotregion()}, {cmd:xsize()}, and {cmd:ysize()} are also passed to the
+combined graph, and {cmd:graphregion()} and {cmd:plotregion()} to the
+risk-table panel, so that, for example,
+{cmd:scheme(sj) graphregion(color(white))} gives a white figure throughout.{p_end}
+
+{phang}{cmd:nodraw} builds the graph, named by {opt name()}, without
+displaying it; with {opt risktable} it applies to the combined graph. The risk
+table, {cmd:r()} results, and {opt saving()}/{opt risksaving()} files are
+produced as usual, and {cmd:graph display} shows the graph later.
+{cmd:nodraw} may not be combined with {opt export()} (r(198)), because
+{cmd:graph export} needs a drawn graph; use {cmd:graph display} and
+{cmd:graph export} afterwards.{p_end}
 
 
 {marker methods}{...}
@@ -357,13 +513,47 @@ returned and saved bounds stay missing there.{p_end}
 
 {pstd}
 The {opt failure} option plots cumulative failure, {bf:1 - S(t)}, from the
-Kaplan-Meier survival curve. This is not a competing-risk cumulative
-incidence function, and {cmd:kmplot} does not implement Aalen-Johansen or
-Fine-Gray competing-risk estimators.{p_end}
+Kaplan-Meier survival curve, treating any competing event as censoring. When
+competing events are present this overstates the probability of failure
+(Coviello and Boggess 2004); use {opt compete()}.{p_end}
+
+{pstd}
+With {opt compete()}, {cmd:kmplot} estimates the cumulative incidence of the
+failure of interest by the Aalen-Johansen estimator (Aalen and Johansen 1978)
+in the form given by Coviello and Boggess (2004, 104). At each distinct exit
+time t_j in a group, with weighted counts (weight 1 without {cmd:stset}
+weights), n_j is the number at risk just before t_j (records with
+_t0 < t_j <= _t, so delayed entry and {cmd:id()} data are honoured), d1_j the
+events of interest, and d2_j the competing events. Then
+S(t_j) = prod_{c -(}i<=j{c )-} {1 - (d1_i + d2_i)/n_i} is the all-cause
+Kaplan-Meier, and F(t) = sum_{c -(}t_j<=t{c )-} S(t_{c -(}j-1{c )-}) d1_j/n_j.
+Events at t_j precede censoring at t_j. Multiplying all weights by a constant
+leaves F unchanged; with no competing events F equals 1 - S, the
+{opt failure} curve, up to rounding (about 1e-15).{p_end}
+
+{pstd}
+The standard error with {opt compete()} is the delta-method variance of
+Marubini and Valsecchi (1995, eq. 10.12) as given by Coviello and Boggess
+(2004, 104),
+
+{p 8 8 2}
+var F(t_j) = sum_{c -(}a<=j{c )-} [ {F(t_j) - F(t_a)}^2 d_a/{n_a(n_a - d_a)}
++ S(t_{c -(}a-1{c )-})^2 d1_a (n_a - d1_a)/n_a^3
+- 2 {F(t_j) - F(t_a)} S(t_{c -(}a-1{c )-}) d1_a/n_a^2 ],
+
+{pstd}
+with d_a = d1_a + d2_a and the first term dropped where n_a = d_a, exactly as
+{cmd:stcompet} computes it; the default interval is the ln(-ln) interval
+F^exp(-/+z se/(F ln F)) of Choudhury (2002) used by {cmd:stcompet}. Without
+weights, standard errors and bounds agree with {cmd:stcompet} to rounding
+error. The variance is not valid under probability or importance weights,
+so {opt ci} is refused there (r(198)); point estimates, {opt landmark()},
+and {opt saving()} remain available and saved standard errors are missing.{p_end}
 
 {pstd}
 The {opt pvalue} option uses Stata's {cmd:sts test, logrank}. Risk-table
-counts honor delayed entry, active {cmd:stset} weights, and subject
+counts honor delayed entry, {cmd:stset} weights as set by
+{opt riskweight()}, and subject
 identifiers. Probability weights support point estimates and weighted counts,
 but {opt ci} and {opt pvalue} are refused because Greenwood inference and the
 log-rank test are unsupported. Saved standard errors are missing with
@@ -414,6 +604,14 @@ that interpretation is intended.{p_end}
 {pstd}Custom p-value text and coordinates{p_end}
 {phang2}{cmd:. kmplot, by(drug) pvalue pvalueformat(%6.4f) pvaluetext("Log-rank P") pvalueat(.9 10)}{p_end}
 
+{pstd}Competing risks: cumulative incidence of pelvic recurrence with distant
+recurrence as the competing event, on a percent axis, with a masked risk
+table{p_end}
+{phang2}{cmd:. webuse hypoxia, clear}{p_end}
+{phang2}{cmd:. stset dftime, failure(failtype == 1)}{p_end}
+{phang2}{cmd:. kmplot, by(pelnode) byorder(1 0) compete(failtype == 2) ci percent risktable riskmask(5) tmax(8) landmark(5)}{p_end}
+{phang2}{cmd:. matrix list r(landmarks)}{p_end}
+
 {pstd}Delayed entry: age as the time scale, with explicit risk-table timepoints{p_end}
 {phang2}{cmd:. webuse diet, clear}{p_end}
 {phang2}{cmd:. stset dox, failure(fail) origin(time dob) enter(time doe) scale(365.25) id(id)}{p_end}
@@ -440,11 +638,18 @@ that interpretation is intended.{p_end}
 {synopt:{cmd:r(pvalue_y)}}p-value text y coordinate{p_end}
 {synopt:{cmd:r(pvalue_x)}}p-value text x coordinate{p_end}
 {synopt:{cmd:r(median_#)}}median for group {it:#}, when reached{p_end}
+{synopt:{cmd:r(ymax)}}upper limit of the y axis, on the plotted scale{p_end}
+{synopt:{cmd:r(tmax)}}{opt tmax()}, if specified{p_end}
+{synopt:{cmd:r(riskmask)}}masking threshold, when masking is on{p_end}
 
 {p2col 5 16 20 2: Macros}{p_end}
 {synopt:{cmd:r(cmd)}}{cmd:kmplot}{p_end}
 {synopt:{cmd:r(graph_name)}}graph name{p_end}
-{synopt:{cmd:r(plot_type)}}{bf:survival} or {bf:failure}{p_end}
+{synopt:{cmd:r(plot_type)}}{bf:survival} or {bf:failure} ({bf:failure} also with {opt compete()}){p_end}
+{synopt:{cmd:r(estimator)}}{bf:km}, {bf:km_failure}, or {bf:aalen_johansen}{p_end}
+{synopt:{cmd:r(compete)}}the {opt compete()} expression, if specified{p_end}
+{synopt:{cmd:r(scale)}}{bf:proportion} or {bf:percent} (plotted scale){p_end}
+{synopt:{cmd:r(riskweight)}}{bf:none} or {bf:stset}, with {opt risktable} or {opt risksaving()}{p_end}
 {synopt:{cmd:r(scheme)}}graph scheme used{p_end}
 {synopt:{cmd:r(by)}}by-variable name (if specified){p_end}
 {synopt:{cmd:r(cistyle)}}CI style used{p_end}
@@ -469,7 +674,13 @@ that interpretation is intended.{p_end}
 {p2col 5 16 20 2: Matrices}{p_end}
 {synopt:{cmd:r(medians)}}group and median columns{p_end}
 {synopt:{cmd:r(landmarks)}}fixed-time estimate matrix{p_end}
-{synopt:{cmd:r(risktable)}}risk-table count matrix{p_end}
+{synopt:{cmd:r(risktable)}}risk-table count matrix, as displayed (masked cells missing){p_end}
+
+{pstd}
+{cmd:r(ymax)} is the upper limit of the y axis actually drawn: the automatic
+limit or {opt ymax()}; with a user {opt ylabel()}, the largest numeric label
+or the plotted maximum ({opt ymax()} instead of the latter when given),
+whichever is larger.{p_end}
 
 {pstd}
 {cmd:r(median_#)} is stored with {opt median}, for each group {it:#} whose curve
@@ -491,6 +702,20 @@ though {cmd:kmplot} exits with the graph-export error.{p_end}
 {title:References}
 
 {phang}
+Aalen, O. O., and S. Johansen. 1978. An empirical transition matrix for
+non-homogeneous Markov chains based on censored observations.
+{it:Scandinavian Journal of Statistics} 5: 141{c -}150.{p_end}
+
+{phang}
+Choudhury, J. B. 2002. Non-parametric confidence interval estimation for
+competing risks analysis: application to contraceptive data. {it:Statistics in Medicine}
+21: 1129{c -}1140. Cited as given by Coviello and Boggess (2004).{p_end}
+
+{phang}
+Coviello, V., and M. Boggess. 2004. Cumulative incidence estimation in the
+presence of competing risks. {it:Stata Journal} 4: 103{c -}112.{p_end}
+
+{phang}
 Kaplan, E. L., and P. Meier. 1958. Nonparametric estimation from incomplete
 observations. {it:Journal of the American Statistical Association} 53: 457{c -}481. {browse "https://doi.org/10.1080/01621459.1958.10501452":doi:10.1080/01621459.1958.10501452}.{p_end}
 
@@ -498,6 +723,10 @@ observations. {it:Journal of the American Statistical Association} 53: 457{c -}4
 Machado, G. M., M. M. Oliveira, and L. A. F. Fernandes. 2009. A
 physiologically-based model for simulation of color vision
 deficiency. {it:IEEE Transactions on Visualization and Computer Graphics} 15: 1291{c -}1298. {browse "https://doi.org/10.1109/TVCG.2009.113":doi:10.1109/TVCG.2009.113}.{p_end}
+
+{phang}
+Marubini, E., and M. G. Valsecchi. 1995. {it:Analysing Survival Data from Clinical Trials and Observational Studies}.
+Chichester, UK: Wiley. Cited as given by Coviello and Boggess (2004).{p_end}
 
 {phang}
 Okabe, M., and K. Ito. 2008. Color Universal Design (CUD): How to make
@@ -515,7 +744,7 @@ confidence interval, and the log-rank test.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-15{p_end}
+{pstd}Version 1.0.0, 2026-10-20{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

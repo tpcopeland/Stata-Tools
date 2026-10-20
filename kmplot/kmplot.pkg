@@ -1,15 +1,17 @@
 v 3
 d 'KMPLOT': Publication-Ready Kaplan-Meier Plots for Stata
 d
-d Kaplan-Meier survival and cumulative failure plots for stset
-d data, with confidence intervals, number-at-risk tables,
+d Kaplan-Meier survival and cumulative failure plots, and
+d Aalen-Johansen cumulative incidence plots with a competing
+d event, for stset data, with confidence intervals, unweighted
+d and small-count-masked number-at-risk tables,
 d fixed-time summaries, saved datasets, median survival lines,
 d censoring marks, log-rank p-values, and a default Okabe-Ito
 d palette chosen for color-vision deficiency.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261015
+d Distribution-Date: 20261020
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -17,6 +19,8 @@ d
 d KW: Kaplan-Meier
 d KW: survival curves
 d KW: cumulative failure
+d KW: cumulative incidence
+d KW: competing risks
 d KW: risk table
 d KW: publication
 d
@@ -24,3 +28,4 @@ f kmplot.ado
 f kmplot.sthlp
 f _kmplot_risktable.ado
 f _kmplot_times.ado
+f _kmplot_cif.ado

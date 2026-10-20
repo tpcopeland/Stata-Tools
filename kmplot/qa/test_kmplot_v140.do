@@ -186,7 +186,7 @@ capture noisily {
     gen double w = cond(mod(_n, 3) == 0, 1/3, 1)
     quietly stset studytime [pweight=w], failure(died)
     local svg "`c(tmpdir)'/kmplot_v140_pw.svg"
-    kmplot, by(drug) risktable riskevents timepoints(0 10 20) ///
+    kmplot, by(drug) risktable riskevents riskweight(stset) timepoints(0 10 20) ///
         export("`svg'", replace)
     tempname rt
     matrix `rt' = r(risktable)
@@ -357,7 +357,7 @@ capture noisily {
     gen double w = 0.1
     quietly stset t [pweight=w], failure(d)
     local svg "`c(tmpdir)'/kmplot_v140_whole.svg"
-    kmplot, risktable timepoints(0) export("`svg'", replace)
+    kmplot, risktable riskweight(stset) timepoints(0) export("`svg'", replace)
     assert abs(el(r(risktable), 1, 3) - 3) < 1e-12
     _kmplot_assert_file_contains using "`svg'", pattern(">3<")
     _kmplot_assert_file_not_contains using "`svg'", pattern(">3.0<")

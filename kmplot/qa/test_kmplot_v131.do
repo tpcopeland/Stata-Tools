@@ -249,7 +249,7 @@ capture noisily {
     quietly summarize w, meanonly
     scalar expected_weight = r(sum)
     tempfile curve
-    kmplot, risktable timepoints(0) landmark(10) saving("`curve'", replace)
+    kmplot, risktable riskweight(stset) timepoints(0) landmark(10) saving("`curve'", replace)
     assert r(risktable)[1,3] == scalar(expected_weight)
     assert r(N)==48
     preserve
