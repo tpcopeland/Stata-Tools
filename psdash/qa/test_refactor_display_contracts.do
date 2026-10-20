@@ -53,7 +53,11 @@ capture noisily {
     assert strpos(fileread("`pkg_dir'/README.md"), "Demo output is generated from") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), "demo/demo_psdash.do") > 0
     * No embedded console transcripts (curated console markdown was retired)
-    assert strpos(fileread("`pkg_dir'/README.md"), "<summary>") == 0
+    * Version History keeps earlier releases in a collapsed <details> block;
+    * transcripts must not appear anywhere before it.
+    local vh = strpos(fileread("`pkg_dir'/README.md"), char(10) + "## Version History")
+    assert `vh' > 0
+    assert strpos(substr(fileread("`pkg_dir'/README.md"), 1, `vh'), "<summary>") == 0
     assert strpos(fileread("`pkg_dir'/README.md"), "Propensity Score Distribution") == 0
     assert strpos(fileread("`pkg_dir'/README.md"), "Effective Sample Size (ESS)") == 0
     assert strpos(fileread("`pkg_dir'/README.md"), "demo/console_overlap.md") == 0

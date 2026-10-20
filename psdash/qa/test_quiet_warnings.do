@@ -16,7 +16,9 @@ local fail = 0
 local failed ""
 
 tempfile stem
-local logf = subinstr("`stem'", ".", "_", .) + "_qw.log"
+* Append to the tempfile name; rewriting its dots would also rewrite dots in
+* the TMPDIR path (e.g. ~/.cache) and point at a directory that does not exist.
+local logf "`stem'_qw.log"
 
 * Count log lines carrying a warning word.
 capture mata: mata drop _qw_count()

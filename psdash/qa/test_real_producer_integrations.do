@@ -88,7 +88,7 @@ if fileexists("`repo_dir'/msm/msm.pkg") & fileexists("`repo_dir'/msm/msm_example
             treat_n_cov(age sex) nolog
         quietly psdash detect
         assert "`r(source)'" == "msm"
-        assert "`: char _dta[_msm_contract_version]'" == "1.0"
+        assert "`: char _dta[_msm_contract_version]'" == "1.1"
     }
     _rpi_record real_msm_contract `=_rc'
 }

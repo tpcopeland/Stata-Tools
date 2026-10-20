@@ -22,7 +22,11 @@ local failed ""
 
 * graph export needs a .svg suffix; tempfile names carry their own suffix.
 tempfile svgbase
-local svg = subinstr("`svgbase'", ".", "_", .) + ".svg"
+* Rewrite dots in the file name only: graph export reads the suffix from the
+* first dot of the name, while dots in the TMPDIR path (e.g. ~/.cache) must stay.
+local svg_cut = strrpos("`svgbase'", "/")
+local svg = substr("`svgbase'", 1, `svg_cut') + ///
+    subinstr(substr("`svgbase'", `svg_cut' + 1, .), ".", "_", .) + ".svg"
 
 capture mata: mata drop _v180_nongrey() _v180_lines() _v180_nsizes() ///
     _v180_lab() _v180_series_de() _v180_text_maxlen()

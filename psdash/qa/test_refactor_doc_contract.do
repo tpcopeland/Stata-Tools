@@ -65,7 +65,11 @@ capture noisily {
     assert strpos(fileread("`pkg_dir'/README.md"), "demo/overlap_density.png") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), "demo/mg_overlap_density.png") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), "demo/console_overlap.md") == 0
-    assert strpos(fileread("`pkg_dir'/README.md"), "<details>") == 0
+    * Version History keeps earlier releases in a collapsed <details> block;
+    * transcripts must not appear anywhere before it.
+    local vh = strpos(fileread("`pkg_dir'/README.md"), char(10) + "## Version History")
+    assert `vh' > 0
+    assert strpos(substr(fileread("`pkg_dir'/README.md"), 1, `vh'), "<details>") == 0
     assert strpos(fileread("`pkg_dir'/README.md"), "----------------------------------------------------------------------") == 0
 }
 _doc_result "D1" `=_rc'
