@@ -1,4 +1,4 @@
-*! _dataprobe_groupstat Version 1.10.5  2026/10/21
+*! _dataprobe_groupstat Version 1.10.6  2026/10/21
 *! dataprobe groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -44,7 +44,7 @@ program define _dataprobe_groupstat, rclass
             PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) SCOPE(string) ///
             CELLFRAME(name) CELLIDX(integer 0) EXCLuded(string) NPRINT(integer 1) ///
             PROFile(string) PCAT(string) BYVARS(string) MHIDE(string) FHIDE(string) ///
-            PHIDE(string)]
+            PHIDE(string) CAPped]
         local head `"`spec'"'
         local opts ""
         local cp = strpos(`"`spec'"', ",")
@@ -136,7 +136,7 @@ program define _dataprobe_groupstat, rclass
                             scope(`"`macval(scope)'"') cellframe(`cf') cellidx(`si') ///
                             excluded(`excluded') nprint(`nprint') profile(`profile') ///
                             pcat(`pcat') byvars(`byvars') mhide(`mhide') fhide(`fhide') ///
-                            phide(`phide')
+                            phide(`phide') `capped'
                         local _m1 = r(masked)
                         local _f1 = r(nfail)
                         if `_m1' local anymask = 1
@@ -792,10 +792,10 @@ program define _dataprobe_groupstat, rclass
                 if `nsmall' > 0 {
                     local smtxt "groups with fewer than `gmin' rows: `nsmall'"
                     if `mask' > 0 local smtxt "groups with <`gmin' rows: `nsmall'"
-                    if "`cellframe'" == "" {
-                        if `mask' > 0 display as text "  groups with <`gmin' rows: " as result `nsmall'
-                        else display as text "  groups with fewer than `gmin' rows: " as result `nsmall'
-                    }
+                    // dataprobe's linked-count check ran out of budget and
+                    // pooled every group, whatever its size
+                    if `_phon' & "`capped'" != "" local smtxt "groups pooled (the linked-count check ran out of budget): `nsmall'"
+                    if "`cellframe'" == "" display as text `"  `smtxt'"'
                     else if `cellidx' == 1 frame post `cellframe' (0) (0) (`"`smtxt'"')
                 }
 

@@ -233,7 +233,11 @@ ignores case. It does not see through a symbolic link or a mapped drive.
 {opt baseline()} on dataset, family, label, variable, group, scope,
 expectation, and kind, in the same ledger or in {opt baseledger()}. A gate whose bounds
 changed is therefore a different gate: its baseline row is flagged as
-absent. A {cmd:by()} group is matched on its values ({cmd:site=3 year=2015}), so a level added
+absent. Each side contributes the row of the gate that stands, as {cmd:report}
+and {cmd:assert} read it: when a rerun on {bf:(modified)} data could not
+supersede a row of the unmodified data, both stand, and the row with the worst
+status (error, fail, warn, review, pass) is compared, then the unmodified row,
+then the later call. A {cmd:by()} group is matched on its values ({cmd:site=3 year=2015}), so a level added
 between extracts is reported as a new group ({cmd:new}) and every other group still pairs
 with itself. A ledger written before 1.9.0, and a group withheld under {opt maskrare}, record
 the group as its number within the call; two such runs still compare among themselves, but

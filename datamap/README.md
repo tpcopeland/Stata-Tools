@@ -2,9 +2,9 @@
 
 # datamap — Document and check data without exposing it
 
-**Version 1.10.5** | 2026-10-21
+**Version 1.10.6** | 2026-10-21
 
-[![version](https://img.shields.io/badge/version-1.10.5-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.10.6-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -413,6 +413,16 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.10.6 (2026-10-21)
+
+- Fix: `dataprobe, by() maskrare` no longer hangs on outputs with many small groups and linked counts (a 3,000-row profile in 40 groups with `byfreq` and gates ran past 12 minutes in 1.10.5; `auto` `by(foreign) byfreq` past 10). The check that protects linked counts has one budget per call, shared by its repeats and by its linear programs; when the budget runs out before every count is shown safe, every group is pooled, a note says so, and `r(linkaudit_capped)` is 1. Output within the budget is unchanged, and the budget counts work, not time, so the same data and call always give the same output. Change: a few slow outputs that 1.10.5 finished now fall back to the pooled output (`nlsw88` `by(race) byfreq`: 198 s with groups in 1.10.5, 62 s pooled in 1.10.6).
+- Fix: `datamap` and `datadict` with `directory()` refuse a file whose name holds `$`, a backtick, or a double quote, naming it, before writing anything (1.10.5 read `a$b.dta` as `a.dta` and stopped with r(601)); under `recursive` a subdirectory with such a name is refused the same way.
+- Fix: `dataprobe, by() maskrare byfreq` no longer stops with r(3301) when a group's frequency table has one nonempty level that is withheld.
+- Fix: `review()` counts printed per `by()` group under `maskrare` are protected with the other linked counts when the condition's total prints elsewhere (its rows are one level of a profiled variable's frequency table, or a profiled variable's missing rows): two groups printing <5 beside a level count of 8 were each 4. Such a condition's line prints 0 or [suppressed] in a pooled group, as the other gates do; a condition whose total prints nowhere is shown as in 1.10.5.
+- Fix: `datadict` prints values from 1e6 to below 1e15 with every digit (`10,032,845`, not `1.00e+07`), and larger ones in `%21.0g`.
+- Fix: when a rerun on `(modified)` data leaves both its row and a full-data row of the same gate standing, `dataqa compare` reads the row with the worst status (then the unmodified row), so it flags a failure that `report` and `assert` count; it used the later row.
+- Faster, same output (one core, measured against 1.10.5): `dataprobe` builds each `byfreq` variable's group tables from one table, reuses the CONTINUOUS block's summaries under `maskrare`, and does less work per step of the linked-count check (`byfreq` profiles 2-4x faster); `datadict` builds only the columns it prints or saves (default columns 1.6x on 100,000 x 100, 6.6x on 1,000,000 x 20); `datamap ... saving()` writes its metadata from the report pass instead of a second pass (about 2x); `datamvp` computes missing counts, patterns, the monotone test, `bytable()` cells, and `graph(bar)` `gby()`/`over()` cells in one pass (1.8-4x); `dataqa report` counts every dataset in one pass (4-5x with `markdown()`, 10x without, on a 98,000-row ledger); distinct counts of variables with few levels use one `tabulate`.
 
 ### 1.10.5 (2026-10-21)
 

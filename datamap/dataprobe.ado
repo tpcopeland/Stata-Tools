@@ -1,4 +1,4 @@
-*! dataprobe Version 1.10.5  2026/10/21
+*! dataprobe Version 1.10.6  2026/10/21
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1557,6 +1557,8 @@ program define dataprobe, rclass
             }
             if "`fc'" == "continuous" {
                 quietly summarize `v', detail
+                tempname _cs`pj'
+                matrix `_cs`pj'' = (r(mean), r(sd), r(p1), r(p5), r(p10), r(p25), r(p50), r(p75), r(p90), r(p95), r(p99))
                 local cN`pj' = r(N)
                 local cmean`pj' = r(mean)
                 local csd`pj' = r(sd)
@@ -1689,6 +1691,21 @@ program define dataprobe, rclass
         // the pooled groups and the pass is repeated.
         local _pfon = ("`gatesonly'" == "" & `has_groups' & `_xmask' > 0)
         local _aud_go = `_pfon'
+        local _revlk ""
+        if `_pfon' & `n_review' > 0 {
+            local _rvi ""
+            forvalues k = 1/`n_review' {
+                local _rvi "`_rvi' `reviewind`k''"
+            }
+            _dataprobe_revlinks "`_rvi'" "`f_categorical' `f_string'" "`profilevars'"
+        }
+        local _aud_cap = 0
+        local _aud_bud ""
+        // the rows in group order, for the per-group counts of the pass
+        if `_pfon' {
+            tempvar _gord
+            mata: st_store(., st_addvar("long", st_local("_gord")), order(st_data(., st_local("dc_group")), 1))
+        }
         local _aud_tv ""
         while `_aud_go' {
             tempvar _pind
@@ -1705,12 +1722,12 @@ program define dataprobe, rclass
                 local pj : list posof "`v'" in profilevars
                 if "`FC`pj''" == "excluded" continue
                 quietly replace `_pind' = missing(`v')
-                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'" `_gord'
                 local _hm`i' "`r(force)'"
             }
             // incomplete rows over the profile (the header's complete cases)
             quietly replace `_pind' = !`cc'
-            _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+            _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'" `_gord'
             local _hc "`r(force)'"
             // inrange() on a profiled date: the DATE block prints the rows
             // outside the window
@@ -1731,8 +1748,13 @@ program define dataprobe, rclass
                 tempvar _iw`k'
                 quietly generate byte `_iw`k'' = (`_doc') & !missing(`iv')
                 local _aud_tv "`_aud_tv' `_iw`k''"
-                _dataprobe_premask `dc_group' `_iw`k'' `_xmask' "`_hideg'"
+                _dataprobe_premask `dc_group' `_iw`k'' `_xmask' "`_hideg'" `_gord'
                 local _hi`k' "`r(force)'"
+            }
+            // review() conditions whose total prints elsewhere
+            foreach k of local _revlk {
+                _dataprobe_premask `dc_group' `reviewind`k'' `_xmask' "`_hideg'" `_gord'
+                local _hr`k' "`r(force)'"
             }
             // value domains and binary() of a variable with a frequency
             // table: a level's count, or a sum of them
@@ -1743,7 +1765,7 @@ program define dataprobe, rclass
                     local av "``_vg'_var`k''"
                     if !`: list av in f_categorical' & !`: list av in f_string' continue
                     local _hvon_`_vg'`k' = 1
-                    _dataprobe_premask `dc_group' `_vhit_`_vg'`k'' `_xmask' "`_hideg'"
+                    _dataprobe_premask `dc_group' `_vhit_`_vg'`k'' `_xmask' "`_hideg'" `_gord'
                     local _hv_`_vg'`k' "`r(force)'"
                 }
             }
@@ -1753,7 +1775,7 @@ program define dataprobe, rclass
                 local _hb`j' ""
                 if !`: list bv in f_categorical' continue
                 quietly replace `_pind' = !missing(`bv') & !inlist(`bv', 0, 1)
-                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'" `_gord'
                 local _hb`j' "`r(force)'"
             }
             // stat(sum) of a 0/1 variable is the count of its ones
@@ -1767,7 +1789,7 @@ program define dataprobe, rclass
                 if r(N) > 0 continue
                 local _hss`k' = 1
                 quietly replace `_pind' = (`sv' == 1)
-                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'"
+                _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'" `_gord'
                 local _hs`k' "`r(force)'"
             }
 
@@ -1920,6 +1942,9 @@ program define dataprobe, rclass
             forvalues k = 1/`n_inr' {
                 if "`_iw`k''" != "" local _asp "`_asp';C|`inr_var`k''|`_iw`k''|cgw|`_hi`k''"
             }
+            foreach k of local _revlk {
+                local _asp "`_asp';C|`reviewind`k''|`reviewind`k''|cgw|`_hr`k''"
+            }
             foreach _vg in allowed forbid notvalues {
                 forvalues k = 1/`n_`_vg'' {
                     if `_hvon_`_vg'`k'' local _asp "`_asp';C|``_vg'_var`k''|`_vhit_`_vg'`k''|cg|`_hv_`_vg'`k''"
@@ -1939,12 +1964,13 @@ program define dataprobe, rclass
                     local _asp "`_asp';F|`v'|`_bffv`i''||"
                 }
             }
-            _dataprobe_linkaudit, grp(`dc_group') mask(`_xmask') cell(`_maskcell') ///
-                rare(`rare') maxfreq(`maxfreq') pooled(`_hideg') spec(`"`_asp'"') `patterns'
-            local _aud_go = ("`r(add)'" != "")
+            // a capped audit pooled every group: this pass rebuilt the
+            // withheld lists for that set, and nothing is left to audit
+            if `_aud_cap' local _aud_go = 0
+            else _dataprobe_audpass `dc_group', mask(`_xmask') cell(`_maskcell') ///
+                rare(`rare') maxfreq(`maxfreq') pooled(`_hideg') spec(`"`_asp'"') ///
+                budget(`_aud_bud') `patterns'
             if `_aud_go' {
-                _dataprobe_poolfill `dc_group', mask(`_xmask') pooled(`_hideg' `r(add)')
-                local _hideg "`r(pooled)'"
                 capture drop `_aud_tv'
                 local _aud_tv ""
             }
@@ -1965,6 +1991,7 @@ program define dataprobe, rclass
                 as result "`nv'" as text " variables profiled" ///
                 as text "  (complete cases: " as result "`_ccs'" ///
                 as text " = " as result "`_ccp'" as text ")"
+            if `_aud_cap' _dataprobe_capnote, `byfreq'
         }
 
         // ---- QUICK REFERENCE ----
@@ -2046,15 +2073,13 @@ program define dataprobe, rclass
                 else {
                     // maskrare: p1/p99 replace min/max; each statistic is
                     // shown only when enough observations lie on both sides.
-                    quietly summarize `v', detail
+                    mata: st_local("_qsh", _dataprobe_qshowv(st_local("v"), `_xmask', st_matrix(st_local("_cs`pj'"))))
+                    local _c = 0
                     foreach _st in mean sd p1 p5 p10 p25 p50 p75 p90 p95 p99 {
+                        local ++_c
                         tempname _q`_st'
-                        if "`_st'" == "mean" scalar `_q`_st'' = r(mean)
-                        else if "`_st'" == "sd" scalar `_q`_st'' = r(sd)
-                        else scalar `_q`_st'' = r(`_st')
-                    }
-                    foreach _st in mean sd p1 p5 p10 p25 p50 p75 p90 p95 p99 {
-                        _dataprobe_qshow `v', value(`_q`_st'') mask(`_xmask') stat(`_st')
+                        scalar `_q`_st'' = `_cs`pj''[1, `_c']
+                        _dataprobe_qshow `v', value(`_q`_st'') mask(`_xmask') stat(`_st') known(`: word `_c' of `_qsh'')
                         local _qs`_st' `"`r(s)'"'
                     }
                     _dataprobe_mshare `cN`pj'' `nobs' `_xmask'
@@ -2300,6 +2325,8 @@ program define dataprobe, rclass
         local _pooledg ""
         if "`gatesonly'" == "" & `has_groups' & `_xmask' local _pooledg "`_hideg'"
         local _npooledg : word count `_pooledg'
+        local _pgtxt "groups pooled (each <`_xmask' rows, or pooled with them): "
+        if `_aud_cap' local _pgtxt "groups pooled (the linked-count check ran out of budget): "
 
         // ---- GROUPWISE SUMMARY ----
         if "`gatesonly'" == "" & `has_groups' & (!`showflagged' | `n_group_missing_vars' > 0) {
@@ -2345,8 +2372,7 @@ program define dataprobe, rclass
                     as result %9.0f `gmissct'
             }
             if `_npooledg' > 0 {
-                display as text "  groups pooled (each <`_xmask' rows, or pooled with them): " ///
-                    as result `_npooledg'
+                display as text "  `_pgtxt'" as result `_npooledg'
                 local _pmasked = 1
             }
         }
@@ -2380,8 +2406,7 @@ program define dataprobe, rclass
                 }
             }
             if `_npooledg' > 0 {
-                display as text "  groups pooled (each <`_xmask' rows, or pooled with them): " ///
-                    as result `_npooledg'
+                display as text "  `_pgtxt'" as result `_npooledg'
             }
         }
 
@@ -2406,19 +2431,21 @@ program define dataprobe, rclass
                     _dataprobe_bfforce `v' `dc_group' `maxfreq' `_maskcell' ///
                         `"`_pooledg'"' `_bff'
                 }
+                tempname _bfq
+                _dataprobe_freqprep `v' `dc_group' `_bfq' `_bff'
                 foreach gg of local group_levels {
                     if `: list gg in _pooledg' continue
                     mata: st_local("_gl", _dataprobe_dshow(st_local("group_label`gg'"), 0))
                     display as text "    by group " as result `"`macval(_gl)'"' as text ":"
                     local _fqmask 0
-                    _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' `"`dc_group' == `gg'"' "      " `_bff'
+                    _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "      " "`_bff'" "`_bfq' `_bfqf' `_bfl`gg'' `_bfh`gg''"
                     if "`_fqmask'" == "1" local _pmasked = 1
                 }
+                capture frame drop `_bfq'
                 if "`_bff'" != "" & !`_pfon' capture drop `_bff'
             }
             if `_npooledg' > 0 {
-                display as text "  groups pooled (each <`_xmask' rows, or pooled with them): " ///
-                    as result `_npooledg'
+                display as text "  `_pgtxt'" as result `_npooledg'
                 local _pmasked = 1
             }
         }
@@ -3056,6 +3083,14 @@ program define dataprobe, rclass
                 local onum = r(num)
                 local om = r(masked)
                 local mins = cond(`om' | `nr' < 1, ., `nr')
+                // as inrange(): a count the linked-count check withholds,
+                // and any nonzero count of a pooled group
+                if `_pfx' & `: list k in _revlk' & ((`: list _sgg in _hr`k'' & !`om') | (`_hz' & `nr' >= 1)) {
+                    local rc_ "[suppressed]"
+                    local onum = .
+                    local om = 1
+                    local mins = .
+                }
                 if !`_rev_hdr' {
                     display ""
                     display as text "REVIEW"
@@ -3157,6 +3192,7 @@ program define dataprobe, rclass
                     quietly replace `_phv' = 1 if `dc_group' == `gg'
                 }
                 local _gsopt `"`_gsopt' byvars(`byvars') mhide(`_gsmh') fhide(`_gsfh') phide(`_phv')"'
+                if `_aud_cap' local _gsopt `"`_gsopt' capped"'
             }
         }
         forvalues k = 1/`nf_groupstat' {
@@ -3644,6 +3680,7 @@ program define dataprobe, rclass
         return scalar mincell        = `mincell'
         return scalar maskrare       = ("`maskrare'" != "")
         return scalar masked         = (`_anymasked' | `_pmasked')
+        if `_pfon' return scalar linkaudit_capped = `_aud_cap'
         if !`_fast' {
             return scalar complete_cases = `n_complete'
             return scalar complete_pct   = `pct_complete'
@@ -4059,7 +4096,173 @@ capture mata: mata drop _dataprobe_dshow()
 capture mata: mata drop _dataprobe_unwrap()
 capture mata: mata drop _datamap_nomask_explicit()
 capture mata: mata drop _dataprobe_valscalar()
+capture mata: mata drop _dataprobe_frng()
+capture mata: mata drop _dataprobe_bfjoin()
+capture mata: mata drop _dataprobe_revlink()
+capture mata: mata drop _dataprobe_pmcount()
+capture mata: mata drop _dataprobe_qshowv()
 mata:
+// _dataprobe_premask's per-group counts into new frame fr: group, rows
+// with ind == 1 (k1), rows (one); local tot = all rows with ind == 1.
+// ord is a permutation sorting grp; recomputed when it no longer does.
+void _dataprobe_pmcount(string scalar grp, string scalar ind, string scalar ord,
+	string scalar fr, string scalar k1, string scalar one)
+{
+	real colvector g, o, x
+	real matrix info
+	real scalar n
+	string scalar cur
+	g = st_data(., grp)
+	n = rows(g)
+	o = J(0, 1, .)
+	if (ord != "") {
+		o = st_data(., ord)
+		if (max(o) > n | min(o) < 1) o = J(0, 1, .)
+		else if (n > 1) {
+			if (any(g[o[|2 \ n|], 1] :< g[o[|1 \ n - 1|], 1])) o = J(0, 1, .)
+		}
+	}
+	if (rows(o) != n) o = order(g, 1)
+	g = g[o, 1]
+	x = (st_data(., ind) :== 1)[o, 1]
+	info = panelsetup(g, 1)
+	st_local("tot", strofreal(sum(x), "%20.0f"))
+	cur = st_framecurrent()
+	st_framecreate(fr)
+	st_framecurrent(fr)
+	st_addobs(rows(info))
+	(void) st_addvar("double", (grp, k1, one))
+	st_store(., (grp, k1, one), (g[info[., 1], 1], panelsum(x, info), info[., 2] - info[., 1] :+ 1))
+	st_framecurrent(cur)
+}
+
+// _dataprobe_qshow's mask test for the values q of v (mean, sd, p1 ...
+// p99 of the CONTINUOUS block), all rows: "1" shown, "0" suppressed
+string scalar _dataprobe_qshowv(string scalar v, real scalar m, real rowvector q)
+{
+	real matrix x, y
+	real rowvector sh
+	real scalar k, n, lo, hi, nlo, nhi
+	// length(), not rows(): select() on one row can give 1 x 0
+	x = st_data(., v)
+	x = select(x, x :< .)
+	n = length(x)
+	sh = J(1, cols(q), 1)
+	if (m <= 0) return(invtokens(strofreal(sh)))
+	for (k = 1; k <= cols(q); k++) {
+		if (q[k] >= .) continue
+		if (k == 2) {
+			if (n < m) sh[k] = 0
+			else {
+				lo = min(x)
+				hi = max(x)
+				nlo = sum(x :== lo)
+				nhi = sum(x :== hi)
+				if (lo < hi & nlo + nhi == n & (nlo < m | nhi < m)) sh[k] = 0
+				else if (lo < hi) {
+					y = select(x, (x :> lo) :& (x :< hi))
+					if (length(y) > 0) {
+						if (min(y) == max(y) & nlo + nhi + length(y) == n &
+							(nlo < m | nhi < m | length(y) < m)) sh[k] = 0
+					}
+				}
+			}
+		}
+		else {
+			if (sum(x :<= q[k]) < m) sh[k] = 0
+			if (sum(x :>= q[k]) < m) sh[k] = 0
+		}
+	}
+	return(invtokens(strofreal(sh)))
+}
+
+// _dataprobe_bfforce: newvar = the flag sv of the row's (v, g) cell in frame
+// fr (one row per cell present in the data); local _bfj_ok 0 when the
+// cells do not match the data's runs one to one (newvar not created)
+void _dataprobe_bfjoin(string scalar v, string scalar g, string scalar fr,
+	string scalar sv)
+{
+	real matrix X, C
+	real colvector o, oc, sup, st, res, fi
+	real scalar n
+	string scalar cur
+	X = st_data(., (v, g))
+	n = rows(X)
+	if (n == 0) return
+	o = order(X, (1, 2))
+	X = X[o, .]
+	// the first row of each (v, g) run
+	st = J(n, 1, 1)
+	if (n > 1) st[|2 \ n|] = (rowsum(X[|2, 1 \ n, 2|] :!= X[|1, 1 \ n - 1, 2|]) :> 0)
+	fi = selectindex(st)
+	cur = st_framecurrent()
+	st_framecurrent(fr)
+	C = st_data(., (v, g))
+	sup = st_data(., sv)
+	st_framecurrent(cur)
+	oc = order(C, (1, 2))
+	C = C[oc, .]
+	// two subscripts throughout: a 1 x 1 indexed by one column vector
+	// comes back as a row (one cell, one row)
+	sup = sup[oc, 1]
+	if (length(fi) != rows(C)) return
+	if (any(X[fi, .] :!= C)) return
+	res = J(n, 1, .)
+	res[o, 1] = sup[runningsum(st), 1]
+	st_store(., st_addvar("byte", sv), res)
+	st_local("_bfj_ok", "1")
+}
+
+// 1 when the rows where indicator ind is 1 are exactly the rows of one
+// value of a variable in lv (a level of a frequency table, whose count
+// prints) or exactly the missing rows of a variable in mv (its missing
+// count prints); 0 otherwise (the count of ind prints nowhere else)
+real scalar _dataprobe_revlink(string scalar ind, string scalar lv, string scalar mv)
+{
+	real colvector r, x, sel
+	string colvector sx
+	string rowvector L, Mv
+	real scalar j, n
+	r = st_data(., ind)
+	sel = selectindex(r :== 1)
+	n = length(sel)
+	if (n == 0) return(0)
+	sel = vec(sel)
+	L = tokens(lv)
+	for (j = 1; j <= cols(L); j++) {
+		if (st_isstrvar(L[j])) {
+			sx = st_sdata(., L[j])
+			if (all(sx[sel, 1] :== sx[sel[1], 1])) {
+				if (sum(sx :== sx[sel[1], 1]) == n) return(1)
+			}
+		}
+		else {
+			x = st_data(., L[j])
+			if (all(x[sel, 1] :== x[sel[1], 1])) {
+				if (sum(x :== x[sel[1], 1]) == n) return(1)
+			}
+		}
+	}
+	Mv = tokens(mv)
+	for (j = 1; j <= cols(Mv); j++) {
+		if (st_isstrvar(Mv[j])) {
+			if (all((st_sdata(., Mv[j]) :== "") :== (r :== 1))) return(1)
+		}
+		else if (all((st_data(., Mv[j]) :>= .) :== (r :== 1))) return(1)
+	}
+	return(0)
+}
+
+// "g lo hi ..." for the runs of the (sorted) group variable g
+string scalar _dataprobe_frng(string scalar g)
+{
+	real colvector x
+	real matrix info
+	x = st_data(., g)
+	info = panelsetup(x, 1)
+	return(invtokens(strofreal(vec((x[info[., 1], 1], info)'), "%12.0f")'))
+}
+
 // String scalar sc from the caller's local src with one wrapping pair of
 // double quotes removed (a value written "a" inside a quoted list).
 void _dataprobe_valscalar(string scalar src, string scalar sc)
@@ -4188,7 +4391,7 @@ program define _dataprobe_freq, nclass
         // variable, constant within a level, marking cells withheld by the
         // caller (byfreq's pooled-remainder test).  The caller's local
         // _fqmask is set to 1 when a cell printed as [suppressed].
-        args v maxfreq rare maskcell cond ind force
+        args v maxfreq rare maskcell cond ind force src
         if "`maskcell'" == "" local maskcell = 0
         if `"`ind'"' == "" local ind "    "
         // Display-only: under quietly, as-error segments would still print.
@@ -4197,12 +4400,18 @@ program define _dataprobe_freq, nclass
             exit
         }
         tempvar freq sup grp rk
-        if `"`cond'"' == "" frame put `v' `force', into(`fr')
+        if `"`src'"' != "" {
+            // one group's rows of the grouped table (_dataprobe_freqprep)
+            tokenize `"`src'"'
+            frame `1': frame put `v' `force' `2' in `3'/`4', into(`fr')
+        }
+        else if `"`cond'"' == "" frame put `v' `force', into(`fr')
         else frame put `v' `force' if `cond', into(`fr')
         local _frame_open = 1
         local _anysup = 0
         frame `fr' {
-            quietly contract `v' `force', freq(`freq')
+            if `"`src'"' != "" rename `2' `freq'
+            else quietly contract `v' `force', freq(`freq')
             quietly count
             local nlev = r(N)
             quietly summarize `freq'
@@ -4268,6 +4477,34 @@ program define _dataprobe_freq, nclass
 
 end
 
+capture program drop _dataprobe_freqprep
+program define _dataprobe_freqprep
+    // byfreq: the (level, group[, force]) frequencies of v in one contract,
+    // sorted by group, count (descending) and level, into frame fr.  The
+    // caller's locals _bfqf (the count variable) and _bfl<g>/_bfh<g> (the
+    // first and last row of group g) address each group's table.  Display
+    // only: nothing is built under quietly, where _dataprobe_freq exits.
+    version 16.0
+    args v grp fr force
+    if !c(noisily) exit
+    local f "_dpfreq"
+    if "`v'" == "`f'" local f "_dpfreq2"
+    frame put `v' `grp' `force', into(`fr')
+    frame `fr' {
+        quietly contract `v' `grp' `force', freq(`f')
+        gsort `grp' -`f' `v'
+        mata: st_local("_rng", _dataprobe_frng(st_local("grp")))
+    }
+    c_local _bfqf `f'
+    while `"`_rng'"' != "" {
+        gettoken g _rng : _rng
+        gettoken lo _rng : _rng
+        gettoken hi _rng : _rng
+        c_local _bfl`g' `lo'
+        c_local _bfh`g' `hi'
+    }
+end
+
 capture program drop _dataprobe_freqsup
 local _drop_freqsup_rc = _rc
 program define _dataprobe_freqsup, nclass
@@ -4318,18 +4555,15 @@ program define _dataprobe_premask, rclass
     // When rem is 0, crem is the pooled-away groups' size, printed anyway.
     // r(force) lists the groups withheld.
     version 16.0
-    args grp ind m pooled
+    args grp ind m pooled ord
     tempname fr
     tempvar one k1
     local force ""
-    frame put `grp' `ind', into(`fr')
     capture noisily {
+        // per-group counts of ind == 1 (k1) and rows (one), one row per
+        // group in group order, built in Mata from the group permutation
+        mata: _dataprobe_pmcount("`grp'", "`ind'", "`ord'", "`fr'", "`k1'", "`one'")
         frame `fr' {
-            quietly generate byte `k1' = (`ind' == 1)
-            quietly count if `k1' == 1
-            local tot = r(N)
-            quietly generate byte `one' = 1
-            quietly collapse (sum) `k1' `one', by(`grp')
             local exact ""
             local rem = `tot'
             local nm = 0
@@ -4456,11 +4690,19 @@ program define _dataprobe_bfforce, nclass
             assert r(N) > 0 & r(N) < .
             quietly rename `sup' `newvar'
         }
-        tempvar lk
-        quietly frlink m:1 `v' `grp', frame(`bf') generate(`lk')
-        quietly frget `newvar' = `newvar', from(`lk')
-        quietly replace `newvar' = 0 if missing(`newvar')
-        quietly drop `lk'
+        // the cells' flags onto their rows: a numeric level by sorting
+        // the rows by (level, group) in Mata, run i being cell i of the
+        // contracted table; a string level by frlink
+        local _bfj_ok = 0
+        capture confirm numeric variable `v'
+        if !_rc mata: _dataprobe_bfjoin("`v'", "`grp'", "`bf'", "`newvar'")
+        if !`_bfj_ok' {
+            tempvar lk
+            quietly frlink m:1 `v' `grp', frame(`bf') generate(`lk')
+            quietly frget `newvar' = `newvar', from(`lk')
+            quietly replace `newvar' = 0 if missing(`newvar')
+            quietly drop `lk'
+        }
     }
     local rc = _rc
     capture frame drop `bf'
@@ -4567,6 +4809,75 @@ program define _dataprobe_poolfill, rclass
     return local pooled "`_dpa_out'"
 end
 
+capture program drop _dataprobe_audpass
+program define _dataprobe_audpass
+    // One pass of the linked-count audit (_dataprobe_linkaudit) for the
+    // dataprobe caller.  The twin search has one budget of tries per
+    // dataprobe call, shared by every pass (a frequency table of L levels
+    // re-ranked costs floor(L/512) tries more, a linear program the cube
+    // of its size over 6,000): budget() is what is left
+    // (empty: the first pass), and the caller's local _aud_bud gets the
+    // rest back.  A group the audit names joins the pooled groups
+    // (_dataprobe_poolfill, into the caller's local _hideg) and _aud_go
+    // asks for another pass.  When the budget runs out before every count
+    // is proven safe (r(capped)), an unproven count may be a leak and a
+    // partial pooling cannot be re-checked without more budget, so every
+    // group is pooled (_aud_cap = 1): no group's audited count prints.
+    // Tries, not time: the output must not depend on the machine's load.
+    version 16.0
+    syntax varname, MASK(integer) SPEC(string) [CELL(integer 0) ///
+        RARE(integer 0) MAXFREQ(integer 0) POOLED(string) BUDGET(string) PATterns]
+    if "`budget'" == "" local budget = 4000000
+    _dataprobe_linkaudit, grp(`varlist') mask(`mask') cell(`cell') rare(`rare') ///
+        maxfreq(`maxfreq') pooled(`pooled') spec(`"`spec'"') budget(`budget') `patterns'
+    local add "`r(add)'"
+    local cap = r(capped)
+    c_local _aud_bud = `budget' - r(used)
+    if `cap' {
+        // 1..G built in Mata: numlist stops with r(123) past ~2,500 groups
+        quietly summarize `varlist', meanonly
+        mata: st_local("add", invtokens(strofreal(1..`r(max)', "%12.0f")))
+    }
+    c_local _aud_cap = `cap'
+    c_local _aud_go = ("`add'" != "")
+    if "`add'" != "" {
+        _dataprobe_poolfill `varlist', mask(`mask') pooled(`pooled' `add')
+        c_local _hideg "`r(pooled)'"
+    }
+end
+
+capture program drop _dataprobe_capnote
+program define _dataprobe_capnote
+    // the note for a capped linked-count audit (_dataprobe_audpass), with
+    // the remedies the call's options allow
+    version 16.0
+    syntax [, BYFREQ]
+    local how "fewer profiled variables or per-group gates, or no maskrare"
+    if "`byfreq'" != "" local how "no byfreq (or no identifiers and other high-cardinality strings in the profile), fewer profiled variables, or no maskrare"
+    display as text "  note: the linked-count audit ran out of budget, so every by() group is pooled;" ///
+        " `how' avoid this"
+end
+
+capture program drop _dataprobe_revlinks
+program define _dataprobe_revlinks
+    // the review() conditions whose overall count prints elsewhere: the
+    // rows of one level of a profiled categorical or string variable
+    // (its frequency table), or the missing rows of a profiled variable;
+    // only those join the linked-count check.  A condition whose count
+    // prints nowhere else has per-group counts that bound nothing.
+    // Caller's local _revlk: their indexes.
+    version 16.0
+    args inds lv mv
+    local out ""
+    local k = 0
+    foreach ind of local inds {
+        local ++k
+        mata: st_local("_rl", strofreal(_dataprobe_revlink(st_local("ind"), st_local("lv"), st_local("mv"))))
+        if `_rl' local out "`out' `k'"
+    }
+    c_local _revlk "`out'"
+end
+
 capture program drop _dataprobe_linkaudit
 local _drop_linkaudit_rc = _rc
 program define _dataprobe_linkaudit, rclass
@@ -4612,6 +4923,8 @@ program define _dataprobe_linkaudit, rclass
     local nfail = 0
     local resid = 0
     local fails ""
+    local used = 0
+    local capped = 0
     capture noisily {
         syntax , GRP(varname) MASK(integer) SPEC(string) [CELL(integer 0) ///
             RARE(integer 0) MAXFREQ(integer 0) POOLED(string) PATterns ///
@@ -4632,6 +4945,8 @@ program define _dataprobe_linkaudit, rclass
             local nfail = `_dpa_nfail'
             local resid = `_dpa_resid'
             local fails "`_dpa_fails'"
+            local used = `_dpa_used'
+            local capped = `_dpa_capped'
         }
     }
     local rc = _rc
@@ -4642,6 +4957,8 @@ program define _dataprobe_linkaudit, rclass
     return scalar nsens = `nsens'
     return scalar nfail = `nfail'
     return scalar resid = `resid'
+    return scalar used = `used'
+    return scalar capped = `capped'
 end
 
 capture mata: mata drop _dpa_run()
@@ -4651,12 +4968,14 @@ capture mata: mata drop _dpa_okI()
 capture mata: mata drop _dpa_inest()
 capture mata: mata drop _dpa_rankok()
 capture mata: mata drop _dpa_tabtext()
-capture mata: mata drop _dpa_rankok0()
+capture mata: mata drop _dpa_rankok1()
+capture mata: mata drop _dpa_rankokp()
 capture mata: mata drop _dpa_lpbuild()
 capture mata: mata drop _dpa_lpexpr()
 capture mata: mata drop _dpa_lp()
 capture mata: mata drop _dpa_move()
 capture mata: mata drop _dpa_moves()
+capture mata: mata drop _dpa_maff()
 capture mata: mata drop _dpa_try()
 capture mata: mata drop _dpa_ishift()
 capture mata: mata drop _dpa_wit()
@@ -4671,6 +4990,8 @@ struct _dpa_st {
 	pointer(real colvector) colvector code, missmap, vals
 	real colvector L, hasF, lev
 	pointer(real rowvector) colvector setsof, setvars, affq
+	pointer(real matrix) colvector AQI, TCS, TTP
+	pointer(real rowvector) matrix TTG
 	real matrix rowmiss, MM, IS, NEST
 	pointer(real matrix) colvector TCODE, POS, ORD, STAT, SUP
 	pointer(real rowvector) colvector PCLO, PCHI
@@ -4766,9 +5087,11 @@ real rowvector _dpa_tabtext(real rowvector cnt, real rowvector force, real scala
 	real scalar np, p, pn, ps, k
 	real colvector w, o, sup, rk, pool, cand
 	real rowvector txt
+	// length(), not rows(): selectindex() of a 1 x 1 false is 1 x 0
 	w = selectindex(cnt' :> 0)
-	np = rows(w)
+	np = length(w)
 	if (np == 0) return(0)
+	w = vec(w)
 	o = order((-cnt[w]', w), (1, 2))
 	w = w[o]
 	sup = (force[w]' :> 0)
@@ -4781,8 +5104,8 @@ real rowvector _dpa_tabtext(real rowvector cnt, real rowvector force, real scala
 			ps = sum(cnt[w]' :* pool)
 			if (pn >= 2 & ps >= cell) break
 			cand = selectindex((!sup) :& (rk :<= maxf))
-			if (rows(cand) == 0) break
-			sup[cand[rows(cand)]] = 1
+			if (length(cand) == 0) break
+			sup[cand[length(cand)]] = 1
 		}
 	}
 	k = min((np, maxf))
@@ -4800,17 +5123,30 @@ real rowvector _dpa_tabtext(real rowvector cnt, real rowvector force, real scala
 real scalar _dpa_rankok(struct _dpa_st scalar S, real scalar j, real scalar g,
 	real rowvector cnt)
 {
-	return(_dpa_rankok0((*S.TCODE[j])[g, .], cnt, (*S.SUP[j])[g, .], S))
+	if (any(cnt :< 0)) return(0)
+	// re-ranking a table costs about one try per 512 of its levels: the
+	// budget then bounds the time of a wide (high-cardinality) table too
+	S.used = S.used + floor(S.L[j] / 512)
+	if (S.TTG[j, g] == NULL) S.TTG[j, g] = &(_dpa_tabtext((*S.TCODE[j])[g, .],
+		(*S.SUP[j])[g, .], S.cell, S.rare, S.maxf))
+	return(_dpa_rankok1(*S.TTG[j, g], cnt, (*S.SUP[j])[g, .], S))
 }
 
-// a table at counts c0 and at counts c1 (cells flagged in sup withheld)
-// prints the same rows
-real scalar _dpa_rankok0(real rowvector c0, real rowvector c1, real rowvector sup,
+// the same for the pooled table of variable j (no cell withheld)
+real scalar _dpa_rankokp(struct _dpa_st scalar S, real scalar j, real rowvector cnt)
+{
+	if (any(cnt :< 0)) return(0)
+	S.used = S.used + floor(S.L[j] / 512)
+	if (S.TTP[j] == NULL) S.TTP[j] = &(_dpa_tabtext(*S.TCS[j], J(1, S.L[j], 0),
+		S.cell, S.rare, S.maxf))
+	return(_dpa_rankok1(*S.TTP[j], cnt, J(1, S.L[j], 0), S))
+}
+
+// a table whose printed rows are t0 prints the same rows at counts c1
+real scalar _dpa_rankok1(real rowvector t0, real rowvector c1, real rowvector sup,
 	struct _dpa_st scalar S)
 {
-	real rowvector t0, t1
-	if (any(c1 :< 0)) return(0)
-	t0 = _dpa_tabtext(c0, sup, S.cell, S.rare, S.maxf)
+	real rowvector t1
 	t1 = _dpa_tabtext(c1, sup, S.cell, S.rare, S.maxf)
 	if (cols(t0) != cols(t1)) return(0)
 	return(all(t0 :== t1))
@@ -4851,6 +5187,24 @@ real scalar _dpa_ishift(struct _dpa_st scalar S, real scalar g, real rowvector M
 	return(1)
 }
 
+// the positions in affq[j] of the quantities that count a code dc moves
+// (ascending; the others have dc * qmap = 0), and nz, those codes.  The
+// sums over nz equal dc * qmap exactly: whole numbers, the rest zeros.
+real matrix _dpa_maff(struct _dpa_st scalar S, real scalar j, real rowvector dc,
+	real matrix nz)
+{
+	real matrix QI
+	real colvector sel
+	real scalar u
+	nz = selectindex(dc :!= 0)
+	QI = *S.AQI[j]
+	if (rows(QI) == 0 | length(nz) == 0) return(J(0, 1, .))
+	sel = J(rows(QI), 1, 0)
+	for (u = 1; u <= length(nz); u++) sel = sel :| (QI[., 1] :== nz[u])
+	if (!any(sel)) return(J(0, 1, .))
+	return(uniqrows(select(QI[., 2], sel)))
+}
+
 // unit moves between codes, one per row of MV (group, variable, from,
 // to): 1 when every class each touched group prints, its tables' rows,
 // its incomplete counts and every total over all rows hold.  A set's
@@ -4862,8 +5216,9 @@ real scalar _dpa_ishift(struct _dpa_st scalar S, real scalar g, real rowvector M
 real scalar _dpa_moves(struct _dpa_st scalar S, real matrix MV, real scalar a,
 	real scalar qs, real scalar iopt, real scalar dq, real scalar dqp)
 {
-	real scalar h, i, k, g, j, q, d, s, tot, c, cc, lo, hi, jj, ok, L, nh, hc, nt, ss
+	real scalar h, i, k, g, j, q, d, s, tot, c, cc, lo, hi, jj, ok, L, nh, hc, nt, ss, ia, iz
 	real rowvector aq, M, I, dI, dIsum, dc, cnt, gs, js, vs, Mc, Ic
+	real matrix af, nz
 	real matrix GM, GI, TCo
 	gs = uniqrows(MV[., 1])'
 	js = uniqrows(MV[., 2])'
@@ -4893,9 +5248,12 @@ real scalar _dpa_moves(struct _dpa_st scalar S, real matrix MV, real scalar a,
 			cnt = TCo[g, .] + dc
 			if (any(cnt :< 0)) return(0)
 			aq = *S.affq[j]
-			for (i = 1; i <= cols(aq); i++) {
+			af = _dpa_maff(S, j, dc, nz)
+			for (ia = 1; ia <= rows(af); ia++) {
+				i = af[ia]
 				q = aq[i]
-				d = dc * (*S.qmap[q])
+				d = 0
+				for (iz = 1; iz <= length(nz); iz++) d = d + dc[nz[iz]] * (*S.qmap[q])[nz[iz]]
 				if (d == 0) continue
 				if (!_dpa_okq(S, q, g, S.K[g, q] + d)) return(0)
 				if (q == qs) {
@@ -4957,17 +5315,19 @@ real scalar _dpa_moves(struct _dpa_st scalar S, real matrix MV, real scalar a,
 		}
 		if (all(dc :== 0)) continue
 		aq = *S.affq[j]
-		for (i = 1; i <= cols(aq); i++) {
+		af = _dpa_maff(S, j, dc, nz)
+		for (ia = 1; ia <= rows(af); ia++) {
+			i = af[ia]
 			q = aq[i]
-			d = dc * (*S.qmap[q])
+			d = 0
+			for (iz = 1; iz <= length(nz); iz++) d = d + dc[nz[iz]] * (*S.qmap[q])[nz[iz]]
 			if (d == 0) continue
 			tot = S.T[q] + d
 			if (tot < S.PLO[q] | tot > S.PHI[q]) return(0)
 		}
 		// the pooled frequency table of a variable read by its levels
 		if (S.lev[j]) {
-			cnt = colsum(TCo)
-			if (!_dpa_rankok0(cnt, cnt + dc, J(1, L, 0), S)) return(0)
+			if (!_dpa_rankokp(S, j, *S.TCS[j] + dc)) return(0)
 		}
 	}
 	for (s = 1; s <= S.ns; s++) {
@@ -5043,10 +5403,11 @@ real scalar _dpa_try(struct _dpa_st scalar S, real matrix MV, real scalar a,
 // stay), and an incomplete count moved with its bounds
 real scalar _dpa_wit(struct _dpa_st scalar S, real scalar qs, real scalar a, real scalar mode)
 {
-	real scalar ji, j, b, b2, c1, c2, c3, L, w, d1, d2, io, isI
+	real scalar ji, j, b, b2, c1, c2, c3, L, w, d1, d2, io, isI, dj, i1, i2, i3, lastv
 	real rowvector js, ws
 	real colvector mp, mw
-	real matrix TCo, TCw
+	real matrix TCo, TCw, D1, D2
+	pointer colvector NZ
 	isI = (S.qkind[qs] == 3)
 	if (isI) {
 		if (_dpa_witI(S, qs, a, mode)) return(1)
@@ -5058,21 +5419,40 @@ real scalar _dpa_wit(struct _dpa_st scalar S, real scalar qs, real scalar a, rea
 		TCo = *S.TCODE[j]
 		L = S.L[j]
 		mp = (isI ? *S.missmap[j] : *S.qmap[qs])
+		// the codes each group holds, found once per group (the loops below
+		// visit only the codes their own conditions can accept, in the
+		// same order, so the tries and their count are unchanged)
+		NZ = J(S.G, 1, NULL)
 		for (c1 = 1; c1 <= L; c1++) {
 			if (TCo[a, c1] < 1) continue
 			for (c2 = 1; c2 <= L; c2++) {
+				// a spent budget: every further _dpa_try() returns 0
+				if (S.used > S.budget) return(0)
 				if (c2 == c1 | mp[c1] == mp[c2]) continue
 				for (io = (isI ? -1 : 0); io <= (isI ? 1 : 0); io++) {
 					if (_dpa_try(S, (a, j, c1, c2), a, qs, io, mode)) return(1)
 					for (b = 1; b <= S.G; b++) {
+						if (S.used > S.budget) return(0)
 						if (b == a) continue
 						if (mode == 1 & S.ispool[b]) continue
-						for (c3 = 1; c3 <= L; c3++) {
-							if (c3 != c1 & TCo[b, c3] >= 1) {
-								if (_dpa_try(S, ((a, j, c1, c2) \ (b, j, c3, c1)), a, qs, io, mode)) return(1)
+						if (TCo[b, c2] >= 1) {
+							for (c3 = 1; c3 <= L; c3++) {
+								if (c3 != c1 & TCo[b, c3] >= 1) {
+									if (_dpa_try(S, ((a, j, c1, c2) \ (b, j, c3, c1)), a, qs, io, mode)) return(1)
+								}
+								if (c3 != c2 & c3 != c1) {
+									if (_dpa_try(S, ((a, j, c1, c2) \ (b, j, c2, c3)), a, qs, io, mode)) return(1)
+								}
 							}
-							if (c3 != c2 & c3 != c1 & TCo[b, c2] >= 1) {
-								if (_dpa_try(S, ((a, j, c1, c2) \ (b, j, c2, c3)), a, qs, io, mode)) return(1)
+						}
+						else {
+							// b holds no c2: only the codes b holds
+							if (NZ[b] == NULL) NZ[b] = &(selectindex(TCo[b, .] :>= 1))
+							for (i3 = 1; i3 <= length(*NZ[b]); i3++) {
+								c3 = (*NZ[b])[i3]
+								if (c3 != c1) {
+									if (_dpa_try(S, ((a, j, c1, c2) \ (b, j, c3, c1)), a, qs, io, mode)) return(1)
+								}
 							}
 						}
 					}
@@ -5080,19 +5460,29 @@ real scalar _dpa_wit(struct _dpa_st scalar S, real scalar qs, real scalar a, rea
 				// trade a missing unit with another variable w: in a, j
 				// moves c1 -> c2 and w the other way; b reverses both
 				if ((*S.missmap[j])[c1] == (*S.missmap[j])[c2]) continue
+				dj = (*S.missmap[j])[c1] - (*S.missmap[j])[c2]
 				for (w = 1; w <= S.nv; w++) {
 					if (w == j | S.ns == 0) continue
 					TCw = *S.TCODE[w]
 					mw = *S.missmap[w]
-					for (d1 = 1; d1 <= S.L[w]; d1++) {
-						if (TCw[a, d1] < 1) continue
-						for (d2 = 1; d2 <= S.L[w]; d2++) {
-							if (d2 == d1 | mw[d1] == mw[d2]) continue
-							if (mw[d2] - mw[d1] != (*S.missmap[j])[c1] - (*S.missmap[j])[c2]) continue
+					// d1: the codes a holds; d2: the codes whose missing
+					// flag is d1's plus dj (dj is not 0, so d2 is not d1
+					// and the flags differ)
+					D1 = selectindex(TCw[a, .] :>= 1)
+					lastv = .
+					for (i1 = 1; i1 <= length(D1); i1++) {
+						d1 = D1[i1]
+						if (mw[d1] != lastv) {
+							D2 = selectindex(mw :== mw[d1] + dj)
+							lastv = mw[d1]
+						}
+						for (i2 = 1; i2 <= length(D2); i2++) {
+							d2 = D2[i2]
 							// j taken back in b, w in b2 (b2 = b: one group)
 							for (b = 1; b <= S.G; b++) {
 								if (b == a | TCo[b, c2] < 1) continue
 								if (mode == 1 & S.ispool[b]) continue
+								if (S.used > S.budget) return(0)
 								for (b2 = 1; b2 <= S.G; b2++) {
 									if (b2 == a | TCw[b2, d2] < 1) continue
 									if (mode == 1 & S.ispool[b2]) continue
@@ -5362,7 +5752,8 @@ void _dpa_lpbuild(struct _dpa_st scalar S)
 			}
 			txt = _dpa_tabtext(cnt, sup, S.cell, S.rare, S.maxf)
 			w = selectindex(cnt' :> 0)
-			if (rows(w) == 0) continue
+			if (length(w) == 0) continue
+			w = vec(w)
 			o = order((-cnt[w]', w), (1, 2))
 			w = w[o]
 			for (p = 1; p <= rows(w); p++) {
@@ -5502,10 +5893,18 @@ real scalar _dpa_lp(struct _dpa_st scalar S, real scalar qs, real scalar a,
 	class LinearProgram scalar P
 	real scalar t, lo, hi, g
 	real rowvector cf
+	// a spent budget: nothing more is built or solved
+	if (S.used > S.budget) return(0)
 	if (!S.lpbuilt) _dpa_lpbuild(S)
 	if (S.lpn > S.lpvcap) return(0)
 	if (S.lpcalls >= S.lpcap) return(0)
 	S.lpcalls = S.lpcalls + 1
+	// two solves cost tries too, in proportion to the cube of the
+	// program's size (unknowns plus constraint rows; 1,700 is about
+	// 800,000 tries, some 15 seconds), so the budget bounds this stage as
+	// well; a spent budget leaves the count unresolved
+	S.used = S.used + ceil((S.lpn + rows(S.lpAE) + rows(S.lpAI))^3 / 6000)
+	if (S.used > S.budget) return(0)
 	if (mode == 1) {
 		cf = J(1, S.lpn, 0)
 		for (g = 1; g <= S.G; g++) {
@@ -5538,7 +5937,7 @@ void _dpa_run()
 {
 	struct _dpa_st scalar S
 	real scalar i, j, q, g, s, b, r, nq, nv, ns, n, k, ok, c, x, lo, hi, fi, t
-	real scalar valsens, cmpsens, nP, R, best, bestn, nfail, nsens, resid
+	real scalar valsens, cmpsens, nP, R, best, bestn, nfail, nsens, resid, capped
 	real scalar isstr, L, nw, need
 	real colvector x0, miss, cc, o, pl, ind, vl, w, failE, qset
 	real rowvector cp, fo, pool, idx, plo, phi, Tc, vs, vt
@@ -5847,7 +6246,8 @@ void _dpa_run()
 			ST = J(S.G, L, 0)
 			for (g = 1; g <= S.G; g++) {
 				w = selectindex(TCo[g, .]' :> 0)
-				if (rows(w) == 0) continue
+				if (length(w) == 0) continue
+				w = vec(w)
 				o = order((-TCo[g, w]', w), (1, 2))
 				w = w[o]
 				for (i = 1; i <= rows(w); i++) {
@@ -5884,6 +6284,28 @@ void _dpa_run()
 		}
 		S.affq[j] = &(idx :+ 0)
 	}
+	// per variable, which of its quantities (positions in affq) count
+	// each code: rows (code, position), so a move of a few codes visits
+	// only the quantities it can change (_dpa_maff); and the pooled
+	// table's counts (_dpa_moves reads them on every try)
+	S.AQI = J(nv, 1, NULL)
+	S.TCS = J(nv, 1, NULL)
+	for (j = 1; j <= nv; j++) {
+		idx = *S.affq[j]
+		x0 = J(0, 1, .)
+		w = J(0, 1, .)
+		for (i = 1; i <= cols(idx); i++) {
+			o = selectindex((*S.qmap[idx[i]]) :!= 0)
+			if (length(o) == 0) continue
+			x0 = x0 \ vec(o)
+			w = w \ J(length(o), 1, i)
+		}
+		S.AQI[j] = &((x0, w) :+ 0)
+		S.TCS[j] = &(colsum(*S.TCODE[j]))
+	}
+	// each table's printed rows at the true counts, once (_dpa_rankok)
+	S.TTP = J(nv, 1, NULL)
+	S.TTG = J(nv, S.G, NULL)
 	S.qofset = J(max((ns, 1)), 1, NULL)
 	for (s = 1; s <= max((ns, 1)); s++) {
 		idx = J(1, 0, .)
@@ -6001,8 +6423,12 @@ void _dpa_run()
 	failE = J(S.G, 1, 0)
 	failP = J(0, 3, .)
 	failV = J(0, 3, .)
-	for (q = 1; q <= nq; q++) {
-		for (g = 1; g <= S.G; g++) {
+	// capped: a count left unproven after the budget ran out (a twin may
+	// exist beyond it); the audit stops there and the caller withholds
+	// every group's audited counts
+	capped = 0
+	for (q = 1; q <= nq & !capped; q++) {
+		for (g = 1; g <= S.G & !capped; g++) {
 			k = S.K[g, q]
 			n = S.nsz[g]
 			valsens = (k >= 1 & k < S.m)
@@ -6027,15 +6453,17 @@ void _dpa_run()
 				if (!ok) {
 					failP = failP \ (q, g, valsens)
 					fails = fails + " " + strofreal(q) + ":" + strofreal(g) + "p"
+					capped = (S.used > S.budget)
 				}
 			}
 			else if (!_dpa_wit(S, q, g, 0) & !_dpa_lp(S, q, g, 0, 0)) {
 				failE[g] = 1
+				capped = (S.used > S.budget)
 				fails = fails + " " + strofreal(q) + ":" + strofreal(g) + "[" + (S.qkind[q] == 3 ? "I" + strofreal(S.qvar[q]) : vnames[S.qvar[q]] + (S.qkind[q] == 4 ? "#" + strofreal(selectindex(*S.qmap[q])) : "") + "/" + strofreal(S.qkind[q])) + " k=" + strofreal(k) + " cls=" + strofreal(S.LO[g,q]) + "-" + strofreal(S.HI[g,q]) + "]"
 			}
 		}
 		// the pooled-away groups' total
-		if (nP > 0) {
+		if (nP > 0 & !capped) {
 			R = sum(S.K[., q] :* S.ispool)
 			valsens = (R >= 1 & R < S.m)
 			cmpsens = (nP - R >= 1 & nP - R < S.m)
@@ -6051,6 +6479,7 @@ void _dpa_run()
 				if (!ok) {
 					failV = failV \ (q, 0, valsens)
 					fails = fails + " " + strofreal(q) + ":pool"
+					capped = (S.used > S.budget)
 				}
 			}
 		}
@@ -6098,6 +6527,8 @@ void _dpa_run()
 	st_local("_dpa_nfail", strofreal(nfail))
 	st_local("_dpa_resid", strofreal(resid))
 	st_local("_dpa_fails", strtrim(fails))
+	st_local("_dpa_used", strofreal(S.used, "%20.0f"))
+	st_local("_dpa_capped", strofreal(capped))
 }
 
 // the pooled groups (see _dataprobe_poolfill), as a list in the order the

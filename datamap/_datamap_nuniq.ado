@@ -1,4 +1,4 @@
-*! _datamap_nuniq Version 1.10.5  2026/10/21
+*! _datamap_nuniq Version 1.10.6  2026/10/21
 *! Distinct-value count for one variable, without sorting the dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -87,6 +87,21 @@ real rowvector _datamap_nuniq_num(string scalar vname, real scalar cap)
 		hi = min((lo + chunk - 1, N))
 		d = uniqrows(d \ st_data((lo, hi), vname))
 		if (rows(d) > cap + slack) return((cap + 1, 1))
+		// Few levels in the first chunk and in a spread sample of 2,000
+		// rows (golden-ratio stride: a fixed stride can fall in step with
+		// period-aligned data): one built-in -tabulate- pass counts them
+		// instead of a sort per later chunk.  tabulate leaves out the
+		// missing values (all of them; "" unless -missing-), as here.  On
+		// any error (r(134) past ~12,000 levels, strL) the walk goes on.
+		if (lo == 1 & hi < N & rows(d) <= 50) {  // stata-dev-ignore: shape-dispatch - a count of distinct levels, not a layout
+			if (rows(uniqrows(st_data(floor(mod((1::2000) :* 0.6180339887498949, 1) :* N) :+ 1, vname))) <= 50) {  // stata-dev-ignore: shape-dispatch - a count of distinct levels, not a layout
+				if (_stata("quietly tabulate " + vname, 1) == 0) {
+					n = st_numscalar("r(r)")
+					if (n > cap) return((cap + 1, 1))
+					return((n, 0))
+				}
+			}
+		}
 		// grow the NEXT chunk; the loop advances past the rows just read
 		// (lo = hi + 1), never by the grown size, or rows are skipped
 		chunk = min((chunk * 4, maxchunk))
@@ -131,6 +146,16 @@ real rowvector _datamap_nuniq_str(string scalar vname, real scalar countempty,
 		hi = min((lo + chunk - 1, N))
 		d = uniqrows(d \ st_sdata((lo, hi), vname))
 		if (rows(d) > cap + slack) return((cap + 1, 1))
+		// see _datamap_nuniq_num
+		if (lo == 1 & hi < N & rows(d) <= 50) {  // stata-dev-ignore: shape-dispatch - a count of distinct levels, not a layout
+			if (rows(uniqrows(st_sdata(floor(mod((1::2000) :* 0.6180339887498949, 1) :* N) :+ 1, vname))) <= 50) {  // stata-dev-ignore: shape-dispatch - a count of distinct levels, not a layout
+				if (_stata("quietly tabulate " + vname + (countempty ? ", missing" : ""), 1) == 0) {
+					n = st_numscalar("r(r)")
+					if (n > cap) return((cap + 1, 1))
+					return((n, 0))
+				}
+			}
+		}
 		chunk = min((chunk * 4, maxchunk))
 	}
 

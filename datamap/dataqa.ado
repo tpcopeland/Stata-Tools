@@ -1,4 +1,4 @@
-*! dataqa Version 1.10.5  2026/10/21
+*! dataqa Version 1.10.6  2026/10/21
 *! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -332,7 +332,19 @@ program define _dataqa_latest, rclass
         quietly generate strL _gbase = ""
         quietly replace _gbase = ustrregexs(0) if ///
             ustrregexm(grp, "^by\([^()|]* \| ([^\[\])]|\[[^\[\]]*\])*\)")
-        quietly bysort run _key (seq `ord'): keep if _n == _N
+        // one row per key.  When a "(modified)" call could not supersede
+        // a row of the unmodified data (above), both stand, and report and
+        // assert count a failure in either; compare reads the worst status
+        // (error, fail, warn, review, pass), then the unmodified row, then
+        // the latest call
+        tempvar unmod srank mix
+        quietly generate byte `unmod' = !`dmod'
+        quietly bysort run _key: egen float `mix' = sd(`dmod')
+        quietly generate byte `srank' = 0
+        quietly replace `srank' = 5 * (status == "error") + 4 * (status == "fail") + ///
+            3 * (status == "warn") + 2 * (status == "review") + (status == "pass") ///
+            if `mix' > 0 & !missing(`mix')
+        quietly bysort run _key (`srank' `unmod' seq `ord'): keep if _n == _N
     }
     sort `ord'
     return scalar n_superseded = `nsup'
@@ -491,26 +503,32 @@ program define _dataqa_report, rclass
             quietly generate strL _ds = dataset
             quietly replace _ds = "(unnamed)" if _ds == ""
             quietly levelsof _ds, local(dslist)
+            // every dataset's counts in one pass: _dsi numbers the datasets
+            // in dslist's order (both sort _ds), _f1 marks the first row of
+            // each call (run, seq) as egen tag() does (a missing run or seq
+            // is not a call), and _dataqa_dscounts tallies them; row order
+            // is kept for the rows the markdown table lists
+            tempvar _o1 _dsi _f1
+            tempname _dqc
+            quietly generate long `_o1' = _n
+            quietly egen long `_dsi' = group(_ds)
+            quietly bysort `_dsi' run seq (`_o1'): generate byte `_f1' = ///
+                (_n == 1) & !missing(run) & !missing(seq)
+            quietly sort `_o1'
+            mata: _dataqa_dscounts(st_local("_dsi"), st_local("_f1"), st_local("_dqc"))
             display as text "  " %-32s "Dataset" %7s "Calls" %7s "Gates" %8s "Failed" ///
                 %8s "Warned" %8s "Review"
             local tot_f = 0
             local tot_w = 0
+            local k = 0
             foreach ds of local dslist {
-                quietly count if _ds == `"`macval(ds)'"' & kind != "review"
-                local ng = r(N)
-                quietly count if _ds == `"`macval(ds)'"' & status == "fail"
-                local nf = r(N)
-                quietly count if _ds == `"`macval(ds)'"' & status == "warn"
-                local nw = r(N)
-                quietly count if _ds == `"`macval(ds)'"' & status == "review"
-                local nr = r(N)
-                tempvar tg
-                quietly egen byte `tg' = tag(run seq) if _ds == `"`macval(ds)'"'
-                quietly count if `tg' == 1
-                local nc = r(N)
-                quietly drop `tg'
-                quietly count if _ds == `"`macval(ds)'"' & status == "error"
-                local nf = `nf' + r(N)
+                local ++k
+                local ng = `_dqc'[`k', 1]
+                local nf = `_dqc'[`k', 2]
+                local nw = `_dqc'[`k', 3]
+                local nr = `_dqc'[`k', 4]
+                local nc = `_dqc'[`k', 6]
+                local nf = `nf' + `_dqc'[`k', 5]
                 local tot_f = `tot_f' + `nf'
                 local tot_w = `tot_w' + `nw'
                 mata: st_local("dshow", _dataqa_show(usubstr(st_local("ds"), 1, 31) + ///
@@ -568,11 +586,10 @@ program define _dataqa_report, rclass
             file write `fh' "|---|---|---|---|---|---|---|---|" _n
             local nrows = 0
             frame `lf' {
+                local k = 0
                 foreach ds of local dslist {
-                    quietly count if _ds == `"`macval(ds)'"' & inlist(status, "fail", "warn", "review", "error")
-                    local nopen = r(N)
-                    quietly count if _ds == `"`macval(ds)'"' & inlist(status, "fail", "warn", "error")
-                    local nbad = r(N)
+                    local ++k
+                    local nbad = `_dqc'[`k', 2] + `_dqc'[`k', 3] + `_dqc'[`k', 5]
                     // the runs this dataset's rows come from
                     quietly levelsof run if _ds == `"`macval(ds)'"', local(rl)
                     local rr ""
@@ -597,9 +614,9 @@ program define _dataqa_report, rclass
                             local ++nrows
                         }
                     }
-                    forvalues j = 1/`=_N' {
-                        if _ds[`j'] != `"`macval(ds)'"' continue
-                        if !inlist(status[`j'], "fail", "warn", "review", "error") continue
+                    // the dataset's open rows, in row order
+                    mata: st_local("_jl", _dataqa_openrows(st_local("_dsi"), `k'))
+                    foreach j of local _jl {
                         // ledger text is data: read in Mata and joined
                         // with macval(), never re-read as macro syntax
                         foreach c in family label observed expected grp kind status run {
@@ -1220,6 +1237,8 @@ end
 // break, tab or other control character as \n, \r, \t or \xHH, a brace as
 // {c -(}, and a backtick, double quote and dollar sign as {char N}.
 capture mata: mata drop _dataqa_show()
+capture mata: mata drop _dataqa_dscounts()
+capture mata: mata drop _dataqa_openrows()
 capture mata: mata drop _dataqa_bandtext()
 capture mata: mata drop _dataqa_bandcells()
 capture mata: mata drop _dataqa_bandmd()
@@ -1287,5 +1306,45 @@ void _dataqa_bandmd(real scalar j)
 	for (k = 1; k <= 6; k++) {
 		st_local("cell_" + n[k], subinstr(subinstr(v[k], "|", char(92) + "|"), char(10), " "))
 	}
+}
+
+// Per dataset (rows numbered 1..D by dsi): gates (kind not review), fail,
+// warn, review, error rows, and calls (rows flagged f1), into matrix mn
+// (D x 6).
+void _dataqa_dscounts(string scalar dsi, string scalar f1, string scalar mn)
+{
+	real colvector d, f
+	string colvector st, kd
+	real matrix C
+	real scalar i, D
+	d = st_data(., dsi)
+	f = st_data(., f1)
+	st = st_sdata(., "status")
+	kd = st_sdata(., "kind")
+	D = (rows(d) ? max(d) : 0)
+	C = J(max((D, 1)), 6, 0)
+	for (i = 1; i <= rows(d); i++) {
+		C[d[i], 1] = C[d[i], 1] + (kd[i] != "review")
+		C[d[i], 2] = C[d[i], 2] + (st[i] == "fail")
+		C[d[i], 3] = C[d[i], 3] + (st[i] == "warn")
+		C[d[i], 4] = C[d[i], 4] + (st[i] == "review")
+		C[d[i], 5] = C[d[i], 5] + (st[i] == "error")
+		C[d[i], 6] = C[d[i], 6] + (f[i] == 1)
+	}
+	st_matrix(mn, C)
+}
+
+// The rows of dataset k (dsi == k) with status fail, warn, review or
+// error, as a list of row numbers in row order.
+string scalar _dataqa_openrows(string scalar dsi, real scalar k)
+{
+	real colvector d, j
+	string colvector st
+	d = st_data(., dsi)
+	st = st_sdata(., "status")
+	j = selectindex((d :== k) :& ((st :== "fail") :| (st :== "warn") :|
+		(st :== "review") :| (st :== "error")))
+	if (length(j) == 0) return("")
+	return(invtokens(strofreal(j', "%12.0f")))
 }
 end

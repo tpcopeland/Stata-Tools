@@ -1,4 +1,4 @@
-*! datamap Version 1.10.5  2026/10/21
+*! datamap Version 1.10.6  2026/10/21
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -441,6 +441,26 @@ program define datamap, rclass
 		// Process files and generate output
 		local memoryopt ""
 		if "`input_source'" == "memory" local memoryopt "memory"
+		// saving(): the metadata rows are posted by the report pass
+		// (_datamap_ProcessDataset), from the data, classification and
+		// summaries it already holds, in the order it documents the datasets
+		local _mdopt ""
+		if `"`saving_file'"' != "" {
+			tempfile metadata_tmp
+			tempname metadata_post
+			quietly postfile `metadata_post' ///
+				str16 source_command str2045 source str2045 output ///
+				str2045 dataset str2045 dataset_label str32 variable ///
+				str20 storage_type str32 display_format str32 value_label ///
+				str20 class double N long nvars long missing ///
+				double missing_pct long unique str2045 variable_label ///
+				str2045 notes str2045 characteristics double mean double sd ///
+				double p50 double p25 double p75 double min double max ///
+				str2045 datasignature byte unique_capped ///
+				using `"`metadata_tmp'"', replace
+			local _metadata_post_open = 1
+			local _mdopt "mdpost(`metadata_post')"
+		}
 
 		// exclude() against every file before any output is written: an
 		// unresolvable range errors here, and a token matching no variable
@@ -466,7 +486,7 @@ program define datamap, rclass
 				detect_common(`detect_common') panelid(`panelid') ///
 			survivalvars(`survivalvars') quality_level(`quality_level') ///
 			samples(`samples') missing_detail(`missing_detail') ///
-					missing_pattern(`missing_pattern') uniqcap(`uniqcap') `memoryopt'
+					missing_pattern(`missing_pattern') uniqcap(`uniqcap') `memoryopt' `_mdopt'
 	}
 	else {
 		// Generate single combined output file
@@ -482,7 +502,7 @@ program define datamap, rclass
 			detect_common(`detect_common') panelid(`panelid') ///
 			survivalvars(`survivalvars') quality_level(`quality_level') ///
 				samples(`samples') missing_detail(`missing_detail') ///
-					missing_pattern(`missing_pattern') uniqcap(`uniqcap') `memoryopt'
+					missing_pattern(`missing_pattern') uniqcap(`uniqcap') `memoryopt' `_mdopt'
 		}
 
 		local n_categorical = r(n_categorical)
@@ -499,118 +519,6 @@ program define datamap, rclass
 			local suggested_exclude "`r(suggested_exclude)'"
 
 			if `"`saving_file'"' != "" {
-				tempfile metadata_tmp
-				tempname metadata_post
-				quietly postfile `metadata_post' ///
-					str16 source_command str2045 source str2045 output ///
-					str2045 dataset str2045 dataset_label str32 variable ///
-					str20 storage_type str32 display_format str32 value_label ///
-					str20 class double N long nvars long missing ///
-					double missing_pct long unique str2045 variable_label ///
-					str2045 notes str2045 characteristics double mean double sd ///
-					double p50 double p25 double p75 double min double max ///
-					str2045 datasignature byte unique_capped ///
-					using `"`metadata_tmp'"', replace
-				local _metadata_post_open = 1
-				// Same cap as the report (_datamap_ProcessDataset): the classifier
-				// default (1000) refused maxcat() > 1000 with r(198) and censored
-				// unique counts that uniqcap() or uniqcap(0) had asked to be exact.
-				if `uniqcap' == 0 local _mcap = 0
-				else local _mcap = max(`uniqcap', `maxcat', `maxfreq')
-				if `"`single'"' != "" {
-					local _mfile `"`single'"'
-					// In memory mode `single' is a tempfile copy of the data
-					// that is ALREADY loaded -- reloading it would replace the
-					// user's dataset (identical content, but see the top-level
-					// preserve note) for no gain.
-					if "`input_source'" != "memory" quietly use `"`_mfile'"', clear
-					local _mlabel : data label
-					quietly describe, short
-					local _mnvars = r(k)
-					local _mdsig ""
-					quietly capture datasignature
-					if _rc == 0 local _mdsig `"`r(datasignature)'"'
-					local _msource `"`_mfile'"'
-					if "`input_source'" == "memory" {
-						local _msource "memory"
-						local _mdsname "memory"
-					}
-					else {
-						local _mnorm = subinstr(`"`_mfile'"', "\", "/", .)
-						local _mdsname `"`_mnorm'"'
-						if strpos(`"`_mnorm'"', "/") > 0 {
-							local _mdsname = reverse(`"`_mnorm'"')
-							local _mslash = strpos(`"`_mdsname'"', "/")
-							local _mdsname = reverse(substr(`"`_mdsname'"', 1, `_mslash' - 1))
-						}
-						if lower(substr(`"`_mdsname'"', -4, 4)) == ".dta" {
-							local _mdsname = substr(`"`_mdsname'"', 1, length(`"`_mdsname'"') - 4)
-						}
-					}
-					tempfile _mclass
-					quietly _datamap_classify using "memory", loaded saving(`"`_mclass'"') ///
-						maxcat(`maxcat') obs(`=_N') exclude(`"`exclude'"') ///
-						continuous(`"`continuous'"') categorical(`"`categorical'"') ///
-						date(`"`date'"') detect_binary(`detect_binary') ///
-						quality_level(`"`quality_level'"') capacity(`_mcap')
-					// separate: the file this dataset was written to, as
-					// _datamap_ProcessSeparate names it; output() is unused
-					local _mout `"`output'"'
-					if "`separate'" != "" {
-						local _mext = cond("`format'" == "json", "json", "txt")
-						if "`input_source'" == "memory" local _mout "memory_map.`_mext'"
-						else local _mout = ustrregexra(`"`_mfile'"', "(?i)\.dta$", "") + "_map.`_mext'"
-					}
-					_datamap_post_metadata_rows, postname(`metadata_post') ///
-						classifications(`"`_mclass'"') sourcecommand("datamap") ///
-						source(`"`_msource'"') output(`"`_mout'"') dsname(`"`_mdsname'"') ///
-						nvars(`_mnvars') ///
-						datasignature(`"`_mdsig'"') `datesafe' `nostats' mincell(`mincell')
-				}
-				else {
-					tempname _mfl
-					file open `_mfl' using `"`filelist_tmp'"', read text
-					file read `_mfl' _mfile
-					while r(eof) == 0 {
-						if trim(`"`macval(_mfile)'"') != "" {
-							quietly use `"`_mfile'"', clear
-							local _mlabel : data label
-							quietly describe, short
-							local _mnvars = r(k)
-							local _mdsig ""
-							quietly capture datasignature
-							if _rc == 0 local _mdsig `"`r(datasignature)'"'
-							local _mnorm = subinstr(`"`_mfile'"', "\", "/", .)
-							local _mdsname `"`_mnorm'"'
-							if strpos(`"`_mnorm'"', "/") > 0 {
-								local _mdsname = reverse(`"`_mnorm'"')
-								local _mslash = strpos(`"`_mdsname'"', "/")
-								local _mdsname = reverse(substr(`"`_mdsname'"', 1, `_mslash' - 1))
-							}
-							if lower(substr(`"`_mdsname'"', -4, 4)) == ".dta" {
-								local _mdsname = substr(`"`_mdsname'"', 1, length(`"`_mdsname'"') - 4)
-							}
-							tempfile _mclass
-							quietly _datamap_classify using "memory", loaded saving(`"`_mclass'"') ///
-								maxcat(`maxcat') obs(`=_N') exclude(`"`exclude'"') ///
-								continuous(`"`continuous'"') categorical(`"`categorical'"') ///
-								date(`"`date'"') detect_binary(`detect_binary') ///
-								quality_level(`"`quality_level'"') capacity(`_mcap')
-							local _mout `"`output'"'
-							if "`separate'" != "" {
-								local _mext = cond("`format'" == "json", "json", "txt")
-								local _mout = ustrregexra(`"`_mfile'"', "(?i)\.dta$", "") + "_map.`_mext'"
-							}
-							_datamap_post_metadata_rows, postname(`metadata_post') ///
-								classifications(`"`_mclass'"') sourcecommand("datamap") ///
-								source(`"`_mfile'"') output(`"`_mout'"') dsname(`"`_mdsname'"') ///
-						nvars(`_mnvars') ///
-								datasignature(`"`_mdsig'"') `datesafe' `nostats' mincell(`mincell')
-						}
-						file read `_mfl' _mfile
-					}
-					file close `_mfl'
-				}
 				postclose `metadata_post'
 				local _metadata_post_open = 0
 				// Frame: -use- here would replace the user's data in memory
@@ -753,7 +661,7 @@ program define _datamap_ProcessCombined, rclass
 		detect_survey(integer 0) detect_common(integer 0) PANELid(string) ///
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
 		missing_detail(integer 0) missing_pattern(integer 0) ///
-		uniqcap(integer 1000)]
+		uniqcap(integer 1000) MDPost(name)]
 
 	_datamap_pkgversion
 	local _pkgver "`r(version)'"
@@ -815,7 +723,8 @@ program define _datamap_ProcessCombined, rclass
 					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
 					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-				`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'" "`memory'"
+				`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'" "`memory'" ///
+				"`mdpost'" `"`output'"'
 			local n_categorical = `n_categorical' + r(n_categorical)
 			local n_continuous = `n_continuous' + r(n_continuous)
 			local n_date = `n_date' + r(n_date)
@@ -843,7 +752,8 @@ program define _datamap_ProcessCombined, rclass
 						"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" `i' `nfiles' ///
 						`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 					"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-						`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' ""
+						`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "" "" ///
+						"`mdpost'" `"`output'"'
 				local n_categorical = `n_categorical' + r(n_categorical)
 				local n_continuous = `n_continuous' + r(n_continuous)
 				local n_date = `n_date' + r(n_date)
@@ -915,7 +825,7 @@ program define _datamap_ProcessSeparate, rclass
 		detect_survey(integer 0) detect_common(integer 0) PANELid(string) ///
 		SURVIVALvars(string) quality_level(string) SAMples(integer 0) ///
 		missing_detail(integer 0) missing_pattern(integer 0) ///
-		uniqcap(integer 1000)]
+		uniqcap(integer 1000) MDPost(name)]
 
 	_datamap_pkgversion
 	local _pkgver "`r(version)'"
@@ -982,13 +892,22 @@ program define _datamap_ProcessSeparate, rclass
 				file write `fh' "Generated: `cdate' `ctime'" _n _n
 			}
 
+			// saving(): the output column names the file this dataset
+			// was written to
+			local _mdout ""
+			if "`mdpost'" != "" {
+				local _mext = cond("`format'" == "json", "json", "txt")
+				if "`memory'" != "" local _mdout "memory_map.`_mext'"
+				else local _mdout = ustrregexra(`"`thisfile'"', "(?i)\.dta$", "") + "_map.`_mext'"
+			}
 			// Process this dataset
 				_datamap_ProcessDataset `fh' "`thisfile'" "`format'" "`nostats'" "`nofreq'" ///
 					"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
 					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
 					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-					`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'" "`memory'"
+					`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'" "`memory'" ///
+					"`mdpost'" `"`_mdout'"'
 			local n_categorical = `n_categorical' + r(n_categorical)
 			local n_continuous = `n_continuous' + r(n_continuous)
 			local n_date = `n_date' + r(n_date)
@@ -1066,7 +985,8 @@ program define _datamap_ProcessDataset, rclass
     capture noisily {
         args fh filepath format nostats nofreq nolabels maxfreq maxcat mincell noguidance compact ///
             exclude continuous categorical force_date datesafe idx total detect_panel detect_binary detect_survival detect_survey detect_common ///
-            panelid survivalvars quality_level samples missing_detail missing_pattern dateformat uniqcap displayname memory
+            panelid survivalvars quality_level samples missing_detail missing_pattern dateformat uniqcap displayname memory ///
+            mdpost mdout
 
         // Get dataset metadata from describe
         // varlist, not short: only -describe using, varlist- returns
@@ -1188,6 +1108,38 @@ program define _datamap_ProcessDataset, rclass
             noisily display as text "warning: likely identifier variable(s) not in exclude():`suggested_exclude'"
         }
 
+        // saving(): this dataset's metadata rows, from the data as loaded and
+        // the classification above (one pass: no second classification,
+        // load or signature).  The continuous variables' summarize, detail
+        // results go to frame _sumfr, where the report reads them back
+        // (_datamap_sumd) instead of summarizing again.
+        local _sumfr ""
+        if "`mdpost'" != "" {
+            local _mdsrc `"`filepath'"'
+            local _mdsname "memory"
+            if "`memory'" != "" local _mdsrc "memory"
+            else {
+                local _mnorm = subinstr(`"`filepath'"', "\", "/", .)
+                local _mdsname `"`_mnorm'"'
+                if strpos(`"`_mnorm'"', "/") > 0 {
+                    local _mdsname = reverse(`"`_mnorm'"')
+                    local _mslash = strpos(`"`_mdsname'"', "/")
+                    local _mdsname = reverse(substr(`"`_mdsname'"', 1, `_mslash' - 1))
+                }
+                if lower(substr(`"`_mdsname'"', -4, 4)) == ".dta" {
+                    local _mdsname = substr(`"`_mdsname'"', 1, length(`"`_mdsname'"') - 4)
+                }
+            }
+            tempname _sumfr
+            frame create `_sumfr' str32 name double(N sum_w mean Var sd skewness ///
+                kurtosis sum min max p1 p5 p10 p25 p50 p75 p90 p95 p99)
+            _datamap_post_metadata_rows, postname(`mdpost') ///
+                classifications(`"`classifications'"') sourcecommand("datamap") ///
+                source(`"`_mdsrc'"') output(`"`mdout'"') dsname(`"`_mdsname'"') ///
+                nvars(`nvars') datasignature(`"`dsig'"') `datesafe' `nostats' ///
+                mincell(`mincell') sumframe(`_sumfr')
+        }
+
         if "`format'" == "json" {
             _datamap_ProcessDatasetJson `fh' "`filepath'" "`classifications'" ///
                 "`basename'" `obs' `nvars' "" "`dsig'" "`sortorder'" ///
@@ -1195,7 +1147,7 @@ program define _datamap_ProcessDataset, rclass
                 `mincell' "`datesafe'" "`dateformat'" ///
                 `detect_panel' `detect_binary' `detect_survival' `detect_survey' ///
                 `detect_common' "`panelid'" "`survivalvars'" "`quality_level'" ///
-                `samples' `missing_detail' `missing_pattern'
+                `samples' `missing_detail' `missing_pattern' "`_sumfr'"
             return scalar n_categorical = `n_categorical'
             return scalar n_continuous = `n_continuous'
             return scalar n_date = `n_date'
@@ -1261,7 +1213,7 @@ program define _datamap_ProcessDataset, rclass
             "`exclude'" "`datesafe'" `obs' ///
             `detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
             "`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-            `missing_detail' `missing_pattern' "`dateformat'"
+            `missing_detail' `missing_pattern' "`dateformat'" "`_sumfr'"
 
         return scalar n_categorical = `n_categorical'
         return scalar n_continuous = `n_continuous'
@@ -1282,6 +1234,33 @@ program define _datamap_ProcessDataset, rclass
 
 end
 
+// summarize, detail of variable v: the results the metadata rows saved in
+// frame fr (_datamap_post_metadata_rows, sumframe()) when v is there, else
+// summarize itself.  Same data, same command, so the same doubles.
+capture program drop _datamap_sumd
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datamap_sumd, rclass
+	version 16.0
+	args v fr
+	local row = 0
+	if "`fr'" != "" {
+		frame `fr': mata: st_local("row", strofreal(_datamap_sumrow(st_local("v"))))
+	}
+	if `row' == 0 {
+		quietly summarize `v', detail
+		return add
+	}
+	else {
+		tempname x
+		foreach s in N sum_w mean Var sd skewness kurtosis sum min max ///
+			p1 p5 p10 p25 p50 p75 p90 p95 p99 {
+			frame `fr': scalar `x' = `s'[`row']
+			return scalar `s' = scalar(`x')
+		}
+	}
+end
+
 // =============================================================================
 // Helper: _datamap_ProcessVariables
 // Classify and document all variables in a dataset
@@ -1294,7 +1273,7 @@ program define _datamap_ProcessVariables, nclass
 	args fh filepath classifications format nostats nofreq nolabels maxfreq maxcat mincell noguidance compact ///
 	     exclude datesafe obs ///
 	     detect_panel detect_binary detect_survival detect_survey detect_common ///
-	     panelid survivalvars quality_level samples missing_detail missing_pattern dateformat
+	     panelid survivalvars quality_level samples missing_detail missing_pattern dateformat sumfr
 
 	// Write variable summary table header with structured sections
 	_datamap_write_rule_header `fh' "VARIABLE SUMMARY"
@@ -1405,7 +1384,7 @@ program define _datamap_ProcessVariables, nclass
 	if "`compact'" == "" {
 		// Detailed variable sections
 		_datamap_ProcessCategorical `fh' "`classifications'" "`format'" "`nofreq'" `maxfreq' `obs' `mincell' "`noguidance'" "`datesafe'"
-		_datamap_ProcessContinuous `fh' "`classifications'" "`format'" "`nostats'" `obs' "`noguidance'" "`datesafe'" `mincell'
+		_datamap_ProcessContinuous `fh' "`classifications'" "`format'" "`nostats'" `obs' "`noguidance'" "`datesafe'" `mincell' "`sumfr'"
 		_datamap_ProcessDate `fh' "`classifications'" "`format'" "`datesafe'" "`dateformat'" "`noguidance'"
 		_datamap_ProcessString `fh' "`classifications'" "`format'" "`noguidance'"
 		_datamap_ProcessExcluded `fh' "`classifications'" "`format'" "`noguidance'"
@@ -1711,7 +1690,17 @@ end
 capture mata: mata drop _datamap_cellmask_core()
 capture mata: mata drop _datamap_cellmask()
 capture mata: mata drop _datamap_patmask()
+capture mata: mata drop _datamap_sumrow()
 mata:
+// _datamap_sumd: the row of frame variable name equal to v, or 0
+// (length(): selectindex() of a 1 x 1 false is 1 x 0)
+real scalar _datamap_sumrow(string scalar v)
+{
+	real matrix r
+	if (st_nobs() == 0) return(0)
+	r = selectindex(st_sdata(., "name") :== v)
+	return(length(r) ? r[1] : 0)
+}
 real colvector _datamap_cellmask_core(real colvector c, real scalar m,
 	real colvector pre)
 {
@@ -1781,7 +1770,7 @@ program define _datamap_ProcessDatasetJson, nclass
 	args fh filepath classifications basename obs nvars label dsig sortorder idx total ///
 	     nostats nofreq nolabels maxfreq mincell datesafe dateformat ///
 	     detect_panel detect_binary detect_survival detect_survey detect_common ///
-	     panelid survivalvars quality_level samples missing_detail missing_pattern
+	     panelid survivalvars quality_level samples missing_detail missing_pattern sumfr
 
 	// The data label arrives through the -args- pipeline, which re-expands
 	// $macro/backtick on the command line.  Re-read it from the source
@@ -1934,7 +1923,7 @@ program define _datamap_ProcessDatasetJson, nclass
 			}
 		}
 		else if "`vclass'" == "continuous" & "`nostats'" == "" {
-			quietly summarize `vname', detail
+			quietly _datamap_sumd `vname' `sumfr'
 			if r(N) > 0 {
 				local s_n = r(N)
 				local s_mean = regexr(string(r(mean), "%21x"), "^[+]", "")
@@ -2288,7 +2277,7 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessContinuous, nclass
 	version 16.0
-	args fh classifications format nostats obs noguidance datesafe mincell
+	args fh classifications format nostats obs noguidance datesafe mincell sumfr
 	if "`mincell'" == "" local mincell = 0
 
 	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
@@ -2357,7 +2346,7 @@ program define _datamap_ProcessContinuous, nclass
 			file write `fh' "  Summary: withheld (datesafe; date-formatted variable)" _n _n
 		}
 		else if "`nostats'" == "" {
-			quietly summarize `vname', detail
+			quietly _datamap_sumd `vname' `sumfr'
 			local n = r(N)
 			local skewness = r(skewness)
 			if `_mhide' local skewness = .

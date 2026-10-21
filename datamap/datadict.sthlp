@@ -149,6 +149,9 @@ in the current directory, include the full or relative path.
 {opt dir:ectory(path)} scans a directory for every {opt .dta} file and
 documents all of them in a single output file (unless {opt separate} is also
 specified). Use {cmd:directory(.)} to scan the current working directory.
+A file whose name holds {cmd:$}, a backtick, or a double quote cannot be read
+as a path, nor can such a subdirectory under {opt recursive}; the scan stops
+with r(198) naming it, before any output is written.
 
 {phang}
 {opt file:list(names)} documents a specific set of datasets given as a
@@ -280,7 +283,10 @@ type of statistics depends on variable classification:
 (e.g., "1 Male (120; 60.0%)")
 {p_end}
 {phang2}{bf:Continuous:} N, median, IQR, mean, SD, and range
-(e.g., "N=200; Median=42.5; IQR=30{hline 1}55; Mean=45.2 (SD=12.3); Range=18{hline 1}89")
+(e.g., "N=200; Median=42.5; IQR=30{hline 1}55; Mean=45.2 (SD=12.3); Range=18{hline 1}89").
+Values from 100 to below 1e15 print without decimals and with every digit
+(10,012,345); values of 1e15 and more print in {cmd:%21.0g}
+(1.00000000000000e+23), and values below 0.001 in scientific notation.
 {p_end}
 {phang2}{bf:Date:} date range (e.g., "Range: 2020/01/01 to 2023/12/31")
 {p_end}

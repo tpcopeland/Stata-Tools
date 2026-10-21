@@ -1,4 +1,4 @@
-*! datadict Version 1.10.5  2026/10/21
+*! datadict Version 1.10.6  2026/10/21
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -803,65 +803,6 @@ program define _datadict_ParseSaving, rclass
 end
 
 // =============================================================================
-// Helper: LoadConfig - parse reusable key=value defaults
-// =============================================================================
-capture program drop _datadict_LoadConfig
-local _drop_rc = _rc
-if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
-program define _datadict_LoadConfig, rclass
-	version 16.0
-	local _varabbrev = c(varabbrev)
-	set varabbrev off
-	local _fh_open = 0
-	capture noisily {
-		syntax, CONFig(string)
-
-		tempname fh
-		file open `fh' using `"`config'"', read text
-		local _fh_open = 1
-		file read `fh' line
-		while r(eof) == 0 {
-			local raw = strtrim(`"`macval(line)'"')
-			if `"`raw'"' != "" & substr(`"`raw'"', 1, 1) != "#" & ///
-			   substr(`"`raw'"', 1, 1) != "*" & substr(`"`raw'"', 1, 2) != "//" {
-				local eqpos = strpos(`"`raw'"', "=")
-				local colonpos = strpos(`"`raw'"', ":")
-				local splitpos = `eqpos'
-				if `splitpos' == 0 | (`colonpos' > 0 & `colonpos' < `splitpos') {
-					local splitpos = `colonpos'
-				}
-				if `splitpos' > 0 {
-					local key = lower(strtrim(substr(`"`raw'"', 1, `splitpos' - 1)))
-					local val = strtrim(substr(`"`raw'"', `splitpos' + 1, .))
-					local key = subinstr(`"`key'"', " ", "", .)
-					if inlist(`"`key'"', "title", "subtitle", "version", "author", "date") {
-						return local `key' `"`macval(val)'"'
-					}
-					else if inlist(`"`key'"', "notes", "changelog", "output", "outdir", "suffix", "columns") {
-						return local `key' `"`macval(val)'"'
-					}
-					else if inlist(`"`key'"', "missing", "stats", "detail", "datasignature") {
-						if inlist(lower(`"`val'"'), "1", "yes", "true", "on", "`key'") {
-							return local `key' "`key'"
-						}
-					}
-				}
-			}
-			file read `fh' line
-		}
-		file close `fh'
-		local _fh_open = 0
-	}
-	local rc = _rc
-	if `_fh_open' {
-		capture file close `fh'
-		local _close_rc = _rc
-	}
-	set varabbrev `_varabbrev'
-	if `rc' exit `rc'
-end
-
-// =============================================================================
 // Helper: NormalizeColumns - validate and expand table column choices
 // =============================================================================
 capture program drop _datadict_NormalizeColumns
@@ -1251,13 +1192,19 @@ program define _datadict_FormatStatNumber, rclass
 
 	local absnum = abs(`num')
 
-	// Very large or very small numbers: use scientific notation
-	if `absnum' >= 1000000 | (`absnum' < 0.001 & `absnum' > 0) {
+	// Very small numbers: scientific notation
+	if `absnum' < 0.001 & `absnum' > 0 {
 		local formatted = string(`num', "%9.2e")
 	}
-	// Large numbers (>=100): no decimals
+	// Large numbers (>=100): no decimals, every digit (1e6 and up printed
+	// 1.00e+07 for 10,012,345).  From 1e15 a double no longer holds every
+	// integer digit (%32.0fc printed 1e23 as 99,999,999,999,999,991,611,392),
+	// so those print at full precision in %21.0g
+	else if `absnum' >= 1e15 {
+		local formatted = string(`num', "%21.0g")
+	}
 	else if `absnum' >= 100 {
-		local formatted = string(`num', "%12.0fc")
+		local formatted = string(`num', "%32.0fc")
 	}
 	// Medium numbers (>=1): 2 decimals
 	else if `absnum' >= 1 {
@@ -1315,7 +1262,17 @@ program define _datadict_GetCategoricalStats, rclass
         if "`mincell'" == "" local mincell = 0
 
         // Get unique non-missing values
-        capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal
+        tempname _lvF
+        local _lvfreq = 1
+        capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal matcell(`_lvF')
+        // too many levels for a matrix (r(915), r(920) under MP, ...): the
+        // levels without counts, counted one by one below; Break stops
+        if _rc == 1 exit 1
+        if _rc {
+            local _lvfreq = 0
+            capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal
+        }
+        local _lvN = r(N)
         if _rc != 0 | `"`levels'"' == "" {
             return local valstring "All missing"
             set varabbrev `_orig_varabbrev'
@@ -1332,17 +1289,25 @@ program define _datadict_GetCategoricalStats, rclass
         }
 
         // Count non-missing
-        quietly count if !missing(`vname')
-        local nvalid = r(N)
+        if `_lvfreq' local nvalid = `_lvN'
+        else {
+            quietly count if !missing(`vname')
+            local nvalid = r(N)
+        }
         local vtype : type `vname'
 
         // Counts first, so the small-cell mask can see the whole table.
         local li 0
         foreach lev of local levels {
             local ++li
-            if "`vtype'" == "float" quietly count if `vname' == float(`lev')
-            else quietly count if `vname' == `lev'
-            local _cnt`li' = r(N)
+            // levelsof's matcell(), in level order; the count loop only when
+            // matcell() refused the levels (too many for a matrix)
+            if `_lvfreq' local _cnt`li' = `_lvF'[`li', 1]
+            else {
+                if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+                else quietly count if `vname' == `lev'
+                local _cnt`li' = r(N)
+            }
         }
         mata: _datadict_cellmask_locals("_cnt", `li', `mincell', "_hid")
 
@@ -1416,7 +1381,17 @@ program define _datadict_GetUnlabeledStats, rclass
             exit
         }
 
-        capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal
+        tempname _lvF
+        local _lvfreq = 1
+        capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal matcell(`_lvF')
+        // too many levels for a matrix (r(915), r(920) under MP, ...): the
+        // levels without counts, counted one by one below; Break stops
+        if _rc == 1 exit 1
+        if _rc {
+            local _lvfreq = 0
+            capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal
+        }
+        local _lvN = r(N)
         if _rc != 0 | `"`levels'"' == "" {
             return local valstring "All missing"
             set varabbrev `_orig_varabbrev'
@@ -1426,8 +1401,11 @@ program define _datadict_GetUnlabeledStats, rclass
         local nlevels: word count `levels'
 
         // Count non-missing
-        quietly count if !missing(`vname')
-        local nvalid = r(N)
+        if `_lvfreq' local nvalid = `_lvN'
+        else {
+            quietly count if !missing(`vname')
+            local nvalid = r(N)
+        }
         capture confirm numeric variable `vname'
         local is_numeric = (_rc == 0)
         if `is_numeric' local vtype : type `vname'
@@ -1443,9 +1421,14 @@ program define _datadict_GetUnlabeledStats, rclass
         local li 0
         foreach lev of local levels {
             local ++li
-            if "`vtype'" == "float" quietly count if `vname' == float(`lev')
-            else quietly count if `vname' == `lev'
-            local _cnt`li' = r(N)
+            // levelsof's matcell(), in level order; the count loop only when
+            // matcell() refused the levels (too many for a matrix)
+            if `_lvfreq' local _cnt`li' = `_lvF'[`li', 1]
+            else {
+                if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+                else quietly count if `vname' == `lev'
+                local _cnt`li' = r(N)
+            }
         }
         mata: _datadict_cellmask_locals("_cnt", `li', `mincell', "_hid")
 
@@ -1677,6 +1660,13 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	}
 
 	local valuesstr ""
+	// Only the cells the table prints, and the saving() post, are built:
+	// the values column (level counts, the identifier and year tests) and
+	// the stats column (a summarize per variable) cost a pass or more each.
+	local _needvals = strpos(" `columns' ", " values ") > 0
+	local _needstats = strpos(" `columns' ", " stats ") > 0
+	local _needsum = `_needstats' | "`postname'" != ""
+	if `_needvals' {
 	if "`vallabname'" != "" {
 		_datadict_GetValueLabelString `"`vname'"' `"`vallabname'"' `maxfreq'
 		local valuesstr `"`r(valstring)'"'
@@ -1724,6 +1714,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 				local valuesstr `"`r(valstring)'"'
 			}
 	}
+	}
 
 	local statsstr ""
 	local mean = .
@@ -1743,7 +1734,8 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 		nuniq(`=cond(missing(`nuniq') | `ncapped', -1, `nuniq')')
 	local _cathide = r(cathide)
 	local _momhide = r(momhide)
-	if `is_numeric' {
+	// a categorical row under mincell() posts no summary (blanked below)
+	if `_needsum' & `is_numeric' & !("`varclass'" == "categorical" & `_cathide') {
 		// The percentiles (a sort per variable) are read only by the
 		// continuous row and the saving() post; other rows need min and max.
 		local _sumdetail = ("`varclass'" == "continuous" | "`postname'" != "")
@@ -1762,7 +1754,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 		}
 	}
 
-		if "`varclass'" == "categorical" {
+		if `_needstats' & "`varclass'" == "categorical" {
 			if "`vallabname'" != "" {
 				_datadict_GetCategoricalStats `"`vname'"' `"`vallabname'"' `maxfreq' `obs' `mincell' "`dateformat'"
 				local statsstr `"`r(valstring)'"'
@@ -1778,7 +1770,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			}
 		}
 	}
-	else if "`varclass'" == "continuous" {
+	else if `_needstats' & "`varclass'" == "continuous" {
 		if `is_numeric' & !missing(`mean') {
 			_datadict_FormatStatNumber `mean'
 			local mean_s `r(formatted)'
@@ -1810,7 +1802,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			local statsstr "All missing"
 		}
 	}
-	else if "`varclass'" == "date" {
+	else if `_needstats' & "`varclass'" == "date" {
 		if `is_numeric' & !missing(`vmin_raw') {
 			quietly count if !missing(`vname')
 			local nvalid = r(N)
@@ -1826,7 +1818,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			local statsstr "All missing"
 		}
 	}
-	else if "`varclass'" == "string" {
+	else if `_needstats' & "`varclass'" == "string" {
 		quietly count if !missing(`vname')
 		local nvalid = r(N)
 		_datamap_fmt_uniq `nuniq' `ncapped'

@@ -1,4 +1,4 @@
-*! _datamap_collect_from_dir Version 1.10.5  2026/10/21
+*! _datamap_collect_from_dir Version 1.10.6  2026/10/21
 *! Shared datamap/datadict directory scanner
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -21,6 +21,7 @@ program define _datamap_collect_from_dir, nclass
 	local _filesU : dir `"`directory'"' files "*.DTA"
 	local files : list files | _filesU
 		foreach f of local files {
+			_datamap_dirfile_ok `"`macval(f)'"'
 			if `"`directory'"' != "." {
 				file write `fh' `"`directory'/`f'"' _n
 			}
@@ -63,6 +64,7 @@ program define _datamap_recursive_scan, nclass
 	local _filesU : dir `"`directory'"' files "*.DTA"
 	local files : list files | _filesU
 	foreach f of local files {
+		_datamap_dirfile_ok `"`macval(f)'"'
 		if `"`directory'"' != "." {
 			file write `fh' `"`directory'/`f'"' _n
 		}
@@ -74,6 +76,7 @@ program define _datamap_recursive_scan, nclass
 	local subdirs : dir `"`directory'"' dirs "*"
 	foreach subdir of local subdirs {
 		if substr(`"`subdir'"', 1, 1) != "." & `"`subdir'"' != "__pycache__" {
+			_datamap_dirfile_ok `"`macval(subdir)'"' directory
 			if `"`directory'"' != "." {
 				_datamap_recursive_scan `"`directory'/`subdir'"' `fh' `=`depth' + 1'
 			}
@@ -86,4 +89,29 @@ program define _datamap_recursive_scan, nclass
 	local rc = _rc
 	set varabbrev `_varabbrev'
 	if `rc' exit `rc'
+end
+
+// A file name the scan found is later expanded as a macro, more than once,
+// on its way to -use- and into the output: a $ in it was read as a global
+// macro (a$b.dta became a.dta, then r(601) named a file that does not
+// exist), and a backtick or a double quote cannot round-trip either.  The
+// scan stops before anything is written, naming the file.  Other
+// characters (<, & ...) are documented, escaped in the output.  A
+// subdirectory of a recursive scan follows the same rule (kind directory).
+capture program drop _datamap_dirfile_ok
+local _drop_rc = _rc
+if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
+program define _datamap_dirfile_ok, nclass
+	version 16.0
+	args f kind
+	mata: st_local("_bad", strofreal(strpos(st_local("f"), "$") | ///
+		strpos(st_local("f"), char(96)) | strpos(st_local("f"), char(34))))
+	if `_bad' & "`kind'" == "directory" {
+		display as error `"directory(): cannot scan subdirectory `macval(f)': a directory name holding $, a backtick or a double quote cannot be read as a path here; rename the directory"'
+		exit 198
+	}
+	if `_bad' {
+		display as error `"directory(): cannot document `macval(f)': a file name holding $, a backtick or a double quote cannot be read as a path here; rename the file"'
+		exit 198
+	}
 end

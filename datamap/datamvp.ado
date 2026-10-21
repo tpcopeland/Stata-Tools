@@ -1,4 +1,4 @@
-*! datamvp Version 1.10.5  2026/10/21
+*! datamvp Version 1.10.6  2026/10/21
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -486,9 +486,24 @@ program define datamvp, rclass byable(recall) sortpreserve
     local nmvtotal = 0
     local origvarlist "`varlist'"
     local pctlist ""
+    // all-numeric varlist: the missing counts, the pattern strings, the
+    // monotone test and the gby()/over() bar cells come from one Mata pass
+    // each (_dmvp_*), not one or two data passes per variable; a string
+    // variable keeps the per-variable path
+    local _allnum = 0
+    capture confirm numeric variable `varlist'
+    if !_rc & "`varlist'" != "" {
+        local _allnum = 1
+        mata: st_local("_cmiss", invtokens(strofreal(_dmvp_colmiss(st_local("varlist"), st_local("touse")), "%20.0f")))
+    }
+    local _vi = 0
     foreach v of local varlist {
-        qui count if missing(`v') & `touse'
-        local thismv = r(N)
+        local ++_vi
+        if `_allnum' local thismv : word `_vi' of `_cmiss'
+        else {
+            qui count if missing(`v') & `touse'
+            local thismv = r(N)
+        }
         if `thismv' > 0 | "`drop'" != "" {
             local p : display %8.0f `thismv'
             local nmv `nmv' `p'
@@ -617,8 +632,14 @@ program define datamvp, rclass byable(recall) sortpreserve
         foreach v of local varlist {
             local ++i
 
-            qui count if missing(`v') & `touse'
-            local thismv = r(N)
+            if `_allnum' {
+                local _vp : list posof "`v'" in origvarlist
+                local thismv : word `_vp' of `_cmiss'
+            }
+            else {
+                qui count if missing(`v') & `touse'
+                local thismv = r(N)
+            }
             local nobsv = `N' - `thismv'
             local s_obs = strtrim(string(`nobsv', "%20.0fc"))
             local s_miss = strtrim(string(`thismv', "%20.0fc"))
@@ -708,13 +729,18 @@ program define datamvp, rclass byable(recall) sortpreserve
         gen str`nstr' `mv_patt' = "" if `touse'
         gen int `mv_n' = 0 if `touse'
 
-        tokenize `varlist'
-        forv i = 1/`nvar' {
-            if "`skip'" != "" & `i' > 1 & mod(`i'-1,5) == 0 {
-                replace `mv_patt' = `mv_patt' + " " if `touse'
+        if `_allnum' {
+            mata: _dmvp_patt(st_local("varlist"), st_local("touse"), st_local("mv_patt"), st_local("mv_n"), "`skip'" != "")
+        }
+        else {
+            tokenize `varlist'
+            forv i = 1/`nvar' {
+                if "`skip'" != "" & `i' > 1 & mod(`i'-1,5) == 0 {
+                    replace `mv_patt' = `mv_patt' + " " if `touse'
+                }
+                replace `mv_patt' = `mv_patt' + cond(missing(``i''), ".", "+") if `touse'
+                replace `mv_n' = `mv_n' + cond(missing(``i''), 1, 0) if `touse'
             }
-            replace `mv_patt' = `mv_patt' + cond(missing(``i''), ".", "+") if `touse'
-            replace `mv_n' = `mv_n' + cond(missing(``i''), 1, 0) if `touse'
         }
 
         * Identify unique patterns
@@ -1030,19 +1056,22 @@ program define datamvp, rclass byable(recall) sortpreserve
         di _n as txt "Monotone missingness test:"
         
         * Check if pattern is monotone (once missing, all subsequent missing)
-        tempvar is_mono
-        qui gen byte `is_mono' = 1 if `touse'
-        
-        tokenize `varlist'
-        forv i = 1/`nvar' {
-            local j = `i' + 1
-            if `j' <= `nvar' {
-                qui replace `is_mono' = 0 if missing(``i'') & !missing(``j'') & `touse'
-            }
+        if `_allnum' {
+            mata: st_local("nmono", strofreal(_dmvp_mono(st_local("varlist"), st_local("touse")), "%20.0f"))
         }
-        
-        qui count if `is_mono' == 1 & `touse'
-        local nmono = r(N)
+        else {
+            tempvar is_mono
+            qui gen byte `is_mono' = 1 if `touse'
+            tokenize `varlist'
+            forv i = 1/`nvar' {
+                local j = `i' + 1
+                if `j' <= `nvar' {
+                    qui replace `is_mono' = 0 if missing(``i'') & !missing(``j'') & `touse'
+                }
+            }
+            qui count if `is_mono' == 1 & `touse'
+            local nmono = r(N)
+        }
         local pctmono = 100 * `nmono' / `N'
         
         if `nmono' == `N' {
@@ -1458,6 +1487,10 @@ program define datamvp, rclass byable(recall) sortpreserve
                 qui {
                     * Calculate % missing for each variable within each gby level
                     local nrows = `nvar' * `gby_nlev'
+                    // all-numeric: every cell in one Mata pass, before the
+                    // data are cleared, in place of a restore per cell
+                    tempname _GM _GN
+                    if `_allnum' mata: _dmvp_grpmiss(st_local("varlist"), st_local("gby_grp"), st_local("touse"), st_local("_GM"), st_local("_GN"))
                     clear
                     set obs `nrows'
                     gen int varname = .
@@ -1486,13 +1519,20 @@ program define datamvp, rclass byable(recall) sortpreserve
                     save `gby_tempdata', replace
 
                     local row = 1
+                    if `_allnum' use `gby_tempdata', clear
                     forvalues _gk = 1/`gby_nlev' {
                         forv i = 1/`nvar' {
-                            restore, preserve
-                            qui count if `gby_grp' == `_gk' & `touse'
-                            local nlev = r(N)
-                            qui count if missing(``i'') & `gby_grp' == `_gk' & `touse'
-                            local nmisslev = r(N)
+                            if `_allnum' {
+                                local nlev = `_GN'[1, `_gk']
+                                local nmisslev = `_GM'[`i', `_gk']
+                            }
+                            else {
+                                restore, preserve
+                                qui count if `gby_grp' == `_gk' & `touse'
+                                local nlev = r(N)
+                                qui count if missing(``i'') & `gby_grp' == `_gk' & `touse'
+                                local nmisslev = r(N)
+                            }
                             local pctlev = 100 * `nmisslev' / `nlev'
                             if `_m' > 0 & (`nlev' < `_m' | ///
                                 (`nmisslev' >= 1 & `nmisslev' < `_m') | ///
@@ -1501,14 +1541,14 @@ program define datamvp, rclass byable(recall) sortpreserve
                                 local ++_ngmask
                             }
                             * Load tempfile, update, save back
-                            use `gby_tempdata', clear
+                            if !`_allnum' use `gby_tempdata', clear
                             qui replace pctmiss = `pctlev' in `row'
-                            save `gby_tempdata', replace
+                            if !`_allnum' save `gby_tempdata', replace
                             local ++row
                         }
                     }
                     * Load final tempfile for graphing (stay in preserved state)
-                    use `gby_tempdata', clear
+                    if !`_allnum' use `gby_tempdata', clear
                 }
 
                 * Set default title if not specified
@@ -1541,6 +1581,10 @@ program define datamvp, rclass byable(recall) sortpreserve
                 qui {
                     * Calculate % missing for each variable within each over level
                     local nrows = `nvar' * `over_nlev'
+                    // all-numeric: every cell in one Mata pass, before the
+                    // data are cleared, in place of a restore per cell
+                    tempname _GM _GN
+                    if `_allnum' mata: _dmvp_grpmiss(st_local("varlist"), st_local("over_grp"), st_local("touse"), st_local("_GM"), st_local("_GN"))
                     clear
                     set obs `nrows'
                     gen int varname = .
@@ -1569,13 +1613,20 @@ program define datamvp, rclass byable(recall) sortpreserve
                     save `over_tempdata', replace
 
                     local row = 1
+                    if `_allnum' use `over_tempdata', clear
                     forvalues _ok = 1/`over_nlev' {
                         forv i = 1/`nvar' {
-                            restore, preserve
-                            qui count if `over_grp' == `_ok' & `touse'
-                            local nlev = r(N)
-                            qui count if missing(``i'') & `over_grp' == `_ok' & `touse'
-                            local nmisslev = r(N)
+                            if `_allnum' {
+                                local nlev = `_GN'[1, `_ok']
+                                local nmisslev = `_GM'[`i', `_ok']
+                            }
+                            else {
+                                restore, preserve
+                                qui count if `over_grp' == `_ok' & `touse'
+                                local nlev = r(N)
+                                qui count if missing(``i'') & `over_grp' == `_ok' & `touse'
+                                local nmisslev = r(N)
+                            }
                             local pctlev = 100 * `nmisslev' / `nlev'
                             if `_m' > 0 & (`nlev' < `_m' | ///
                                 (`nmisslev' >= 1 & `nmisslev' < `_m') | ///
@@ -1584,14 +1635,14 @@ program define datamvp, rclass byable(recall) sortpreserve
                                 local ++_ngmask
                             }
                             * Load tempfile, update, save back
-                            use `over_tempdata', clear
+                            if !`_allnum' use `over_tempdata', clear
                             qui replace pctmiss = `pctlev' in `row'
-                            save `over_tempdata', replace
+                            if !`_allnum' save `over_tempdata', replace
                             local ++row
                         }
                     }
                     * Load final tempfile for graphing (stay in preserved state)
-                    use `over_tempdata', clear
+                    if !`_allnum' use `over_tempdata', clear
                 }
 
                 * Set default title if not specified
@@ -2222,6 +2273,10 @@ program define datamvp, rclass byable(recall) sortpreserve
     if `rc' exit `rc'
 end
 
+capture mata: mata drop _dmvp_colmiss()
+capture mata: mata drop _dmvp_patt()
+capture mata: mata drop _dmvp_mono()
+capture mata: mata drop _dmvp_grpmiss()
 capture mata: mata drop _datamvp_graph_text()
 capture mata: mata drop _datamvp_graph_lines()
 capture mata: mata drop _datamvp_graph_parse()
@@ -2445,6 +2500,103 @@ string scalar _datamvp_axis_text(string scalar vn, real scalar uselab)
     if (uselab) lab = st_varlabel(vn)
     if (strtrim(lab) == "") lab = vn
     return(_datamvp_graph_text(lab))
+}
+
+// Missing counts of each variable in vars over the rows where touse is 1
+// (all numeric).
+real rowvector _dmvp_colmiss(string scalar vars, string scalar touse)
+{
+    real matrix V
+    st_view(V, ., tokens(vars), touse)
+    if (rows(V) == 0) return(J(1, cols(V), 0))
+    return(colmissing(V))
+}
+
+// The pattern string of each touse row into the str variable pvar ("+"
+// observed, "." missing, a space before every fifth variable with skip) and
+// its missing count into nvar, built in blocks of rows (all numeric).
+void _dmvp_patt(string scalar vars, string scalar touse, string scalar pvar,
+    string scalar nvar, real scalar skip)
+{
+    real matrix V, M, C
+    real colvector mn
+    string colvector s
+    real rowvector pos
+    real scalar N, K, L, lo, hi, B, r, i, p
+    st_view(V, ., tokens(vars), touse)
+    N = rows(V)
+    K = cols(V)
+    pos = J(1, K, .)
+    p = 0
+    for (i = 1; i <= K; i++) {
+        if (skip & i > 1 & mod(i - 1, 5) == 0) p++
+        p++
+        pos[i] = p
+    }
+    L = p
+    s = J(N, 1, "")
+    mn = J(N, 1, .)
+    B = 100000
+    for (lo = 1; lo <= N; lo = hi + 1) {
+        hi = min((lo + B - 1, N))
+        M = V[|lo, 1 \ hi, K|] :>= .
+        mn[|lo \ hi|] = rowsum(M)
+        C = J(hi - lo + 1, L, 32)
+        C[., pos] = 43 :+ 3 :* M
+        for (r = 1; r <= hi - lo + 1; r++) s[lo + r - 1] = char(C[r, .])
+    }
+    st_sstore(., pvar, touse, s)
+    st_store(., nvar, touse, mn)
+}
+
+// Rows (touse) whose missingness is monotone in the order of vars: no
+// variable missing where the next one is observed (all numeric).
+real scalar _dmvp_mono(string scalar vars, string scalar touse)
+{
+    real matrix V, M
+    real scalar N, K, lo, hi, B, n
+    st_view(V, ., tokens(vars), touse)
+    N = rows(V)
+    K = cols(V)
+    if (K < 2) return(N)
+    n = 0
+    B = 200000
+    for (lo = 1; lo <= N; lo = hi + 1) {
+        hi = min((lo + B - 1, N))
+        M = V[|lo, 1 \ hi, K|] :>= .
+        n = n + sum(rowsum(M[., 1..K-1] :& !M[., 2..K]) :== 0)
+    }
+    return(n)
+}
+
+// Rows of each group (1 x G, matrix ngmat) and missing counts of each
+// variable in each group (K x G, nmmat); grp holds 1..G on the touse rows.
+void _dmvp_grpmiss(string scalar vars, string scalar grp, string scalar touse,
+    string scalar nmmat, string scalar ngmat)
+{
+    real matrix V, nm, u, m
+    real colvector g
+    real rowvector ng
+    real scalar G, K, j
+    st_view(V, ., tokens(vars), touse)
+    st_view(g, ., grp, touse)
+    K = cols(V)
+    G = max(g)
+    nm = J(K, G, 0)
+    ng = J(1, G, 0)
+    u = uniqrows(g, 1)
+    ng[u[., 1]'] = u[., 2]'
+    for (j = 1; j <= K; j++) {
+        // length(), not rows(): select() on one row can give 1 x 0
+        m = select(g, V[., j] :>= .)
+        if (length(m)) {
+            m = vec(m)
+            u = uniqrows(m, 1)
+            nm[j, u[., 1]'] = u[., 2]'
+        }
+    }
+    st_matrix(nmmat, nm)
+    st_matrix(ngmat, ng)
 }
 end
 

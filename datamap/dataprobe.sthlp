@@ -1002,8 +1002,10 @@ gate counts of {opt notmissing()}, {opt complete()}, {opt stat()} {cmd:n},
 {cmd:pmiss} and {cmd:sum}, {opt binary()}, {opt inrange()} on a profiled date,
 {opt allowed()}, {opt forbid()}, {opt notvalues()} and the {opt groupstat()}
 {cmd:n} and 0/1 {cmd:sum} cells with the call's {opt by()} repeat these
-quantities; a frequency table's row order bounds a withheld row by its
-neighbours; and a zero-test gate's verdict says whether its count is 0.
+quantities; a {opt review()} condition's per-group counts sum to its total,
+which the check takes as printed (it may equal a level's count); a frequency
+table's row order bounds a withheld row by its neighbours; and a zero-test
+gate's verdict says whether its count is 0.
 
 {pstd}
 Guarantee: no group count from 1 to {it:m}-1, and no group count whose
@@ -1032,8 +1034,8 @@ Not covered: a count read across two calls (differencing two outputs); the
 verdict of a band gate ({opt stat()} bounds, {opt complete()} {cmd:min()},
 {opt expectn()}), which says whether a count lies in a band the user chose;
 counts of user expressions ({opt rule()}, {opt byrule()}, {opt regex()},
-{opt review()}, {opt events()}, {opt isid()}, {opt nodups}) set against other
-counts; statistics (means, SDs, percentiles, sums of variables other than
+{opt events()}, {opt isid()}, {opt nodups}), and of {opt review()} beyond its
+own total, set against other counts; statistics (means, SDs, percentiles, sums of variables other than
 0/1), which follow the rules above; the {opt patterns} table's pattern
 totals; {opt groupstat()} over another {opt by()} or with its own {cmd:if};
 counts of rows missing two variables at once, which are not printed; the
@@ -1041,6 +1043,29 @@ pooled blocks' own totals, masked by their own rules; and inference from how
 the withheld counts were chosen. The interval is computed for outputs with up
 to 700 unknown counts and 40 programs per call; beyond that a count without
 another table of counts is protected by pooling its group.
+
+{pstd}
+The search for another table of counts and the linear programs share one
+budget per call, across every repeat of the check: 4,000,000 tries.
+Re-ranking a frequency table of {it:L} levels counts {it:L}/512 tries more,
+and each linear program counts the cube of its size (unknowns plus
+constraints) over 6,000, about 800,000 tries for a program that takes 15
+seconds. When the budget runs out before every count is shown safe, an
+unresolved count may be a disclosure, and pooling only some groups could not
+be checked again, so every group is pooled: no group's size or audited count
+prints, a note under the header says so, and {cmd:r(linkaudit_capped)} is 1
+(it is 0 when the check finishes, and posted only when the check runs:
+{opt by()} and {opt maskrare} without {opt gatesonly}).
+This happens on outputs with many small groups and many linked counts
+(thousands of rows in 40 groups with {opt byfreq} and several gates), with
+a {opt byfreq} variable whose levels are mostly single rows (an identifier
+string such as {cmd:make} in {cmd:auto}), or with {opt byfreq} tables whose
+small cells link a small group to large ones ({cmd:nlsw88} {cmd:by(race)}
+{cmd:byfreq}, which 1.10.5 printed after more than three minutes); fewer
+{opt byfreq} variables,
+leaving identifiers and other high-cardinality strings out of {opt byfreq}, or
+no {opt maskrare} avoid it. The budget counts work, not time, so the same data
+and call always give the same output.
 
 {pstd}
 Every PASS line and violation heading ends with the active masking, such as
@@ -1112,6 +1137,7 @@ displayed.
 {synopt:{cmd:r(mincell)}}{opt mincell()} as given or defaulted{p_end}
 {synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was in effect{p_end}
 {synopt:{cmd:r(masked)}}1 when any printed count was masked{p_end}
+{synopt:{cmd:r(linkaudit_capped)}}1 if the linked-count check ran out of budget{p_end}
 {synopt:{cmd:r(n_continuous)}}continuous variables (profile only){p_end}
 {synopt:{cmd:r(n_categorical)}}categorical variables (profile only){p_end}
 {synopt:{cmd:r(n_date)}}date variables (profile only){p_end}

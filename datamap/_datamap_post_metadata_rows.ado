@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.10.5  2026/10/21
+*! _datamap_post_metadata_rows Version 1.10.6  2026/10/21
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -57,7 +57,7 @@ program define _datamap_post_metadata_rows, nclass
         syntax, POSTName(name) CLASSifications(string) SOURCECommand(string) ///
             SOURCE(string) DSName(string) NVARS(integer) ///
             [OUtput(string) DSLabel(string) VARLIST(string) DATASIGnature(string) DATESAFE ///
-            NOSTATS MINCell(integer 0)]
+            NOSTATS MINCell(integer 0) SUMframe(name)]
 
         mata: st_local("source", _datamap_ucut(st_local("source"), 2045))
         mata: st_local("output", _datamap_ucut(st_local("output"), 2045))
@@ -163,6 +163,14 @@ program define _datamap_post_metadata_rows, nclass
                     local p75 = regexr(string(r(p75), "%21x"), "^[+]", "")
                     local vmin = regexr(string(r(min), "%21x"), "^[+]", "")
                     local vmax = regexr(string(r(max), "%21x"), "^[+]", "")
+                    // sumframe(): a continuous variable's results, for the
+                    // report pass to read back (datamap's _datamap_sumd)
+                    if "`sumframe'" != "" & "`varclass'" == "continuous" {
+                        frame post `sumframe' ("`vname'") (r(N)) (r(sum_w)) (r(mean)) ///
+                            (r(Var)) (r(sd)) (r(skewness)) (r(kurtosis)) (r(sum)) ///
+                            (r(min)) (r(max)) (r(p1)) (r(p5)) (r(p10)) (r(p25)) ///
+                            (r(p50)) (r(p75)) (r(p90)) (r(p95)) (r(p99))
+                    }
                 }
             }
 

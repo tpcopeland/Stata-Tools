@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.10.5  21oct2026}{...}
+{* *! version 1.10.6  21oct2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -200,7 +200,10 @@ spaced name unambiguous.
 {opt rec:ursive} makes {opt directory()} also descend into subdirectories. Hidden
 directories (names beginning with {cmd:.}) and {cmd:__pycache__} are always skipped.
 {opt recursive} without {opt directory()} is r(198). A file ending in {cmd:.DTA}
-is found as well as one ending in {cmd:.dta}.
+is found as well as one ending in {cmd:.dta}. A file whose name holds {cmd:$}, a
+backtick, or a double quote cannot be read as a path, nor can such a
+subdirectory under {opt recursive}; the scan stops with r(198) naming it,
+before any output is written. Rename the file or directory.
 
 {pstd}
 Only one of {opt single()}, {opt directory()}, or {opt filelist()} may be
@@ -719,7 +722,7 @@ Combine multiple privacy and content options:{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.10.5, 2026-10-21{p_end}
+{pstd}Version 1.10.6, 2026-10-21{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

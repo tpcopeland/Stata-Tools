@@ -1,4 +1,4 @@
-*! _dataprobe_qshow Version 1.10.5  2026/10/21
+*! _dataprobe_qshow Version 1.10.6  2026/10/21
 *! Format one summary statistic for display, suppressed under a mask
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,11 +14,13 @@ program define _dataprobe_qshow, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, VALue(name) MASK(integer) [COND(string) STAT(string) FMT(string)]
+        syntax varname, VALue(name) MASK(integer) [COND(string) STAT(string) FMT(string) KNOWN(integer -1)]
         if `"`cond'"' == "" local cond "1"
         if "`fmt'" == "" local fmt "%10.4g"
         local shown = 1
-        if `mask' > 0 & !missing(scalar(`value')) {
+        // known(): the mask test already done by the caller (0 or 1)
+        if `known' >= 0 local shown = `known'
+        else if `mask' > 0 & !missing(scalar(`value')) {
             if "`stat'" == "sd" {
                 quietly count if (`cond') & !missing(`varlist')
                 local _n = r(N)
