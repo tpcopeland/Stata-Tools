@@ -1,4 +1,4 @@
-*! _dataprobe_coverage Version 1.10.4  2026/10/21
+*! _dataprobe_coverage Version 1.10.5  2026/10/21
 *! dataprobe coverage(): delivered-file date coverage (a band family)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -208,6 +208,15 @@ program define _dataprobe_coverage, rclass
                     local obs "last `lasttxt'"
                     local exp "last date >= `hitxt' - `gtxt' days (`cuttxt')"
                     if `useq' local exp "`exp', tested on the p`pphi' (endq(`endq'))"
+                    // a failure without the mask: the last date at full
+                    // precision beside it (12:00 on the cut day prints as
+                    // the cut day)
+                    if !`ok' & `mask' == 0 & "`excluded'" == "" {
+                        _dataprobe_datefull `=regexr(string(`emax', "%21x"), "^[+]", "")' %td
+                        local lasttxt `"`r(s)'"'
+                        if `useq' local lasttxt `"p`pphi' `lasttxt'"'
+                        local obs "last `lasttxt'"
+                    }
                     if `ok' local msg `"`pfx'coverage(`ck'): `dv' reaches `cuttxt' (last `lasttxt')"'
                     else local msg `"`pfx'coverage(`ck'): `dv' ends before `cuttxt' = `hitxt' - `gtxt' days (last `lasttxt'); truncated delivery?"'
                 }
@@ -218,6 +227,12 @@ program define _dataprobe_coverage, rclass
                     local obs "first `firsttxt'"
                     local exp "first date <= `lotxt' + `gtxt' days (`cuttxt')"
                     if `useq' local exp "`exp', tested on the p`pplo' (endq(`endq'))"
+                    if !`ok' & `mask' == 0 & "`excluded'" == "" {
+                        _dataprobe_datefull `=regexr(string(`emin', "%21x"), "^[+]", "")' %td
+                        local firsttxt `"`r(s)'"'
+                        if `useq' local firsttxt `"p`pplo' `firsttxt'"'
+                        local obs "first `firsttxt'"
+                    }
                     if `ok' local msg `"`pfx'coverage(`ck'): `dv' starts by `cuttxt' (first `firsttxt')"'
                     else local msg `"`pfx'coverage(`ck'): `dv' starts after `cuttxt' = `lotxt' + `gtxt' days (first `firsttxt')"'
                 }

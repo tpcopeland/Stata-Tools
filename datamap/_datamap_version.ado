@@ -1,4 +1,4 @@
-*! _datamap_version Version 1.10.4  2026/10/21
+*! _datamap_version Version 1.10.5  2026/10/21
 *! Read a datamap command's version from its installed .ado header
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

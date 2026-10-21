@@ -1,4 +1,4 @@
-*! _dataprobe_complete Version 1.10.4  2026/10/21
+*! _dataprobe_complete Version 1.10.5  2026/10/21
 *! dataprobe complete(): complete cases over a varlist
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -71,7 +71,16 @@ program define _dataprobe_complete, rclass
             // count (dataprobe's _dataprobe_premask); a count already
             // printed <m or all but <m keeps that text, so [suppressed]
             // always stands for an exact count of the mask or more
-            if `force' & `mask' > 0 & !`kom' {
+            // force(2): a by() group whose size is withheld, in a profile
+            // whose totals link the count to other blocks: any nonzero
+            // count reads [suppressed], so it says only whether it is zero
+            if `force' == 2 & `mask' > 0 & `k' >= 1 {
+                local kc "[suppressed]"
+                local kp "[masked]"
+                local knum = .
+                local om = 1
+            }
+            else if `force' & `mask' > 0 & !`kom' {
                 local kc "[suppressed]"
                 local kp "[masked]"
                 local knum = .

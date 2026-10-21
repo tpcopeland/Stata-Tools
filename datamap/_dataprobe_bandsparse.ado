@@ -1,4 +1,4 @@
-*! _dataprobe_bandsparse Version 1.10.4  2026/10/21
+*! _dataprobe_bandsparse Version 1.10.5  2026/10/21
 *! Parse the contents of dataprobe bands()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

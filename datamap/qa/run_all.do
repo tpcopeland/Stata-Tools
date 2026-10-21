@@ -54,6 +54,7 @@ local quick_suites ///
     test_datamap_v1103r2.do ///
     test_dataprobe_v1103r2.do ///
     test_datamap_v1104.do ///
+    test_dataprobe_v1105.do ///
     test_datamvp_graph_text.do
 
 local core_suites ///

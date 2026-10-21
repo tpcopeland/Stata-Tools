@@ -396,7 +396,14 @@ with the bounds at float precision, but a mean, sd, or sum is compared
 exactly, in double precision: a float variable holding 0.2 in every row has
 mean 0.20000000298 and fails {cmd:stat(mean x 0 0.2)}. Set such a band a
 little wider than float resolution, as in {cmd:stat(mean x 0 0.2000001)}. Band
-bounds are compared at full double precision.
+bounds are compared at full double precision. Without the mask, a failing mean
+or percentile of a date variable whose date does not show it exactly (a
+fraction of a day, milliseconds under a {cmd:%tc} format that shows seconds)
+prints its value at full precision with the date beside it,
+{cmd:874.5125 (24may1962)} ({cmd:%21.0g} for a {cmd:%tc} value), since the date
+alone can read as the bound it failed; under {opt maskrare} it prints at month
+precision. A failing {opt inrange()} on a date prints its minimum and maximum
+the same way.
 
 {phang}
 {opt bin:ary(varlist)} asserts that each variable is a 0/1 flag: every
@@ -542,7 +549,10 @@ maximum, so one stray record near {it:hi} cannot hide a truncated delivery. The
 quantile is the default definition of {cmd:_pctile}. The printed line names the
 quantile tested (for example {bf:p99}), and under {opt maskrare} it is shown
 only when it passes the same suppression rule as any other printed
-statistic. Without {cmd:endq()} the raw extremes are used, as before.
+statistic. Without {cmd:endq()} the raw extremes are used, as before. Without
+the mask, a failing {bf:early_start} or {bf:late_end} prints a date tested that
+is not a whole day at full precision with the day beside it,
+{cmd:first 738.5 (08jan1962)}.
 
 {pmore}
 {cmd:gap(none)} declares that the plan sources no delivery lag. {cmd:gap()}
@@ -664,9 +674,10 @@ named by its number ({cmd:group #3}), never its values. The mean or a
 percentile of a date prints as a date, at month precision under the mask, as
 the pooled value does; a date format wider than the column prints as a
 {cmd:%td} date. Every cell fits its column, and a withheld pooled value reads
-{bf:[suppr.]}. Without the mask, a failing band on a date prints the value
-with the date beside it, {cmd:1865.5 (08feb1965)}, so a value just outside the
-band never reads as the bound.
+{bf:[suppr.]}. Without the mask, a failing band on a date prints a value its
+date does not show exactly at full precision with the date beside it,
+{cmd:1865.5 (08feb1965)} ({cmd:%21.0g} for {cmd:%tc}), so a value just outside
+the band never reads as the bound.
 
 {pmore}
 A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::} {it:var}{cmd:, by(}{it:groupvars}{cmd:)}
@@ -952,28 +963,8 @@ not masked.{p_end}
 {bf:<}{it:m} and its percentage as {bf:[masked]}; a count whose complement is small prints as
 {bf:all but <}{it:m}, while a zero count prints as {bf:0}; a {opt by()} group smaller than {it:m} is not shown and is counted
 in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}.
-A count in a GROUPWISE block that has a total printed elsewhere (complete
-cases in the header, a variable's missing count in MISSINGNESS, a level's
-count in the pooled frequency table) is withheld as well when that total
-minus the counts the block prints exactly is 1 to {it:m}-1, or when the
-rows of the groups not printed exactly (every group's size is printed, or is
-N minus the shown sizes) minus that remainder is 1 to {it:m}-1, as when one
-group prints {bf:all but <}{it:m} beside exact ones: the smallest exact count
-(for the second test, the one with the smallest complement) reads
-{bf:[suppr.]} (in a frequency table, {bf:[suppressed]}, and the group's table
-pools it), and further groups follow until neither difference is 1 to
-{it:m}-1. The same test covers the per-group gate
-counts of a profile with {opt by()}: {opt notmissing()}, {opt binary()},
-{opt complete()} over the profile or over one variable, {opt stat()}
-{cmd:n}, {cmd:pmiss} and the {cmd:sum} of a 0/1 variable, {opt inrange()} of
-a profiled date (against the DATE block's count outside the window),
-{opt allowed()}, {opt forbid()} and {opt notvalues()} of a variable with a
-frequency table, and {opt groupstat()} {cmd:n} and {cmd:sum} cells; a group
-withheld for a quantity in one block is withheld wherever that quantity is
-printed for it, and the gate count reads {bf:[suppressed]}. {bf:[suppr.]} and
-{bf:[suppressed]} in these GROUPWISE cells and per-group gate counts stand for
-an exact count of {it:m} or more withheld by this test: a count already
-printed {bf:<}{it:m} or {bf:all but <}{it:m} keeps that text. The {bf:Unique} column, a string's
+The counts a {opt by()} profile prints per group are protected together; see
+{it:Linked counts in a by() profile} below. The {bf:Unique} column, a string's
 {bf:unique=} and a categorical variable's level count print as
 {bf:[masked]} when N, or the nonmissing N, minus that count is 1 to
 {it:m}-1.{p_end}
@@ -991,6 +982,65 @@ and when the nonzero and the zero weights each number 0 or at least {it:m} (the
 {cmd:ess} of a 0/1 weight is the count of ones). The median records per key in
 KEY STRUCTURE follows the same rule over the keys.{p_end}
 {phang2}o  the {opt patterns} table is masked by {help datamvp}.{p_end}
+
+{pstd}
+{bf:Linked counts in a by() profile.} A profile with {opt by()} prints many
+counts per group that are tied to one another and to totals printed
+elsewhere, so a count withheld in one place could be recalculated from the
+others (Hundepool et al. 2025, sec. 4.2.2 and 5.3: secondary suppression for
+linked tables). The relations an attacker can use within one output are:
+group sizes sum to N; a quantity's group counts and the pooled groups' count
+sum to its total (a variable's missing count in MISSINGNESS, Miss% and the
+continuous N; complete cases in the header; a level's count in the pooled
+frequency table; the rows outside a date window in DATE); a group's levels
+and missing values sum to its size ({opt byfreq}); its complete count is N
+minus its incomplete rows, which lie between its largest missing count and
+their sum, equal one variable's missing count when MissVars is 1, and are 0
+when it is 0 (an absent GROUPWISE MISSINGNESS row is a zero); a value-domain,
+{opt binary()} or 0/1 {cmd:sum} count is a sum of level counts; the per-group
+gate counts of {opt notmissing()}, {opt complete()}, {opt stat()} {cmd:n},
+{cmd:pmiss} and {cmd:sum}, {opt binary()}, {opt inrange()} on a profiled date,
+{opt allowed()}, {opt forbid()}, {opt notvalues()} and the {opt groupstat()}
+{cmd:n} and 0/1 {cmd:sum} cells with the call's {opt by()} repeat these
+quantities; a frequency table's row order bounds a withheld row by its
+neighbours; and a zero-test gate's verdict says whether its count is 0.
+
+{pstd}
+Guarantee: no group count from 1 to {it:m}-1, and no group count whose
+complement in its group is 1 to {it:m}-1, can be determined exactly from
+these relations, and neither can the pooled groups' total of any of these
+quantities. A count printed {bf:<}{it:m} or {bf:all but <}{it:m} therefore keeps
+at least two possible values. {cmd:dataprobe} first withholds, as
+{bf:[suppr.]} (a frequency-table row: {bf:[suppressed]}), the smallest exact
+count whose total minus the exactly printed counts would be 1 to {it:m}-1, as
+before. It then checks every such count against all the relations together:
+it looks for another table of counts that prints the same output with that
+count changed (one unit moved between two values in a group and taken back
+elsewhere, a missing unit traded between two variables, an incomplete row
+moved), and failing that computes the count's feasibility interval by linear
+programming. A group with a count that keeps a single value joins the pooled
+groups ({cmd:groups pooled (each <5 rows, or pooled with them)}): its size and
+counts are no longer printed in any block or in {opt groupstat()} with the
+call's {opt by()}, and the check is repeated. In a pooled group's gate lines a
+linked count prints as {bf:0} or, when nonzero, {bf:[suppressed]}. {bf:[suppr.]}
+stands for a count that would otherwise print exactly: 0, the group size, or
+{it:m} to the group size minus {it:m}. Output without {opt maskrare} is
+unchanged.
+
+{pstd}
+Not covered: a count read across two calls (differencing two outputs); the
+verdict of a band gate ({opt stat()} bounds, {opt complete()} {cmd:min()},
+{opt expectn()}), which says whether a count lies in a band the user chose;
+counts of user expressions ({opt rule()}, {opt byrule()}, {opt regex()},
+{opt review()}, {opt events()}, {opt isid()}, {opt nodups}) set against other
+counts; statistics (means, SDs, percentiles, sums of variables other than
+0/1), which follow the rules above; the {opt patterns} table's pattern
+totals; {opt groupstat()} over another {opt by()} or with its own {cmd:if};
+counts of rows missing two variables at once, which are not printed; the
+pooled blocks' own totals, masked by their own rules; and inference from how
+the withheld counts were chosen. The interval is computed for outputs with up
+to 700 unknown counts and 40 programs per call; beyond that a count without
+another table of counts is protected by pooling its group.
 
 {pstd}
 Every PASS line and violation heading ends with the active masking, such as
@@ -1120,6 +1170,13 @@ continue after violations so that later code can read the results.
 
 {marker references}{...}
 {title:References}
+
+{phang}
+Hundepool, A., J. Domingo-Ferrer, L. Franconi, S. Giessing, R. Lenz, J. Naylor,
+E. Schulte Nordholt, G. Seri, P.-P. de Wolf, R. Tent, A. Młodak, J. Gussenbauer,
+and K. Wilak. 2025. {it:Handbook on Statistical Disclosure Control}. 2nd ed.
+Center of Excellence SDC.
+{p_end}
 
 {phang}
 Kish, L. 1965. {it:Survey Sampling}. New York: Wiley.

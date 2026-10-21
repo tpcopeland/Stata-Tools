@@ -1,4 +1,4 @@
-*! _dataprobe_groupstat Version 1.10.4  2026/10/21
+*! _dataprobe_groupstat Version 1.10.5  2026/10/21
 *! dataprobe groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -43,7 +43,8 @@ program define _dataprobe_groupstat, rclass
         syntax , SPEC(string) [PARSEonly RF(name) KIND(string) GRP(string) ///
             PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) SCOPE(string) ///
             CELLFRAME(name) CELLIDX(integer 0) EXCLuded(string) NPRINT(integer 1) ///
-            PROFile(string) PCAT(string) BYVARS(string) MHIDE(string) FHIDE(string)]
+            PROFile(string) PCAT(string) BYVARS(string) MHIDE(string) FHIDE(string) ///
+            PHIDE(string)]
         local head `"`spec'"'
         local opts ""
         local cp = strpos(`"`spec'"', ",")
@@ -134,7 +135,8 @@ program define _dataprobe_groupstat, rclass
                             mask(`mask') nscope(`nscope') cond(`"`cond'"') ///
                             scope(`"`macval(scope)'"') cellframe(`cf') cellidx(`si') ///
                             excluded(`excluded') nprint(`nprint') profile(`profile') ///
-                            pcat(`pcat') byvars(`byvars') mhide(`mhide') fhide(`fhide')
+                            pcat(`pcat') byvars(`byvars') mhide(`mhide') fhide(`fhide') ///
+                            phide(`phide')
                         local _m1 = r(masked)
                         local _f1 = r(nfail)
                         if `_m1' local anymask = 1
@@ -455,6 +457,18 @@ program define _dataprobe_groupstat, rclass
                     // exclude(): a variable's contents are withheld
                     local exc_`j' : list v in excluded
                 }
+                // dataprobe's profile pools a by() group whose counts it
+                // cannot show (phide: its rows); with the call's by(), that
+                // group is pooled here too
+                local _phon = (`mask' > 0 & "`phide'" != "" & "`byvars'" != "")
+                if `_phon' local _phon : list byv === byvars
+                forvalues k = 1/`G' {
+                    local ph_`k' = 0
+                    if `_phon' {
+                        quietly count if `g' == `k' & `phide' == 1
+                        local ph_`k' = (r(N) > 0)
+                    }
+                }
                 forvalues k = 1/`G' {
                     local gl "`k'"
                     if "`glab'" != "" {
@@ -464,7 +478,7 @@ program define _dataprobe_groupstat, rclass
                     local gl_`k' `"`gl'"'
                     local sup_`k' = 0
                     local tst_`k' = (`n_`k'' >= `bmin')
-                    if `n_`k'' < `gmin' {
+                    if `n_`k'' < `gmin' | `ph_`k'' {
                         local ++nsmall
                         local sup_`k' = 1
                         local j = 0
@@ -917,7 +931,11 @@ program define _dataprobe_groupstat, rclass
                             // as 08feb1965 could round onto a bound
                             if `isdate_`j'' & "`relative'" == "" & !missing(`x') {
                                 if `mask' > 0 local xs `"`s_`k'_`j''"'
-                                else local xs `"`xs' (`=strtrim(string(`x', "`dfmt_`j''"))')"'
+                                else {
+                                    // %21.0g for a %tc value (ms since 1960)
+                                    _dataprobe_datefull `x' `dfmt_`j''
+                                    local xs `"`r(s)'"'
+                                }
                             }
                             local onum = regexr(string(`x', "%21x"), "^[+]", "")
                             local om = 0

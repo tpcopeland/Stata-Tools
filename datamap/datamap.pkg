@@ -69,6 +69,7 @@ f _dataprobe_bandsparse.ado
 f _dataprobe_errrow.ado
 f _dataprobe_ledger.ado
 f _dataprobe_qshow.ado
+f _dataprobe_datefull.ado
 f _dataprobe_bound.ado
 f _dataprobe_groupmiss.ado
 f _dataprobe_gtext.ado

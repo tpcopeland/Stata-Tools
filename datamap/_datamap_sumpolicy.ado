@@ -1,4 +1,4 @@
-*! _datamap_sumpolicy Version 1.10.4  2026/10/21
+*! _datamap_sumpolicy Version 1.10.5  2026/10/21
 *! Which summaries of one variable a datamap/datadict output may print
 *! Author: Timothy P Copeland, Karolinska Institutet
 
