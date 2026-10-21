@@ -177,6 +177,13 @@ range ({cmd:1(1)5}, {cmd:1/5}, {cmd:1 2 to 5}) is expanded by {cmd:numlist},
 which may round a range's endpoints and step: any range endpoint or step that
 {cmd:numlist} would round is {cmd:r(198)}
 ({cmd:list that range's analysis times one by one instead}).
+{bf:Float time variables.} A time variable stored as {cmd:float} holds the
+float rounding of each time, so an event displayed as {cmd:.939} is stored as
+.93900001049..., and {cmd:attime(.939)}, used as typed, lies just below it and
+excludes it. A note names such horizons and prints the stored time, and says
+the time variable is a float only when it is one; type that value, or {cmd:recast double} and round the time variable before {cmd:stset},
+to include the event. The support notes print event times in as many digits
+as it takes to read back as the stored value.
 
 {phang}
 {opt timepoints(numlist)} evaluates the curve at the specified times rather than
@@ -207,7 +214,8 @@ a covariate profile alone no longer identifies a curve there. It is refused
 ({cmd:r(198)}) after every other fit, including a {opt bstrata()} fit with a
 single stratum, which is the unstratified estimator bit for bit and has no
 stratum to name. A value with no estimation-sample subjects or no cause events
-is {cmd:r(459)}. Use {opt over()}
+is {cmd:r(459)}; the refusal lists the fitted levels, each in as many digits
+as it takes to be accepted back by {opt bstratum()}. Use {opt over()}
 on the {opt bstrata()} variable for all strata at once. See
 {help finegray_methods##bstrata:Baseline strata}.
 

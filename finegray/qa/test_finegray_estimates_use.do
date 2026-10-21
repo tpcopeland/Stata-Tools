@@ -595,6 +595,92 @@ else {
     local ++fail_count
 }
 
+* -----------------------------------------------------------------------------
+**# 11. predict, cif without e(basehaz) names the empty sample, not lost data
+* -----------------------------------------------------------------------------
+* A fit WITHOUT basehaz carries no baseline in e(); after `clear all' and
+* `estimates use' the cache is gone too, so finegray_predict, cif has to
+* rebuild the baseline from the estimation data -- which ARE in memory, only
+* unmarked.  Through 1.3.8 as first released the refusal said "the estimation
+* data are no longer in memory", which is false here and names no repair
+* (review finding M3, 2026-10-20); finegray_cif and finegray_phtest already
+* named `estimates esample:' for the same state.  Pinned on the message and on
+* the repair reproducing the pre-save numbers.
+local ++test_count
+capture noisily {
+    tempfile nb_data nb_est
+    clear
+    set seed 20261020
+    quietly set obs 500
+    gen long id = _n
+    gen byte grp = 1 + mod(_n, 3)
+    gen double z = rnormal()
+    gen double t1 = -ln(runiform()) / (0.05 * exp(0.4 * z + 0.3 * (grp == 2)))
+    gen double t2 = -ln(runiform()) / 0.04
+    gen double tc = -ln(runiform()) / 0.03
+    gen double t  = min(t1, t2, tc)
+    gen byte ev = cond(t == tc, 0, cond(t == t1, 1, 2))
+    drop t1 t2 tc
+    quietly stset t, failure(ev == 1 2) id(id)
+    quietly finegray i.grp z, compete(ev) cause(1) nolog
+    capture confirm matrix e(basehaz)
+    assert _rc != 0
+    quietly finegray_predict double nb_ref, cif
+    quietly save "`nb_data'", replace
+    quietly estimates save "`nb_est'", replace
+
+    clear all
+    quietly use "`nb_data'", clear
+    quietly estimates use "`nb_est'"
+    tempfile eucap11
+    capture log close _eucap11
+    log using "`eucap11'", replace text name(_eucap11)
+    capture noisily finegray_predict double nb_new, cif
+    local nb_rc = _rc
+    log close _eucap11
+    assert `nb_rc' == 459
+    capture confirm variable nb_new
+    assert _rc != 0
+
+    tempname fh11
+    local saw_empty11 = 0
+    local saw_esample11 = 0
+    local saw_gone11 = 0
+    file open `fh11' using "`eucap11'", read text
+    file read `fh11' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "estimation sample is empty") > 0 local saw_empty11 = 1
+        if strpos(`"`line'"', "estimates esample:") > 0 local saw_esample11 = 1
+        if strpos(`"`line'"', "no longer in memory") > 0 local saw_gone11 = 1
+        file read `fh11' line
+    }
+    file close `fh11'
+    assert `saw_empty11' == 1
+    assert `saw_esample11' == 1
+    assert `saw_gone11' == 0
+
+    * the repair the message names reproduces the pre-save predictions
+    estimates esample: `e(datasignaturevars)'
+    quietly finegray_predict double nb_new, cif
+    quietly count if missing(nb_new) != missing(nb_ref)
+    assert r(N) == 0
+    quietly count if !missing(nb_ref)
+    assert !missing(r(N))
+    assert r(N) > 0
+    gen double nb_d = reldif(nb_new, nb_ref)
+    quietly summarize nb_d, meanonly
+    assert !missing(r(max))
+    assert r(max) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: EU-11 predict, cif without basehaz names the empty sample and its repair"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: EU-11 predict, cif empty-sample diagnosis (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_estimates_use tests=`test_count' pass=`pass_count' fail=`fail_count'"

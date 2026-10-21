@@ -435,7 +435,13 @@ contributes no information to the cause-event risk sets, or a constant or
 collinear column, is refused with {cmd:r(459)} naming the offending terms. A
 covariate far from zero or on an extreme scale can make that check, or the
 exponentiated linear predictor, fail numerically; the messages suggest
-centering and rescaling the covariate and refitting.
+centering and rescaling the covariate and refitting. A {it:monotone}
+likelihood is not refused: when few or no cause events lie on one side of a
+covariate, its coefficient diverges and the fit converges to an enormous but
+finite SHR with a tiny standard error. {cmd:finegray} names such terms in
+{cmd:e(monotone)} (those whose information fell below 1e-4 of its value at
+beta = 0) and prints a warning beside the table, on the fit and on replay,
+that their SHR, standard error and interval are not meaningful.
 
 
 {marker remarks}{...}
@@ -480,7 +486,11 @@ narrower fail-closed rule and need a refit. See
 
 {phang2}
 {bf:1. Factor-variable design columns} {cmd:_fg_}{it:term}, one per expanded
-term. A pre-existing {cmd:_fg_}{it:term} not created by this package's previous
+term. A name longer than 32 characters, or one that collides with another name
+the same specification claims, is cut to fit and tagged {cmd:_k}{it:#}, where
+{it:#} is the term's position in {cmd:e(fvsemantic)}; a tagged name that still
+collides is re-tagged {cmd:_k}{it:#}{cmd:x}{it:j}. Lengths are counted in
+characters, not bytes. The columns are listed in {cmd:e(designvars)}. A pre-existing {cmd:_fg_}{it:term} not created by this package's previous
 run is never deleted: it is preserved and the fit is {cmd:r(198)}.
 
 {phang2}
@@ -668,7 +678,9 @@ sampling unit.
 {cmd:[fweight=}{it:exp}{cmd:]} on right-censored data. The weight must be
 constant within {cmd:id()} ({cmd:r(198)} otherwise); zero or missing weights
 leave the estimation sample; negative is {cmd:r(402)}; noninteger {cmd:fweight}
-is {cmd:r(401)}.
+is {cmd:r(401)}. These rules are applied to the estimation sample only: a
+record already excluded by a missing covariate, {opt strata()},
+{opt cluster()} or {cmd:stset} is not judged on its weight.
 
 {pstd} {bf:pweight.} Every subject's contribution to every risk-set sum,
 score, information and Breslow baseline is multiplied by its weight; the
@@ -1006,6 +1018,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(bh_key)}}internal key to the cached baseline{p_end}
 {synopt:{cmd:e(weight_warn_strata)}}joint-group codes flagged; only when one fired{p_end}
 {synopt:{cmd:e(clustvar)}}cluster variable; if {cmd:cluster()} specified{p_end}
+{synopt:{cmd:e(monotone)}}terms whose likelihood looks monotone; if any{p_end}
 {synopt:{cmd:e(wtype)}}weight type ({cmd:pweight} or {cmd:fweight}); only with weights{p_end}
 {synopt:{cmd:e(wexp)}}weight expression; only with weights{p_end}
 {synopt:{cmd:e(wsig)}}checksum of the weights; only with weights{p_end}

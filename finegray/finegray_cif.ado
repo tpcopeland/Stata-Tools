@@ -464,7 +464,28 @@ program define finegray_cif, rclass sortpreserve
             * from Mata, several hundred lines of work later.
             quietly count if e(sample) & `_bsvar' == `bstratum'
             if r(N) == 0 {
-                quietly levelsof `_bsvar' if e(sample), local(_bslevels) clean
+                * Each level in the fewest digits that read back as the
+                * stored value, so a listed level pasted into bstratum() is
+                * accepted.  levelsof printed .3 for 0.1 + 0.2 and .1 for a
+                * float-stored 0.1, and refused both when pasted back.
+                tempname _bslvm _bslv1
+                tempvar _bses
+                quietly gen byte `_bses' = e(sample)
+                mata: st_matrix("`_bslvm'", uniqrows(st_data(., "`_bsvar'", "`_bses'")))
+                local _bslevels ""
+                forvalues _bsli = 1/`=rowsof(`_bslvm')' {
+                    scalar `_bslv1' = `_bslvm'[`_bsli', 1]
+                    foreach _fw in 9 12 15 18 21 {
+                        local _bsls : display %`_fw'.0g scalar(`_bslv1')
+                        local _bsls = trim("`_bsls'")
+                        if real("`_bsls'") == scalar(`_bslv1') continue, break
+                    }
+                    if real("`_bsls'") != scalar(`_bslv1') {
+                        local _bsls : display %21x scalar(`_bslv1')
+                    }
+                    local _bslevels "`_bslevels' `_bsls'"
+                }
+                local _bslevels : list retokenize _bslevels
                 display as error "bstratum(`bstratum') is not a fitted baseline stratum"
                 display as error "the estimation sample holds `_bsvar' levels: `_bslevels'"
                 exit 459
@@ -1771,10 +1792,55 @@ program define finegray_cif, rclass sortpreserve
                     if `_tt' > `_tlast'  local ++_nafter
                     if `_tt' < `_tfirst' local ++_nbefore
                 }
-                local _tl : display %9.0g `_tlast'
-                local _tl = trim("`_tl'")
-                local _tf : display %9.0g `_tfirst'
-                local _tf = trim("`_tf'")
+                * Printed in the fewest digits that read back as the stored
+                * time.  %9.0g printed ".003" for a float-stored first event
+                * of .0030000000260770, so attime(.003) was reported to
+                * "precede" .003.  %21x is the last resort; %21.0g has
+                * round-tripped every double measured.
+                foreach _fx in tl tf {
+                    local _fxs = cond("`_fx'" == "tl", "`_tlast'", "`_tfirst'")
+                    foreach _fw in 9 12 15 18 21 {
+                        local _`_fx' : display %`_fw'.0g scalar(`_fxs')
+                        local _`_fx' = trim("`_`_fx''")
+                        if real("`_`_fx''") == scalar(`_fxs') continue, break
+                    }
+                    if real("`_`_fx''") != scalar(`_fxs') {
+                        local _`_fx' : display %21x scalar(`_fxs')
+                    }
+                }
+                * A typed horizon just below a cause-event time that equals it
+                * at float precision: the time variable is almost surely a
+                * float, its stored value is the float rounding of the time
+                * the user reads off a listing, and the horizon, used exactly
+                * as typed, excludes that event.  Correct by the documented
+                * rule, and invisible without this note.
+                local _fltlist ""
+                local _fltt ""
+                * One pass decides whether any cause-event time is off the
+                * float grid; if one is, the times are not float-stored and
+                * the per-horizon scan is skipped.
+                quietly count if `es' & `e(compete)' == `=e(cause)' `_bsrestrict' ///
+                    & _t != float(_t)
+                local _fltscan = (r(N) == 0)
+                if `_fltscan' {
+                    foreach _tt of local grid`g' {
+                        quietly count if `es' & `e(compete)' == `=e(cause)' `_bsrestrict' ///
+                            & _t > `_tt' & _t == float(`_tt')
+                        if r(N) > 0 {
+                            local _fltlist "`_fltlist' `_tt'"
+                            if "`_fltt'" == "" {
+                                tempname _fltv
+                                scalar `_fltv' = float(`_tt')
+                                foreach _fw in 9 12 15 18 21 {
+                                    local _fltt : display %`_fw'.0g scalar(`_fltv')
+                                    local _fltt = trim("`_fltt'")
+                                    if real("`_fltt'") == scalar(`_fltv') continue, break
+                                }
+                            }
+                        }
+                    }
+                }
+                local _fltlist : list retokenize _fltlist
                 local _which ""
                 * block form: a one-line if re-expands its command, and the
                 * label is user text that must not be (see saving() parse)
@@ -1788,6 +1854,28 @@ program define finegray_cif, rclass sortpreserve
                 if `_nbefore' > 0 {
                     display as text `"note: `_nbefore' requested time(s) precede the first cause-event time (`_tf')`macval(_which)';"'
                     display as text "the CIF is exactly 0 there and has no confidence limits"
+                }
+                if "`_fltlist'" != "" {
+                    * Blame float storage only when the stset time variable
+                    * IS a float.  On a double time holding integers,
+                    * attime(2.99999999) is flagged just the same (the event
+                    * at 3 equals it at float precision, and is excluded as
+                    * typed), but storage has nothing to do with it.
+                    local _fltsrc : char _dta[st_bt]
+                    local _fltis = 0
+                    capture confirm variable `_fltsrc', exact
+                    if !_rc & `: word count `_fltsrc'' == 1 {
+                        local _fltis = ("`: type `_fltsrc''" == "float")
+                    }
+                    display as text `"note: requested time(s) `_fltlist' lie just below a cause-event time equal to their"'
+                    display as text `"float-precision value (`_fltt' for the first)`macval(_which)', so that event is excluded;"'
+                    if `_fltis' {
+                        display as text "the time variable `_fltsrc' is stored as float and holds such values;"
+                        display as text "type the stored time to include it"
+                    }
+                    else {
+                        display as text "horizons are used exactly as typed; type the event time to include it"
+                    }
                 }
             }
         }

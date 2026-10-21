@@ -100,8 +100,15 @@ program define _fgnum_random, rclass
     gen byte status = cond(mod(_n,7)==0,2,cond(mod(_n,5)==0,1,0))
     gen double time = cond(status==2,.5,cond(status==1,1,2))
     stset time, failure(status==1 2) id(id)
+    * The fit evaluates the weight expression ONCE, after the sample
+    * markouts, and checks and uses that one draw.  Through 1.3.8 as first
+    * released `marksample' evaluated it first -- a draw that was checked for
+    * negative and zero weights and then discarded -- and the fit used a
+    * second draw; this fixture replayed that with `mark draw_mark [pw=...]'
+    * before taking the checkpoint.  Since weights are judged on the
+    * estimation sample (review finding S2, 2026-10-20) there is no first
+    * draw, so the checkpoint is the state right after the seed.
     set seed 7142201
-    mark draw_mark [pw=1+runiform()]
     local checkpoint `"`c(rngstate)'"'
     gen double fitw = 1+runiform()
     return local checkpoint `"`checkpoint'"'

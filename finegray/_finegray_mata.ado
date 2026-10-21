@@ -5189,6 +5189,9 @@ void _finegray_engine(
     string rowvector vars, coefnames
     real colvector cuts, ivl, fixpos, tvcpos
     real scalar nint, ptot
+    real colvector info0d
+    real vector mono
+    string scalar monostr
 
     if (args() < 18) w_str = ""
     if (args() < 19) wtype = 0
@@ -5438,6 +5441,10 @@ void _finegray_engine(
             weight_pooled, weight_gidx, weight_Gminus, weight_A,
             weight_Apool, bsraw, ivl, fixpos, tvcpos, nint, w)
 
+        /* The information at beta = 0, kept for the monotone-likelihood
+           diagnostic below.  The first iteration always starts at zero. */
+        if (iter == 1) info0d = diagonal(info_mat)
+
         if (hasmissing(info_mat) | hasmissing(score_vec)) {
             errprintf("finegray: the score or information matrix is not ")
             errprintf("finite at iteration %g\n", iter)
@@ -5553,6 +5560,35 @@ void _finegray_engine(
         exit(430)
     }
     if (rank(info_mat) < ptot) _finegray_rank_fail(info_mat, coefnames, ptot)
+
+    /* Monotone likelihood.  When no (or almost no) cause event falls on one
+       side of a covariate split, the partial likelihood keeps rising as that
+       coefficient runs to +/-infinity: Newton walks out until the decrement
+       is below tolerance and reports a finite, enormous SHR (6.5e-10 on a
+       covariate marking seven early-censored subjects) with a tiny sandwich
+       SE, so the table reads as z = -48 rather than as non-identification.
+       stcox and stcrreg print the same table silently.  The tell is the
+       information on that coefficient collapsing: the subjects carrying the
+       split leave every risk set's weighted variance as exp(xb) -> 0, so the
+       diagonal at the estimate is a vanishing fraction of its value at
+       beta = 0.  The ratio is invariant to rescaling the covariate.  Measured
+       2026-10-20: 3e-10 to 8e-10 on monotone fits, 1.6e-6 on a simulated
+       quasi-separated binary (b = 19.6 against a true 6.9), and 0.78 to 1.6
+       on genuine effects up to SHR 100.  1e-4 is an SHR near 4e4 (b ~ 10.6)
+       on a balanced binary covariate, which the data cannot distinguish from
+       divergence either.  Reported (finegray.ado prints a note and posts
+       e(monotone)), not refused: the fit is what the likelihood gives. */
+    mono = J(0, 1, .)
+    if (rows(info0d) == ptot) {
+        mono = selectindex((info0d :> 0) :&
+            (diagonal(info_mat) :< 1e-4 :* info0d))
+    }
+    /* length(), not rows(): on a one-coefficient fit info0d is 1x1, and
+       selectindex() of a 1x1 with no hit is 1x0 -- one row, no element. */
+    monostr = ""
+    for (kb = 1; kb <= length(mono); kb++) monostr = monostr + " " + strofreal(mono[kb])
+    st_local("_fg_monopos", strtrim(monostr))
+
     info_inv = invsym(info_mat)
     if (missing(info_inv[1,1])) {
         errprintf("finegray: the information matrix is singular at the ")

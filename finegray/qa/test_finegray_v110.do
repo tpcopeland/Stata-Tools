@@ -1558,6 +1558,84 @@ else {
     local ++fail_count
 }
 
+**# 4b. Pure specification refusals leave the preceding fit usable
+* Section 4's rank refusal fires once the mutation zone is open, on purpose:
+* it needs the design columns.  The refusals that read only the estimation
+* sample and the specification do not, and run before it: a tvc() variable not
+* in the model (r(198)), a tsplit() interval holding no cause event, fewer than
+* two clusters or no more clusters than coefficients, and a delayed-entry
+* weight stratum below 20 subjects (each r(459)).  Through 1.3.8 as first
+* released all of them fired after the marks were set to "0" and the prior
+* run's _fg_* columns dropped, so finegray_cif on the still-current prior fit
+* was r(301) although nothing that fit depends on had changed (review finding
+* S1, 2026-10-20).  Asserted on the full state: the marks, the columns, and the
+* prior fit's CIF table bit for bit.
+local ++test_count
+capture noisily {
+    _mk_hypoxia_112
+    gen byte g3 = 1 + (_n > 40) + (_n > 80)
+    gen byte one = 1
+    quietly finegray ifp i.g3, compete(status) cause(1) nolog
+    local _fv4b `"`: char _dta[_finegray_fvvars]'"'
+    local _o4b `"`: char _dta[_finegray_owner]'"'
+    assert `: word count `_fv4b'' == 2
+    quietly finegray_cif, attime(2 5) nograph
+    matrix _c4b = r(table)
+    matrix _b4b = e(b)
+
+    local _s1 `"cluster(g3)"'
+    local _r1 459
+    local _s2 `"cluster(one)"'
+    local _r2 459
+    local _s3 `"tvc(ifp) tsplit(50)"'
+    local _r3 459
+    local _s4 `"tvc(tumsize) tsplit(2)"'
+    local _r4 198
+    forvalues _k = 1/4 {
+        capture finegray ifp i.g3, compete(status) cause(1) nolog `_s`_k''
+        display as text "  refit `_s`_k'' rc = `=_rc'"
+        assert _rc == `_r`_k''
+        assert `"`: char _dta[_finegray_estimated]'"' == "1"
+        assert `"`: char _dta[_finegray_fvvars]'"' == `"`_fv4b'"'
+        assert `"`: char _dta[_finegray_owner]'"' == `"`_o4b'"'
+        foreach _v of local _fv4b {
+            confirm variable `_v'
+        }
+        assert mreldif(e(b), _b4b) == 0
+        capture noisily finegray_cif, attime(2 5) nograph
+        assert _rc == 0
+        assert mreldif(r(table), _c4b) == 0
+    }
+
+    * delayed entry: a strata() level with 5 subjects is below the 20-subject
+    * floor of a factorized weight stratum
+    _mk_hypoxia_112
+    gen byte g3 = 1 + (_n > 40) + (_n > 80)
+    gen byte sm = (_n <= 5)
+    gen double ent = cond(mod(_n, 3) == 0, dftime / 4, 0)
+    quietly stset dftime, failure(dfcens==1) id(stnum) enter(time ent)
+    quietly finegray ifp i.g3, compete(status) cause(1) nolog
+    local _fv4c `"`: char _dta[_finegray_fvvars]'"'
+    quietly finegray_cif, attime(2 5) nograph
+    matrix _c4c = r(table)
+    capture finegray ifp i.g3, compete(status) cause(1) nolog strata(sm)
+    display as text "  delayed-entry refit strata(sm) rc = `=_rc'"
+    assert _rc == 459
+    assert `"`: char _dta[_finegray_estimated]'"' == "1"
+    assert `"`: char _dta[_finegray_fvvars]'"' == `"`_fv4c'"'
+    capture noisily finegray_cif, attime(2 5) nograph
+    assert _rc == 0
+    assert mreldif(r(table), _c4c) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: pure specification refusals leave the prior fit usable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: pure refusal invalidated the prior fit (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# 5. Saving failure preserves the complete r() analytical payload
 local ++test_count
 capture noisily {
@@ -2140,45 +2218,173 @@ else {
     local ++fail_count
 }
 
-**# 12c. the 32-character truncation refusal is also pre-mutation
+**# 12c. long factor-variable names get unique 32-character design columns
 **# ---------------------------------------------------------------
 * Two kept levels of a 27-character factor variable produce _fg_ names that are
-* identical once truncated to 32 characters.  That refusal was raised inside
-* the creation loop as well, with the same consequence.
+* identical once cut to 32 characters.  Through 1.3.8 as first released that
+* was refused, r(198) "factor variable names too similar", for a legal
+* variable name (and a 26-character one with ##; review finding L1,
+* 2026-10-20).  The block that stood here pinned that the refusal mutated
+* nothing; the refusal is now unreachable, because a cut name carries a
+* term-number tag and is re-tagged until unique.  What is pinned instead is
+* that the long-name fit IS the short-name fit: e(b), e(V), e(ll), the CIF
+* table, every predict statistic (also after the _fg_* columns are dropped and
+* rebuilt from e(fvsemantic)), finegray_phtest, and e(refitcmd) replay.
 local ++test_count
 capture noisily {
     _mk_hypoxia
     quietly gen byte abcdefghijklmnopqrstuvwxyz1 = mod(stnum, 3) + 1
+    quietly gen byte g3s = abcdefghijklmnopqrstuvwxyz1
+    quietly gen double abcdefghijklmnopqrstuvwxyz = tumsize
+    quietly gen double tsz = tumsize
     stset dftime, failure(dfcens==1) id(stnum)
-    stsplit iv12d, at(2 4 6 8)
-    quietly finegray ifp i.pelnode, compete(status) cause(1) nolog
-    local _o12e `"`: char _dta[_finegray_owner]'"'
-    local _fv12e `"`: char _dta[_finegray_fvvars]'"'
-    local _est12e `"`: char _dta[_finegray_estimated]'"'
-    quietly finegray_cif, at(ifp=20 pelnode=1) attime(5)
-    matrix _cm12e = r(table)
 
-    capture finegray ifp i.abcdefghijklmnopqrstuvwxyz1, compete(status) cause(1) nolog
-    display as text "  fit with colliding truncated names rc = `=_rc'"
-    assert _rc == 198
+    foreach _spec in 1 2 {
+        if `_spec' == 1 {
+            local _long "ifp i.abcdefghijklmnopqrstuvwxyz1"
+            local _short "ifp i.g3s"
+            local _atl "abcdefghijklmnopqrstuvwxyz1=2"
+            local _ats "g3s=2"
+        }
+        else {
+            local _long "i.abcdefghijklmnopqrstuvwxyz1##c.abcdefghijklmnopqrstuvwxyz"
+            local _short "i.g3s##c.tsz"
+            local _atl "abcdefghijklmnopqrstuvwxyz1=3 abcdefghijklmnopqrstuvwxyz=4"
+            local _ats "g3s=3 tsz=4"
+        }
+        quietly finegray `_short', compete(status) cause(1) nolog
+        matrix _bs12 = e(b)
+        matrix _Vs12 = e(V)
+        local _lls12 = e(ll)
+        quietly finegray_cif, at(`_ats') attime(2 5) ci nograph
+        matrix _cs12 = r(table)
+        quietly finegray_phtest
+        matrix _ps12 = r(phtest)
+        quietly finegray_predict double _xs12, xb
+        quietly finegray_predict double _fs12, cif
+        quietly finegray_predict double _ss12, schoenfeld
 
-    assert `"`: char _dta[_finegray_owner]'"' == `"`_o12e'"'
-    assert `"`: char _dta[_finegray_fvvars]'"' == `"`_fv12e'"'
-    assert `"`: char _dta[_finegray_estimated]'"' == `"`_est12e'"'
-    confirm variable _fg_entry
-    confirm variable _fg_pelnode_1
-    capture noisily finegray_cif, at(ifp=20 pelnode=1) attime(5)
-    display as text "  finegray_cif after the truncation refusal rc = `=_rc'"
-    assert _rc == 0
-    matrix _cm12ex = r(table)
-    assert mreldif(_cm12ex, _cm12e) < 1e-12
+        capture noisily finegray `_long', compete(status) cause(1) nolog
+        display as text "  long-name fit (`_spec') rc = `=_rc'"
+        assert _rc == 0
+        local _dv `"`e(designvars)'"'
+        local _dvu : list uniq _dv
+        assert `"`_dvu'"' == `"`_dv'"'
+        foreach _v of local _dv {
+            assert length("`_v'") <= 32
+            confirm variable `_v'
+        }
+        assert mreldif(e(b), _bs12) == 0
+        assert mreldif(e(V), _Vs12) == 0
+        assert e(ll) == `_lls12'
+        quietly finegray_cif, at(`_atl') attime(2 5) ci nograph
+        assert mreldif(r(table), _cs12) == 0
+        quietly finegray_phtest
+        assert mreldif(r(phtest), _ps12) == 0
+        quietly finegray_predict double _xl12, xb
+        quietly finegray_predict double _fl12, cif
+        quietly finegray_predict double _sl12, schoenfeld
+        assert _xl12 == _xs12
+        assert _fl12 == _fs12
+        foreach _v of varlist _ss12* {
+            local _sfx = substr("`_v'", 6, .)
+            assert _sl12`_sfx' == `_v'
+        }
+        * rebuilt from e(fvsemantic) once the design columns are gone
+        quietly drop _fg_*
+        quietly finegray_predict double _xr12, xb
+        quietly finegray_predict double _fr12, cif
+        assert _xr12 == _xs12
+        assert _fr12 == _fs12
+        * the replay line reproduces the fit
+        local _rcmd `"`e(refitcmd)'"'
+        quietly `_rcmd'
+        assert mreldif(e(b), _bs12) == 0
+        drop _xs12 _fs12 _ss12* _xl12 _fl12 _sl12* _xr12 _fr12
+    }
 }
 if _rc == 0 {
-    display as result "  PASS: the truncation refusal mutates nothing"
+    display as result "  PASS: long factor-variable names fit, bit-identical to short names"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: truncation refusal mutated the data (rc=`=_rc')"
+    display as error "  FAIL: long factor-variable names (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 12d. design-column names are measured and cut in characters, not bytes
+**# ---------------------------------------------------------------
+* Stata's name limit is 32 CHARACTERS.  12c's tagging first measured and cut
+* the derived name in bytes, so a 15-character name of two-byte characters
+* (30 bytes) was tagged although it fits, and the byte cut split a character:
+* `_fg_' + 12 whole characters + half of one + `_k2', an invalid UTF-8 name
+* that other readers of a saved .dta misdecode (independent review,
+* 2026-10-21).  Before 12c the same byte cut made the levels collide and the
+* fit was r(198).  Asserted: a multibyte name that fits is not tagged, one
+* that does not is tagged within 32 characters, every created _fg_* name and
+* every e(b) stripe name is valid UTF-8, and both fits equal the ASCII fit.
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    quietly gen byte g3s = mod(stnum, 3) + 1
+    local u15 = 15 * "å"
+    local u28 = 28 * "å"
+    assert ustrlen("`u15'") == 15 & strlen("`u15'") == 30
+    assert ustrlen("`u28'") == 28
+    quietly gen byte `u15' = g3s
+    quietly gen byte `u28' = g3s
+    stset dftime, failure(dfcens==1) id(stnum)
+
+    quietly finegray ifp i.g3s, compete(status) cause(1) nolog
+    matrix _b12d = e(b)
+    matrix _V12d = e(V)
+    quietly finegray_cif, at(g3s=2) attime(2 5) ci nograph
+    matrix _c12d = r(table)
+
+    foreach _u in u15 u28 {
+        capture noisily finegray ifp i.``_u'', compete(status) cause(1) nolog
+        display as text "  `_u' fit rc = `=_rc'"
+        assert _rc == 0
+        local _dv `"`e(designvars)'"'
+        local _dvu : list uniq _dv
+        assert `"`_dvu'"' == `"`_dv'"'
+        local _nfg = 0
+        foreach _v of local _dv {
+            if substr("`_v'", 1, 4) != "_fg_" continue
+            local ++_nfg
+            display as text "    `_v': " ustrlen("`_v'") " characters, " strlen("`_v'") " bytes"
+            assert ustrinvalidcnt("`_v'") == 0
+            assert ustrlen("`_v'") <= 32
+            confirm variable `_v'
+            confirm name `_v'
+        }
+        assert `_nfg' == 2
+        if "`_u'" == "u15" {
+            * fits: no tag, the plain derived names
+            assert `: list posof "_fg_`u15'_2" in _dv' > 0
+            assert `: list posof "_fg_`u15'_3" in _dv' > 0
+        }
+        else {
+            foreach _v of local _dv {
+                if substr("`_v'", 1, 4) == "_fg_" assert ustrregexm("`_v'", "_k[0-9]+$")
+            }
+        }
+        local _cn : colnames e(b)
+        foreach _c of local _cn {
+            assert ustrinvalidcnt("`_c'") == 0
+        }
+        assert mreldif(e(b), _b12d) == 0
+        assert mreldif(e(V), _V12d) == 0
+        quietly finegray_cif, at(``_u''=2) attime(2 5) ci nograph
+        assert mreldif(r(table), _c12d) == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: design-column names are cut in characters and stay valid UTF-8"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: multibyte design-column names (rc=`=_rc')"
     local ++fail_count
 }
 

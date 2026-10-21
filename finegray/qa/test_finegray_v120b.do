@@ -35,6 +35,8 @@
 *            e(designvars).
 *   V120B-16  The rendered CIF help has no doubled spaces at the two sentence
 *            boundaries split across source lines.
+*   V120B-17  On a float time variable the support note prints the stored time
+*            and a note names horizons just below a float-stored event.
 clear all
 set varabbrev off
 version 16.0
@@ -544,6 +546,126 @@ else {
     display as error "  FAIL: V120B-16 rendered CIF help spacing (rc=`=_rc')"
     local ++fail_count
 }
+
+**# 17. Float-stored times: the notes print the stored time and flag excluded events
+* Horizons are used exactly as typed (V120B-11 and the attime() help), so on a
+* float time variable attime(.1) lies BELOW an event stored as float(.1) =
+* .100000001490116 and excludes it.  Through 1.3.8 as first released the
+* support note printed that event time at %9.0g -- "precede the first
+* cause-event time (.1)" for a requested .1 -- and nothing said why the event
+* was missing (review finding M1, 2026-10-20).  The note must print a time
+* that reads back as the stored value, and a second note must name the
+* horizons that sit just below a float-stored cause-event time.  The double
+* control on the same times must stay silent and include the event.
+local ++test_count
+capture noisily {
+    local _ls0 = c(linesize)
+    set linesize 255
+    _mk_120b
+    gen float tf = t / 10
+    gen double td = t / 10
+    quietly stset tf, failure(ev == 1 2) id(id)
+    quietly finegray x1 pelnode, compete(ev) cause(1) nolog
+    quietly summarize _t if e(sample) & ev == 1, meanonly
+    tempname tmin
+    scalar `tmin' = r(min)
+    assert scalar(`tmin') == float(.1)
+    assert scalar(`tmin') > .1
+
+    tempfile fltbase
+    local fltlog `"`fltbase'.log"'
+    quietly log using `"`fltlog'"', replace text name(_v120bflt)
+    finegray_cif, attime(.1 .3 .5) nograph
+    matrix _fl = r(table)
+    quietly log close _v120bflt
+    assert _fl[1, 2] == 0
+    assert _fl[3, 2] > _fl[2, 2]
+
+    tempname fh6
+    local tprint ""
+    local saw_flt = 0
+    local saw_flt5 = 0
+    local saw_fltwhy = 0
+    file open `fh6' using `"`fltlog'"', read text
+    file read `fh6' line
+    while r(eof) == 0 {
+        local _p = strpos(`"`line'"', "precede the first cause-event time (")
+        if `_p' > 0 {
+            local _rest = substr(`"`line'"', `_p' + 36, .)
+            local tprint = substr(`"`_rest'"', 1, strpos(`"`_rest'"', ")") - 1)
+        }
+        if strpos(`"`line'"', "requested time(s) .1 .3 lie just below a cause-event time") > 0 ///
+            local saw_flt = 1
+        if strpos(`"`line'"', ".5 lie just below") > 0 local saw_flt5 = 1
+        if strpos(`"`line'"', "stored as float") > 0 local saw_fltwhy = 1
+        file read `fh6' line
+    }
+    file close `fh6'
+    display as text "  first cause-event time printed as `tprint'"
+    assert "`tprint'" != ""
+    assert real("`tprint'") == scalar(`tmin')
+    assert `saw_flt' == 1
+    assert `saw_flt5' == 0
+    assert `saw_fltwhy' == 1
+
+    * double control: the same times held exactly, the event at .1 included
+    quietly stset td, failure(ev == 1 2) id(id)
+    quietly finegray x1 pelnode, compete(ev) cause(1) nolog
+    tempfile dblbase
+    local dbllog `"`dblbase'.log"'
+    quietly log using `"`dbllog'"', replace text name(_v120bdbl)
+    finegray_cif, attime(.1 .3 .5) nograph
+    matrix _dl = r(table)
+    quietly log close _v120bdbl
+    assert _dl[1, 2] > 0
+    tempname fh7
+    local saw_any = 0
+    file open `fh7' using `"`dbllog'"', read text
+    file read `fh7' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "lie just below") > 0 local saw_any = 1
+        if strpos(`"`line'"', "precede the first") > 0 local saw_any = 1
+        file read `fh7' line
+    }
+    file close `fh7'
+    assert `saw_any' == 0
+
+    * a DOUBLE time variable holding integers: attime(2.99999999) still lies
+    * just below the event at 3, which equals it at float precision, and is
+    * still flagged -- but the note must not blame float storage, because
+    * the time variable is double (independent review, 2026-10-21)
+    gen double ti = t
+    quietly stset ti, failure(ev == 1 2) id(id)
+    quietly finegray x1 pelnode, compete(ev) cause(1) nolog
+    tempfile intbase
+    local intlog `"`intbase'.log"'
+    quietly log using `"`intlog'"', replace text name(_v120bint)
+    finegray_cif, attime(2.99999999 4) nograph
+    quietly log close _v120bint
+    tempname fh8
+    local saw_int = 0
+    local saw_intwhy = 0
+    file open `fh8' using `"`intlog'"', read text
+    file read `fh8' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "requested time(s) 2.99999999 lie just below") > 0 local saw_int = 1
+        if strpos(`"`line'"', "float") > 0 & strpos(`"`line'"', "stored") > 0 local saw_intwhy = 1
+        file read `fh8' line
+    }
+    file close `fh8'
+    assert `saw_int' == 1
+    assert `saw_intwhy' == 0
+    set linesize `_ls0'
+}
+if _rc == 0 {
+    display as result "  PASS: V120B-17 float-stored times noted at full precision"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V120B-17 float-stored time notes (rc=`=_rc')"
+    local ++fail_count
+}
+capture set linesize `_ls0'
 
 **# Summary
 display as text _newline ///

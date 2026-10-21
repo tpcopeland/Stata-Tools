@@ -1177,6 +1177,65 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 * -----------------------------------------------------------------------------
+**# C3b the refusal lists every fitted level in a form bstratum() accepts back
+* -----------------------------------------------------------------------------
+* Matching is by exact value (OV-11 to OV-13), so the listed levels have to be
+* exact too.  Through 1.3.8 as first released they came from levelsof, which
+* printed 0.1 + 0.2 as .3 and a float-stored 0.1 as .1 -- and bstratum(.3),
+* pasted from the list of levels the estimation sample "holds", was refused
+* (review finding M2, 2026-10-20).  Each listed token must select its stratum.
+local ++test_count
+capture noisily {
+    local _ls0 = c(linesize)
+    set linesize 255
+    foreach _kind in double float {
+        _fgadv_cr
+        if "`_kind'" == "double" {
+            gen double bs = cond(s == 1, 0.1 + 0.2, cond(s == 2, -1.5, cond(s == 3, 7, 1/3)))
+            local _bad ".3"
+        }
+        else {
+            gen float bs = cond(s == 1, 0.1, cond(s == 2, 0.7, cond(s == 3, 2.5, 3)))
+            local _bad ".1"
+        }
+        quietly finegray x, compete(status) cause(1) bstrata(bs) nolog
+        assert e(k_bstrata) == 4
+        tempfile c3bcap
+        capture log close _c3b
+        log using `"`c3bcap'"', replace text name(_c3b)
+        capture noisily finegray_cif, bstratum(`_bad') attime(4) nograph
+        local _c3rc = _rc
+        log close _c3b
+        assert `_c3rc' == 459
+        local _held ""
+        tempname fh
+        file open `fh' using `"`c3bcap'"', read text
+        file read `fh' line
+        while r(eof) == 0 {
+            local _p = strpos(`"`line'"', "holds bs levels: ")
+            if `_p' > 0 local _held = substr(`"`line'"', `_p' + 17, .)
+            file read `fh' line
+        }
+        file close `fh'
+        display as text "  `_kind' levels listed: `_held'"
+        assert `: word count `_held'' == 4
+        * the token the old message printed for the offending level is gone
+        assert `: list posof "`_bad'" in _held' == 0
+        foreach _lv of local _held {
+            capture noisily finegray_cif, bstratum(`_lv') attime(4) nograph
+            assert _rc == 0
+            assert r(bstratum) == real("`_lv'")
+        }
+    }
+    set linesize `_ls0'
+}
+local _rc = _rc
+capture set linesize `_ls0'
+_fgadv_result `_rc' "C3b bstratum() refusal lists exact levels that bstratum() accepts back"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
 **# C4 the bstrata() variable in the covariate list, and in strata()
 * -----------------------------------------------------------------------------
 * i.s with bstrata(s) is not identified: the stratified baseline already absorbs

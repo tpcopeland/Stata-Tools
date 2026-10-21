@@ -102,11 +102,15 @@ program define _finegray_resolve_baseline
             else {
                 * 3. rebuild from the estimation data -- if they are still here
                 local _rebuildable = 1
+                local _esempty = 0
                 capture confirm variable _t
                 if _rc local _rebuildable = 0
                 if `_rebuildable' {
                     quietly count if e(sample)
-                    if r(N) == 0 local _rebuildable = 0
+                    if r(N) == 0 {
+                        local _rebuildable = 0
+                        local _esempty = (_N > 0)
+                    }
                 }
 
                 if !`_rebuildable' {
@@ -123,6 +127,22 @@ program define _finegray_resolve_baseline
                         display as error "this fit predates joint-row estimation-data identity checks"
                         display as error "re-run finegray, or refit with {bf:basehaz} so the baseline is posted in {bf:e(basehaz)}"
                         exit 301
+                    }
+                    * Data with _t are in memory but no row is marked: what
+                    * `estimates use' leaves behind, since a saved estimation
+                    * set does not carry e(sample).  "No longer in memory"
+                    * would be false when these ARE the estimation data, and
+                    * the repair is the one _finegray_check_data names for
+                    * the same state.  Guarded by test_finegray_estimates_use.do.
+                    if `_esempty' {
+                        display as error "baseline cumulative subhazard not available"
+                        display as error "the finegray estimation sample is empty, e(basehaz) is not posted and"
+                        display as error "the cached baseline is gone, so it must be rebuilt from the estimation data"
+                        display as error "if the data in memory are those data, restored after {bf:estimates use},"
+                        display as error "re-declare the sample with {bf:estimates esample:} over the variables in"
+                        display as error "{bf:e(datasignaturevars)}; otherwise restore them, or refit {bf:finegray}"
+                        display as error "with {bf:basehaz} so the baseline is posted in {bf:e(basehaz)}"
+                        exit 459
                     }
                     display as error "baseline cumulative subhazard not available"
                     display as error "the estimation data are no longer in memory and the cached"

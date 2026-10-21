@@ -17,11 +17,16 @@
 * the stset failure and names the competing value in compete(). Both fit the
 * identical Fine-Gray model (mirrors crossval_finegray.do).
 *
-* Known convention difference (asserted, not ignored):
-*   Schoenfeld residuals at TIED cause-event times are split differently
-*   between finegray and stcrreg. Per-observation values agree to <1e-5 at
-*   untied event times; within each tied event-time the group SUM agrees to
-*   <1e-5. Both invariants are tested below.
+* Tied cause-event times (asserted, not assumed):
+*   An earlier header said Schoenfeld residuals at TIED cause-event times were
+*   split differently between finegray and stcrreg, and A5 checked only each
+*   tie group's SUM.  Measured 2026-10-20 they agree per observation at ties
+*   too (4e-8 to 1.2e-7 on hypoxia with dftime rounded up to whole years,
+*   heavy ties across cause, competing and censored records), which is what
+*   finegray_predict.sthlp and finegray_methods.sthlp claim.  A4 checks the
+*   untied rows; A5 now checks every tied row individually, on hypoxia and on
+*   that heavy-tie fixture, and asserts the fixture really has tied cause
+*   events so the check cannot pass vacuously.
 
 clear all
 set varabbrev off
@@ -205,29 +210,71 @@ else {
     local failed_tests "`failed_tests' A4"
 }
 
-**# A5: Schoenfeld tied-time group SUMS match stcrreg (tie-split invariant)
+**# A5: Schoenfeld residuals agree PER OBSERVATION at tied cause-event times
 local ++test_count
 capture noisily {
-    foreach j in 1 2 3 {
-        local fv = cond(`j' == 1, "fg_sch", "fg_sch_`j'")
-        egen double _fgsum`j' = total(`fv'),   by(_t)
-        egen double _ssum`j'  = total(sch_s`j'), by(_t)
-        gen double d_gs`j' = _fgsum`j' - _ssum`j' if !missing(fg_sch)
-    }
+    * (a) the tied rows of this configuration, if any
+    gen double d_st1 = fg_sch   - sch_s1 if !missing(fg_sch) & _nt > 1
+    gen double d_st2 = fg_sch_2 - sch_s2 if !missing(fg_sch) & _nt > 1
+    gen double d_st3 = fg_sch_3 - sch_s3 if !missing(fg_sch) & _nt > 1
     local mx = 0
-    foreach v in d_gs1 d_gs2 d_gs3 {
+    foreach v in d_st1 d_st2 d_st3 {
         _mad `v'
-        local mx = max(`mx', r(mad))
+        if r(n) > 0 local mx = max(`mx', r(mad))
     }
-    display as text "    schoenfeld tie-group-sum max|diff| = " %12.3e `mx'
+    display as text "    schoenfeld tied rows (hypoxia) max|diff| = " %12.3e `mx'
     assert `mx' < 1e-5
+
+    * (b) heavy ties: dftime rounded up to whole years, a factor covariate.
+    * The Configuration A fit is held, so A6 onward still read it.
+    _estimates hold _a5fit, copy
+    preserve
+    _finegray_use_hypoxia
+    gen byte status = failtype
+    gen double rt = ceil(dftime)
+    quietly replace rt = 1 if rt == 0
+    quietly stset rt, failure(status == 1) id(stnum)
+    quietly stcrreg ifp tumsize i.pelnode, compete(status == 2)
+    predict double tsch_s*, schoenfeld
+    quietly stset rt, failure(dfcens == 1) id(stnum)
+    quietly finegray ifp tumsize i.pelnode, compete(status) cause(1) nolog
+    assert e(converged) == 1
+    finegray_predict double tfg, schoenfeld
+    * stcrreg's i.pelnode stripe carries the base level, so its residual for
+    * 1.pelnode is the LAST column
+    confirm variable tsch_s1 tsch_s2 tfg tfg_2 tfg_3
+    local slast = 3
+    capture confirm variable tsch_s4
+    if !_rc local slast = 4
+    quietly bysort rt status: gen long _ntc = _N if status == 1
+    quietly count if status == 1 & _ntc > 1 & !missing(tfg)
+    local ntied = r(N)
+    display as text "    heavy-tie fixture: `ntied' cause-event rows at tied times"
+    assert `ntied' >= 20
+    gen double e1 = tfg   - tsch_s1 if !missing(tfg)
+    gen double e2 = tfg_2 - tsch_s2 if !missing(tfg)
+    gen double e3 = tfg_3 - tsch_s`slast' if !missing(tfg)
+    local mx2 = 0
+    foreach v in e1 e2 e3 {
+        _mad `v'
+        assert !missing(r(n))
+        assert r(n) > 0
+        local mx2 = max(`mx2', r(mad))
+    }
+    display as text "    schoenfeld heavy ties per-observation max|diff| = " %12.3e `mx2'
+    assert `mx2' < 1e-5
+    restore
+    _estimates unhold _a5fit
 }
-if _rc == 0 {
-    display as result "  PASS: A5 Schoenfeld (tied-time group sums) vs stcrreg"
+local _a5rc = _rc
+capture restore
+capture _estimates unhold _a5fit
+if `_a5rc' == 0 {
+    display as result "  PASS: A5 Schoenfeld per observation at tied times vs stcrreg"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: A5 Schoenfeld tie-group-sum vs stcrreg (rc=`=_rc')"
+    display as error "  FAIL: A5 Schoenfeld per observation at tied times vs stcrreg (rc=`_a5rc')"
     local ++fail_count
     local failed_tests "`failed_tests' A5"
 }

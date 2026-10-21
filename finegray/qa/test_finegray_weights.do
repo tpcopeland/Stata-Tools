@@ -498,6 +498,75 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 * -----------------------------------------------------------------------------
+**# WT-07b  A weight is judged on the estimation sample only
+* -----------------------------------------------------------------------------
+* Through 1.3.8 as first released the r(402)/r(401) refusals ran on every row
+* that passed if/in -- before the covariate, strata() and cluster() markouts
+* and the stset filter -- so a negative pweight or a fractional fweight on a
+* row the fit was about to exclude refused the whole fit, while the same row
+* excluded by the command's own if was accepted (review finding S2,
+* 2026-10-20).  Each exclusion route must now give the if-excluded fit bit for
+* bit, and the refusal must still fire on a row that IS in the sample (WT-07).
+local ++test_count
+capture noisily {
+    _fgwt_data
+    gen double fw2 = fw
+    quietly replace fw2 = 1.5 in 5
+    gen double pw2 = pw
+    quietly replace pw2 = -1 in 5
+
+    * (a) fractional fweight on a row excluded by a missing cluster()
+    finegray x1 i.grp [fw = fw] if _n != 5, compete(status) cause(1) nolog cluster(cl)
+    tempname bA VA
+    matrix `bA' = e(b)
+    matrix `VA' = e(V)
+    local nA = e(N)
+    gen cl2 = cl
+    quietly replace cl2 = . in 5
+    capture noisily finegray x1 i.grp [fw = fw2], compete(status) cause(1) nolog cluster(cl2)
+    assert _rc == 0
+    _fgwt_same e(b) `bA' "fw, row excluded by cluster(): e(b)"
+    _fgwt_same e(V) `VA' "fw, row excluded by cluster(): e(V)"
+    assert e(N) == `nA'
+
+    * (b) negative pweight on a row excluded by a missing covariate
+    finegray x1 i.grp [pw = pw] if _n != 5, compete(status) cause(1) nolog
+    tempname bB VB
+    matrix `bB' = e(b)
+    matrix `VB' = e(V)
+    gen double x1m = x1
+    quietly replace x1m = . in 5
+    capture noisily finegray x1m i.grp [pw = pw2], compete(status) cause(1) nolog
+    assert _rc == 0
+    _fgwt_same e(b) `bB' "pw, row excluded by a missing covariate: e(b)"
+    _fgwt_same e(V) `VB' "pw, row excluded by a missing covariate: e(V)"
+
+    * (c) both, on a row excluded by stset
+    finegray x1 i.grp [fw = fw] if _n != 5, compete(status) cause(1) nolog
+    tempname bC
+    matrix `bC' = e(b)
+    quietly stset time if _n != 5, failure(status) id(id)
+    capture noisily finegray x1 i.grp [fw = fw2], compete(status) cause(1) nolog
+    assert _rc == 0
+    _fgwt_same e(b) `bC' "fw, row excluded by stset: e(b)"
+    capture noisily finegray x1 i.grp [pw = pw2], compete(status) cause(1) nolog
+    assert _rc == 0
+    quietly stset time, failure(status) id(id)
+
+    * ... and an in-sample row is still refused
+    quietly replace x1m = x1 in 5
+    capture finegray x1m i.grp [pw = pw2], compete(status) cause(1) nolog
+    assert _rc == 402
+    capture finegray x1 i.grp [fw = fw2], compete(status) cause(1) nolog cluster(cl)
+    assert _rc == 401
+}
+local _rc = _rc
+capture restore
+_fgwt_result `_rc' "WT-07b weight validity judged on the estimation sample: cluster(), covariate and stset exclusions match the if-excluded fit; in-sample rows still r(402)/r(401)"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
 **# WT-08  e(refitcmd) replays the weighted estimator bit for bit
 * -----------------------------------------------------------------------------
 local ++test_count

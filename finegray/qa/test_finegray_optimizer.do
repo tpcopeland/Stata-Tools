@@ -370,6 +370,99 @@ else {
     local ++fail_count
 }
 
+**# 11. Monotone likelihood is reported beside the table, not refused
+* A covariate carried only by subjects with no cause event makes the partial
+* likelihood rise without bound as its coefficient goes to -infinity.  Newton
+* walks out until the decrement is below tolerance and posts a finite,
+* enormous SHR with a tiny sandwich SE; on webuse hypoxia that read SHR
+* 6.5e-10, z = -48, converged = 1, at rc 0, with nothing on screen (review
+* finding L2, 2026-10-20).  stcox and stcrreg print the same table silently.
+* The fit is still posted -- it is what the likelihood gives -- but the term is
+* named in e(monotone) and a warning is printed on the fit and on replay.  The
+* negative controls are an ordinary fit and a genuine SHR-20 binary effect,
+* which must stay silent; the positive arms cover a factor level, a tvc() fit
+* (named by equation) and a rescaled column (the diagnostic is scale free).
+local ++test_count
+capture noisily {
+    clear
+    set seed 20261020
+    quietly set obs 600
+    gen long id = _n
+    gen double x = rnormal()
+    gen byte z = runiform() < .5
+    gen double t1 = -ln(runiform()) / (0.08 * exp(0.5 * x) * 20^z)
+    gen double t2 = -ln(runiform()) / 0.08
+    gen double tc = -ln(runiform()) / 0.05
+    gen double t = min(t1, t2, tc)
+    gen byte etype = cond(t == tc, 0, cond(t == t1, 1, 2))
+    * sep marks a random 30% of the subjects with NO cause event
+    gen byte sep = (etype != 1) & (runiform() < .3)
+    gen byte sepf = cond(sep, 3, 1 + (runiform() < .5))
+    gen double sep1k = 1000 * sep
+    quietly stset t, failure(etype) id(id)
+    quietly count if sep & etype == 1
+    assert r(N) == 0
+    quietly count if sep
+    assert !missing(r(N))
+    assert r(N) > 30
+
+    * negative controls
+    quietly finegray x, compete(etype) cause(1) nolog
+    assert `"`e(monotone)'"' == ""
+    quietly finegray x z, compete(etype) cause(1) nolog
+    assert `"`e(monotone)'"' == ""
+    assert !missing(_b[z])
+    assert exp(_b[z]) > 5 & exp(_b[z]) < 80
+
+    * the monotone fit: posted, converged, flagged, warned (fit and replay)
+    tempfile mlog
+    capture log close _optmono
+    log using `"`mlog'"', replace text name(_optmono)
+    capture noisily finegray x sep, compete(etype) cause(1) nolog
+    local rc_m = _rc
+    finegray
+    log close _optmono
+    assert `rc_m' == 0
+    assert e(converged) == 1
+    assert `"`e(monotone)'"' == "sep"
+    assert _b[sep] < -10
+    tempname fh
+    local nwarn = 0
+    file open `fh' using `"`mlog'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "likelihood appears monotone in sep") > 0 local ++nwarn
+        file read `fh' line
+    }
+    file close `fh'
+    assert `nwarn' == 2
+    * the healthy coefficient beside it is not named
+    local _mono `"`e(monotone)'"'
+    assert `: list posof "x" in _mono' == 0
+
+    * a rescaled column is flagged the same way
+    quietly finegray x sep1k, compete(etype) cause(1) nolog
+    assert `"`e(monotone)'"' == "sep1k"
+
+    * a factor level, in the vocabulary of the posted stripe
+    quietly finegray x i.sepf, compete(etype) cause(1) nolog
+    assert `"`e(monotone)'"' == "3.sepf"
+
+    * under tvc() the equation tells the intervals apart
+    quietly summarize t if etype == 1, detail
+    local tcut = r(p50)
+    quietly finegray x sep, compete(etype) cause(1) nolog tvc(x) tsplit(`tcut')
+    assert `"`e(monotone)'"' == "main:sep"
+}
+if _rc == 0 {
+    display as result "  PASS: monotone likelihood named in e(monotone) and warned"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: monotone-likelihood diagnostic (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_optimizer tests=`test_count' pass=`pass_count' fail=`fail_count'"

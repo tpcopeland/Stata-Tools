@@ -403,6 +403,18 @@ program define _finegray_display
         }
     }
 
+    * Monotone likelihood (e(monotone), set at fit time).  The table prints a
+    * finite, enormous SHR with a tiny standard error for such a term, which
+    * reads as a strong, precise finding; the warning sits beside it.
+    if `"`e(monotone)'"' != "" {
+        display as text ""
+        display as error "warning: the likelihood appears monotone in `e(monotone)'"
+        display as text "(the information on that coefficient fell below 1e-4 of its value at"
+        display as text "beta = 0: few or no cause `=e(cause)' events lie on one side of it, so the"
+        display as text "estimate diverges and its SHR, standard error, z and confidence interval"
+        display as text "are not meaningful; recode or drop the term, or use a penalized method)"
+    }
+
     * The Fine-Gray objective is a PSEUDO-likelihood: its weighted score need not
     * obey the ordinary likelihood information identity, so inverse information
     * does not generally estimate the sampling variance of beta-hat.  norobust

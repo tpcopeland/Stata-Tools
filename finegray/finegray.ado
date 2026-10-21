@@ -525,7 +525,16 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * MARK SAMPLE
     * =========================================================================
+    * The weight is withheld from `marksample' and applied after the last
+    * markout and the _st filter (DESIGN WEIGHTS: SCOPE TO THE SAMPLE, below).
+    * marksample judges a weight on every row that passes if/in, so a negative
+    * pweight (r(402)) or fractional fweight (r(401)) on a row that a missing
+    * covariate, strata(), cluster() or stset excludes refused the whole fit,
+    * while the same row excluded by the command's own if was accepted.
+    local _fg_wsave "`weight'"
+    local weight ""
     marksample touse
+    local weight "`_fg_wsave'"
     * NOTE: compete() is deliberately NOT passed to `markout'.  It is the
     * outcome classification, not a covariate, and an unknown event type is
     * refused below rather than dropped.  See "compete() MUST BE OBSERVED".
@@ -538,35 +547,6 @@ program define finegray, eclass sortpreserve
     * pre-engine sort total, so the same data always yields the same estimates.
     tempvar _fg_row0
     quietly gen long `_fg_row0' = _n
-
-    * =========================================================================
-    * DESIGN WEIGHTS: MATERIALISE
-    * =========================================================================
-    * `marksample' has already dropped zero and missing weights from `touse'
-    * and refused a negative one (r(402)).  The expression is evaluated ONCE,
-    * here, into a package-owned column the engine reads; post-estimation
-    * re-evaluates e(wexp) on the data it sees, and the variables the
-    * expression names are put into the estimation-data signature below so a
-    * changed weight makes every post-estimation command fail rather than
-    * answer under different weights.
-    *   _fg_wtype  0 none, 1 pweight, 2 fweight -- the engine's code
-    local _fg_w ""
-    local _fg_wtype = 0
-    if "`weight'" != "" {
-        tempvar _fg_w
-        quietly generate double `_fg_w' `exp' if `touse'
-        if "`weight'" == "fweight" {
-            local _fg_wtype = 2
-            * Stata's own contract for frequency weights; `syntax' does not
-            * enforce it, and a fractional replication count has no meaning.
-            capture assert `_fg_w' == int(`_fg_w') if `touse'
-            if _rc {
-                display as error "may not use noninteger frequency weights"
-                exit 401
-            }
-        }
-        else local _fg_wtype = 1
-    }
 
     * Save original varlist before FV expansion (for e(fvvarlist))
     local _orig_varlist "`varlist'"
@@ -668,6 +648,43 @@ program define finegray, eclass sortpreserve
     if "`cluster'" != "" markout `touse' `cluster'
 
     quietly replace `touse' = 0 if _st != 1
+
+    * =========================================================================
+    * DESIGN WEIGHTS: MATERIALISE AND SCOPE TO THE SAMPLE
+    * =========================================================================
+    * The expression is evaluated ONCE, here, into a package-owned column the
+    * engine reads; post-estimation re-evaluates e(wexp) on the data it sees,
+    * and the variables the expression names are put into the estimation-data
+    * signature above so a changed weight makes every post-estimation command
+    * fail rather than answer under different weights.
+    *   _fg_wtype  0 none, 1 pweight, 2 fweight -- the engine's code
+    * Placed after every markout and the _st filter, so only a row that would
+    * otherwise be fit is judged: the r(402)/r(401) refusals, then marksample's
+    * own rule that zero and missing weights leave the sample.
+    local _fg_w ""
+    local _fg_wtype = 0
+    if "`weight'" != "" {
+        tempvar _fg_w
+        quietly generate double `_fg_w' `exp' if `touse'
+        capture assert `_fg_w' >= 0 if `touse' & !missing(`_fg_w')
+        if _rc {
+            display as error "negative weights encountered"
+            exit 402
+        }
+        if "`weight'" == "fweight" {
+            local _fg_wtype = 2
+            * Stata's own contract for frequency weights; `syntax' does not
+            * enforce it, and a fractional replication count has no meaning.
+            capture assert `_fg_w' == int(`_fg_w') if `touse' & !missing(`_fg_w')
+            if _rc {
+                display as error "may not use noninteger frequency weights"
+                exit 401
+            }
+        }
+        else local _fg_wtype = 1
+        quietly replace `touse' = 0 if missing(`_fg_w') | `_fg_w' == 0
+    }
+
 
     * =========================================================================
     * compete() MUST BE OBSERVED ON EVERY ESTIMATION-SAMPLE RECORD
@@ -1243,8 +1260,9 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * The _fg_<term> names this run will write are derived HERE so that the
     * ownership adjudication below can probe them, and so that the refusals the
-    * derivation itself raises -- an unsupported factor-variable operator and a
-    * 32-character truncation collision -- happen before the entry column is
+    * derivation itself raises -- an unsupported factor-variable operator, and
+    * (unreachable since names are tagged) a name with no unique 32-character
+    * form -- happen before the entry column is
     * rewritten, before the _dta[_finegray_*] characteristics are blanked and
     * before a prior run's columns are dropped.  Deriving them inside the
     * creation loop further down meant those refusals fired mid-mutation: the
@@ -1375,16 +1393,39 @@ program define finegray, eclass sortpreserve
                 }
             }
 
+            * Stata names hold 32 characters.  A derived name that is longer
+            * is cut and given a term-number tag (_k#, # the term's position in
+            * e(fvsemantic), so it cannot be read as a level), and any name that collides
+            * with one this specification already claims is re-tagged until it
+            * is unique.  Through 1.3.7 the cut was a bare substr(), so two
+            * levels of any factor variable named with 27 or more characters
+            * (26 with ##) cut to the same name and the fit was refused
+            * "factor variable names too similar" for legal 32-character
+            * variable names.  The name is only a label: post-estimation pairs
+            * design columns with e(fvsemantic) by POSITION and rebuilds them
+            * from the term, never from the name (_finegray_fv_design).  The
+            * refusal below is kept, but no specification reaches it: the tag
+            * loop ends as soon as a name is unclaimed.  Measured and cut in
+            * CHARACTERS (ustrlen/usubstr): the limit is 32 characters, and a
+            * byte cut tagged a 15-character name of two-byte characters that
+            * fits and split a character, leaving an invalid UTF-8 name
+            * (independent review, 2026-10-21; test_finegray_v110.do 12d).
             local _fg_name "_fg_`_fg_parts'"
-            if length("`_fg_name'") > 32 {
-                local _fg_name = substr("`_fg_name'", 1, 32)
-            }
-
-            * Detect name collision from truncation within this run
+            local _fg_tagk = 0
+            local _fg_tagged = (ustrlen("`_fg_name'") > 32)
             local _collision : list posof "`_fg_name'" in _fv_names
+            while `_fg_tagged' | `_collision' > 0 {
+                local _fg_tag "_k`_i'"
+                if `_fg_tagk' > 0 local _fg_tag "_k`_i'x`_fg_tagk'"
+                local _fg_name = usubstr("_fg_`_fg_parts'", 1, 32 - ustrlen("`_fg_tag'")) + "`_fg_tag'"
+                local _collision : list posof "`_fg_name'" in _fv_names
+                local _fg_tagged = 0
+                local ++_fg_tagk
+                if `_fg_tagk' > 99 continue, break
+            }
             if `_collision' > 0 {
                 display as error "factor variable names too similar"
-                display as error "`_fg_name' collides after truncation to 32 characters"
+                display as error "no unique 32-character design-column name for `_term'"
                 display as error "use shorter variable names or fewer interaction levels"
                 exit 198
             }
@@ -1392,6 +1433,223 @@ program define finegray, eclass sortpreserve
             local _fv_names "`_fv_names' `_fg_name'"
             local _fv_namemap "`_fv_namemap' `_fg_name'"
             if !`_fg_is_mi' local _fv_newnames "`_fv_newnames' `_fg_name'"
+        }
+    }
+
+    * =========================================================================
+    * PURE SPECIFICATION CHECKS -- BEFORE ANY MUTATION
+    * =========================================================================
+    * Refusals that read only the estimation sample and the specification, and
+    * no design column, run HERE: before the entry column is rewritten, before
+    * the _dta[_finegray_*] characteristics are marked "0" (invalidated) and
+    * before a prior run's _fg_* columns are dropped.  They used to fire after
+    * all three, so a refit that was refused for a tsplit() interval with no
+    * cause event, a tvc() variable missing from the model, too few clusters or
+    * an unusable delayed-entry weight stratum left the still-current prior fit
+    * unusable (finegray_cif r(301)) although nothing it depends on had moved.
+    * The rank check stays where it is: it needs the design columns, and its
+    * refusal invalidating the prior fit is pinned on purpose
+    * (test_finegray_v110.do section 4).  The original sites below are kept as
+    * defence in depth where they still exist.  Guarded by test_finegray_v110.do
+    * section 4b.
+
+    * Design columns the fit will have: one per kept (non-base, non-omitted)
+    * term, the same count the creation loop gives `varlist' below.
+    local _fg_ncols0 = 0
+    if `_has_fv' {
+        foreach _pc_nm of local _fv_namemap {
+            if "`_pc_nm'" != "." local ++_fg_ncols0
+        }
+    }
+    else local _fg_ncols0 : word count `varlist'
+
+    local _fg_ntv0 = 0
+    if "`tvc'" != "" {
+        * One "source variables" list per design column, built from the same
+        * fit-time expansion and the same part rule as the tvc() mapping below.
+        forvalues _pc_c = 1/`_fg_ncols0' {
+            local _pc_src`_pc_c' ""
+        }
+        if `_has_fv' {
+            local _pc_c = 0
+            foreach _pc_term of local _fv_semantic {
+                if regexm("`_pc_term'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                    regexm("`_pc_term'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
+                local ++_pc_c
+                local _pc_parts = subinstr(subinstr("`_pc_term'", "##", "#", .), "#", " ", .)
+                foreach _pc_p of local _pc_parts {
+                    if regexm("`_pc_p'", "\.(.+)$") local _pc_p = regexs(1)
+                    local _pc_seen : list posof "`_pc_p'" in _pc_src`_pc_c'
+                    if `_pc_seen' == 0 local _pc_src`_pc_c' "`_pc_src`_pc_c'' `_pc_p'"
+                }
+            }
+        }
+        else {
+            forvalues _pc_c = 1/`_fg_ncols0' {
+                local _pc_src`_pc_c' "`: word `_pc_c' of `varlist''"
+            }
+        }
+        foreach _tv_v of local tvc {
+            local _tv_any = 0
+            forvalues _pc_c = 1/`_fg_ncols0' {
+                local _tv_in : list posof "`_tv_v'" in _pc_src`_pc_c'
+                if `_tv_in' > 0 {
+                    local _tv_any = 1
+                    continue, break
+                }
+            }
+            if !`_tv_any' {
+                display as error "tvc(`_tv_v') is not in the model"
+                display as error "tvc() names covariates the model already fits; add `_tv_v' to"
+                display as error "the varlist, or remove it from tvc()"
+                exit 198
+            }
+        }
+        forvalues _pc_c = 1/`_fg_ncols0' {
+            foreach _tv_v of local tvc {
+                local _tv_in : list posof "`_tv_v'" in _pc_src`_pc_c'
+                if `_tv_in' > 0 {
+                    local ++_fg_ntv0
+                    continue, break
+                }
+            }
+        }
+
+        * ---- every interval must carry a cause event ------------------------
+        * Interval j is (cut[j-1], cut[j]], so a boundary at or beyond the last
+        * cause-event time leaves the final interval with no events at all and
+        * its coefficients unidentified.  The information matrix would catch it,
+        * but as "not full rank" naming a design column -- which sends the reader
+        * looking for collinearity.  Name the interval instead.
+        local _fg_lo = 0
+        local _fg_tvnfail ""
+        forvalues _tv_j = 1/`_fg_nint' {
+            if `_tv_j' == `_fg_nint' {
+                local _tv_cond "_t > `_fg_lo'"
+                local _tv_lbl "_t > `_fg_lo'"
+            }
+            else {
+                local _tv_hi : word `_tv_j' of `tsplit'
+                local _tv_cond "_t > `_fg_lo' & _t <= `_tv_hi'"
+                if `_tv_j' == 1 local _tv_lbl "_t <= `_tv_hi'"
+                else            local _tv_lbl "`_fg_lo' < _t <= `_tv_hi'"
+            }
+            quietly count if `touse' & `compete' == `cause' & `_tv_cond'
+            * Kept, not just tested.  An interval is identified as soon as it
+            * carries one cause event, but a coefficient estimated from two or
+            * three of them is a monotone-likelihood accident waiting to happen
+            * -- and the fit converges and prints a finite (enormous) subhazard
+            * ratio when it does.  The count belongs next to the interval in the
+            * output, where the reader can see what each estimate rests on.
+            local _fg_tvnfail "`_fg_tvnfail' `r(N)'"
+            if r(N) == 0 {
+                display as error "tsplit() interval `_tv_j' (`_tv_lbl') contains no cause `cause' event"
+                display as error "its coefficients are not identified by the subdistribution"
+                display as error "likelihood, so the interval cannot be estimated"
+                display as error "move or drop that boundary; the last cause event is the upper"
+                display as error "limit of any usable tsplit() value"
+                exit 459
+            }
+            if `_tv_j' < `_fg_nint' local _fg_lo : word `_tv_j' of `tsplit'
+        }
+        local _fg_tvnfail : list retokenize _fg_tvnfail
+    }
+
+    * Clusters against coefficients: the same two refusals, and the same
+    * wording, as _finegray_engine, which keeps them as defence in depth.  The
+    * engine counts distinct cluster() values over exactly these rows (it runs
+    * on `keep if touse'), and fits ncols + (J - 1) * (tvc columns)
+    * coefficients (_finegray_tvc_ncoef).
+    if "`cluster'" != "" {
+        tempname _pc_ncl
+        mata: st_numscalar("`_pc_ncl'", rows(uniqrows(st_data(., "`cluster'", "`touse'"))))
+        local _pc_ptot = `_fg_ncols0' + (`_fg_nint' - 1) * `_fg_ntv0'
+        if scalar(`_pc_ncl') < 2 {
+            display as error "finegray: cluster(`cluster') identifies `=scalar(`_pc_ncl')' cluster in the estimation sample"
+            display as error "clustered standard errors require at least 2 clusters"
+            exit 459
+        }
+        if scalar(`_pc_ncl') <= `_pc_ptot' {
+            display as error "finegray: cluster(`cluster') identifies `=scalar(`_pc_ncl')' clusters for `_pc_ptot' coefficients"
+            display as error "the clustered variance matrix has rank at most `=scalar(`_pc_ncl') - 1', so it cannot support `_pc_ptot' standard errors"
+            display as error "use more clusters, or fit fewer covariates"
+            exit 459
+        }
+    }
+
+    * ---- Support boundary for the combined-weight design.
+    *
+    * The factorized weights are EVALUATED for each observed joint (censoring x
+    * truncation) stratum: G is estimated within censoring strata and H within
+    * truncation strata.  Every observed combination must still carry enough
+    * support to make its configured weight usable.  Both limits are hard
+    * failures: silently pooling groups the user asked to keep separate would
+    * change the estimand without saying so, which is the failure class this
+    * package treats as worst.
+    *
+    * Enforced only on the ZZF (delayed-entry) branch.  A right-censoring fit
+    * with many strata() levels is unchanged released behaviour, and turning
+    * that into an error would break existing analyses -- the no-LT path is
+    * required to stay bit-identical, and an error is not bit-identical.
+    *
+    * BREAKING CHANGE, stated so nobody rediscovers it as a bug: a delayed-entry
+    * fit with more than 100 strata() levels used to run and now hard-errors,
+    * EVEN WITHOUT truncstrata().  Under delayed entry the weights are A = G*H,
+    * and A is evaluated for every observed joint group, so 150 censoring strata
+    * are 150 weight strata whether or not the user asked for entry strata.
+    * Guarded by Z21/Z22.
+    *
+    * Delayed-entry weight strata: the joint strata() x truncstrata() groups
+    * the factorized weight is evaluated in, over the estimation sample.  The
+    * same partition the engine block forms from _finegray_weight_groups
+    * (egen group() of each side, then of the pair).
+    if `_fg_has_lt' {
+        tempvar _fg_jgrp _fg_jn
+        if "`strata'" == "" & "`truncstrata'" == "" {
+            quietly gen byte `_fg_jgrp' = 1 if `touse'
+        }
+        else {
+            quietly egen long `_fg_jgrp' = group(`strata' `truncstrata') if `touse'
+        }
+        quietly summarize `_fg_jgrp' if `touse', meanonly
+        local _fg_njgrp = r(max)
+
+        * Name only the options that actually formed the groups.  Blaming a
+        * cross-classification with truncstrata() when the user never typed
+        * truncstrata() sends them looking for an option they did not use.
+        *
+        * Keep each line short.  Stata wraps display output at linesize, and
+        * test Z22 greps this text -- a message that wraps mid-token would make
+        * the guard's own regression test unfalsifiable.
+        if `_fg_njgrp' > 100 {
+            display as error "too many weight strata: `_fg_njgrp' observed joint groups (limit 100)"
+            if "`strata'" != "" & "`truncstrata'" != "" {
+                display as error "strata() and truncstrata() are cross-classified:"
+                display as error "the weight strata are their observed combinations"
+            }
+            else if "`truncstrata'" != "" {
+                display as error "the weight strata are the observed levels of truncstrata()"
+            }
+            else {
+                display as error "the weight strata are the observed levels of strata()"
+                display as error "under delayed entry G is stratum-specific, H is pooled,"
+                display as error "and A is evaluated separately for every strata() level"
+            }
+            display as error "this limit applies to delayed-entry fits only"
+            display as error "use coarser grouping variables"
+            exit 459
+        }
+
+        quietly bysort `_fg_jgrp': gen long `_fg_jn' = _N if `touse'
+        quietly summarize `_fg_jn' if `touse', meanonly
+        local _fg_minjn = r(min)
+
+        if `_fg_minjn' < 20 {
+            display as error "a weight stratum has only `_fg_minjn' subjects (minimum 20)"
+            display as error "the factorized weight is evaluated within each observed joint"
+            display as error "stratum; too few subjects makes that configured weight unusable"
+            display as error "use coarser grouping variables"
+            exit 459
         }
     }
 
@@ -1903,45 +2161,8 @@ program define finegray, eclass sortpreserve
         }
 
         local _fg_ntv : word count `_fg_tvcpos'
-
-        * ---- every interval must carry a cause event ------------------------
-        * Interval j is (cut[j-1], cut[j]], so a boundary at or beyond the last
-        * cause-event time leaves the final interval with no events at all and
-        * its coefficients unidentified.  The information matrix would catch it,
-        * but as "not full rank" naming a design column -- which sends the reader
-        * looking for collinearity.  Name the interval instead.
-        local _fg_lo = 0
-        local _fg_tvnfail ""
-        forvalues _tv_j = 1/`_fg_nint' {
-            if `_tv_j' == `_fg_nint' {
-                local _tv_cond "_t > `_fg_lo'"
-                local _tv_lbl "_t > `_fg_lo'"
-            }
-            else {
-                local _tv_hi : word `_tv_j' of `tsplit'
-                local _tv_cond "_t > `_fg_lo' & _t <= `_tv_hi'"
-                if `_tv_j' == 1 local _tv_lbl "_t <= `_tv_hi'"
-                else            local _tv_lbl "`_fg_lo' < _t <= `_tv_hi'"
-            }
-            quietly count if `touse' & `compete' == `cause' & `_tv_cond'
-            * Kept, not just tested.  An interval is identified as soon as it
-            * carries one cause event, but a coefficient estimated from two or
-            * three of them is a monotone-likelihood accident waiting to happen
-            * -- and the fit converges and prints a finite (enormous) subhazard
-            * ratio when it does.  The count belongs next to the interval in the
-            * output, where the reader can see what each estimate rests on.
-            local _fg_tvnfail "`_fg_tvnfail' `r(N)'"
-            if r(N) == 0 {
-                display as error "tsplit() interval `_tv_j' (`_tv_lbl') contains no cause `cause' event"
-                display as error "its coefficients are not identified by the subdistribution"
-                display as error "likelihood, so the interval cannot be estimated"
-                display as error "move or drop that boundary; the last cause event is the upper"
-                display as error "limit of any usable tsplit() value"
-                exit 459
-            }
-            if `_tv_j' < `_fg_nint' local _fg_lo : word `_tv_j' of `tsplit'
-        }
-        local _fg_tvnfail : list retokenize _fg_tvnfail
+        * The every-interval-carries-a-cause-event check (and `_fg_tvnfail')
+        * runs before the mutation zone; see PURE SPECIFICATION CHECKS.
     }
 
     * =========================================================================
@@ -2053,76 +2274,9 @@ program define finegray, eclass sortpreserve
             local _tg_mata "`_tg_grp'"
         }
 
-        * ---- Support boundary for the combined-weight design.
-        *
-        * The factorized weights are EVALUATED for each observed joint (censoring x
-        * truncation) stratum: G is estimated within censoring strata and H within
-        * truncation strata.  Every observed combination must still carry enough
-        * support to make its configured weight usable.  Both limits are hard
-        * failures: silently pooling groups the user asked to keep separate would
-        * change the estimand without saying so, which is the failure class this
-        * package treats as worst.
-        *
-        * Enforced only on the ZZF (delayed-entry) branch.  A right-censoring fit
-        * with many strata() levels is unchanged released behaviour, and turning
-        * that into an error would break existing analyses -- the no-LT path is
-        * required to stay bit-identical, and an error is not bit-identical.
-        *
-        * BREAKING CHANGE, stated so nobody rediscovers it as a bug: a delayed-entry
-        * fit with more than 100 strata() levels used to run and now hard-errors,
-        * EVEN WITHOUT truncstrata().  Under delayed entry the weights are A = G*H,
-        * and A is evaluated for every observed joint group, so 150 censoring strata
-        * are 150 weight strata whether or not the user asked for entry strata.
-        * Guarded by Z21/Z22.
-        if `_fg_has_lt' {
-            tempvar _fg_jgrp _fg_jn
-            if "`_byg_mata'" == "" & "`_tg_mata'" == "" {
-                quietly gen byte `_fg_jgrp' = 1
-            }
-            else {
-                quietly egen long `_fg_jgrp' = group(`_byg_mata' `_tg_mata')
-            }
-            quietly summarize `_fg_jgrp', meanonly
-            local _fg_njgrp = r(max)
-
-            * Name only the options that actually formed the groups.  Blaming a
-            * cross-classification with truncstrata() when the user never typed
-            * truncstrata() sends them looking for an option they did not use.
-            *
-            * Keep each line short.  Stata wraps display output at linesize, and
-            * test Z22 greps this text -- a message that wraps mid-token would make
-            * the guard's own regression test unfalsifiable.
-            if `_fg_njgrp' > 100 {
-                display as error "too many weight strata: `_fg_njgrp' observed joint groups (limit 100)"
-                if "`_byg_mata'" != "" & "`_tg_mata'" != "" {
-                    display as error "strata() and truncstrata() are cross-classified:"
-                    display as error "the weight strata are their observed combinations"
-                }
-                else if "`_tg_mata'" != "" {
-                    display as error "the weight strata are the observed levels of truncstrata()"
-                }
-                else {
-                    display as error "the weight strata are the observed levels of strata()"
-                    display as error "under delayed entry G is stratum-specific, H is pooled,"
-                    display as error "and A is evaluated separately for every strata() level"
-                }
-                display as error "this limit applies to delayed-entry fits only"
-                display as error "use coarser grouping variables"
-                exit 459
-            }
-
-            quietly bysort `_fg_jgrp': gen long `_fg_jn' = _N
-            quietly summarize `_fg_jn', meanonly
-            local _fg_minjn = r(min)
-
-            if `_fg_minjn' < 20 {
-                display as error "a weight stratum has only `_fg_minjn' subjects (minimum 20)"
-                display as error "the factorized weight is evaluated within each observed joint"
-                display as error "stratum; too few subjects makes that configured weight unusable"
-                display as error "use coarser grouping variables"
-                exit 459
-            }
-        }
+        * The delayed-entry weight-strata limits (more than 100 joint groups, a
+        * group of fewer than 20 subjects) are checked before the mutation zone,
+        * where `_fg_njgrp' is set; see PURE SPECIFICATION CHECKS.
 
         sort _t `_fg_row0'
 
@@ -2575,6 +2729,33 @@ program define finegray, eclass sortpreserve
         ereturn local tsplit_nfail "`_fg_tvnfail'"
     }
     if "`cluster'" != "" ereturn local clustvar "`cluster'"
+
+    * Monotone likelihood: the coefficients whose information collapsed between
+    * beta = 0 and the estimate (_finegray_engine sets `_fg_monopos' via
+    * st_local, as positions in its narrow frame).  The narrow frame is the
+    * posted stripe with base and omitted factor terms removed -- the rule
+    * _finegray_beta applies -- so the positions name stripe entries.  The
+    * equation is kept only under tvc(), where it is what tells the intervals
+    * apart.  Reported by _finegray_display on the fit and on every replay.
+    if "`_fg_monopos'" != "" {
+        local _mn_all : colfullnames e(b)
+        local _mn_keep ""
+        foreach _mn_t of local _mn_all {
+            local _mn_n = substr("`_mn_t'", strpos("`_mn_t'", ":") + 1, .)
+            if regexm("`_mn_n'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                regexm("`_mn_n'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
+            if "`tvc'" == "" local _mn_t "`_mn_n'"
+            local _mn_keep "`_mn_keep' `_mn_t'"
+        }
+        local _mn_k : word count `_mn_keep'
+        local _mn_names ""
+        foreach _mn_p of local _fg_monopos {
+            if `_mn_p' <= `_mn_k' local _mn_names "`_mn_names' `: word `_mn_p' of `_mn_keep''"
+            else local _mn_names "`_mn_names' #`_mn_p'"
+        }
+        local _mn_names : list retokenize _mn_names
+        ereturn local monotone "`_mn_names'"
+    }
 
     * Combined-weight contract.  lt_weight names the weight actually computed:
     *   right_censoring : no delayed entry; A == G; identical to prior releases
