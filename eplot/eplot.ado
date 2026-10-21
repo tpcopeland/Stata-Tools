@@ -1,4 +1,4 @@
-*! eplot Version 1.0.0  2026/10/15
+*! eplot Version 1.0.1  2026/10/20
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -120,6 +120,8 @@ program define eplot, rclass
         }
     }
 
+    // The sclass helpers' s() results are internal: eplot posts r() only.
+    sreturn clear
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
@@ -144,6 +146,14 @@ program define _eplot_parse_mode, sclass
             syntax [anything] [if] [in] [, Matrix(name) FRame(name) *]
         }
 
+        // matrix() and frame() each name the input; with both, frame() would
+        // otherwise reach twoway as an unknown option after the plot is
+        // computed.
+        if "`matrix'" != "" & "`frame'" != "" {
+            display as error "matrix() and frame() may not be combined"
+            exit 198
+        }
+
         local _mode ""
         if `_frame_first' {
             local _mode "frame"
@@ -166,7 +176,21 @@ program define _eplot_parse_mode, sclass
                 local w3 : word 3 of `anything'
 
                 capture confirm numeric variable `w1' `w2' `w3'
-                if _rc == 0 local _mode "data"
+                if _rc == 0 {
+                    local _mode "data"
+                    // Data mode takes precedence (documented), but a call
+                    // whose names are all stored estimates too is named, so
+                    // the choice is never silent.
+                    local _clash 1
+                    foreach _w in `w1' `w2' `w3' {
+                        capture estimates dir `_w'
+                        if _rc local _clash 0
+                    }
+                    if `_clash' {
+                        display as text "(note: `w1' `w2' `w3' are numeric variables and also stored estimates;"
+                        display as text "  plotted as data, as {bf:Mode detection} in {help eplot} describes)"
+                    }
+                }
             }
 
             if "`_mode'" == "" {
@@ -219,6 +243,7 @@ program define _eplot_frame, rclass
     local _orig_varabbrev = c(varabbrev)
     local _orig_frame "`c(frame)'"
     local _frame_created 0
+    local _fa_global 0
     local _data_rc 0
     local _data_ran 0
     set varabbrev off
@@ -253,6 +278,8 @@ program define _eplot_frame, rclass
         frame copy `frame' `_workframe'
         local _frame_created 1
         frame change `_workframe'
+        // A characteristic copied from the source frame claims nothing.
+        char _dta[_eplot_frameauto]
 
         local 0 `"`_input'"'
         syntax [if] [in] , FRame(name) ///
@@ -316,6 +343,9 @@ program define _eplot_frame, rclass
                 capture confirm variable type
                 if _rc == 0 local type "type"
             }
+            // An auto-detected column the user never named may turn out to
+            // be something else; data mode then ignores it with a note.
+            if "`type'" != "" local _frame_auto "`_frame_auto' type"
         }
         if "`type'" != "" {
             capture confirm variable `type'
@@ -332,6 +362,7 @@ program define _eplot_frame, rclass
                 capture confirm numeric variable weights
                 if _rc == 0 local weights "weights"
             }
+            if "`weights'" != "" local _frame_auto "`_frame_auto' weights"
         }
         else {
             capture confirm numeric variable `weights'
@@ -354,6 +385,17 @@ program define _eplot_frame, rclass
         }
 
         local _data_opts `"`options'"'
+        // The frame columns used without being named reach data mode
+        // through a characteristic of eplot's own work frame, keyed to a
+        // token made for this call and held in a global that is cleared on
+        // every exit, so a characteristic set by hand never matches.
+        if "`_frame_auto'" != "" {
+            tempname _fa_tok
+            local _fa_tok "`_fa_tok'_`=subinstr("`c(current_time)'", ":", "", .)'_`=strlen(`"`macval(_input)'"')'"
+            global EPLOT_FRAMEAUTO_TOKEN "`_fa_tok'"
+            local _fa_global 1
+            char _dta[_eplot_frameauto] `"`_fa_tok' `_frame_auto'"'
+        }
         if "`labels'" != "" {
             local _data_opts `"labels(`labels') `_data_opts'"'
         }
@@ -375,6 +417,7 @@ program define _eplot_frame, rclass
         local _data_rc = _rc
     }
     local rc = _rc
+    if `_fa_global' global EPLOT_FRAMEAUTO_TOKEN
 
     local _cleanup_rc = 0
     capture frame change `_orig_frame'
@@ -550,10 +593,13 @@ program define _eplot_data, rclass
             display as error "gap() must be nonmissing and nonnegative"
             exit 198
         }
-        if `dp' < 0 {
-            display as error "dp() must be nonnegative"
+        // Past 20 places string() leaves fixed notation (exponent text, and
+        // from 30 places "1 (1, 2)"), so no wider range can be honoured.
+        if `dp' < 0 | `dp' > 20 {
+            display as error "dp() must be an integer between 0 and 20"
             exit 198
         }
+        _eplot_check_gstyles, msize(`msize') ciwidth(`ciwidth') scheme(`scheme')
         if missing(`rescale') | `rescale' == 0 {
             display as error "rescale() must be nonmissing and nonzero"
             exit 198
@@ -584,6 +630,18 @@ program define _eplot_data, rclass
     local lci_var `2'
     local uci_var `3'
 
+    // Auto-detected frame() columns (set by _eplot_frame on its work frame).
+    local frameauto ""
+    local _fa : char _dta[_eplot_frameauto]
+    if `"`_fa'"' != "" {
+        gettoken _fa_frame _fa_list : _fa
+        // Honoured only with the token of the frame() call in progress.
+        if `"$EPLOT_FRAMEAUTO_TOKEN"' != "" & "`_fa_frame'" == `"$EPLOT_FRAMEAUTO_TOKEN"' {
+            local frameauto "`_fa_list'"
+            char _dta[_eplot_frameauto]
+        }
+    }
+
     // Mark sample: capture if/in first, then exclude missing values
     marksample touse, novarlist
     tempvar ifin_ok
@@ -602,7 +660,13 @@ program define _eplot_data, rclass
                 inlist(lower(strtrim(`type')), "effect", "regular", "header", "section", "missing", "reference") | ///
                 inlist(lower(strtrim(`type')), "subgroup", "hetinfo", "overall", "blank"))
         }
-        if r(N) > 0 {
+        if r(N) > 0 & `: list posof "type" in frameauto' {
+            // frame() picked up a column named type or rowtype that the
+            // user never named; it is not a row type, so it is ignored.
+            display as text "(note: frame variable `type' is not a valid row type and is ignored; name it in type() to use it)"
+            local type ""
+        }
+        else if r(N) > 0 {
             display as error "type() contains an unknown row type; use codes 0-6 or a documented string value"
             exit 198
         }
@@ -636,6 +700,26 @@ program define _eplot_data, rclass
         _eplot_excluded_list `_excl', labels(`labels')
     }
     markout `touse' `es_var' `lci_var' `uci_var'
+
+    // An estimate outside its own interval is drawn as given but named: it is
+    // usually a variable passed in the wrong position.
+    tempvar _outside
+    quietly gen byte `_outside' = `touse' & !missing(`es_var') & ///
+        (`es_var' < `lci_var' | `es_var' > `uci_var')
+    if "`type'" != "" {
+        capture confirm numeric variable `type'
+        if _rc == 0 {
+            quietly replace `_outside' = 0 if !inlist(`type', 1, 3, 5)
+        }
+        else {
+            quietly replace `_outside' = 0 if !inlist(lower(strtrim(`type')), ///
+                "effect", "regular", "subgroup", "overall")
+        }
+    }
+    quietly count if `_outside'
+    if r(N) > 0 {
+        _eplot_excluded_list `_outside', labels(`labels') outside
+    }
 
     // Restore non-data rows (headers, blanks, etc.) ONLY within the if/in range
     if "`type'" != "" {
@@ -738,8 +822,11 @@ program define _eplot_data, rclass
     // string() returns "" for a nonnumeric format, which would blank every
     // value at rc=0.
     capture confirm numeric format `vformat'
-    if _rc {
-        display as error "vformat() must be a valid numeric display format"
+    // Date, time, and hexadecimal formats are numeric to Stata but print an
+    // effect as a date or bit pattern.
+    if _rc == 0 & !regexm(`"`vformat'"', "^%-?~?0?[0-9]*([.,][0-9]+)?[fge]c?$") local _rc_vf 198
+    if _rc | "`_rc_vf'" != "" {
+        display as error "vformat() must be a valid numeric display format (%f, %g, or %e)"
         exit 198
     }
     // Values-column and row-label text.  *# sizes resolve against eplot's
@@ -780,6 +867,10 @@ program define _eplot_data, rclass
     // Preserve and work on data
     preserve
 
+    // Default labels name the observation in the dataset (or frame), as
+    // the missing-row note does, not its position within if/in.
+    tempvar obsno
+    quietly gen long `obsno' = _n
     quietly keep if `touse'
 
     // Create working variables
@@ -895,7 +986,7 @@ program define _eplot_data, rclass
         quietly gen str244 `label_str' = `labels'
     }
     else {
-        quietly gen str244 `label_str' = "Row " + string(`id')
+        quietly gen str244 `label_str' = "Row " + string(`obsno')
     }
 
     // Apply keep/drop against the source identities
@@ -934,7 +1025,14 @@ program define _eplot_data, rclass
     if "`weights'" != "" & "`nobox'" == "" {
         quietly count if `rowtype' == 1 & !missing(`es') & ///
             (missing(`wt') | `wt' <= 0)
-        if r(N) > 0 {
+        if r(N) > 0 & `: list posof "weights" in frameauto' {
+            // An auto-detected frame column the user never named: plain
+            // markers instead of an error about an option not typed.
+            display as text "(note: frame variable `weights' is not a usable weight for every effect row and is ignored; name it in weights() to use it)"
+            local weights ""
+            quietly replace `wt' = 1
+        }
+        else if r(N) > 0 {
             display as error "weights() must be nonmissing and positive for plotted effect rows"
             restore
             exit 198
@@ -966,7 +1064,8 @@ program define _eplot_data, rclass
             exit 198
         }
         quietly replace `order_rank' = 1000 + `id' if missing(`order_rank')
-        sort `order_rank'
+        // Rows sharing a label share a rank; `id' keeps them in input order.
+        sort `order_rank' `id'
     }
 
     // Calculate positions (yscale(reverse) puts low values at top)
@@ -1027,8 +1126,10 @@ program define _eplot_data, rclass
         quietly replace `wt' = 1 in `_het_n'
     }
 
-    // Recalculate positions after any insertions
-    sort `pos'
+    // Recalculate positions after any insertions.  Rows inserted at one
+    // position (a groups() header and a headers() header, or two headers)
+    // keep the order in which they were added.
+    sort `pos', stable
     quietly gen double `rowspace' = 1
     quietly replace `rowspace' = `gap' if `gapflag' == 1
     quietly replace `pos' = sum(`rowspace')
@@ -1162,7 +1263,8 @@ program define _eplot_data, rclass
             axisopts(`"`_effect_axis_opts'"') xline(`_xline_pos') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
-        _eplot_value_margin `val_text', header(`"`vtitle'"') scale(`_vscale')
+        _eplot_value_margin `val_text', header(`"`vtitle'"') scale(`_vscale') ///
+            passthru(`"`options'"')
         local _val_right_margin = `s(right_margin)'
 
         local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabgap(0) mlabsize(`vsize') mlabcolor(`vcolor'))"'
@@ -1541,12 +1643,17 @@ program define _eplot_data, rclass
     // Build r(table) matrix from plotted data
     quietly count if inlist(`rowtype', 1, 3, 5) & !missing(`es')
     local _ntab = r(N)
-    if `_ntab' > 0 {
+    // A Stata matrix holds at most c(max_matdim) rows; past that the plot,
+    // r(N), r(k), and r(cmd) are still returned, without the matrices.
+    local _mat_ok = (`_ntab' <= c(max_matdim))
+    if !`_mat_ok' {
+        display as text "(note: r(table) and r(pvalues) are not returned: `_ntab' rows exceed the `c(max_matdim)'-row matrix limit)"
+    }
+    if `_ntab' > 0 & `_mat_ok' {
         tempname _rtable
         matrix `_rtable' = J(`_ntab', 3, .)
         matrix colnames `_rtable' = "b" "ll" "ul"
         local _ri 0
-        local _rnames ""
         forvalues i = 1/`=_N' {
             if !inlist(`rowtype'[`i'], 1, 3, 5) continue
             if missing(`es'[`i']) continue
@@ -1554,20 +1661,12 @@ program define _eplot_data, rclass
             matrix `_rtable'[`_ri', 1] = `es'[`i']
             matrix `_rtable'[`_ri', 2] = `lci'[`i']
             matrix `_rtable'[`_ri', 3] = `uci'[`i']
-            local _rnm = `label_str'[`i']
-            local _rnames `"`_rnames' `"`_rnm'"'"'
         }
-        capture matrix rownames `_rtable' = `_rnames'
-        if _rc {
-            local _generic_names ""
-            forvalues _gi = 1/`_ntab' {
-                local _generic_names "`_generic_names' row`_gi'"
-            }
-            matrix rownames `_rtable' = `_generic_names'
-        }
+        _eplot_rowstripe `_rtable' if inlist(`rowtype', 1, 3, 5) & !missing(`es'), ///
+            namevar(`label_str')
         local _has_table 1
     }
-    if "`pvalue'" != "" {
+    if "`pvalue'" != "" & `_mat_ok' {
         quietly count if inlist(`rowtype', 1, 3, 5) & !missing(`es')
         local _npv = r(N)
         if `_npv' > 0 {
@@ -1575,23 +1674,14 @@ program define _eplot_data, rclass
             matrix `_rpvals' = J(`_npv', 1, .)
             matrix colnames `_rpvals' = "pvalue"
             local _pi 0
-            local _pnames ""
             forvalues i = 1/`=_N' {
                 if !inlist(`rowtype'[`i'], 1, 3, 5) continue
                 if missing(`es'[`i']) continue
                 local ++_pi
                 matrix `_rpvals'[`_pi', 1] = `pvalue'[`i']
-                local _pnm = `label_str'[`i']
-                local _pnames `"`_pnames' `"`_pnm'"'"'
             }
-            capture matrix rownames `_rpvals' = `_pnames'
-            if _rc {
-                local _generic_names ""
-                forvalues _gi = 1/`_npv' {
-                    local _generic_names "`_generic_names' row`_gi'"
-                }
-                matrix rownames `_rpvals' = `_generic_names'
-            }
+            _eplot_rowstripe `_rpvals' if inlist(`rowtype', 1, 3, 5) & !missing(`es'), ///
+                namevar(`label_str')
             local _has_pvalues 1
         }
     }
@@ -1785,10 +1875,13 @@ program define _eplot_estimates, rclass
             display as error "gap() must be nonmissing and nonnegative"
             exit 198
         }
-        if `dp' < 0 {
-            display as error "dp() must be nonnegative"
+        // Past 20 places string() leaves fixed notation (exponent text, and
+        // from 30 places "1 (1, 2)"), so no wider range can be honoured.
+        if `dp' < 0 | `dp' > 20 {
+            display as error "dp() must be an integer between 0 and 20"
             exit 198
         }
+        _eplot_check_gstyles, msize(`msize') ciwidth(`ciwidth') scheme(`scheme')
         if missing(`rescale') | `rescale' == 0 {
             display as error "rescale() must be nonmissing and nonzero"
             exit 198
@@ -1984,8 +2077,11 @@ program define _eplot_estimates, rclass
     }
     if `"`vformat'"' != "" {
         capture confirm numeric format `vformat'
-        if _rc {
-            display as error "vformat() must be a valid numeric display format"
+        // Date, time, and hexadecimal formats are numeric to Stata but print
+        // an effect as a date or bit pattern.
+        if _rc == 0 & !regexm(`"`vformat'"', "^%-?~?0?[0-9]*([.,][0-9]+)?[fge]c?$") local _rc_vf 198
+        if _rc | "`_rc_vf'" != "" {
+            display as error "vformat() must be a valid numeric display format (%f, %g, or %e)"
             exit 198
         }
     }
@@ -2042,7 +2138,7 @@ program define _eplot_estimates, rclass
     // Normal critical value for estimators that do not post residual df.
     // Critical values, estimates, and limits travel in scalars and matrix
     // cells, never through decimal locals, so r(table) reproduces e(b).
-    tempname zcrit _se_i _df_i _crit_i
+    tempname zcrit _se_i _df_i _crit_i _lo_i _hi_i
     scalar `zcrit' = invnormal(1 - (1 - `level'/100)/2)
 
     // ====== Identify "." model (current estimates) ======
@@ -2099,13 +2195,18 @@ program define _eplot_estimates, rclass
         matrix `b_dot' = e(b)
         matrix `V_dot' = e(V)
         local _keform_dot "`e(k_eform)'"
-        // mixed posts its variance components as equations of their own
-        // (lns#_#_#, atr#_#_#_#, lnsig_e, r_*), not in "/": the first
-        // e(k_f) columns are the fixed effects.
-        local _nfix_dot .
-        if inlist("`e(cmd)'", "mixed", "xtmixed") {
-            capture confirm integer number `e(k_f)'
-            if !_rc local _nfix_dot = `e(k_f)'
+        // Columns past _nfix_dot are not effects: variance components that
+        // mixed and the meqr* commands post in equations of their own, or
+        // trailing ancillary equations (see _eplot_fixed_cut).
+        _eplot_fixed_cut, matrix(`b_dot')
+        local _nfix_dot = `s(nfix)'
+        local _nfix_kind_dot "`s(kind)'"
+        // proportion's limits are not b +/- t*se (logit by default).
+        local _prop_dot 0
+        if "`e(cmd)'" == "proportion" {
+            tempname _pll_dot _pul_dot
+            _eplot_prop_limits, b(`b_dot') level(`level') ll(`_pll_dot') ul(`_pul_dot')
+            local _prop_dot 1
         }
         _eplot_coef_df, b(`b_dot') df(`dfv_dot') v(`V_dot')
     }
@@ -2203,6 +2304,22 @@ program define _eplot_estimates, rclass
     // Uses variable labels and factor value labels from data in memory
     local _auto_labels ""
     local _n_autolabels 0
+    // rename() targets are labelled from their own variables even when no
+    // plotted model has that coefficient.
+    local _rn_targets ""
+    if `"`rename'"' != "" {
+        local _rn_rest `"`rename'"'
+        while `"`_rn_rest'"' != "" {
+            gettoken _rn_old _rn_rest : _rn_rest, parse("=")
+            gettoken _rn_eq _rn_rest : _rn_rest, parse("=")
+            gettoken _rn_new _rn_rest : _rn_rest, parse(" ") bind
+            if strtrim(`"`_rn_eq'"') != "=" continue, break
+            local _rn_new = strtrim(`"`_rn_new'"')
+            if regexm(`"`_rn_new'"', "^[A-Za-z0-9_.:#]+$") {
+                local _rn_targets `"`_rn_targets' `_rn_new'"'
+            }
+        }
+    }
     forvalues m = 1/`n_models' {
         local est_name : word `m' of `estlist'
         if `m' == `dot_idx' {
@@ -2214,14 +2331,12 @@ program define _eplot_estimates, rclass
             if _rc continue
             tempname _btemp
             matrix `_btemp' = e(b)
-            local _nfix_l .
-            if inlist("`e(cmd)'", "mixed", "xtmixed") {
-                capture confirm integer number `e(k_f)'
-                if !_rc local _nfix_l = `e(k_f)'
-            }
+            _eplot_fixed_cut, matrix(`_btemp')
+            local _nfix_l = `s(nfix)'
             _eplot_matrix_coefnames, matrix(`_btemp') nfix(`_nfix_l')
             local _colnames `"`s(names)'"'
         }
+        local _colnames `"`_colnames' `_rn_targets'"'
         foreach _cn of local _colnames {
             // Skip if already mapped
             local _already 0
@@ -2320,6 +2435,7 @@ program define _eplot_estimates, rclass
     // the equations Stata itself exponentiates are kept: the first
     // e(k_eform) equations (default 1), as [R] ml display documents.
     local _n_anc 0
+    local _n_aux 0
     local _n_vc 0
     local _n_noneform 0
     local _zero_names ""
@@ -2340,6 +2456,16 @@ program define _eplot_estimates, rclass
             _eplot_eform_eqs, matrix(`b_dot') keform(`_keform_dot')
             local _eqs `"`s(eqs)'"'
             local _eform_eqs `"`s(eform_eqs)'"'
+            // Equations with at least one estimated coefficient.  mlogit's
+            // base-outcome equation has none, so baselevels gives it no
+            // reference rows (Stata shows it as "(base outcome)").
+            local _esteqs ""
+            forvalues i = 1/`k' {
+                if `V_dot'[`i', `i'] > 0 & !missing(`V_dot'[`i', `i']) {
+                    local _esteqs `"`_esteqs' `: word `i' of `_eqs''"'
+                }
+            }
+            local _esteqs : list uniq _esteqs
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
@@ -2351,7 +2477,8 @@ program define _eplot_estimates, rclass
                     continue
                 }
                 if `i' > `_nfix_dot' {
-                    local ++_n_vc
+                    if "`_nfix_kind_dot'" == "anc" local ++_n_aux
+                    else local ++_n_vc
                     continue
                 }
                 if "`eform'" != "" & !`: list _eq_i in _eform_eqs' {
@@ -2368,7 +2495,8 @@ program define _eplot_estimates, rclass
                 // baselevels a factor's base level ("#b.var", not an interaction) is
                 // kept as a reference row with no estimate.
                 if `this_var' == 0 {
-                    if "`baselevels'" != "" & regexm("`nm'", "(^|:)[0-9]+b\.[^#]+$") {
+                    if "`baselevels'" != "" & regexm("`nm'", "(^|:)[0-9]+b\.[^#]+$") & ///
+                        `: list _eq_i in _esteqs' {
                         post `posthn' ("`nm'") (.) (.) (.) (.) (.) (`m') (1) ("`_fn'")
                     }
                     else if !regexm("`nm'", "(^|[:#])[0-9]*c?(b|o|bo|ob)\.") {
@@ -2385,9 +2513,18 @@ program define _eplot_estimates, rclass
                     scalar `_crit_i' = invttail(`_df_i', (1 - `level'/100) / 2)
                 }
 
+                scalar `_lo_i' = `b_dot'[1, `i'] - `_crit_i' * `_se_i'
+                scalar `_hi_i' = `b_dot'[1, `i'] + `_crit_i' * `_se_i'
+                if `_prop_dot' {
+                    scalar `_lo_i' = `_pll_dot'[1, `i']
+                    scalar `_hi_i' = `_pul_dot'[1, `i']
+                    if missing(`_lo_i') | missing(`_hi_i') {
+                        display as error "proportion reports no confidence interval for `nm'"
+                        exit 498
+                    }
+                }
                 post `posthn' ("`nm'") (`b_dot'[1, `i']) (`_se_i') ///
-                    (`b_dot'[1, `i'] - `_crit_i' * `_se_i') ///
-                    (`b_dot'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m') (0) ("`_fn'")
+                    (`_lo_i') (`_hi_i') (`_df_i') (`m') (0) ("`_fn'")
             }
         }
         else {
@@ -2415,10 +2552,14 @@ program define _eplot_estimates, rclass
             matrix `bm' = e(b)
             matrix `Vm' = e(V)
             _eplot_coef_df, b(`bm') df(`dfvm') v(`Vm')
-            local _nfix .
-            if inlist("`e(cmd)'", "mixed", "xtmixed") {
-                capture confirm integer number `e(k_f)'
-                if !_rc local _nfix = `e(k_f)'
+            _eplot_fixed_cut, matrix(`bm')
+            local _nfix = `s(nfix)'
+            local _nfix_kind "`s(kind)'"
+            local _prop_m 0
+            if "`e(cmd)'" == "proportion" {
+                tempname _pll_m _pul_m
+                _eplot_prop_limits, b(`bm') level(`level') ll(`_pll_m') ul(`_pul_m')
+                local _prop_m 1
             }
 
             local k = colsof(`bm')
@@ -2429,6 +2570,16 @@ program define _eplot_estimates, rclass
             _eplot_eform_eqs, matrix(`bm') keform(`e(k_eform)')
             local _eqs `"`s(eqs)'"'
             local _eform_eqs `"`s(eform_eqs)'"'
+            // Equations with at least one estimated coefficient.  mlogit's
+            // base-outcome equation has none, so baselevels gives it no
+            // reference rows (Stata shows it as "(base outcome)").
+            local _esteqs ""
+            forvalues i = 1/`k' {
+                if `Vm'[`i', `i'] > 0 & !missing(`Vm'[`i', `i']) {
+                    local _esteqs `"`_esteqs' `: word `i' of `_eqs''"'
+                }
+            }
+            local _esteqs : list uniq _esteqs
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
@@ -2440,7 +2591,8 @@ program define _eplot_estimates, rclass
                     continue
                 }
                 if `i' > `_nfix' {
-                    local ++_n_vc
+                    if "`_nfix_kind'" == "anc" local ++_n_aux
+                    else local ++_n_vc
                     continue
                 }
                 if "`eform'" != "" & !`: list _eq_i in _eform_eqs' {
@@ -2455,7 +2607,8 @@ program define _eplot_estimates, rclass
                 // baselevels a factor's base level ("#b.var", not an interaction) is
                 // kept as a reference row with no estimate.
                 if `this_var' == 0 {
-                    if "`baselevels'" != "" & regexm("`nm'", "(^|:)[0-9]+b\.[^#]+$") {
+                    if "`baselevels'" != "" & regexm("`nm'", "(^|:)[0-9]+b\.[^#]+$") & ///
+                        `: list _eq_i in _esteqs' {
                         post `posthn' ("`nm'") (.) (.) (.) (.) (.) (`m') (1) ("`_fn'")
                     }
                     else if !regexm("`nm'", "(^|[:#])[0-9]*c?(b|o|bo|ob)\.") {
@@ -2472,9 +2625,18 @@ program define _eplot_estimates, rclass
                     scalar `_crit_i' = invttail(`_df_i', (1 - `level'/100) / 2)
                 }
 
+                scalar `_lo_i' = `bm'[1, `i'] - `_crit_i' * `_se_i'
+                scalar `_hi_i' = `bm'[1, `i'] + `_crit_i' * `_se_i'
+                if `_prop_m' {
+                    scalar `_lo_i' = `_pll_m'[1, `i']
+                    scalar `_hi_i' = `_pul_m'[1, `i']
+                    if missing(`_lo_i') | missing(`_hi_i') {
+                        display as error "proportion reports no confidence interval for `nm'"
+                        exit 498
+                    }
+                }
                 post `posthn' ("`nm'") (`bm'[1, `i']) (`_se_i') ///
-                    (`bm'[1, `i'] - `_crit_i' * `_se_i') ///
-                    (`bm'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m') (0) ("`_fn'")
+                    (`_lo_i') (`_hi_i') (`_df_i') (`m') (0) ("`_fn'")
             }
         }
     }
@@ -2486,6 +2648,9 @@ program define _eplot_estimates, rclass
     }
     if `_n_vc' > 0 {
         display as text "(note: `_n_vc' variance-component parameter(s) omitted)"
+    }
+    if `_n_aux' > 0 {
+        display as text "(note: `_n_aux' ancillary parameter(s) omitted)"
     }
     if `_n_noneform' > 0 {
         display as text "(note: `_n_noneform' parameter(s) outside the exponentiated equation(s) omitted with eform)"
@@ -2706,8 +2871,9 @@ program define _eplot_estimates, rclass
             _eplot_block_sort _base_pos _rowtype `_sk' `grp_id' isbase
         }
 
-        // Recalculate positions after insertions
-        sort _base_pos
+        // Recalculate positions after insertions; rows inserted at one
+        // position keep the order in which they were added.
+        sort _base_pos, stable
         gen double _rowspace = 1
         quietly replace _rowspace = `gap' if _gapflag == 1
         quietly replace _base_pos = sum(_rowspace)
@@ -2812,7 +2978,8 @@ program define _eplot_estimates, rclass
             axisopts(`"`_effect_axis_opts'"') xline(`_xline_pos') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         quietly gen double _val_x = `val_xpos' if !missing(_val_text)
-        _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale')
+        _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale') ///
+            passthru(`"`options'"')
         local _val_right_margin = `s(right_margin)'
 
         local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(`vsize') mlabcolor(`vcolor'))"'
@@ -3093,24 +3260,14 @@ program define _eplot_estimates, rclass
             matrix `_rtable' = J(`_ntab', 3, .)
             matrix colnames `_rtable' = "b" "ll" "ul"
             local _ri 0
-            local _rnames ""
             forvalues i = 1/`=_N' {
                 if _rowtype[`i'] != 1 continue
                 local ++_ri
                 matrix `_rtable'[`_ri', 1] = es[`i']
                 matrix `_rtable'[`_ri', 2] = lci[`i']
                 matrix `_rtable'[`_ri', 3] = uci[`i']
-                local _rnm = coef_name[`i']
-                local _rnames `"`_rnames' `"`_rnm'"'"'
             }
-            capture matrix rownames `_rtable' = `_rnames'
-            if _rc {
-                local _generic_names ""
-                forvalues _gi = 1/`_ntab' {
-                    local _generic_names "`_generic_names' row`_gi'"
-                }
-                matrix rownames `_rtable' = `_generic_names'
-            }
+            _eplot_rowstripe `_rtable' if _rowtype == 1, namevar(coef_name)
             local _has_table 1
         }
     }
@@ -3135,24 +3292,13 @@ program define _eplot_estimates, rclass
             // coefficients 1..k in display order, so it is the row index.
             forvalues j = 1/`=_N' {
                 local _ri = _base_pos[`j']
-                if _coef_tag[`j'] == 1 local _rnm_`_ri' = coef_name[`j']
                 local _col = (model_id[`j'] - 1) * 3 + 1
                 matrix `_rtable'[`_ri', `_col'] = es[`j']
                 matrix `_rtable'[`_ri', `_col' + 1] = lci[`j']
                 matrix `_rtable'[`_ri', `_col' + 2] = uci[`j']
             }
-            local _rnames ""
-            forvalues _ri = 1/`_ntab' {
-                local _rnames `"`_rnames' `"`_rnm_`_ri''"'"'
-            }
-            capture matrix rownames `_rtable' = `_rnames'
-            if _rc {
-                local _generic_names ""
-                forvalues _gi = 1/`_ntab' {
-                    local _generic_names "`_generic_names' row`_gi'"
-                }
-                matrix rownames `_rtable' = `_generic_names'
-            }
+            _eplot_rowstripe `_rtable' if _coef_tag == 1, namevar(coef_name) ///
+                index(_base_pos)
             local _has_table 1
         }
     }
@@ -3166,23 +3312,14 @@ program define _eplot_estimates, rclass
             matrix `_rpvals' = J(`_npv', 1, .)
             matrix colnames `_rpvals' = "pvalue"
             local _pi 0
-            local _pnames ""
             forvalues i = 1/`=_N' {
                 if _rowtype[`i'] != 1 continue
                 if missing(_pval[`i']) continue
                 local ++_pi
                 matrix `_rpvals'[`_pi', 1] = _pval[`i']
-                local _pnm = coef_name[`i']
-                local _pnames `"`_pnames' `"`_pnm'"'"'
             }
-            capture matrix rownames `_rpvals' = `_pnames'
-            if _rc {
-                local _generic_names ""
-                forvalues _gi = 1/`_npv' {
-                    local _generic_names "`_generic_names' row`_gi'"
-                }
-                matrix rownames `_rpvals' = `_generic_names'
-            }
+            _eplot_rowstripe `_rpvals' if _rowtype == 1 & !missing(_pval), ///
+                namevar(coef_name)
             local _has_pvalues 1
         }
     }
@@ -3365,10 +3502,11 @@ program define _eplot_matrix, rclass
         exit 198
     }
 
-    if `dp' < 0 {
-        display as error "dp() must be nonnegative"
+    if `dp' < 0 | `dp' > 20 {
+        display as error "dp() must be an integer between 0 and 20"
         exit 198
     }
+    _eplot_check_gstyles, msize(`msize') ciwidth(`ciwidth') scheme(`scheme')
     if missing(`rescale') | `rescale' == 0 {
         display as error "rescale() must be nonmissing and nonzero"
         exit 198
@@ -3461,8 +3599,11 @@ program define _eplot_matrix, rclass
     }
     if `"`vformat'"' != "" {
         capture confirm numeric format `vformat'
-        if _rc {
-            display as error "vformat() must be a valid numeric display format"
+        // Date, time, and hexadecimal formats are numeric to Stata but print
+        // an effect as a date or bit pattern.
+        if _rc == 0 & !regexm(`"`vformat'"', "^%-?~?0?[0-9]*([.,][0-9]+)?[fge]c?$") local _rc_vf 198
+        if _rc | "`_rc_vf'" != "" {
+            display as error "vformat() must be a valid numeric display format (%f, %g, or %e)"
             exit 198
         }
     }
@@ -3744,7 +3885,8 @@ program define _eplot_matrix, rclass
             axisopts(`"`_effect_axis_opts'"') xline(`_xline_pos') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         gen double _val_x = `val_xpos'
-        _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale')
+        _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale') ///
+            passthru(`"`options'"')
         local _val_right_margin = `s(right_margin)'
 
         local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(`vsize') mlabcolor(`vcolor'))"'
@@ -3873,6 +4015,12 @@ program define _eplot_matrix, rclass
     if "`_exp_frame'" != "" {
         local _exp_vars "coef_name es lci uci _plot_pos"
         local _exp_names "label estimate ll ul pos"
+        // pvalue when r(pvalues) is returned (stars with standard errors).
+        capture confirm variable _pval
+        if _rc == 0 {
+            local _exp_vars "`_exp_vars' _pval"
+            local _exp_names "`_exp_names' pvalue"
+        }
         capture confirm variable _val_text
         if _rc == 0 {
             local _exp_vars "`_exp_vars' _val_text"
@@ -3893,51 +4041,29 @@ program define _eplot_matrix, rclass
         tempname _rtable
         matrix `_rtable' = J(`n_coefs', 3, .)
         matrix colnames `_rtable' = "b" "ll" "ul"
-        local _rnames ""
         forvalues i = 1/`n_coefs' {
             matrix `_rtable'[`i', 1] = es[`i']
             matrix `_rtable'[`i', 2] = lci[`i']
             matrix `_rtable'[`i', 3] = uci[`i']
-            local _rnm = coef_name[`i']
-            local _rnames `"`_rnames' `"`_rnm'"'"'
         }
-        capture matrix rownames `_rtable' = `_rnames'
-        if _rc {
-            local _generic_names ""
-            forvalues _gi = 1/`n_coefs' {
-                local _generic_names "`_generic_names' row`_gi'"
-            }
-            matrix rownames `_rtable' = `_generic_names'
-        }
+        _eplot_rowstripe `_rtable' in 1/`n_coefs', namevar(coef_name)
         local _has_table 1
     }
 
     // Two-column matrix input supplies standard errors, so p-values are
     // available when stars is requested.  Compute them before eform() above.
+    // One row per r(table) row, missing where a row has no standard error,
+    // so the two matrices align row by row as in the other modes.
     if "`stars'" != "" & `ncols' == 2 {
         quietly count if !missing(_pval)
-        local _npv = r(N)
-        if `_npv' > 0 {
+        if r(N) > 0 & `n_coefs' > 0 {
             tempname _rpvals
-            matrix `_rpvals' = J(`_npv', 1, .)
+            matrix `_rpvals' = J(`n_coefs', 1, .)
             matrix colnames `_rpvals' = "pvalue"
-            local _pi 0
-            local _pnames ""
-            forvalues i = 1/`=_N' {
-                if missing(_pval[`i']) continue
-                local ++_pi
-                matrix `_rpvals'[`_pi', 1] = _pval[`i']
-                local _pnm = coef_name[`i']
-                local _pnames `"`_pnames' `"`_pnm'"'"'
+            forvalues i = 1/`n_coefs' {
+                matrix `_rpvals'[`i', 1] = _pval[`i']
             }
-            capture matrix rownames `_rpvals' = `_pnames'
-            if _rc {
-                local _generic_names ""
-                forvalues _gi = 1/`_npv' {
-                    local _generic_names "`_generic_names' row`_gi'"
-                }
-                matrix rownames `_rpvals' = `_generic_names'
-            }
+            _eplot_rowstripe `_rpvals' in 1/`n_coefs', namevar(coef_name)
             local _has_pvalues 1
         }
     }
@@ -3974,11 +4100,25 @@ program define _eplot_label_text
     // a ` or $ in a label would be expanded (`x' and $x vanish, a lone `
     // fails with r(132)), and "' would close the compound quote around the
     // label.  {c 96}, {c 36} and {c 39} draw those characters exactly.
+    // Braces are left alone when they balance, so markup such as {it:...}
+    // still works; an unbalanced brace ("A}B") would close a {bf:...}
+    // wrapper early, so then every brace is drawn as {c 123} or {c 125}.
     version 16.0
     args macname var obs
-    mata: st_local("t", subinstr(subinstr(subinstr( ///
-        _st_sdata(`obs', st_varindex("`var'")), ///
-        char(96), "{c 96}"), char(36), "{c 36}"), char(39), "{c 39}"))
+    local _src `"_st_sdata(`obs', st_varindex("`var'"))"'
+    mata: st_local("_bb", strofreal( ///
+        min((0, runningsum((ascii(`_src') :== 123) - (ascii(`_src') :== 125)))) < 0 | ///
+        sum((ascii(`_src') :== 123) - (ascii(`_src') :== 125)) != 0))
+    if `_bb' {
+        mata: st_local("t", subinstr(subinstr(subinstr(subinstr(subinstr( ///
+            subinstr(subinstr(`_src', "{", char(1)), "}", char(2)), ///
+            char(96), "{c 96}"), char(36), "{c 36}"), char(39), "{c 39}"), ///
+            char(1), "{c 123}"), char(2), "{c 125}"))
+    }
+    else {
+        mata: st_local("t", subinstr(subinstr(subinstr(`_src', ///
+            char(96), "{c 96}"), char(36), "{c 36}"), char(39), "{c 39}"))
+    }
     c_local `macname' `"`t'"'
 end
 
@@ -4057,6 +4197,12 @@ program define _eplot_ylabels, nclass
             BOLD(numlist integer) TAG(varname)]
 
         local ylabels ""
+        // The labels travel in one macro inside the graph command; past
+        // c(macrolen) Stata fails with "line too long" deep in the build.
+        // The running length (not strlen() of the growing list, which would
+        // cost quadratic time) leaves room for the rest of the command.
+        local _len 0
+        local _cap = c(macrolen) - 65536
         forvalues i = 1/`=_N' {
             if "`tag'" != "" {
                 if `tag'[`i'] == 0 continue
@@ -4067,8 +4213,20 @@ program define _eplot_ylabels, nclass
                 local this_type = `rowtype'[`i']
                 if `this_type' == 6 continue
                 if `: list posof "`this_type'" in bold' {
-                    local this_label `"{bf:`this_label'}"'
+                    // Graph text does not nest tags: a brace inside
+                    // {bf:...} (a {c #} code or the label's own) closes it
+                    // early, so such text is set bold with the {bf} switch.
+                    if strpos(`"`this_label'"', "{") | strpos(`"`this_label'"', "}") {
+                        local this_label `"{bf}`this_label'"'
+                    }
+                    else local this_label `"{bf:`this_label'}"'
                 }
+            }
+            local _len = `_len' + strlen(`"`this_label'"') + strlen("`this_pos'") + 6
+            if `_len' > `_cap' {
+                display as error "too many rows to label: the axis labels of `=_N' rows exceed Stata's macro length limit (c(macrolen) = `c(macrolen)')"
+                display as error "plot fewer rows, or raise the limit with {help set_maxvar:set maxvar}"
+                exit 920
             }
             local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
         }
@@ -4269,9 +4427,22 @@ program define _eplot_axes_opts, nclass
             local _opts `"`_opts' ytitle("") xscale(`_logopt'range(`lo' `xscalemax'))"'
             if `axisdrawn' local _opts `"`_opts' xscale(noline)"'
             if `hasvals' {
+                // An unbalanced brace would close the {bf:...} wrapper early.
+                mata: st_local("_bb", strofreal( ///
+                    min((0, runningsum((ascii(st_local("vtitle")) :== 123) - (ascii(st_local("vtitle")) :== 125)))) < 0 | ///
+                    sum((ascii(st_local("vtitle")) :== 123) - (ascii(st_local("vtitle")) :== 125)) != 0))
+                if `_bb' {
+                    mata: st_local("vtitle", subinstr(subinstr(subinstr(subinstr( ///
+                        st_local("vtitle"), "{", char(1)), "}", char(2)), ///
+                        char(1), "{c 123}"), char(2), "{c 125}"))
+                }
                 local _val_hdr_y = 0.3
                 local ypadlo = cond(`ypadlo' < -0.2, `ypadlo', -0.2)
-                local _opts `"`_opts' text(`_val_hdr_y' `valxpos' `"{bf:`vtitle'}"', size(`vsize') placement(e) justification(left))"'
+                local _vbf `"{bf:`vtitle'}"'
+                if strpos(`"`vtitle'"', "{") | strpos(`"`vtitle'"', "}") {
+                    local _vbf `"{bf}`vtitle'"'
+                }
+                local _opts `"`_opts' text(`_val_hdr_y' `valxpos' `"`_vbf'"', size(`vsize') placement(e) justification(left))"'
             }
             local _opts `"`_opts' `titleopts'"'
             local _opts `"`_opts' xlabel(`axisopts')"'
@@ -4379,6 +4550,56 @@ program define _eplot_graph_tail, nclass
     if `rc' exit `rc'
 end
 
+capture program drop _eplot_rowstripe
+program define _eplot_rowstripe, nclass
+    // Row names of a returned matrix from a string variable, one row at a
+    // time, in data order (or in the order of index() when given).  Each
+    // name is read in Mata and passed with macval(), so ` and $ are kept as
+    // typed; a name Stata cannot store in a stripe (a "." read as an
+    // operator, more than 32 characters, an empty label) becomes row# for
+    // that row only, where a single failure used to rename every row.  A
+    // name is stored exactly as matrix rownames would store it ("eq:name"
+    // sets the equation).
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax name(name=mat) [if] [in], NAMEvar(varname string) ///
+            [INDex(varname numeric)]
+        marksample sel, novarlist
+        quietly count if `sel'
+        if r(N) != rowsof(`mat') {
+            display as error "_eplot_rowstripe: `r(N)' names for `=rowsof(`mat')' rows"
+            exit 459
+        }
+        tempname one
+        tempvar req rnm
+        matrix `one' = J(1, 1, .)
+        quietly gen str244 `req' = ""
+        quietly gen str244 `rnm' = ""
+        local k 0
+        forvalues i = 1/`=_N' {
+            if !`sel'[`i'] continue
+            local ++k
+            mata: st_local("nm", _st_sdata(`i', st_varindex("`namevar'")))
+            capture matrix rownames `one' = `"`macval(nm)'"'
+            if _rc | `"`macval(nm)'"' == "" matrix rownames `one' = row`k'
+            mata: st_sstore(`i', st_varindex("`req'"), st_matrixrowstripe("`one'")[1, 1])
+            mata: st_sstore(`i', st_varindex("`rnm'"), st_matrixrowstripe("`one'")[1, 2])
+        }
+        if "`index'" != "" {
+            mata: st_matrixrowstripe("`mat'", ///
+                st_sdata(., ("`req'", "`rnm'"), "`sel'")[order(st_data(., "`index'", "`sel'"), 1), .])
+        }
+        else {
+            mata: st_matrixrowstripe("`mat'", st_sdata(., ("`req'", "`rnm'"), "`sel'"))
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 capture program drop _eplot_excluded_list
 program define _eplot_excluded_list, nclass
     // Name the rows an expression selects: the labels() text, else the
@@ -4386,7 +4607,7 @@ program define _eplot_excluded_list, nclass
     // are user text, so they are read in Mata and carried with macval(),
     // never re-expanded (a lone ` or a $name must print as typed).
     version 16.0
-    syntax anything(name=cond everything) [, LABels(string) ERRor]
+    syntax anything(name=cond everything) [, LABels(string) ERRor OUTside]
     tempvar _sel
     quietly gen byte `_sel' = (`cond')
     quietly count if `_sel'
@@ -4416,6 +4637,10 @@ program define _eplot_excluded_list, nclass
     if "`error'" != "" {
         display as error "confidence limits must be supplied as complete lower/upper pairs;"
         display as error `"`N' effect row(s) have exactly one missing limit: `macval(list)'"'
+    }
+    else if "`outside'" != "" {
+        display as text `"(note: `N' row(s) have an estimate outside their own interval: `macval(list)';"'
+        display as text "  check the order of esvar, lcivar, and ucivar)"
     }
     else {
         display as text `"(note: `N' row(s) not plotted because the estimate or the interval is missing: `macval(list)';"'
@@ -4468,6 +4693,67 @@ end
 // %# is also valid.  twoway does not refuse anything else: a list or an
 // unknown name only prints "named style ... not found" and draws the default
 // color at rc=0, so eplot refuses it here with r(198).
+// msize() and ciwidth() must each be one size ([G-4] markersizestyle,
+// [G-4] linewidthstyle): a named style with a symbolsize-/linewidth-<name>
+// .style file on the adopath, a number, *#, or # with a pt, in, cm, or rs
+// unit; scheme() must name a scheme-<name>.scheme file.  twoway refuses
+// none of these: an unknown name or a list prints a note and draws the
+// default at rc=0, and an unknown scheme falls back to s2color.
+capture program drop _eplot_check_gstyles
+program define _eplot_check_gstyles, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [, MSIZE(string) CIWIDTH(string) SCHEME(string)]
+        foreach _o in msize ciwidth {
+            local v = strtrim(`"``_o''"')
+            if `"`v'"' == "" continue
+            local _cls = cond("`_o'" == "msize", "symbolsize", "linewidth")
+            // [G-4] size: #, #pt, #in, #cm, #rs, or *#, with # any
+            // nonnegative number Stata reads (1., .5, 1e1); or a named style
+            // installed as <class>-<name>.style (12-pt is one).
+            local _ok 0
+            local _num `"`v'"'
+            if substr(`"`_num'"', 1, 1) == "*" local _num = substr(`"`_num'"', 2, .)
+            if inlist(substr(`"`_num'"', -2, .), "pt", "in", "cm", "rs") & ///
+                substr(`"`v'"', 1, 1) != "*" {
+                local _num = substr(`"`_num'"', 1, strlen(`"`_num'"') - 2)
+            }
+            // One token (1 pt is a size and a stray word to twoway) and a
+            // finite value (1e400 reads as missing).
+            capture confirm number `_num'
+            if _rc == 0 & strpos(`"`v'"', " ") == 0 {
+                if real(`"`_num'"') >= 0 & !missing(real(`"`_num'"')) local _ok 1
+            }
+            if !`_ok' & regexm(`"`v'"', "^[A-Za-z0-9_][A-Za-z0-9_-]*$") {
+                capture findfile `_cls'-`v'.style
+                if _rc == 0 local _ok 1
+            }
+            if !`_ok' {
+                display as error `"`_o'() must be one valid size, not {bf:`macval(v)'}"'
+                display as error "use a size name (e.g. small, medium, thick), a number, *#, or #pt"
+                exit 198
+            }
+        }
+        local v = strtrim(`"`scheme'"')
+        if `"`v'"' != "" {
+            local _ok 0
+            if regexm(`"`v'"', "^[A-Za-z_][A-Za-z0-9_]*$") {
+                capture findfile scheme-`v'.scheme
+                if _rc == 0 local _ok 1
+            }
+            if !`_ok' {
+                display as error `"scheme `macval(v)' not found"'
+                exit 198
+            }
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 capture program drop _eplot_check_color
 program define _eplot_check_color, nclass
     version 16.0
@@ -4500,13 +4786,33 @@ program define _eplot_check_color, nclass
                 }
             }
             else if inlist(`_n', 3, 4) {
+                // [G-4] colorstyle: RGB is three integers 0-255; CMYK is
+                // four integers 0-255 or four proportions 0-1; HSV is a hue
+                // 0-360 and a saturation and value 0-1.  twoway draws the
+                // default color for anything else (256 0 0, 1e2 0 0).
                 local _first : word 1 of `v'
-                local _from = cond(`_n' == 4 & `"`_first'"' == "hsv", 2, 1)
+                local _hsv = (`_n' == 4 & `"`_first'"' == "hsv")
+                local _from = cond(`_hsv', 2, 1)
                 local _ok 1
+                local _allint 1
+                local _allprop 1
                 forvalues _w = `_from'/`_n' {
                     local _t : word `_w' of `v'
-                    capture confirm number `_t'
-                    if _rc local _ok 0
+                    if !regexm(`"`_t'"', "^[0-9]*\.?[0-9]+$") {
+                        local _ok 0
+                        continue
+                    }
+                    local _x = real(`"`_t'"')
+                    if !regexm(`"`_t'"', "^[0-9]+$") | `_x' > 255 local _allint 0
+                    if `_x' > 1 local _allprop 0
+                    if `_hsv' {
+                        if `_w' == 2 & `_x' > 360 local _ok 0
+                        if `_w' > 2 & `_x' > 1 local _ok 0
+                    }
+                }
+                if `_ok' & !`_hsv' {
+                    if `_n' == 3 & !`_allint' local _ok 0
+                    if `_n' == 4 & !`_allint' & !`_allprop' local _ok 0
                 }
             }
         }
@@ -6077,8 +6383,9 @@ program define _eplot_parse_export, sclass
         syntax, SPEC(string)
         gettoken _fr _rest : spec, parse(",")
         local _fr = strtrim(`"`_fr'"')
+        // confirm name checks only the first word of a list.
         capture confirm name `_fr'
-        if _rc | `"`_fr'"' == "" {
+        if _rc | `"`_fr'"' == "" | `: word count `_fr'' != 1 {
             display as error `"export() requires a frame name, not {bf:`_fr'}"'
             exit 198
         }
@@ -6174,7 +6481,7 @@ program define _eplot_value_text, nclass
         marksample touse, novarlist
         tokenize `vars'
         local _d ""
-        if regexm(`"`format'"', "^%-?~?0?[0-9]*\.([0-9]+)fc?$") {
+        if regexm(`"`format'"', "^%-?~?0?[0-9]*[.,]([0-9]+)fc?$") {
             local _d = real(regexs(1))
             tempname _sc
             scalar `_sc' = 10^`_d'
@@ -6199,12 +6506,16 @@ program define _eplot_value_text, nclass
         if "`_d'" != "" {
             quietly gen byte `_anyexp' = regexm(`_c1', "e[-+]") | ///
                 regexm(`_c2', "e[-+]") | regexm(`_c3', "e[-+]")
+            // Exponent text shows each value itself: the rounding above is
+            // to `_d' decimals, which would print a small limit as 0.00e+00.
             forvalues _j = 1/3 {
-                quietly replace `_c`_j'' = string(`_r`_j'', "%`=`_d' + 7'.`_d'e") ///
+                quietly replace `_c`_j'' = string(``_j'', "%`=`_d' + 7'.`_d'e") ///
                     if `_anyexp' & `touse'
             }
         }
         forvalues _j = 1/3 {
+            // A left-justified format pads on the right.
+            quietly replace `_c`_j'' = strtrim(`_c`_j'')
             quietly replace `_c`_j'' = substr(`_c`_j'', 2, .) ///
                 if regexm(`_c`_j'', "^-0([.,]0*)?$")
         }
@@ -6224,24 +6535,82 @@ program define _eplot_value_margin, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, HEADer(string asis) [MINimum(integer 18) SCale(real 1)]
+        syntax varname, HEADer(string asis) [MINimum(integer 18) SCale(real 1) ///
+            PASSthru(string asis)]
+        // The header arrives as one quoted string.
+        gettoken header : header
 
-        tempvar _val_len
-        quietly gen double `_val_len' = length(`varlist') if !missing(`varlist')
-        quietly summarize `_val_len', meanonly
-        local maxlen = cond(r(N) > 0, r(max), 0)
-
-        local header_len = length(`"`header'"')
-        if `header_len' > `maxlen' local maxlen = `header_len'
-
-        // 0.75 margin units per character is calibrated for vsmall text;
-        // scale() is the values text size relative to vsmall.
+        // The column must hold its widest text.  Widths are in em from the
+        // advance widths of the graph font (Helvetica/Arial metrics, which
+        // Stata's default Liberation Sans shares), rounded up to each class's
+        // widest glyph: @ 1.02, W M m w 1, & .667, other uppercase .78,
+        // digits and other lowercase .556, space . , : .278, ( ) - .333, +
+        // .584, % .889, * .389, any non-ASCII character (CJK is full width)
+        // 1, anything else .6; the bold header 10% wider.  Text
+        // size and margins are both percentages of the graph's smaller
+        // dimension, so a width of w em at size s takes w*s margin units;
+        // scale() is the values text size relative to vsmall (2.0833).  A
+        // flat 0.75 units per character clipped long or large text at the
+        // right edge of the graph.
         if missing(`scale') | `scale' <= 0 local scale 1
-        local right_margin = ceil(`maxlen' * 0.75 * `scale' + 3)
+        tempvar _w
+        _eplot_text_em `varlist', generate(`_w')
+        quietly summarize `_w', meanonly
+        local maxem = cond(r(N) > 0, r(max), 0)
+        tempvar _hdr
+        quietly gen str244 `_hdr' = `"`macval(header)'"' in 1
+        tempvar _hw
+        _eplot_text_em `_hdr' in 1, generate(`_hw')
+        local hdrem = `_hw'[1] * 1.1
+        if missing(`hdrem') local hdrem 0
+        if `hdrem' > `maxem' local maxem = `hdrem'
+        local right_margin = ceil(`maxem' * 2.0833 * `scale' + 1)
         if `right_margin' < `minimum' local right_margin = `minimum'
+        // The column may take at most half of the graph's width (margins are
+        // in units of the smaller dimension; 5.5 x 4 inches unless xsize()
+        // or ysize() is passed through).  A wider column squeezed the plot
+        // region to nothing (r+134 with a long vtitle() at vsize(large)), so
+        // it is capped and the text may run past the edge, with a note.
+        local _xs 5.5
+        local _ys 4
+        if regexm(`"`passthru'"', "(^|[ ,])xsize?\(([0-9]*\.?[0-9]+)\)") local _xs = regexs(2)
+        if regexm(`"`passthru'"', "(^|[ ,])ysize?\(([0-9]*\.?[0-9]+)\)") local _ys = regexs(2)
+        local _cap = floor(0.5 * 100 * `_xs' / min(`_xs', `_ys'))
+        if `right_margin' > `_cap' {
+            display as text "(note: the values column needs more than half the graph width and may be cut off;"
+            display as text "  use a smaller vsize(), a shorter vtitle() or vformat(), or a wider graph with xsize())"
+            local right_margin = `_cap'
+        }
 
         sreturn clear
         sreturn local right_margin "`right_margin'"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// Width of each string in em (see _eplot_value_margin for the metrics).
+capture program drop _eplot_text_em
+program define _eplot_text_em, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname(string) [if] [in], GENerate(name)
+        marksample touse, strok
+        quietly gen double `generate' = 0 if `touse'
+        local _rest `"ustrlen(`varlist')"'
+        foreach _cw in "[@]|1.02" "[WMmw]|1" "[&]|.667" "[0-9a-lnoq-vx-z]|.556" ///
+            "[A-LN-VX-Z]|.78" "[ .,:]|.278" "[()-]|.333" "[+]|.584" "[%]|.889" ///
+            "[*]|.389" "[^\x00-\x7F]|1" {
+            gettoken _cls _wt : _cw, parse("|")
+            local _wt = substr(`"`_wt'"', 2, .)
+            local _n `"(ustrlen(`varlist') - ustrlen(ustrregexra(`varlist', "`_cls'", "")))"'
+            quietly replace `generate' = `generate' + `_wt' * `_n' if `touse'
+            local _rest `"`_rest' - `_n'"'
+        }
+        quietly replace `generate' = `generate' + .6 * (`_rest') if `touse'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -6591,11 +6960,19 @@ program define _eplot_select, nclass
                     if strpos(`"`_k'"', ":") > 0 {
                         local _kb = substr(`"`_k'"', strpos(`"`_k'"', ":") + 1, .)
                     }
+                    // The name without omitted/base operators, as a user
+                    // writes it: o.c2 -> c2, 1b.rep78 -> 1.rep78,
+                    // co.mpg -> c.mpg.
+                    local _kn = ustrregexra(`"`_kb'"', "([0-9]+)(bn|bo|ob|b|o|n)\.", "\$1.")
+                    local _kn = ustrregexra(`"`_kn'"', "(^|#)(o|b)\.", "\$1")
+                    local _kn = ustrregexra(`"`_kn'"', "(^|#)c(o|b)\.", "\$1c.")
                     if `_wild' {
                         if strmatch(`"`_k'"', `"`pattern'"') | ///
-                            strmatch(`"`_kb'"', `"`pattern'"') local _found 1
+                            strmatch(`"`_kb'"', `"`pattern'"') | ///
+                            strmatch(`"`_kn'"', `"`pattern'"') local _found 1
                     }
-                    else if `"`_k'"' == `"`pattern'"' | `"`_kb'"' == `"`pattern'"' {
+                    else if `"`_k'"' == `"`pattern'"' | `"`_kb'"' == `"`pattern'"' | ///
+                        `"`_kn'"' == `"`pattern'"' {
                         local _found 1
                     }
                     if `_found' continue, break
@@ -6754,11 +7131,14 @@ program define _eplot_process_groups, rclass
                         display as error `"groups() coefficient '`group_coef'' not found"'
                         exit 198
                     }
-                    if `: list group_coef in _all_members' {
+                    // Members are kept as quoted list elements, so a label
+                    // with spaces ("Study A") stays one member.
+                    local _gc_q `"`"`group_coef'"'"'
+                    if `: list _gc_q in _all_members' {
                         display as error `"groups() lists coefficient '`group_coef'' in more than one group"'
                         exit 198
                     }
-                    local _all_members `"`_all_members' `group_coef'"'
+                    local _all_members `"`_all_members' `_gc_q'"'
                 }
 
                 local ++n_groups
@@ -6767,7 +7147,7 @@ program define _eplot_process_groups, rclass
                 local group_coefs ""
             }
             else {
-                local group_coefs `"`group_coefs' `token'"'
+                local group_coefs `"`group_coefs' `"`token'"'"'
             }
         }
 
@@ -6943,8 +7323,10 @@ program define _eplot_process_headers, nclass
                 display as error `"headers() coefficient '`ref'' not found"'
                 exit 198
             }
+            // Above the first row with that label: the mean put a header
+            // between duplicate rows (or tied it with the first of two).
             quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
-            local header_pos = r(mean) - 0.5
+            local header_pos = r(min) - 0.5
 
             local newN = _N + 1
             quietly set obs `newN'
@@ -6952,6 +7334,134 @@ program define _eplot_process_headers, nclass
             quietly replace `labelvar' = `"`label'"' in `newN'
             quietly replace `typevar' = 0 in `newN'
         }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// =============================================================================
+// Helper: proportion's confidence limits, from Stata's own table
+// =============================================================================
+// proportion reports logit-transformed limits by default and, with
+// citype(), Wilson, exact, Jeffreys, Agresti-Coull, or Wald limits ([R]
+// proportion, Methods and formulas); none is b +/- t*se except Wald, and the
+// others need counts that e() does not hold.  Replaying the active results
+// at level() yields the table Stata itself prints.  The replay does not
+// remember citype() (e() does not store it), so a citype() in e(cmdline) is
+// forwarded.  The replayed b row must equal e(b), or nothing is read.
+capture program drop _eplot_prop_limits
+program define _eplot_prop_limits, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, B(name) LEVel(real) LL(name) UL(name)
+        local _ct ""
+        if regexm(`"`e(cmdline)'"', "citype\(([^)]*)\)") {
+            local _ct `"citype(`=regexs(1)')"'
+        }
+        quietly proportion, level(`level') `_ct'
+        tempname T
+        matrix `T' = r(table)
+        local _rb = rownumb(`T', "b")
+        local _rl = rownumb(`T', "ll")
+        local _ru = rownumb(`T', "ul")
+        local _ok = !missing(`_rb') & !missing(`_rl') & !missing(`_ru')
+        if `_ok' local _ok = colsof(`T') == colsof(`b')
+        if `_ok' {
+            tempname _tb
+            matrix `_tb' = `T'[`_rb', 1...]
+            local _ok = mreldif(`_tb', `b') < 1e-12
+        }
+        if !`_ok' {
+            display as error "could not read the confidence limits of proportion from its coefficient table"
+            exit 498
+        }
+        matrix `ll' = `T'[`_rl', 1...]
+        matrix `ul' = `T'[`_ru', 1...]
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// =============================================================================
+// Helper: how many leading columns of e(b) are effects
+// =============================================================================
+// s(nfix) is the number of leading e(b) columns that are effects ("." when
+// all are) and s(kind) what follows them: "vc" for the variance components
+// that mixed, xtmixed, and the meqr*/xtme* commands post in equations of
+// their own after the e(k_f) fixed effects ([ME] mixed; their e(k_f) counts
+// parameters, whereas meglm's counts equations, so it is not used there),
+// and "anc" for trailing ancillary equations that are not named "/": [R] ml
+// display shows the last e(k_aux) equations as /name ancillary parameters
+// (intreg's lnsigma, frontier's lnsig2v and lnsig2u, xtologit's cutpoints
+// and sigma2_u), and xtreg, mle shows sigma_u and sigma_e that way without
+// posting e(k_aux).  Each "/" column is one equation, as e(k_eq) counts
+// them; when e(k_eq) is posted and disagrees, nothing is cut.  Must run
+// while the model's results are active.
+capture program drop _eplot_fixed_cut
+program define _eplot_fixed_cut, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, Matrix(name)
+        local k = colsof(`matrix')
+        local nfix .
+        local kind ""
+        if inlist("`e(cmd)'", "mixed", "xtmixed", "meqrlogit", ///
+            "meqrpoisson", "xtmelogit", "xtmepoisson") {
+            capture confirm integer number `e(k_f)'
+            if !_rc {
+                if `e(k_f)' >= 1 & `e(k_f)' < `k' {
+                    local nfix = `e(k_f)'
+                    local kind "vc"
+                }
+            }
+        }
+        else {
+            local eqs : coleq `matrix'
+            local nu 0
+            local prev ""
+            forvalues j = 1/`k' {
+                local e : word `j' of `eqs'
+                if "`e'" == "/" | "`e'" != "`prev'" {
+                    local ++nu
+                    local ufirst_`nu' = `j'
+                    local uname_`nu' "`e'"
+                }
+                local prev "`e'"
+            }
+            local naux .
+            capture confirm integer number `e(k_aux)'
+            if !_rc local naux = `e(k_aux)'
+            else if "`e(cmd)'" == "xtreg" & "`e(model)'" == "ml" & `nu' >= 3 {
+                if "`uname_`=`nu'-1''" == "sigma_u" & "`uname_`nu''" == "sigma_e" {
+                    local naux 2
+                }
+            }
+            local keq_ok 1
+            capture confirm integer number `e(k_eq)'
+            if !_rc {
+                if `e(k_eq)' != `nu' local keq_ok 0
+            }
+            if !missing(`naux') & `keq_ok' {
+                if `naux' >= 1 & `naux' < `nu' {
+                    forvalues u = `=`nu' - `naux' + 1'/`nu' {
+                        if "`uname_`u''" != "/" {
+                            local nfix = `ufirst_`u'' - 1
+                            local kind "anc"
+                            continue, break
+                        }
+                    }
+                }
+            }
+        }
+        sreturn clear
+        sreturn local nfix "`nfix'"
+        sreturn local kind "`kind'"
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

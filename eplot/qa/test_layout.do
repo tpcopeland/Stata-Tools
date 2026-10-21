@@ -211,7 +211,10 @@ capture noisily {
     assert `stop_default' > 1
     local default_margin = real(substr(`"`rest_default'"', 1, `stop_default' - 1))
 
-    eplot es lci uci, labels(lab) values vformat(%8.4f) ///
+    * The column takes the wider of its values and its bold header, so the
+    * format must widen the values past the default header: %8.4f did
+    * (1.2345 (0.9345, 1.5345)) only while widths were 0.75 units a character.
+    eplot es lci uci, labels(lab) values vformat(%10.6f) ///
         name(_v110_t7, replace)
 
     local cmd `"`r(cmd)'"'

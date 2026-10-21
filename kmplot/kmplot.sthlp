@@ -95,7 +95,7 @@ failure, and competing-risk cumulative incidence plots{p_end}
 
 {syntab:Output}
 {synopt:{opt sch:eme(string)}}graph scheme; default current{p_end}
-{synopt:{opt name(string)}}graph name; default {bf:kmplot}{p_end}
+{synopt:{opt name(name[, replace])}}graph name; default {bf:kmplot}{p_end}
 {synopt:{opt asp:ectratio(string)}}aspect ratio{p_end}
 {synopt:{opt exp:ort(string)}}export graph{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save curve data used for the graph{p_end}
@@ -162,7 +162,10 @@ default y-axis title is "Cumulative incidence". It is an error (r(459)) for
 for example, {cmd:compete(cause == 2)} rather than {cmd:compete(death)} when
 {cmd:death} can be missing. {cmd:stset exit()} is supported only in the form
 {cmd:exit(time} {it:exp}{cmd:)}. {opt compete()} may not be combined with
-{opt pvalue} (Gray's test is not implemented) or {opt median}. See
+{opt pvalue} (Gray's test is not implemented) or {opt median}. {it:exp} is a
+single expression: a comma outside parentheses and quotes is an error
+(r(198)). If {it:exp} is true on no record of the analysis sample, a note
+says so, and the curve then equals 1 minus the Kaplan-Meier estimate. See
 {it:{help kmplot##methods:Method notes}}.{p_end}
 
 {phang}{opt byorder(numlist)} gives the order of the {opt by()} levels for
@@ -205,7 +208,8 @@ clipped to [0, 1]. Requires {opt ci}.{p_end}
 
 {phang}{opt median} draws dashed reference lines at the median survival time for each group
 (horizontal at y=0.5, vertical at x=median). If the median is not reached, no
-line is drawn.{p_end}
+line is drawn; nor is it for a median beyond {opt tmax()}, which is still
+stored in {cmd:r(median_#)}.{p_end}
 
 {phang}{opt medianannotate} adds median values to the graph note. Requires {opt median}.{p_end}
 
@@ -238,6 +242,11 @@ With {cmd:riskweight(stset)}, at-risk and event counts can be fractional;
 such cells are printed to one decimal place (for example, {cmd:13.3}).
 {cmd:r(risktable)} and {opt risksaving()} keep the full values.{p_end}
 
+{phang}With {opt compete()}, the event counts are failures of interest, and a
+competing exit is counted as neither an event nor censored: it only lowers
+the number at risk. The drop in the at-risk count between two columns is
+then not accounted for by the event and censored counts alone.{p_end}
+
 {phang}{opt riskevents} adds cumulative event counts to the risk table
 in compact {it:N (events)} format (e.g., {cmd:14 (3)}, {cmd:5,682 (424)}). This is the
 NEJM/Lancet convention. Equivalent to {opt riskcompact}. Requires {opt risktable}.{p_end}
@@ -249,14 +258,17 @@ matching line colors. Default is colored numbers that match each group's
 line color. Requires {opt risktable}.{p_end}
 
 {phang}{opt riskheight(#)} sets the vertical size of the risk-table graph
-inside the combined plot. If omitted, {cmd:kmplot} uses 25 for small risk
+inside the combined plot; {it:#} must be greater than 0 and no more than 80.
+If omitted, {cmd:kmplot} uses 25 for small risk
 tables and increases the height automatically when there are more than
 three groups. Requires {opt risktable}.{p_end}
 
 {phang}{opt timepoints(numlist)} specifies the timepoints for the risk
 table. Default: approximately 6 evenly spaced timepoints from 0 to the
-maximum observed time, or to {opt tmax()}. Requires {opt risktable} or
-{opt risksaving()}.{p_end}
+maximum observed time, or to {opt tmax()}. The times are sorted and repeated
+times dropped; a range such as {cmd:0(0.1)1} gives the same times as the typed
+decimals {cmd:0 .1} ... {cmd:1}. With {opt tmax()}, no time may exceed it
+(r(198)). Requires {opt risktable} or {opt risksaving()}.{p_end}
 
 {phang}{opt riskweight(none|stset)} chooses what the risk table counts.
 {bf:none} counts people (records, or subjects with {cmd:id()}), ignoring the
@@ -310,7 +322,9 @@ call. It may not be combined with {opt riskmask()} and requires
 
 {dlgtab:Fixed-time summaries}
 
-{phang}{opt landmark(numlist)} returns estimates at fixed analysis times. In survival mode,
+{phang}{opt landmark(numlist)} returns estimates at fixed analysis times, which
+must be nonnegative; they are sorted and repeated times dropped, and ranges
+behave as in {opt timepoints()}. In survival mode,
 the returned estimate is S(t). With {opt failure}, it is 1 - S(t); with
 {opt compete()}, the cumulative incidence F(t). Estimates are always
 proportions, also with {opt percent}, and times beyond {opt tmax()} are still
@@ -347,13 +361,15 @@ text above it, clear of the time axis. The coordinates and placement used are re
 position is fixed and does not avoid the curves or the legend; use
 {opt pvalueat()} to place the text elsewhere.{p_end}
 
-{phang}{opt pvalueformat(string)} sets the numeric display format used in
-the p-value annotation, for example {cmd:pvalueformat(%6.4f)}. Whatever the
+{phang}{opt pvalueformat(string)} sets the numeric ({cmd:%f}, {cmd:%g}, or
+{cmd:%e}) display format used in
+the p-value annotation, for example {cmd:pvalueformat(%6.4f)}; date and
+string formats are refused (r(198)). Whatever the
 format, p-values below 0.001 are shown as {bf:< 0.001}.{p_end}
 
 {phang}{opt pvaluetext(string)} changes the label printed before the p-value. For example,
 {cmd:pvaluetext("Stratified log-rank P")} displays that label with the formatted
-p-value.{p_end}
+p-value; {cmd:pvaluetext("")} prints only {bf:= }{it:p}.{p_end}
 
 {phang}{opt pvalueat(y x)} places the p-value annotation at explicit graph
 coordinates. The first number is the y coordinate and the second is the x
@@ -383,15 +399,30 @@ example {cmd:navy%50}) applies to the line; the band uses {opt ciopacity()}.{p_e
 {phang}{opt title(string)} and {opt subtitle(string)} set the graph title and
 subtitle.{p_end}
 
+{phang}{opt title()}, {opt subtitle()}, {opt xtitle()}, {opt ytitle()}, and
+{opt note()} take {it:text} [{cmd:,} {it:textbox_options}], as in Stata's
+{help title_options}: {it:text} is one string or several quoted strings, one
+line each, for example {cmd:title("Overall survival" "by arm", size(large))}.
+A {cmd:size()} replaces {cmd:kmplot}'s default size; the other suboptions are
+passed to {cmd:graph}. A comma inside quotes is text. {cmd:r(xtitle)} and
+{cmd:r(ytitle)} hold the text without the suboptions (the string itself when
+there is one).{p_end}
+
 {phang}{opt xtitle(string)} sets the x-axis title. With {opt risktable},
 this is placed directly below and closer to the x-axis value labels than to
-the risk table. Default is "Analysis time".{p_end}
+the risk table. Default is "Analysis time"; {cmd:xtitle("")} draws no title,
+with or without {opt risktable}.{p_end}
 
 {phang}{opt xlabel(string)} sets x-axis labels. With {opt risktable},
 labels are placed below the main plot and above the x-axis title on the same
 x scale as the risk-table columns. A solid horizontal rule separates the
-title from the first risk-table row. Numeric positions are also used when
-{opt timepoints()} is omitted.{p_end}
+title from the first risk-table row. When {opt timepoints()} is omitted, the
+numeric positions (the numbers before the first comma, outside quoted label
+text, as in {cmd:xlabel(0 "Start" 12 24)}) are the risk-table timepoints, so
+counts sit under their labels. With {opt risktable}, an {opt xlabel()}
+without numeric positions ({cmd:#5}, {cmd:minmax}, {cmd:none}) is then an
+error (r(198)); give {opt timepoints()} as well. Positions beyond
+{opt tmax()} are an error too.{p_end}
 
 {phang}{opt ytitle(string)} sets the y-axis title. The default is "Survival
 probability", "Cumulative failure", or "Cumulative incidence", according to
@@ -414,16 +445,17 @@ limits, and median lines up to {opt tmax()}) is refused with r(198), and the
 message gives that maximum. {it:#} must be positive.{p_end}
 
 {phang}{opt percent} plots 100 times the estimate and its bounds, with
-percent axis labels and titles. {cmd:r(landmarks)}, {cmd:r(risktable)}, and
-the {opt saving()} data stay in proportions; {cmd:r(scale)} records the
-plotted scale.{p_end}
+percent axis labels and titles. {cmd:r(landmarks)} and the {opt saving()}
+data stay in proportions ({cmd:r(risktable)} holds counts either way);
+{cmd:r(scale)} records the plotted scale.{p_end}
 
 {phang}{opt tmax(#)} stops the curves, bands, censoring marks, the x axis,
 and the default risk-table timepoints at {it:#} analysis-time units, without
 re-declaring {cmd:stset} with {cmd:exit()}. Estimates are not recomputed:
 values up to {it:#} are those of the full curve. {opt saving()} still holds
 the whole curve, and {opt landmark()} times beyond {it:#} are computed.
-{it:#} must be positive.{p_end}
+Risk-table times may not exceed {it:#} (r(198)), and median lines beyond it
+are not drawn. {it:#} must be positive.{p_end}
 
 {phang}{opt legend(string)} supplies a custom Stata legend
 specification. Without it, {cmd:kmplot} constructs a legend from the plotted
@@ -438,8 +470,10 @@ annotation.{p_end}
 {phang}{opt scheme(string)} applies a Stata graph scheme. If omitted, the
 current scheme is used.{p_end}
 
-{phang}{opt name(string)} names the graph in memory; the default is
-{cmd:kmplot}.{p_end}
+{phang}{opt name(name[, replace])} names the graph in memory; the default is
+{cmd:kmplot}. It must be a single valid graph name (r(198) otherwise).
+{cmd:kmplot} always replaces a graph of that name, so {cmd:, replace} is
+accepted and changes nothing.{p_end}
 
 {phang}{opt aspectratio(string)} passes an aspect-ratio specification to the
 graph command.{p_end}
@@ -455,9 +489,21 @@ graph. The saved dataset contains {cmd:group}, {cmd:group_label},
 {cmd:censor}, and {cmd:anchor}. The estimate is survival in the default
 mode, cumulative failure with {opt failure}, and cumulative incidence with
 {opt compete()} (with its standard error and bounds when computed). It is
-always a proportion. {cmd:se}, {cmd:lower}, and
+always a proportion. There is one row per record of the analysis sample, so
+tied times repeat (two deaths at time 1 give two rows), plus one time-zero
+row per group flagged by {cmd:anchor}; {cmd:group} and {cmd:time} therefore
+do not identify rows. {cmd:lower} and {cmd:upper} are missing unless
+{opt ci} is specified. {cmd:se}, {cmd:lower}, and
 {cmd:upper} are missing where the survival estimate is 1 or 0 (the cumulative
-incidence 0 or 1).{p_end}
+incidence 0 or 1), and {cmd:se} is missing throughout under {cmd:stset}
+probability weights, and under importance weights with {opt compete()}.{p_end}
+
+{phang}The files written by {opt saving()} and {opt risksaving()} carry no
+dataset label, notes, characteristics (including {cmd:stset} settings), or
+value labels from the data in memory. Their names are checked before the
+graph is drawn: the {cmd:replace} suboption must be spelled out, as with
+{cmd:save}, and {opt saving()} and {opt risksaving()} must name different
+files (r(198)).{p_end}
 
 {phang}{opt risksaving(filename[, replace])} saves risk-table counts in a
 Stata dataset with {cmd:group}, {cmd:group_label}, {cmd:time},
@@ -484,7 +530,8 @@ combined graph, and {cmd:graphregion()} and {cmd:plotregion()} to the
 risk-table panel, so that, for example,
 {cmd:scheme(sj) graphregion(color(white))} gives a white figure throughout.{p_end}
 
-{phang}{cmd:nodraw} builds the graph, named by {opt name()}, without
+{phang}{cmd:nodraw}, given as an option of its own (not a word inside another
+option's text), builds the graph, named by {opt name()}, without
 displaying it; with {opt risktable} it applies to the combined graph. The risk
 table, {cmd:r()} results, and {opt saving()}/{opt risksaving()} files are
 produced as usual, and {cmd:graph display} shows the graph later.
@@ -515,7 +562,22 @@ returned and saved bounds stay missing there.{p_end}
 The {opt failure} option plots cumulative failure, {bf:1 - S(t)}, from the
 Kaplan-Meier survival curve, treating any competing event as censoring. When
 competing events are present this overstates the probability of failure
-(Coviello and Boggess 2004); use {opt compete()}.{p_end}
+(Coviello and Boggess 2004); use {opt compete()}. Its bounds are those of
+S(t), computed on the {opt citransform()} scale and then inverted (lower
+bound 1 - upper bound of S, upper bound 1 - lower bound of S), as
+{cmd:sts graph, failure} does; {cmd:citransform(log)} therefore applies the
+log transform to S(t), not to 1 - S(t).{p_end}
+
+{pstd}
+Requested times, {opt timepoints()}, {opt landmark()}, and {opt tmax()}, are
+compared with {cmd:_t} at the precision of the data. When the {cmd:stset}
+time variable is stored as {cmd:float} (Stata's default storage type) and
+{cmd:stset} used a constant {cmd:origin()} and {cmd:scale()}, a requested
+time {it:t} stands for the records whose time variable holds float({it:t}):
+{cmd:landmark(0.3)} includes a death recorded at 0.3, which a float holds as
+0.30000001. With a {cmd:double} time variable, or an {cmd:origin()} that
+varies by record, times are compared exactly. {cmd:sts list, at()} compares
+exactly and so can differ from {cmd:kmplot} at float times.{p_end}
 
 {pstd}
 With {opt compete()}, {cmd:kmplot} estimates the cumulative incidence of the
@@ -525,7 +587,7 @@ time t_j in a group, with weighted counts (weight 1 without {cmd:stset}
 weights), n_j is the number at risk just before t_j (records with
 _t0 < t_j <= _t, so delayed entry and {cmd:id()} data are honoured), d1_j the
 events of interest, and d2_j the competing events. Then
-S(t_j) = prod_{c -(}i<=j{c )-} {1 - (d1_i + d2_i)/n_i} is the all-cause
+S(t_j) = prod_{c -(}i<=j{c )-} [1 - (d1_i + d2_i)/n_i] is the all-cause
 Kaplan-Meier, and F(t) = sum_{c -(}t_j<=t{c )-} S(t_{c -(}j-1{c )-}) d1_j/n_j.
 Events at t_j precede censoring at t_j. Multiplying all weights by a constant
 leaves F unchanged; with no competing events F equals 1 - S, the

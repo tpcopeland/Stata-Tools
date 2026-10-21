@@ -75,6 +75,16 @@ program define kmplot, rclass
             exit 198
         }
         if `has_compete' {
+            * compete() is one expression: a comma outside parentheses and
+            * quotes would reach -generate- as its option list.
+            local _crest `"`compete'"'
+            while `"`_crest'"' != "" {
+                gettoken _ctok _crest : _crest, parse(",") bind quotes
+                if `"`_ctok'"' == "," {
+                    noisily display as error `"compete() must be a single expression; found a comma in compete(`compete')"'
+                    exit 198
+                }
+            }
             if "`st_wt'" == "iweight" & ("`ci'" != "" | "`pvalue'" != "") {
                 noisily display as error "ci and pvalue are not supported with compete() and stset importance weights"
                 exit 198
@@ -120,6 +130,14 @@ program define kmplot, rclass
                 noisily display as error "tmax() must be greater than 0"
                 exit 198
             }
+            * tmax() stops the x axis, so the risk table cannot have a column
+            * beyond it.
+            foreach _tp of local timepoints {
+                if `_tp' > `tmax_user' {
+                    noisily display as error "timepoints() value `_tp' is beyond tmax(`tmax'); risk-table times must not exceed tmax()"
+                    exit 198
+                }
+            }
         }
         * graphregion(), plotregion(), xsize(), ysize() among the passthrough
         * options; reused for the risk-table panel and the combined graph.
@@ -127,8 +145,8 @@ program define kmplot, rclass
         * nodraw is applied by kmplot to the final graph only (the combined
         * graph with risktable); the main panel is always built with nodraw.
         local user_nodraw = 0
-        mata: st_local("_km_opts_nd", ustrregexra(st_local("options"), "(^|\s)nodraw(?=\s|$)", " "))
-        if `"`macval(_km_opts_nd)'"' != `"`macval(options)'"' {
+        _kmplot_nodraw `macval(options)'
+        if `_km_nodraw' {
             local user_nodraw = 1
             local options `"`macval(_km_opts_nd)'"'
         }
@@ -290,7 +308,6 @@ program define kmplot, rclass
         local n_timepoints = 0
         local riskheight_used = .
         local risk_timepoints ""
-        local export_file ""
         local curve_saved ""
         local risk_saved ""
         local pvalue_label "Log-rank p"
@@ -300,6 +317,73 @@ program define kmplot, rclass
         local pvalue_place ""
 
         tempname medians_mat landmarks_mat risktable_mat risktable_w_mat risktable_f_mat
+
+        * File options: "filename[, suboptions]".  All three are parsed and
+        * checked here, before anything is drawn, exported or saved.
+        local export_file ""
+        local export_opts ""
+        local saving_file ""
+        local saving_opts ""
+        local risksaving_file ""
+        local risksaving_opts ""
+        foreach _fo in export saving risksaving {
+            mata: st_local("_spec", st_local(st_local("_fo")))
+            if `"`_spec'"' == "" continue
+            local _f `"`_spec'"'
+            local _o ""
+            local cpos = 0
+            local _inquote = 0
+            forvalues _pos = 1/`=strlen(`"`_spec'"')' {
+                local _ch = substr(`"`_spec'"', `_pos', 1)
+                if `"`_ch'"' == char(34) local _inquote = !`_inquote'
+                if `"`_ch'"' == "," & !`_inquote' {
+                    local cpos = `_pos'
+                    continue, break
+                }
+            }
+            if `cpos' > 0 {
+                local _o = strtrim(substr(`"`_spec'"', `cpos' + 1, .))
+                local _f = strtrim(substr(`"`_spec'"', 1, `cpos' - 1))
+            }
+            local _f_len = strlen(`"`_f'"')
+            if `_f_len' >= 2 & ///
+                substr(`"`_f'"', 1, 1) == char(34) & ///
+                substr(`"`_f'"', `_f_len', 1) == char(34) {
+                local _f = substr(`"`_f'"', 2, `_f_len' - 2)
+            }
+            if "`_fo'" != "export" & `"`_o'"' != "" & lower(`"`_o'"') != "replace" {
+                noisily display as error "`_fo'() only supports the replace suboption (spelled out, as with save)"
+                exit 198
+            }
+            foreach _bad_ascii in 34 36 38 39 59 60 62 96 124 {
+                if strpos(`"`_f'"', char(`_bad_ascii')) {
+                    noisily display as error "`_fo'() path contains unsupported shell metacharacters or quote characters"
+                    exit 198
+                }
+            }
+            local `_fo'_file `"`_f'"'
+            local `_fo'_opts `"`_o'"'
+        }
+        * saving() and risksaving() must be two files.  Compared as save
+        * resolves them: relative to the working directory, .dta added to a
+        * name without an extension, ignoring case where the file system
+        * does.
+        if `"`saving_file'"' != "" & `"`risksaving_file'"' != "" {
+            foreach _fo in saving risksaving {
+                mata: st_local("_p", st_local(st_local("_fo") + "_file"))
+                if substr(`"`_p'"', 1, 2) == "~/" {
+                    local _p `"`: environment HOME'`=substr(`"`_p'"', 2, .)'"'
+                }
+                mata: st_local("_p", pathresolve(c("pwd"), st_local("_p")))
+                mata: st_local("_p", st_local("_p") + (pathsuffix(st_local("_p")) == "" ? ".dta" : ""))
+                if "`c(os)'" != "Unix" local _p = lower(`"`_p'"')
+                local _abs_`_fo' `"`_p'"'
+            }
+            if `"`_abs_saving'"' == `"`_abs_risksaving'"' {
+                noisily display as error `"saving() and risksaving() name the same file, `_abs_saving'; give two file names"'
+                exit 198
+            }
+        }
 
         * Reject subordinate options that would otherwise be silently ignored
         if "`medianannotate'" != "" & "`median'" == "" {
@@ -402,9 +486,9 @@ program define kmplot, rclass
             }
             local median_format "`medianformat'"
         }
-        capture local _pvalue_fmt_test : display `pvalue_format' 0.123456
-        if _rc {
-            noisily display as error "pvalueformat() must be a valid numeric display format"
+        capture confirm numeric format `pvalue_format'
+        if _rc | regexm("`pvalue_format'", "^%-?t") {
+            noisily display as error "pvalueformat() must be a numeric (%f, %g, %e) display format"
             exit 198
         }
         if `"`macval(pvaluetext)'"' != "" {
@@ -439,7 +523,21 @@ program define kmplot, rclass
             noisily display as error "colors() must contain at least one color"
             exit 198
         }
-        if `"`macval(ytitle)'"' == "" {
+        * Title-type options: text [, sub-options].  `x' keeps the plain text
+        * (r(xtitle), r(ytitle)), _plot_`x' the graph copy (one compound-
+        * quoted string per line, macro characters encoded), _size_`x' a
+        * user size(), which replaces kmplot's default, and _sub_`x' the
+        * other sub-options.  An explicit "" suppresses a title; no text at
+        * all keeps the default x and y titles.
+        foreach _ttl in xtitle ytitle title subtitle note {
+            _kmplot_textopt `macval(`_ttl')'
+            mata: st_local(st_local("_ttl"), st_local("_km_tx_plain"))
+            mata: st_local("_plot_" + st_local("_ttl"), st_local("_km_tx_graph"))
+            mata: st_local("_sub_" + st_local("_ttl"), st_local("_km_tx_opts"))
+            local _size_`_ttl' "`_km_tx_size'"
+            local _given_`_ttl' = `_km_tx_given'
+        }
+        if !`_given_ytitle' {
             if `has_compete' {
                 local ytitle "Cumulative incidence"
             }
@@ -453,10 +551,14 @@ program define kmplot, rclass
                 local ytitle "Survival probability"
             }
             if "`percent'" != "" local ytitle "`ytitle' (%)"
+            local _plot_ytitle `"`"`ytitle'"'"'
         }
-        if `"`macval(xtitle)'"' == "" local xtitle "Analysis time"
-        * Strip outer quotes from string-asis options (asis preserves user quotes)
-        foreach _ttl in xtitle ytitle title subtitle note pvalue_label {
+        if !`_given_xtitle' {
+            local xtitle "Analysis time"
+            local _plot_xtitle `"`"`xtitle'"'"'
+        }
+        * Strip outer quotes from pvaluetext() (asis preserves user quotes)
+        foreach _ttl in pvalue_label {
             mata: st_local("_text", st_local(st_local("_ttl")))
             mata: st_local("_compound", strofreal(substr(st_local("_text"), 1, 2) == char(96)+char(34) & substr(st_local("_text"), -2, 2) == char(34)+char(39)))
             if `_compound' {
@@ -470,14 +572,29 @@ program define kmplot, rclass
             }
         }
         * Parse name option (handle "name, replace" syntax)
+        * kmplot always replaces a graph of this name, so ", replace" is
+        * accepted and redundant.
         if `"`name'"' == "" {
             local name "kmplot"
         }
         else {
-            local cpos = strpos(`"`name'"', ",")
+            local _nm `"`name'"'
+            local _nmopt ""
+            local cpos = strpos(`"`_nm'"', ",")
             if `cpos' > 0 {
-                local name = strtrim(substr(`"`name'"', 1, `cpos' - 1))
+                local _nmopt = strtrim(substr(`"`_nm'"', `cpos' + 1, .))
+                local _nm = strtrim(substr(`"`_nm'"', 1, `cpos' - 1))
             }
+            local _nm_ok = 0
+            if `: word count `_nm'' == 1 & inlist(`"`_nmopt'"', "", "replace") {
+                capture confirm name `_nm'
+                local _nm_ok = (_rc == 0)
+            }
+            if !`_nm_ok' {
+                noisily display as error `"name() must be a single graph name, optionally followed by , replace; found name(`name')"'
+                exit 198
+            }
+            local name "`_nm'"
         }
 
         * =========================================================================
@@ -501,13 +618,14 @@ program define kmplot, rclass
                 }
                 else {
                     local pval = chi2tail(r(df), r(chi2))
+                    local _plsep = cond(`"`macval(pvalue_label)'"' == "", "", " ")
                     if `pval' < 0.001 {
-                        local pval_text `"`macval(pvalue_label)' < 0.001"'
+                        local pval_text `"`macval(pvalue_label)'`_plsep'< 0.001"'
                     }
                     else {
                         local pval_fmt : display `pvalue_format' `pval'
                         local pval_fmt = strtrim("`pval_fmt'")
-                        local pval_text `"`macval(pvalue_label)' = `pval_fmt'"'
+                        local pval_text `"`macval(pvalue_label)'`_plsep'= `pval_fmt'"'
                     }
                 }
             }
@@ -533,19 +651,29 @@ program define kmplot, rclass
 
             * Get group labels
             local bylbl : value label `by'
-            quietly levelsof `by', local(bylevels)
             * Unlabelled numeric levels are shown in the variable's display
             * format, so a float 0.1 reads "x=.1" rather than its binary
             * expansion; if that format would merge two levels, every label
-            * keeps the full-precision value instead.
+            * keeps the full-precision value instead.  String levels are
+            * read from the data in group order (levelsof would re-expand
+            * macro characters in them).
             capture confirm numeric variable `by'
             local by_numeric = (_rc == 0)
+            if `by_numeric' {
+                quietly levelsof `by', local(bylevels)
+            }
+            else {
+                local bylevels ""
+                forvalues g = 1/`ngroups' {
+                    local bylevels "`bylevels' `g'"
+                }
+            }
             local byfmt : format `by'
             local g = 0
             local lbl_merge = 0
             foreach lev of local bylevels {
                 local ++g
-                local grpfull`g' "`by'=`lev'"
+                local grpfull`g' `"`by'=`macval(lev)'"'
                 if "`bylbl'" != "" {
                     local grplbl`g' : label `bylbl' `lev'
                 }
@@ -553,16 +681,18 @@ program define kmplot, rclass
                     local levtxt = strtrim(string(`lev', "`byfmt'"))
                     local grplbl`g' "`by'=`levtxt'"
                     forvalues h = 1/`=`g' - 1' {
-                        if `"`grplbl`h''"' == `"`grplbl`g''"' local lbl_merge = 1
+                        if `"`macval(grplbl`h')'"' == `"`macval(grplbl`g')'"' local lbl_merge = 1
                     }
                 }
                 else {
-                    local grplbl`g' "`lev'"
+                    * A string level is read from the data: levelsof has
+                    * already re-expanded macro characters in the values.
+                    mata: st_local("grplbl`g'", st_sdata(selectindex(st_data(., st_local("grpid")) :== `g')[1], st_local("by")))
                 }
             }
             if `lbl_merge' {
                 forvalues h = 1/`g' {
-                    local grplbl`h' "`grpfull`h''"
+                    mata: st_local("grplbl`h'", st_local("grpfull`h'"))
                 }
             }
         }
@@ -616,13 +746,19 @@ program define kmplot, rclass
             foreach g of local _bo_new {
                 local ++h
                 quietly replace `_grp_new' = `h' if `grpid' == `g'
-                local _bo_lbl`h' `"`grplbl`g''"'
+                mata: st_local("_bo_lbl`h'", st_local("grplbl`g'"))
             }
             forvalues h = 1/`ngroups' {
-                local grplbl`h' `"`_bo_lbl`h''"'
+                mata: st_local("grplbl`h'", st_local("_bo_lbl`h'"))
             }
             quietly replace `grpid' = `_grp_new'
             drop `_grp_new'
+        }
+
+        * Group labels stay literal (macval() at every use); _glbl# is the
+        * graph copy, with macro characters encoded for graph's second parse.
+        forvalues g = 1/`ngroups' {
+            mata: st_local("_glbl`g'", subinstr(subinstr(st_local("grplbl`g'"), char(96), "{c 96}"), char(36), "{c 36}"))
         }
 
         * Skip p-value for single group
@@ -635,7 +771,16 @@ program define kmplot, rclass
         * Time range; tmax() caps the plotted range only
         quietly summarize _t
         local tmax = r(max)
-        if `tmax_user' < . local tmax = `tmax_user'
+        * Without tmax() nothing is cut (_t <= . holds for every record).
+        local tmax_cmp = .
+        if `tmax_user' < . {
+            local tmax = `tmax_user'
+            * tmax_cmp: tmax() at the precision of the stset time variable,
+            * for comparisons with _t (see _kmplot_times, stmatch).
+            local _tmax_txt : display %24.17g `tmax_user'
+            _kmplot_times, values("`_tmax_txt'") stmatch
+            local tmax_cmp "`r(cmptimes)'"
+        }
 
         * =========================================================================
         * COMPETING EVENT INDICATOR
@@ -692,6 +837,9 @@ program define kmplot, rclass
             drop `_cexp'
             quietly count if `km_comp'
             local n_compete = r(N)
+            if `n_compete' == 0 {
+                display as text "(note: compete() is true on no records in the analysis sample; the cumulative incidence equals 1 minus the Kaplan-Meier estimate)"
+            }
         }
 
         * =========================================================================
@@ -856,10 +1004,10 @@ program define kmplot, rclass
         local ylab_ok = 0
         local ylab_lo = 0
         local ylab_hi = `plot_scale'
-        quietly summarize `km_s' if _t <= `tmax', meanonly
+        quietly summarize `km_s' if _t <= `tmax_cmp', meanonly
         local _ytop = cond(r(N) > 0, r(max), 0)
         if "`ci'" != "" {
-            quietly summarize `km_ub' if _t <= `tmax', meanonly
+            quietly summarize `km_ub' if _t <= `tmax_cmp', meanonly
             if r(N) > 0 local _ytop = max(`_ytop', r(max))
         }
         if "`failure'" == "" local _ytop = 1
@@ -892,6 +1040,9 @@ program define kmplot, rclass
                 }
                 else {
                     local _yhi = `_ydelta' * ceil(`_ytop' / `_ydelta' - 1e-9)
+                    * a multiple of the step is a short decimal (.6, not
+                    * 6 * .1 = .6000000000000001)
+                    local _yhi = real(string(`_yhi', "%21.15g"))
                 }
                 local _ydec = 0
                 while `_ydec' < 8 & ///
@@ -928,20 +1079,35 @@ program define kmplot, rclass
         if `need_risktable_data' {
             * Store group labels in dataset characteristics
             forvalues g = 1/`ngroups' {
-                char _dta[_kmplot_grplbl`g'] `"`grplbl`g''"'
+                mata: st_global("_dta[_kmplot_grplbl`g']", st_local("grplbl`g'"))
             }
 
             * If the user supplies explicit x-axis positions with risktable(),
             * use them as the default risk-table timepoints so counts and labels align.
+            * The positions are the numbers before the first comma outside
+            * quoted label text.  A drawn table whose columns cannot be put
+            * under the labels (#, minmax, none) is refused.
             if "`timepoints'" == "" & `"`xlabel'"' != "" {
-                local _rt_posspec `"`xlabel'"'
-                local _comma = strpos(`"`_rt_posspec'"', ",")
-                if `_comma' > 0 {
-                    local _rt_posspec = strtrim(substr(`"`_rt_posspec'"', 1, `_comma' - 1))
+                _kmplot_ylabnums `xlabel'
+                local _xl_ok = 0
+                if `"`_km_yl_nums'"' != "" {
+                    capture _kmplot_times, values(`"`_km_yl_nums'"')
+                    if _rc == 0 {
+                        local timepoints `r(times)'
+                        local _xl_ok = 1
+                    }
                 }
-                capture _kmplot_times, values(`"`_rt_posspec'"')
-                if _rc == 0 {
-                    local timepoints `r(times)'
+                if !`_xl_ok' & "`risktable'" != "" {
+                    noisily display as error "with risktable, xlabel() must give numeric positions (a numlist, optionally with label text), or specify timepoints()"
+                    exit 198
+                }
+                if `_xl_ok' & `tmax_user' < . {
+                    foreach _tp of local timepoints {
+                        if `_tp' > `tmax_user' {
+                            noisily display as error "xlabel() position `_tp' is beyond tmax(`tmax_user'); risk-table times must not exceed tmax(), so drop it or specify timepoints()"
+                            exit 198
+                        }
+                    }
                 }
             }
 
@@ -952,7 +1118,7 @@ program define kmplot, rclass
             local rt_height_opt "riskheight(`riskheight')"
             local rt_xtitle_opt ""
             if `"`macval(xtitle)'"' != "" {
-                local rt_xtitle_opt xtitle(`"`macval(xtitle)'"')
+                local rt_xtitle_opt `"xtitle(`macval(_plot_xtitle)') xtopts(`macval(_sub_xtitle)') xtsize(`_size_xtitle')"'
             }
             local rt_xlabel_opt ""
             if `"`xlabel'"' != "" {
@@ -1062,10 +1228,10 @@ program define kmplot, rclass
             quietly gen long `km_obs_t' = _n
             local _N_t = _N
             forvalues g = 1/`ngroups' {
-                quietly count if `grpid' == `g' & `km_anchor' == 0 & _t > `tmax_user'
+                quietly count if `grpid' == `g' & `km_anchor' == 0 & _t > `tmax_cmp'
                 if r(N) == 0 continue
                 quietly summarize `km_obs_t' if `grpid' == `g' & ///
-                    _t <= `tmax_user' & !missing(`km_s'), meanonly
+                    _t <= `tmax_cmp' & !missing(`km_s'), meanonly
                 if r(N) == 0 continue
                 local _src = r(max)
                 local ++_N_t
@@ -1083,7 +1249,7 @@ program define kmplot, rclass
             }
             drop `km_obs_t'
             sort `grpid' _t `km_tend'
-            quietly gen byte `km_inplot' = (_t <= `tmax_user')
+            quietly gen byte `km_inplot' = (_t <= `tmax_cmp' | `km_tend' == 1)
         }
         else {
             quietly gen byte `km_inplot' = 1
@@ -1094,6 +1260,8 @@ program define kmplot, rclass
         * =========================================================================
 
         if "`landmark'" != "" {
+            _kmplot_times, values("`landmark'") stmatch
+            local landmark_cmp "`r(cmptimes)'"
             tempvar km_lm_obs
             quietly gen long `km_lm_obs' = _n
             local n_landmarks : word count `landmark'
@@ -1104,22 +1272,24 @@ program define kmplot, rclass
                 quietly summarize _t if `grpid' == `g' & `km_anchor' == 0, meanonly
                 tempname lm_max
                 scalar `lm_max' = r(max)
-                foreach tp of local landmark {
+                forvalues _lmk = 1/`n_landmarks' {
+                    local tp : word `_lmk' of `landmark'
+                    local tc : word `_lmk' of `landmark_cmp'
                     local ++_lm_row
                     matrix `landmarks_mat'[`_lm_row', 1] = `g'
                     matrix `landmarks_mat'[`_lm_row', 2] = `tp'
                     quietly summarize `km_lm_obs' if `grpid' == `g' & ///
-                        _t <= `tp' & !missing(`km_s'), meanonly
+                        _t <= `tc' & !missing(`km_s'), meanonly
                     if r(N) > 0 {
                         local _lm_obs = r(max)
                         * Past the group's last time the curve is known only
                         * if it has reached its end state: S = 0 (F = 1), or
                         * all-cause survival 0 for a cumulative incidence.
                         if `has_compete' {
-                            if `tp' > scalar(`lm_max') & ///
+                            if `tc' > scalar(`lm_max') & ///
                                 `km_sall'[`_lm_obs'] != 0 continue
                         }
-                        else if `tp' > scalar(`lm_max') & ///
+                        else if `tc' > scalar(`lm_max') & ///
                             `km_s'[`_lm_obs'] != ("`failure'" != "") continue
                         matrix `landmarks_mat'[`_lm_row', 3] = `km_s'[`_lm_obs']
                         if "`ci'" != "" {
@@ -1189,7 +1359,7 @@ program define kmplot, rclass
                 if `ngroups' > 1 {
                     local med_sep ""
                     if `g' > 1 local med_sep "; "
-                    local med_parts `"`med_parts'`med_sep'`grplbl`g'': `mfmt'"'
+                    local med_parts `"`macval(med_parts)'`med_sep'`macval(_glbl`g')': `mfmt'"'
                 }
                 else {
                     local med_parts "`mfmt'"
@@ -1338,21 +1508,28 @@ program define kmplot, rclass
         * --- Median reference lines ---
         if "`median'" != "" {
             * Single subtle horizontal reference at y=0.5
+            * Medians beyond tmax() are returned but not drawn, since the
+            * plot stops there.
             local any_med = 0
             local max_med = 0
             forvalues g = 1/`ngroups' {
-                if `median_`g'' < . {
+                local _med_drawn`g' = (`median_`g'' < . & ///
+                    `median_`g'' <= `tmax_cmp')
+                if `_med_drawn`g'' {
                     local any_med = 1
                     if `median_`g'' > `max_med' local max_med = `median_`g''
                 }
             }
             if `any_med' {
-                * Thin horizontal line from x=0 to just past the rightmost median
-                local tw_layers `"`macval(tw_layers)' (pci `=0.5 * `plot_scale'' 0 `=0.5 * `plot_scale'' `=`max_med' * 1.05', lcolor(gs12) lpattern(shortdash) lwidth(vthin))"'
+                * Thin horizontal line from x=0 to just past the rightmost
+                * median, and not past tmax()
+                local _med_hend = `max_med' * 1.05
+                if `tmax_user' < . local _med_hend = min(`_med_hend', `tmax_user')
+                local tw_layers `"`macval(tw_layers)' (pci `=0.5 * `plot_scale'' 0 `=0.5 * `plot_scale'' `_med_hend', lcolor(gs12) lpattern(shortdash) lwidth(vthin))"'
             }
             * Short vertical drop at each group's median
             forvalues g = 1/`ngroups' {
-                if `median_`g'' < . {
+                if `_med_drawn`g'' {
                     local colidx = mod(`g' - 1, `ncolors') + 1
                     local col : word `colidx' of `colors'
                     if "`col'" == "" local col "black"
@@ -1372,25 +1549,31 @@ program define kmplot, rclass
             local legend_items ""
             forvalues g = 1/`ngroups' {
                 local elem = `legend_offset' + `g'
-                local legend_items `"`legend_items' `elem' `"`grplbl`g''"'"'
+                local legend_items `"`macval(legend_items)' `elem' `"`macval(_glbl`g')'"'"'
             }
-            local legend_cmd `"legend(order(`legend_items') cols(1) position(1) ring(0) size(vsmall) region(lcolor(none) fcolor(none)) symxsize(8) keygap(1))"'
+            local legend_cmd `"legend(order(`macval(legend_items)') cols(1) position(1) ring(0) size(vsmall) region(lcolor(none) fcolor(none)) symxsize(8) keygap(1))"'
         }
 
         * Graph's internal parser expands macros again. Encode macro delimiters
         * only in graph copies; the returned labels retain the original bytes.
-        foreach _label in title subtitle xtitle ytitle note pval_text {
+        * (Titles were encoded when parsed; see _kmplot_textopt.)
+        foreach _label in pval_text {
             mata: st_local("_plot_"+st_local("_label"), subinstr(subinstr(st_local(st_local("_label")), char(96), "{c 96}"), char(36), "{c 36}"))
         }
 
         * --- Global options ---
         local tw_opts ""
 
-        if `"`macval(_plot_title)'"' != "" {
-            local tw_opts `"`macval(tw_opts)' title(`"`macval(_plot_title)'"', size(medium))"'
+        local _tsz_title = cond("`_size_title'" == "", "medium", "`_size_title'")
+        local _tsz_subtitle = cond("`_size_subtitle'" == "", "small", "`_size_subtitle'")
+        local _tsz_xtitle = cond("`_size_xtitle'" == "", "small", "`_size_xtitle'")
+        local _tsz_ytitle = cond("`_size_ytitle'" == "", "small", "`_size_ytitle'")
+        local _tsz_note = cond("`_size_note'" == "", "vsmall", "`_size_note'")
+        if `"`macval(title)'"' != "" {
+            local tw_opts `"`macval(tw_opts)' title(`macval(_plot_title)', size(`_tsz_title') `macval(_sub_title)')"'
         }
-        if `"`macval(_plot_subtitle)'"' != "" {
-            local tw_opts `"`macval(tw_opts)' subtitle(`"`macval(_plot_subtitle)'"', size(small))"'
+        if `"`macval(subtitle)'"' != "" {
+            local tw_opts `"`macval(tw_opts)' subtitle(`macval(_plot_subtitle)', size(`_tsz_subtitle') `macval(_sub_subtitle)')"'
         }
         * With a risk table the y title carries the same right margin as the risk
         * panel's, so the two label columns start at the same place.
@@ -1398,7 +1581,7 @@ program define kmplot, rclass
         if "`risktable'" != "" {
             local ytitle_margin "margin(r=`risk_title_gap')"
         }
-        local tw_opts `"`macval(tw_opts)' xtitle(`"`macval(_plot_xtitle)'"', size(small)) ytitle(`"`macval(_plot_ytitle)'"', size(small) `ytitle_margin')"'
+        local tw_opts `"`macval(tw_opts)' xtitle(`macval(_plot_xtitle)', size(`_tsz_xtitle') `macval(_sub_xtitle)') ytitle(`macval(_plot_ytitle)', size(`_tsz_ytitle') `ytitle_margin' `macval(_sub_ytitle)')"'
 
         if `"`ylabel'"' != "" {
             local tw_opts `"`macval(tw_opts)' ylabel(`ylabel')"'
@@ -1418,12 +1601,12 @@ program define kmplot, rclass
         }
 
         * Note
-        if `"`macval(_plot_note)'"' != "" {
-            local tw_opts `"`macval(tw_opts)' note(`"`macval(_plot_note)'"', size(vsmall))"'
+        if `"`macval(note)'"' != "" {
+            local tw_opts `"`macval(tw_opts)' note(`macval(_plot_note)', size(`_tsz_note') `macval(_sub_note)')"'
         }
-        else if "`med_note'" != "" & "`risktable'" == "" {
+        else if `"`macval(med_note)'"' != "" & "`risktable'" == "" {
             * Only show median note when no risktable (avoids clutter between graphs)
-            local tw_opts `"`macval(tw_opts)' note(`"`med_note'"', size(vsmall) color(gs5))"'
+            local tw_opts `"`macval(tw_opts)' note(`"`macval(med_note)'"', size(vsmall) color(gs5))"'
         }
 
         * P-value text annotation
@@ -1550,17 +1733,17 @@ program define kmplot, rclass
             local rt_grp_ylabels ""
             forvalues g = 1/`ngroups' {
                 local _gy = `_gy_lo' + (0.37 + 0.0137 * `g') * (`_gy_hi' - `_gy_lo')
-                local rt_grp_ylabels `"`rt_grp_ylabels' `_gy' `"`grplbl`g''"'"'
+                local rt_grp_ylabels `"`macval(rt_grp_ylabels)' `_gy' `"`macval(_glbl`g')'"'"'
             }
-            local rt_grp_ylabel_cmd `"ylabel(`rt_grp_ylabels', add custom angle(0) labsize(small) labgap(`risk_row_labgap') labcolor(none) tlcolor(none) nogrid)"'
+            local rt_grp_ylabel_cmd `"ylabel(`macval(rt_grp_ylabels)', add custom angle(0) labsize(small) labgap(`risk_row_labgap') labcolor(none) tlcolor(none) nogrid)"'
 
-            local rt_main_opts `"xtitle("") `rt_main_xlabel' `rt_grp_ylabel_cmd' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
-            twoway `macval(tw_layers)', `macval(tw_opts)' `rt_main_opts' ///
+            local rt_main_opts `"xtitle("") `rt_main_xlabel' `macval(rt_grp_ylabel_cmd)' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
+            twoway `macval(tw_layers)', `macval(tw_opts)' `macval(rt_main_opts)' ///
                 nodraw name(`_kmplot_main_graph', replace)
 
             local combine_note `"note("")"'
-            if `"`macval(_plot_note)'"' == "" & `"`med_note'"' != "" {
-                local combine_note `"note(`"`med_note'"', size(vsmall) color(gs5))"'
+            if `"`macval(note)'"' == "" & `"`macval(med_note)'"' != "" {
+                local combine_note `"note(`"`macval(med_note)'"', size(vsmall) color(gs5))"'
             }
             * The user's region and size options also shape the combined
             * graph; combineopts() goes last, so it wins.
@@ -1586,35 +1769,8 @@ program define kmplot, rclass
         * EXPORT
         * =========================================================================
 
+        * export_file and export_opts were parsed and checked before drawing.
         if `"`export'"' != "" {
-            local export_file `"`export'"'
-            local export_opts ""
-            local cpos = 0
-            local _inquote = 0
-            forvalues _pos = 1/`=strlen(`"`export'"')' {
-                local _ch = substr(`"`export'"', `_pos', 1)
-                if `"`_ch'"' == char(34) local _inquote = !`_inquote'
-                if `"`_ch'"' == "," & !`_inquote' {
-                    local cpos = `_pos'
-                    continue, break
-                }
-            }
-            if `cpos' > 0 {
-                local export_file = strtrim(substr(`"`export'"', 1, `cpos' - 1))
-                local export_opts = strtrim(substr(`"`export'"', `cpos' + 1, .))
-            }
-            local _ef_len = strlen(`"`export_file'"')
-            if `_ef_len' >= 2 & ///
-                substr(`"`export_file'"', 1, 1) == char(34) & ///
-                substr(`"`export_file'"', `_ef_len', 1) == char(34) {
-                local export_file = substr(`"`export_file'"', 2, `_ef_len' - 2)
-            }
-            foreach _bad_ascii in 34 36 38 39 59 60 62 96 124 {
-                if strpos(`"`export_file'"', char(`_bad_ascii')) {
-                    noisily display as error "export() path contains unsupported shell metacharacters or quote characters"
-                    exit 198
-                }
-            }
             local export_as_opt ""
             local _export_dot = strrpos(`"`export_file'"', ".")
             if `_export_dot' > 0 & `_export_dot' < strlen(`"`export_file'"') & ///
@@ -1639,39 +1795,10 @@ program define kmplot, rclass
         * SAVE REUSABLE DATASETS
         * =========================================================================
 
+        * The file names were parsed and checked before drawing.
         if `"`saving'"' != "" {
-            local curve_file `"`saving'"'
-            local curve_opts ""
-            local cpos = 0
-            local _inquote = 0
-            forvalues _pos = 1/`=strlen(`"`curve_file'"')' {
-                local _ch = substr(`"`curve_file'"', `_pos', 1)
-                if `"`_ch'"' == char(34) local _inquote = !`_inquote'
-                if `"`_ch'"' == "," & !`_inquote' {
-                    local cpos = `_pos'
-                    continue, break
-                }
-            }
-            if `cpos' > 0 {
-                local curve_opts = strtrim(substr(`"`curve_file'"', `cpos' + 1, .))
-                local curve_file = strtrim(substr(`"`curve_file'"', 1, `cpos' - 1))
-            }
-            local _cf_len = strlen(`"`curve_file'"')
-            if `_cf_len' >= 2 & ///
-                substr(`"`curve_file'"', 1, 1) == char(34) & ///
-                substr(`"`curve_file'"', `_cf_len', 1) == char(34) {
-                local curve_file = substr(`"`curve_file'"', 2, `_cf_len' - 2)
-            }
-            if `"`curve_opts'"' != "" & lower(`"`curve_opts'"') != "replace" {
-                noisily display as error "saving() only supports the replace suboption"
-                exit 198
-            }
-            foreach _bad_ascii in 34 36 38 39 59 60 62 96 124 {
-                if strpos(`"`curve_file'"', char(`_bad_ascii')) {
-                    noisily display as error "saving() path contains unsupported shell metacharacters or quote characters"
-                    exit 198
-                }
-            }
+            local curve_file `"`saving_file'"'
+            local curve_opts `"`saving_opts'"'
             capture confirm variable `km_lb'
             if _rc {
                 quietly gen double `km_lb' = .
@@ -1689,9 +1816,9 @@ program define kmplot, rclass
             rename `km_ub' upper
             rename `km_cens' censor
             rename `km_anchor' anchor
-            quietly gen str80 group_label = ""
+            quietly gen str1 group_label = ""
             forvalues g = 1/`ngroups' {
-                quietly replace group_label = `"`grplbl`g''"' if group == `g'
+                quietly replace group_label = `"`macval(grplbl`g')'"' if group == `g'
             }
             label variable group "KM group index"
             label variable group_label "KM group label"
@@ -1709,6 +1836,7 @@ program define kmplot, rclass
             label variable censor "Displayed censor marker"
             label variable anchor "Time-zero anchor row"
             order group group_label time estimate se lower upper censor anchor
+            _kmplot_scrub
             if lower(`"`curve_opts'"') == "replace" {
                 capture noisily quietly save `"`curve_file'"', replace
             }
@@ -1726,38 +1854,8 @@ program define kmplot, rclass
         }
 
         if `"`risksaving'"' != "" {
-            local risk_file `"`risksaving'"'
-            local risk_opts ""
-            local cpos = 0
-            local _inquote = 0
-            forvalues _pos = 1/`=strlen(`"`risk_file'"')' {
-                local _ch = substr(`"`risk_file'"', `_pos', 1)
-                if `"`_ch'"' == char(34) local _inquote = !`_inquote'
-                if `"`_ch'"' == "," & !`_inquote' {
-                    local cpos = `_pos'
-                    continue, break
-                }
-            }
-            if `cpos' > 0 {
-                local risk_opts = strtrim(substr(`"`risk_file'"', `cpos' + 1, .))
-                local risk_file = strtrim(substr(`"`risk_file'"', 1, `cpos' - 1))
-            }
-            local _rf_len = strlen(`"`risk_file'"')
-            if `_rf_len' >= 2 & ///
-                substr(`"`risk_file'"', 1, 1) == char(34) & ///
-                substr(`"`risk_file'"', `_rf_len', 1) == char(34) {
-                local risk_file = substr(`"`risk_file'"', 2, `_rf_len' - 2)
-            }
-            if `"`risk_opts'"' != "" & lower(`"`risk_opts'"') != "replace" {
-                noisily display as error "risksaving() only supports the replace suboption"
-                exit 198
-            }
-            foreach _bad_ascii in 34 36 38 39 59 60 62 96 124 {
-                if strpos(`"`risk_file'"', char(`_bad_ascii')) {
-                    noisily display as error "risksaving() path contains unsupported shell metacharacters or quote characters"
-                    exit 198
-                }
-            }
+            local risk_file `"`risksaving_file'"'
+            local risk_opts `"`risksaving_opts'"'
             clear
             quietly svmat double `risktable_mat', names(col)
             tempname _rt_extra
@@ -1766,9 +1864,9 @@ program define kmplot, rclass
                 matrix `_rt_extra' = `_rt_extra', `risktable_f_mat'
             }
             quietly svmat double `_rt_extra', names(col)
-            quietly gen str80 group_label = ""
+            quietly gen str1 group_label = ""
             forvalues g = 1/`ngroups' {
-                quietly replace group_label = `"`grplbl`g''"' if group == `g'
+                quietly replace group_label = `"`macval(grplbl`g')'"' if group == `g'
             }
             local _rt_basis = cond("`riskweight'" == "stset", "summed stset weight", "people")
             label variable group "KM group index"
@@ -1789,6 +1887,7 @@ program define kmplot, rclass
                 local _rt_order "`_rt_order' at_risk_masked events_masked censored_masked"
             }
             order `_rt_order'
+            _kmplot_scrub
             if lower(`"`risk_opts'"') == "replace" {
                 capture noisily quietly save `"`risk_file'"', replace
             }
@@ -1832,10 +1931,10 @@ program define kmplot, rclass
                 if `median_`g'' < . {
                     local mfmt : display `median_format' `median_`g''
                     local mfmt = strtrim("`mfmt'")
-                    display as text `"  Median (`grplbl`g''): "' as result "`mfmt'"
+                    display as text `"  Median (`macval(grplbl`g')'): "' as result "`mfmt'"
                 }
                 else {
-                    display as text `"  Median (`grplbl`g''): "' as result "NR"
+                    display as text `"  Median (`macval(grplbl`g')'): "' as result "NR"
                 }
             }
         }
@@ -1891,9 +1990,9 @@ program define kmplot, rclass
     }
     local group_labels ""
     forvalues g = 1/`ngroups' {
-        local group_labels `"`group_labels'`grplbl`g''"'
+        local group_labels `"`macval(group_labels)'`macval(grplbl`g')'"'
         if `g' < `ngroups' {
-            local group_labels `"`group_labels' | "'
+            local group_labels `"`macval(group_labels)' | "'
         }
     }
     return local cmd "kmplot"
@@ -1914,7 +2013,7 @@ program define kmplot, rclass
     return local lpattern `"`lpattern'"'
     return local timepoints "`risk_timepoints'"
     return local landmark_times "`landmark'"
-    return local group_labels `"`group_labels'"'
+    return local group_labels `"`macval(group_labels)'"'
     return local xtitle `"`macval(xtitle)'"'
     return local ytitle `"`macval(ytitle)'"'
     if `"`export_file'"' != "" {
@@ -1951,6 +2050,7 @@ end
 
 * Parse riskmask(# [, text(string)]).  Sets _km_mask_k and _km_mask_text in
 * the caller; an invalid specification exits with 198 (the caller stops).
+capture program drop _kmplot_parse_mask
 program define _kmplot_parse_mask
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -1979,9 +2079,11 @@ program define _kmplot_parse_mask
     c_local _km_mask_text `"`text'"'
 end
 
-* Numeric positions of a ylabel() specification: the numbers outside quoted
-* label text, before the first comma.  Sets _km_yl_ok (1 when a numeric list
-* was found) and _km_yl_lo/_km_yl_hi in the caller.
+* Numeric positions of a ylabel() or xlabel() specification: the numbers
+* outside quoted label text, before the first comma.  Sets _km_yl_ok (1 when
+* a numeric list was found), _km_yl_lo/_km_yl_hi and _km_yl_nums (the number
+* tokens as typed) in the caller.
+capture program drop _kmplot_ylabnums
 program define _kmplot_ylabnums
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2017,10 +2119,12 @@ program define _kmplot_ylabnums
     c_local _km_yl_ok `ok'
     c_local _km_yl_lo `lo'
     c_local _km_yl_hi `hi'
+    c_local _km_yl_nums `"`nums'"'
 end
 
 * graphregion(), plotregion(), xsize() and ysize() from the passthrough
 * options, for graph combine.  Sets _km_region_opts in the caller.
+capture program drop _kmplot_regionopts
 program define _kmplot_regionopts
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -2051,4 +2155,144 @@ program define _kmplot_regionopts
     if `rc' exit `rc'
     c_local _km_region_opts `"`macval(keep)'"'
     c_local _km_region_only `"`macval(regs)'"'
+end
+
+* Whole-token nodraw among the passthrough options.  A word nodraw inside an
+* option's arguments, such as text(... "nodraw"), is not the option.  Sets
+* _km_nodraw (1 when found) and _km_opts_nd (the options without it).
+capture program drop _kmplot_nodraw
+program define _kmplot_nodraw
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local keep ""
+    local hit = 0
+    capture noisily {
+        local rest `"`macval(0)'"'
+        while `"`macval(rest)'"' != "" {
+            gettoken tok rest : rest, bind quotes
+            if `"`macval(tok)'"' == "" continue
+            if `"`macval(tok)'"' == "nodraw" {
+                local hit = 1
+                continue
+            }
+            local keep `"`macval(keep)' `macval(tok)'"'
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    c_local _km_nodraw `hit'
+    c_local _km_opts_nd `"`macval(keep)'"'
+end
+
+* Split a title-type option, text [, sub-options], where text is one string
+* or several quoted strings (one line each).  Sets in the caller:
+*   _km_tx_given  0 when no text was typed (so a default title applies)
+*   _km_tx_plain  the string itself when there is one, else the text as typed
+*   _km_tx_graph  each string compound-quoted, with macro characters encoded
+*                 for graph's second parse ("" when the text is empty)
+*   _km_tx_size   a size() sub-option, which replaces kmplot's default size
+*   _km_tx_opts   the other sub-options, passed to graph
+capture program drop _kmplot_textopt
+program define _kmplot_textopt
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local given = 0
+    local plain ""
+    local graph ""
+    local size ""
+    local opts ""
+    capture noisily {
+        mata: st_local("raw", strtrim(st_local("0")))
+        local rest `"`macval(raw)'"'
+        local ntok = 0
+        local hascomma = 0
+        while `"`macval(rest)'"' != "" {
+            gettoken tok rest : rest, parse(",") bind quotes
+            if `"`macval(tok)'"' == "," {
+                local hascomma = 1
+                continue, break
+            }
+            if `"`macval(tok)'"' == "" continue
+            local ++ntok
+            mata: st_local("tok`ntok'", st_local("tok"))
+        }
+        local sub ""
+        if `hascomma' {
+            mata: st_local("text", strtrim(substr(st_local("raw"), 1, ///
+                strlen(st_local("raw")) - strlen(st_local("rest")) - 1)))
+            mata: st_local("sub", strtrim(st_local("rest")))
+        }
+        else {
+            mata: st_local("text", st_local("raw"))
+        }
+        local given = (`"`macval(text)'"' != "")
+        mata: st_local("isq", strofreal(substr(st_local("text"), 1, 1) == char(34) | ///
+            substr(st_local("text"), 1, 2) == char(96) + char(34)))
+        if `isq' {
+            forvalues i = 1/`ntok' {
+                gettoken str : tok`i'
+                if `i' == 1 mata: st_local("plain", st_local("str"))
+                mata: st_local("graph", st_local("graph") + " " + char(96) + char(34) + ///
+                    subinstr(subinstr(st_local("str"), char(96), "{c 96}"), char(36), "{c 36}") + ///
+                    char(34) + char(39))
+            }
+            if `ntok' > 1 mata: st_local("plain", st_local("text"))
+        }
+        else if `given' {
+            mata: st_local("plain", st_local("text"))
+            mata: st_local("graph", char(96) + char(34) + ///
+                subinstr(subinstr(st_local("text"), char(96), "{c 96}"), char(36), "{c 36}") + ///
+                char(34) + char(39))
+        }
+        mata: st_local("graph", strtrim(st_local("graph")))
+        if `"`macval(graph)'"' == "" local graph `""""'
+        if `"`macval(sub)'"' != "" {
+            local 0 `", `macval(sub)'"'
+            capture syntax [, SIZE(string) *]
+            if _rc {
+                noisily display as error `"invalid title sub-options: `macval(sub)'"'
+                exit 198
+            }
+            local opts `"`macval(options)'"'
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    c_local _km_tx_given `given'
+    c_local _km_tx_plain `"`macval(plain)'"'
+    c_local _km_tx_graph `"`macval(graph)'"'
+    c_local _km_tx_size `"`size'"'
+    c_local _km_tx_opts `"`macval(opts)'"'
+end
+
+* Clear dataset-level metadata before saving() or risksaving(): the dataset
+* label, notes and characteristics of the source data (including its stset
+* settings and kmplot's label store), variable characteristics, and value
+* labels.  The saved file holds only the curve or the counts.
+capture program drop _kmplot_scrub
+program define _kmplot_scrub
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        label data
+        local _chars : char _dta[]
+        foreach _c of local _chars {
+            char _dta[`_c']
+        }
+        foreach _v of varlist _all {
+            local _chars : char `_v'[]
+            foreach _c of local _chars {
+                char `_v'[`_c']
+            }
+        }
+        label drop _all
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

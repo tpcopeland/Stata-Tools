@@ -30,7 +30,8 @@ program define _kmplot_risktable, rclass
         syntax , GRPvar(varname) NGRoups(integer) GRAPHName(name) ///
             [TIMEpoints(string) ///
             COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
-            XTItle(string asis) XLAbel(string asis) YLAbel(string asis) ///
+            XTItle(string asis) XTOPts(string asis) XTSize(string) ///
+            XLAbel(string asis) YLAbel(string asis) ///
             EVents MONO TOPTimeaxis CALLERVersion(string) ///
             COMPvar(varname) RISKWeight(string) MASK(integer 0) MASKText(string) ///
             REGIONopts(string asis) YLABHi(real -1)]
@@ -69,31 +70,26 @@ program define _kmplot_risktable, rclass
         }
 
         if "`scheme'" == "" local scheme "`c(scheme)'"
-        if `"`macval(xtitle)'"' == "" local xtitle "Analysis time"
         local ncolors : word count `colors'
         if `ncolors' == 0 & "`mono'" == "" {
             noisily display as error "colors() must contain at least one color"
             exit 198
         }
-        mata: st_local("_text", st_local("xtitle"))
-        mata: st_local("_compound", strofreal(substr(st_local("_text"), 1, 2) == char(96)+char(34) & substr(st_local("_text"), -2, 2) == char(34)+char(39)))
-        if `_compound' {
-            mata: st_local("xtitle", substr(st_local("_text"), 3, strlen(st_local("_text"))-4))
-        }
-        else {
-            mata: st_local("_quoted", strofreal(substr(st_local("_text"), 1, 1) == char(34) & substr(st_local("_text"), -1, 1) == char(34)))
-            if `_quoted' {
-                mata: st_local("xtitle", substr(st_local("_text"), 2, strlen(st_local("_text"))-2))
-            }
-        }
-
-        * Preserve literal macro characters through graph's second parse.
-        mata: st_local("xtitle", subinstr(subinstr(st_local("xtitle"), char(96), "{c 96}"), char(36), "{c 36}"))
+        * xtitle() arrives ready for graph: one or more compound-quoted
+        * strings with macro characters already encoded, or empty for no
+        * title (kmplot resolves the default).  xtopts() and xtsize() are the
+        * user's sub-options and size() (default vsmall below the table,
+        * small for the title drawn above it with toptimeaxis).
+        local xtsize_low = cond("`xtsize'" == "", "vsmall", "`xtsize'")
+        local xtsize_top = cond("`xtsize'" == "", "small", "`xtsize'")
 
         * Read group labels from dataset characteristics (set by kmplot)
+        * The labels are kept literal (macval() at every use); the graph copy
+        * _glbl# encodes macro characters for graph's second parse.
         forvalues g = 1/`ngroups' {
-            local grplbl`g' : char _dta[_kmplot_grplbl`g']
-            if `"`grplbl`g''"' == "" local grplbl`g' "Group `g'"
+            mata: st_local("grplbl`g'", st_global("_dta[_kmplot_grplbl`g']"))
+            if `"`macval(grplbl`g')'"' == "" local grplbl`g' "Group `g'"
+            mata: st_local("_glbl`g'", subinstr(subinstr(st_local("grplbl`g'"), char(96), "{c 96}"), char(36), "{c 36}"))
         }
 
         * Row labels are drawn as y-axis labels.  Offsetting the rows off the
@@ -146,8 +142,11 @@ program define _kmplot_risktable, rclass
             }
         }
 
-        _kmplot_times, values("`timepoints'")
+        * cmptimes: each timepoint at the precision of the stset data,
+        * used for every comparison with _t and _t0.
+        _kmplot_times, values("`timepoints'") stmatch
         local timepoints "`r(times)'"
+        local cmptimes "`r(cmptimes)'"
         local ntp : word count `timepoints'
 
         * =====================================================================
@@ -186,19 +185,19 @@ program define _kmplot_risktable, rclass
         matrix colnames `rtfmat' = at_risk_masked events_masked censored_masked
 
         forvalues g = 1/`ngroups' {
-            local j = 0
-            foreach tp of local timepoints {
-                local ++j
+            forvalues j = 1/`ntp' {
+                local tp : word `j' of `timepoints'
+                local tc : word `j' of `cmptimes'
                 if `"`st_id'"' != "" {
                     if `has_t0' {
                         quietly egen byte `rt_tag' = tag(`st_id') ///
-                            if _t >= `tp' & ///
-                            (_t0 < `tp' | (_t0 == 0 & `tp' == 0)) & ///
+                            if _t >= `tc' & ///
+                            (_t0 < `tc' | (_t0 == 0 & `tp' == 0)) & ///
                             `grpvar' == `g'
                     }
                     else {
                         quietly egen byte `rt_tag' = tag(`st_id') ///
-                            if _t >= `tp' & `grpvar' == `g'
+                            if _t >= `tc' & `grpvar' == `g'
                     }
                     quietly summarize `rt_weight' if `rt_tag' == 1, meanonly
                     local wrisk_`g'_`j' = r(sum)
@@ -209,13 +208,13 @@ program define _kmplot_risktable, rclass
                 else {
                     if `has_t0' {
                         quietly summarize `rt_weight' ///
-                            if _t >= `tp' & ///
-                            (_t0 < `tp' | (_t0 == 0 & `tp' == 0)) & ///
+                            if _t >= `tc' & ///
+                            (_t0 < `tc' | (_t0 == 0 & `tp' == 0)) & ///
                             `grpvar' == `g', meanonly
                     }
                     else {
                         quietly summarize `rt_weight' ///
-                            if _t >= `tp' & `grpvar' == `g', meanonly
+                            if _t >= `tc' & `grpvar' == `g', meanonly
                     }
                     local wrisk_`g'_`j' = r(sum)
                     local prisk_`g'_`j' = r(N)
@@ -228,15 +227,14 @@ program define _kmplot_risktable, rclass
         * =====================================================================
 
         forvalues g = 1/`ngroups' {
-            local j = 0
-            foreach tp of local timepoints {
-                local ++j
+            forvalues j = 1/`ntp' {
+                local tc : word `j' of `cmptimes'
                 quietly summarize `rt_weight' ///
-                    if _t <= `tp' & _d == 1 & `grpvar' == `g', meanonly
+                    if _t <= `tc' & _d == 1 & `grpvar' == `g', meanonly
                 local wevt_`g'_`j' = r(sum)
                 local pevt_`g'_`j' = r(N)
                 quietly summarize `rt_weight' ///
-                    if _t <= `tp' & `rt_loss' == 1 & `grpvar' == `g', meanonly
+                    if _t <= `tc' & `rt_loss' == 1 & `grpvar' == `g', meanonly
                 local wcens_`g'_`j' = r(sum)
                 local pcens_`g'_`j' = r(N)
                 * Displayed basis, then masking of people counts 1 .. mask-1.
@@ -425,8 +423,8 @@ program define _kmplot_risktable, rclass
         * the same margin to the main panel's title, keeping the panels aligned.
         local rt_widest = 0
         forvalues g = 1/`ngroups' {
-            if strlen(`"`grplbl`g''"') > `rt_widest' {
-                local rt_widest = strlen(`"`grplbl`g''"')
+            if strlen(`"`macval(grplbl`g')'"') > `rt_widest' {
+                local rt_widest = strlen(`"`macval(grplbl`g')'"')
             }
         }
         local rt_title_gap = ceil(0.1111 * `rt_widest') + 1
@@ -506,15 +504,18 @@ program define _kmplot_risktable, rclass
         local grp_ylabels ""
         forvalues g = 1/`ngroups' {
             local _gy = (`ngroups' - `g' + 1 + `rt_row_offset') * `rt_yk'
-            local grp_ylabels `"`grp_ylabels' `_gy' `"`grplbl`g''"'"'
+            local grp_ylabels `"`macval(grp_ylabels)' `_gy' `"`macval(_glbl`g')'"'"'
         }
         * custom scopes these style options to the row labels alone, so the
         * labcolor(none) that hides the reserved numeric labels above does not
         * take them with it.  Custom labels must be given as explicit
         * value/"text" pairs -- a rule such as 0(0.25)1 is rejected there.
-        local grp_ylabel_cmd `"ylabel(`grp_ylabels', add custom angle(0) labsize(small) labgap(`rt_row_labgap') labcolor(black) tlcolor(none) nogrid)"'
+        local grp_ylabel_cmd `"ylabel(`macval(grp_ylabels)', add custom angle(0) labsize(small) labgap(`rt_row_labgap') labcolor(black) tlcolor(none) nogrid)"'
 
-        local xtitle_cmd `"xtitle(`"`macval(xtitle)'"', size(vsmall))"'
+        if `"`macval(xtitle)'"' != "" {
+            local xtitle_cmd `"xtitle(`macval(xtitle)', size(`xtsize_low') `macval(xtopts)')"'
+        }
+        else local xtitle_cmd `"xtitle("")"'
         local xscale_cmd "xscale(range(`xstart' `xmax') noextend noline)"
         local separator_cmd ""
         local time_title_cmd ""
@@ -536,20 +537,22 @@ program define _kmplot_risktable, rclass
             local ymax = (`ngroups' + 1.50 + `rt_row_offset') * `rt_yk'
             local time_title_y = (`ngroups' + 1.025 + `rt_row_offset') * `rt_yk'
             local time_title_x = (`xstart' + `xmax') / 2
-            local time_title_cmd `"text(`time_title_y' `time_title_x' `"`macval(xtitle)'"', placement(c) size(small))"'
+            if `"`macval(xtitle)'"' != "" {
+                local time_title_cmd `"text(`time_title_y' `time_title_x' `macval(xtitle)', placement(c) size(`xtsize_top') `macval(xtopts)')"'
+            }
             local separator_y = (`ngroups' + 0.55 + `rt_row_offset') * `rt_yk'
             local separator_cmd "yline(`separator_y', lcolor(gs8) lpattern(solid) lwidth(thin))"
         }
 
         twoway `scatcmd', ///
             `ylabel_cmd' ///
-            `grp_ylabel_cmd' ///
+            `macval(grp_ylabel_cmd)' ///
             `xlabel_cmd' ///
             yscale(range(`ymin' `ymax') noline) ///
             `xscale_cmd' ///
-            `xtitle_cmd' ///
+            `macval(xtitle_cmd)' ///
             ytitle("`ytitle_rt'", size(small) margin(r=`rt_title_gap')) ///
-            `time_title_cmd' ///
+            `macval(time_title_cmd)' ///
             `separator_cmd' ///
             title("") subtitle("") ///
             scheme(`scheme') ///

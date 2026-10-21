@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  15oct2026}{...}
+{* *! version 1.0.1  20oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -192,7 +192,12 @@ limits. A row with no estimate, or with neither limit, is left out of the plot, 
 by observation number); to keep it in the plot as a labelled row, give it
 {opt type()} code 2 (see {opt vmissing()}). Limits come in pairs: a row with
 exactly one missing limit exits with {cmd:r(198)}, as an incomplete
-{opt pi()} pair does. Frame mode applies the same rule.
+{opt pi()} pair does. An estimate that lies outside its own interval is drawn
+as given, with a note naming the row (usually a variable given in the wrong
+position). Frame mode applies the same rules. Each row label travels in the
+graph command, so the number of rows is bounded by Stata's macro length
+({cmd:c(macrolen)}, raised by {help set_maxvar:set maxvar}); past it
+{cmd:eplot} exits with {cmd:r(920)} before drawing.
 
 {phang2}
 {bf:2. Estimates mode} — you supply nothing, a single {cmd:.} (for the active model), or
@@ -211,9 +216,16 @@ initially empty {cmd:e()} state or results posted by {cmd:ereturn post} without
 components, and ancillary parameters such as {cmd:/lnalpha} or {cmd:/ln_p}) are
 always omitted with a note: Stata reports no Wald {it:p}-value for them and
 computes their confidence intervals on a transformed metric. The same holds
-for the variance components of {cmd:mixed}, which it posts in equations of
-their own ({cmd:lns1_1_1}, {cmd:atr1_1_1_2}, {cmd:lnsig_e}, ...): only the
-first {cmd:e(k_f)} coefficients, the fixed effects, are plotted.
+for the variance components of {cmd:mixed}, {cmd:xtmixed}, {cmd:meqrlogit},
+{cmd:meqrpoisson}, {cmd:xtmelogit}, and {cmd:xtmepoisson}, which they post in
+equations of their own ({cmd:lns1_1_1}, {cmd:atr1_1_1_2}, {cmd:lnsig_e},
+...): only the first {cmd:e(k_f)} coefficients, the fixed effects, are
+plotted. Ancillary parameters posted in named equations rather than in
+{cmd:/} are omitted with a note too: the last {cmd:e(k_aux)} equations, which
+Stata displays as {cmd:/}{it:name} (for example {cmd:lnsigma} after
+{cmd:intreg}, {cmd:lnsig2v} and {cmd:lnsig2u} after {cmd:frontier}, the
+cutpoints and {cmd:sigma2_u} after {cmd:xtologit}), and {cmd:sigma_u} and
+{cmd:sigma_e} after {cmd:xtreg, mle}.
 
 {pmore}
 Intervals and p-values follow each model's estimation distribution: {cmd:eplot}
@@ -222,7 +234,10 @@ normal distribution otherwise. When the estimator posts parameter-specific
 degrees of freedom whose column stripe matches {cmd:e(b)} ({cmd:e(df_mi)} after
 {cmd:mi estimate, post}; {cmd:e(df)} after {cmd:mixed, dfmethod()}), each
 coefficient uses its own degrees of freedom, as in Stata's own coefficient
-table. When {cmd:e(V_df)} is posted with {cmd:e(b)}'s stripe (after
+table. The limits of {cmd:proportion} (and {cmd:svy: proportion}) are not
+{it:b} +/- {it:t}*{it:se}: they are read from Stata's own table, replayed at
+{opt level()}, so they are logit-transformed by default and follow a
+{cmd:citype()} given when the model was fitted. When {cmd:e(V_df)} is posted with {cmd:e(b)}'s stripe (after
 {cmd:mixed, dfmethod(kroger)}), the standard errors come from it rather than
 {cmd:e(V)}, matching Stata's Kenward-Roger table. In multi-model plots this
 choice is made separately for each stored result. Omitted and base-level
@@ -237,9 +252,11 @@ Stata matrix with either 2 columns ({it:b}, {it:se}) or 3 columns ({it:b},
 {it:lci}, {it:uci}). Row names become labels. This is useful when results
 come from post-estimation commands or custom calculations. Standard errors
 must be nonnegative, lower limits may not exceed upper limits, and every
-required matrix cell must be nonmissing. If a row label cannot be represented
-as a Stata matrix stripe, returned matrices use positional row names
-{cmd:row1}, {cmd:row2}, and so on while the graph retains the full label.
+required matrix cell must be nonmissing. A row label that cannot be
+represented as a Stata matrix stripe (one longer than 32 characters, or with a
+{cmd:.} that reads as an operator) gets the positional name {cmd:row}{it:#}
+in returned matrices, in every mode, while the graph retains the full label;
+the other rows keep their names.
 
 {phang2}
 {bf:4. Frame mode} — you specify {opt frame(framename)}. {cmd:eplot} reads a
@@ -248,7 +265,11 @@ contain numeric {cmd:estimate}, {cmd:ll}, and {cmd:ul}; if present, string
 {cmd:label}, numeric or string {cmd:rowtype} or {cmd:type}, numeric
 {cmd:weight} or {cmd:weights}, and numeric {cmd:pvalue} are used automatically. Use {opt estimate()}, {opt ll()},
 {opt ul()}, {opt labels()}, {opt rowtype()}, {opt type()}, {opt weights()}, or
-{opt pvalue()} to override those defaults.
+{opt pvalue()} to override those defaults. An automatically used {cmd:weight}
+or {cmd:type} variable that is not a usable weight or row-type variable (a
+weight missing for an effect row, or unrelated text in {cmd:type}) is ignored
+with a note; named in {opt weights()} or {opt type()}, the same variable is
+refused with {cmd:r(198)}.
 
 {pstd}
 {bf:Choosing the right mode.}
@@ -271,7 +292,8 @@ when a constant is actually dropped.
 {pstd}
 {bf:Mode detection.} Mode detection gives precedence to data mode when the first
 three tokens are numeric variables. If stored estimate names happen to match
-numeric variable names in memory, {cmd:eplot} will treat the call as data mode. In
+numeric variable names in memory, {cmd:eplot} will treat the call as data mode,
+with a note naming the clash. In
 ambiguous cases, use {cmd:eplot .} to force estimates mode, {opt matrix()} to force matrix
 mode, or {opt frame()} to force frame mode.
 
@@ -288,7 +310,8 @@ matrix mode, {bf:[F]} = frame mode. Options without a tag work in all four modes
 
 {phang}
 {opt m:atrix(matname)} {bf:[M]}
-names a Stata matrix of estimates and selects matrix mode. A 2-column matrix
+names a Stata matrix of estimates and selects matrix mode; it may not be
+combined with {opt frame()}. A 2-column matrix
 is read as (b, se) and {cmd:eplot} constructs symmetric normal-approximation
 limits at {opt level()}; standard errors must be nonmissing and nonnegative. A
 3-column matrix is read as (b, lci, uci) and the supplied limits are used as
@@ -313,7 +336,9 @@ mode: noted and left out, or refused when exactly one limit is missing.
 
 {phang}
 {opt labels(varname)} {bf:[D,F]} specifies a string variable containing labels for each
-row (e.g., study names). If omitted, rows are labeled "Row 1", "Row 2", etc.
+row (e.g., study names). If omitted, rows are labeled "Row 1", "Row 2", etc.,
+by observation number in the dataset (or frame), also under {cmd:if} and
+{cmd:in}.
 
 {phang}
 {opt weights(varname)} {bf:[D,F]}
@@ -444,7 +469,8 @@ Syntax: {cmd:groups(coef1 coef2 = "Group A" coef3 coef4 = "Group B")}. Group
 headers appear as bold text above the first coefficient in each group. Each
 group must have a nonempty coefficient list and label, every named effect
 must exist, and a coefficient may belong to only one group; listing it in two
-groups exits with {cmd:r(198)}.{p_end}
+groups exits with {cmd:r(198)}. In data and frame modes a label with spaces is
+named in quotes: {cmd:groups("Study A" "Study B" = "Trials")}.{p_end}
 
 {pmore}
 The members of a group are always displayed together: they move to the
@@ -467,7 +493,9 @@ forest plots without inserting blank rows in the source data.
 {opt headers(spec)} {bf:[D,F]} {bf:[E single-model]} inserts a section header before a specified
 coefficient. Syntax: {cmd:headers(coef1 = "Section Header")}. Use this when you want
 a header above a single coefficient rather than grouping multiple
-coefficients. Each mapping must be well formed and match an effect. {opt headings()}
+coefficients. Each mapping must be well formed and match an effect; when
+several rows share the label, the header goes above the first of them, and
+headers given for one row appear in the order given. {opt headings()}
 is accepted as an alias.
 
 {dlgtab:Transform}
@@ -504,7 +532,8 @@ lattice (for example {cmd:0.5 1 2 5 10 20}) instead of an evenly spaced linear
 one; a range wider than twelve decades labels every {it:k}th decade, at most
 twelve ticks. When the data span less than a 3-fold range and contain the null, the
 default ticks are instead {it:null}*{it:r}^{it:k} for the smallest {it:r} of
-1.1, 1.25, 1.5, and 2 giving 4 to 9 ticks (e.g. {cmd:0.8 1 1.25 1.56}), which
+1.1, 1.25, 1.5, and 2 giving 4 to 9 ticks (e.g. {cmd:0.8 1 1.25 1.56 1.95 2.44}
+for data from 0.8 to 2), which
 are symmetric about the null on the log axis. Every plotted value, including a point estimate that lies outside its own
 interval, must be strictly positive; {cmd:eplot} exits with {cmd:r(198)}
 otherwise, as it does for a nonpositive {opt xlabel()} tick. The null line defaults to {cmd:1} under {opt logscale}
@@ -612,9 +641,10 @@ whisker.
 {phang}
 {opt dp(#)}
 sets the number of decimal places used in {opt values} annotation. Default
-is {cmd:2}. Must be a nonnegative integer; any number of places is valid, and
-the default format is {cmd:%}{it:w}{cmd:.}{it:dp}{cmd:f} with
-{it:w} = {it:dp} + 22. Ignored if {opt vformat()} is specified.
+is {cmd:2}. Must be an integer from 0 to 20 (beyond 20 places Stata's fixed
+formats no longer print the value), and the default format is
+{cmd:%}{it:w}{cmd:.}{it:dp}{cmd:f} with {it:w} = {it:dp} + 22. Ignored if
+{opt vformat()} is specified.
 
 {phang}
 {opt effect(string[, atnull])} sets the x-axis title (or y-axis title in vertical
@@ -678,11 +708,17 @@ when {opt dp()} is specified); leading blanks are not printed. For example
 limits are rounded half away from zero on their decimal values, so 2.675
 prints as {cmd:2.68}, -0.125 as {cmd:-0.13}, and 12.5 as {cmd:13} at
 {cmd:dp(0)}; a value that rounds to zero prints as {cmd:0.00} and never as
-{cmd:-0.00}. When a number is too wide for the format, all three numbers of
-that row are shown in exponent notation. Other formats ({cmd:%g},
-{cmd:%e}) are applied as given. {cmd:eplot} automatically widens the values column
-margin when formatted text is longer than the default layout. {it:fmt} must be
-a numeric display format; {cmd:eplot} exits with {cmd:r(198)} otherwise.
+{cmd:-0.00}; this holds for a comma-decimal format such as {cmd:%9,2f} too. When
+a number is too wide for the format, all three numbers of that row are
+shown in exponent notation, each of its own value. Other formats ({cmd:%g},
+{cmd:%e}) are applied as given, and no blanks are printed on either side. {cmd:eplot} automatically widens the values column
+margin when formatted text or the {opt vtitle()} header is longer than the
+default layout, up to half the graph width; a column that needs more is held
+there, may be cut off at the right edge, and a note suggests a smaller
+{opt vsize()}, a shorter {opt vtitle()} or format, or a wider graph with
+{cmd:xsize()}. {it:fmt} must be
+a {cmd:%f}, {cmd:%g}, or {cmd:%e} display format; {cmd:eplot} exits with
+{cmd:r(198)} otherwise, including for date, time, and hexadecimal formats.
 
 {phang}
 {opt vgap(#)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the gap between the
@@ -722,7 +758,9 @@ no marker or interval. With {opt values} its text is "1.00 (reference)" under
 {opt eform} and "0.00 (reference)" otherwise (in the {opt vformat()}
 format); {opt vreference(string)} replaces it. Reference rows count in {cmd:r(N)} but not
 in {cmd:r(k)} or {cmd:r(table)}. Base levels of interactions and omitted
-(collinear) terms are not shown. Multi-model calls exit with {cmd:r(198)}.
+(collinear) terms are not shown, and neither are those of an equation with no
+estimated coefficient, such as the base outcome of {cmd:mlogit}. Multi-model
+calls exit with {cmd:r(198)}.
 
 {phang}
 {opt labsize(textsizestyle)} sets the size of the row labels; default is
@@ -885,7 +923,8 @@ the first model's estimate.
 {opt ord:er(coeflist)}
 specifies an explicit ordering of coefficients. List the coefficient names
 (or labels, in data mode) in the desired display order. Rows not listed keep
-their relative order after the listed ones. A listed name that matches no
+their relative order after the listed ones, and rows that share a label keep
+their input order. A listed name that matches no
 coefficient exits with {cmd:r(198)}, as in {opt keep()} and {opt drop()}. It
 may not be combined with {opt sort}.
 
@@ -934,9 +973,11 @@ color option ({opt mcolor()}, {opt cicolor()}, {opt sigcolor()},
 {opt insigncolor()}, and each {opt palette()} entry) must name exactly one
 valid color: a color name, optionally with intensity and opacity
 ({cmd:navy*.5}, {cmd:navy%50}), or a quoted RGB, CMYK, or HSV value (see
-{help colorstyle}). A list of colors where one is expected, or an unknown
-name, exits with {cmd:r(198)}; {cmd:twoway} would otherwise draw the default
-color. In
+{help colorstyle}): RGB is three integers from 0 to 255, CMYK four integers
+from 0 to 255 or four proportions from 0 to 1, and HSV a hue from 0 to 360
+with a saturation and value from 0 to 1. A list of colors where one is
+expected, an unknown name, or a value out of range exits with {cmd:r(198)};
+{cmd:twoway} would otherwise draw the default color. In
 multi-model estimates mode, {opt mcolor()} takes either one color, applied to
 every model, or exactly one color per model; quote each RGB triplet in a list,
 for example {cmd:mcolor("255 0 0" "0 0 255")}. Without {opt mcolor()} the
@@ -959,7 +1000,9 @@ list is recommended when the graph may be printed in grey.
 {phang}
 {opt msize(size)}
 sets the marker size. Default is {cmd:medium} for single-model plots and
-{cmd:medsmall} for multi-model plots.
+{cmd:medsmall} for multi-model plots. It must be one size: a named size, a
+number, {cmd:*}{it:#}, or {it:#} with a unit such as {cmd:pt}; anything else
+exits with {cmd:r(198)}, where {cmd:twoway} would draw the default size.
 
 {phang}
 {opt boxs:cale(#)} {bf:[D,F]}
@@ -992,7 +1035,8 @@ example, colored markers with gray intervals).
 
 {phang}
 {opt ciwidth(lwstyle)}
-sets the CI line width. Default is {cmd:medium}.
+sets the CI line width. Default is {cmd:medium}. As with {opt msize()}, it must
+be one width, or eplot exits with {cmd:r(198)}.
 
 {dlgtab:Graph options}
 
@@ -1010,7 +1054,8 @@ title on the plot region again.
 {opt export(framename[, replace])} writes the plotted rows, in display order,
 to a new frame: {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pos} (the
 row position), {cmd:type} (data and estimates modes), {cmd:weight} (data mode),
-{cmd:model_id} (estimates mode), {cmd:pvalue} when available, and
+{cmd:model_id} (estimates mode), {cmd:pvalue} when available (in matrix mode,
+with {opt stars} and a 2-column matrix), and
 {cmd:values} (the values-column text) with {opt values}. The values are as
 plotted, after {opt eform} and {opt rescale()}, and inserted header and spacer
 rows are included, so {cmd:eplot, frame(}{it:framename}{cmd:)} redraws a
@@ -1018,7 +1063,9 @@ single-model plot without those options; add {cmd:null(1)} (and
 {opt logscale} if it was used) when the original used {opt eform}, since the
 read-back values are already ratios. An existing frame requires
 {cmd:replace}; the current frame and, in frame mode, the {opt frame()} source
-may not be named.
+may not be named. The frame is written before the graph is drawn, so, like
+the returned results, it is kept when drawing or saving the graph fails; run
+again with {cmd:replace}.
 
 {phang}
 {opt name(string)} names the graph in memory. {opt saving(filename)} saves
@@ -1026,7 +1073,8 @@ the graph; include standard {cmd:saving()} suboptions such as {cmd:replace}
 inside the option argument when needed.
 
 {phang}
-{opt scheme(schemename)} applies a Stata graph scheme.
+{opt scheme(schemename)} applies a Stata graph scheme. An unknown scheme exits
+with {cmd:r(198)}, where {cmd:graph} would fall back to {cmd:s2color}.
 
 {phang}
 {opt plotregion(options)}, {opt graphregion(options)}, and {opt aspect(#)}
@@ -1105,7 +1153,7 @@ passthrough behavior.
 
 {phang2}{cmd:. matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)}{p_end}
 {phang2}{cmd:. matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"}{p_end}
-{phang2}{cmd:. eplot, matrix(R) effect("Odds Ratio")}{p_end}
+{phang2}{cmd:. eplot, matrix(R) effect("Odds Ratio") null(1)}{p_end}
 
 {pstd}
 {bf:Example 8: Frame mode}
@@ -1117,7 +1165,7 @@ passthrough behavior.
 {phang2}{cmd:. "Overall"  1.03 0.97 1.10 0.320 "overall"}{p_end}
 {phang2}{cmd:. end}{p_end}
 {phang2}{cmd:. frame put label estimate ll ul pvalue rowtype, into(effects)}{p_end}
-{phang2}{cmd:. eplot, frame(effects) values stars effect("Ratio (95% CI)")}{p_end}
+{phang2}{cmd:. eplot, frame(effects) values stars effect("Ratio (95% CI)") null(1)}{p_end}
 
 {pstd}
 {bf:Example 9: Logistic regression with eform}
@@ -1289,7 +1337,9 @@ custom text.
 {pstd}
 {cmd:r(pvalues)} is returned in data and frame modes when {opt pvalue()} is
 supplied, in estimates mode for a single model, and in 2-column matrix mode
-when {opt stars} is specified.
+when {opt stars} is specified; in matrix mode it has one row per
+{cmd:r(table)} row, missing for a row with a zero standard error. Neither
+matrix is returned for more than {cmd:c(max_matdim)} rows (a note says so).
 
 {pstd}
 {cmd:r(N)} counts every display row: effect rows plus the header rows that
@@ -1354,7 +1404,7 @@ alone.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-15{p_end}
+{pstd}Version 1.0.1, 2026-10-20{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

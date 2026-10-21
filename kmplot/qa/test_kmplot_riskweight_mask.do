@@ -568,6 +568,77 @@ capture noisily {
 }
 _kmqa_record, name("M8 riskmask with compete(): same cells masked") rc(`=_rc')
 
+**## M8b compete() + riskmask(): events, censored, flags and risksaving() against hand counts
+* Competing exits (cause 2: the 10 records of B at 5.5 and 7.5) leave the
+* risk set but are neither events nor censored.  Truth counted from the
+* fixture with no kmplot output: people counts and summed pweights.
+capture noisily {
+    _kmrw_fix
+    gen byte cause = cond(d == 1, 1, cond(t == 5.5 | t == 7.5, 2, 0))
+    tempname P W
+    matrix `P' = J(2 * `ntp', 3, .)
+    matrix `W' = J(2 * `ntp', 3, .)
+    local row = 0
+    forvalues gi = 1/2 {
+        foreach tp of local tps {
+            local ++row
+            quietly count if g == `gi' & t >= `tp'
+            matrix `P'[`row', 1] = r(N)
+            quietly count if g == `gi' & t <= `tp' & cause == 1
+            matrix `P'[`row', 2] = r(N)
+            quietly count if g == `gi' & t <= `tp' & cause == 0
+            matrix `P'[`row', 3] = r(N)
+            quietly summarize w if g == `gi' & t >= `tp', meanonly
+            matrix `W'[`row', 1] = r(sum)
+            quietly summarize w if g == `gi' & t <= `tp' & cause == 1, meanonly
+            matrix `W'[`row', 2] = r(sum)
+            quietly summarize w if g == `gi' & t <= `tp' & cause == 0, meanonly
+            matrix `W'[`row', 3] = r(sum)
+        }
+    }
+    * design facts: by t = 9.2 B has 20 records ending without an event, of
+    * which 10 are competing exits, so its cumulative censored count is 10
+    assert `P'[12, 3] == 10
+    quietly count if g == 2 & d == 0
+    assert r(N) == 20
+    quietly count if g == 2 & cause == 2
+    assert r(N) == 10
+    quietly stset t [pw=w], failure(cause == 1)
+    tempfile rs
+    kmplot, by(g) compete(cause == 2) risktable riskevents timepoints(`tps') ///
+        riskmask(5) risksaving("`rs'", replace) nodraw
+    tempname R
+    matrix `R' = r(risktable)
+    forvalues i = 1/12 {
+        forvalues j = 1/3 {
+            local truth = `P'[`i', `j']
+            if `truth' >= 1 & `truth' < 5 assert missing(`R'[`i', `j' + 2])
+            else assert `R'[`i', `j' + 2] == `truth'
+        }
+    }
+    use "`rs'", clear
+    assert _N == 12
+    sort group time
+    local q = 0
+    foreach v in at_risk events censored {
+        local ++q
+        forvalues i = 1/12 {
+            local truth = `P'[`i', `q']
+            if `truth' >= 1 & `truth' < 5 {
+                assert missing(`v'[`i']) & missing(`v'_w[`i'])
+                assert `v'_masked[`i'] == 1
+            }
+            else {
+                assert `v'[`i'] == `truth'
+                assert !missing(`v'_w[`i'], `W'[`i', `q'])
+                assert reldif(`v'_w[`i'], `W'[`i', `q']) < 1e-12
+                assert `v'_masked[`i'] == 0
+            }
+        }
+    }
+}
+_kmqa_record, name("M8b compete()+riskmask(): events/censored exclude competing exits; flags and _w match") rc(`=_rc')
+
 **## M9 riskmask default from tabtools set smallcells; noriskmask and riskmask() override it
 capture noisily {
     local pkgdir = regexr("`c(pwd)'", "/qa$", "")

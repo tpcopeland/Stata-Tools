@@ -226,7 +226,7 @@ matrix list r(landmarks)
 |--------|---------|--------|
 | `by(varname)` | none | Stratify curves by a numeric or string variable |
 | `failure` | survival | Plot cumulative failure, `1 - S(t)`, instead of survival |
-| `compete(exp)` | none | Plot the Aalen-Johansen cumulative incidence of the `stset` failure with `exp` marking the competing event; implies `failure`; not with `pvalue` or `median`; `ci` without weights or with fweights only |
+| `compete(exp)` | none | Plot the Aalen-Johansen cumulative incidence of the `stset` failure with `exp` (a single expression) marking the competing event; implies `failure`; not with `pvalue` or `median`; `ci` without weights or with fweights only; a note is shown when `exp` is true on no record |
 | `byorder(numlist)` | sort order | Order of numeric `by()` levels for drawing, legend, colors, patterns, and risk-table rows |
 | `ci` | off | Draw confidence intervals |
 | `level(#)` | `c(level)` (95 unless changed by `set level`) | Set the confidence level for `ci`; values must lie between 10 and 99.99 with at most two decimal places |
@@ -241,37 +241,37 @@ matrix list r(landmarks)
 | `riskcompact` | off | Synonym for `riskevents`; requires `risktable` |
 | `riskmono` | off | Display risk-table numbers in black instead of line colors; requires `risktable` |
 | `riskheight(#)` | auto | Set risk-table height; requires `risktable`; supplied values must be greater than 0 and no more than 80 |
-| `timepoints(numlist)` | auto | Set risk-table timepoints; requires `risktable` or `risksaving()` |
+| `timepoints(numlist)` | auto | Set risk-table timepoints, sorted with repeats dropped (`0(0.1)1` equals the typed decimals); none may exceed `tmax()`; requires `risktable` or `risksaving()` |
 | `riskweight(none\|stset)` | `none` (pweight, iweight), `stset` (fweight) | Count people or sum the `stset` weight in the risk table; requires `risktable` or `risksaving()` |
 | `riskmask(# [, text(string)])` | off, or `tabtools set smallcells` | Print counts from 1 to #-1 as `<#`; masked cells are missing in `r(risktable)` and `risksaving()` |
 | `noriskmask` | off | Ignore the `tabtools` session small-cell default |
-| `landmark(numlist)` | none | Return survival or cumulative-failure estimates at fixed analysis times |
+| `landmark(numlist)` | none | Return survival or cumulative-failure estimates at fixed nonnegative analysis times, sorted with repeats dropped |
 | `censor` | off | Show censoring marks on the curves |
 | `censorthin(#)` | 1 | Show every Nth censor mark; requires `censor` and a value of at least 1 |
 | `pvalue` | off | Display the log-rank p-value; requires `by()` |
 | `pvaluepos(string)` | `bottomright` | Place the p-value at `bottomright`, `topright`, `topleft`, or `bottomleft`, anchored 5% inside the drawn y range |
-| `pvalueformat(string)` | `%5.3f` | Set the numeric display format for the p-value; p-values below 0.001 are shown as `< 0.001` whatever the format |
+| `pvalueformat(string)` | `%5.3f` | Set the numeric (`%f`, `%g`, `%e`) display format for the p-value; p-values below 0.001 are shown as `< 0.001` whatever the format |
 | `pvaluetext(string)` | `Log-rank p` | Set the text printed before the p-value |
 | `pvalueat(y x)` | none | Place the p-value at explicit graph coordinates; may not be combined with `pvaluepos()` |
 | `colors(colorlist)` | Okabe-Ito palette | Set curve colors as Stata color names or quoted RGB triplets; the default is blue, vermilion, black, sky blue, reddish purple, orange, and bluish green, which stay distinguishable under simulated red-green color-vision deficiency for up to five groups |
 | `lwidth(string)` | `medthick` | Set curve line width |
 | `lpattern(patternlist)` | `solid` | Set curve line patterns |
-| `title(string)` | none | Set the graph title |
+| `title(string)` | none | Set the graph title; this and the four options below take `text [, textbox options]`, with several quoted strings for several lines and a `size()` that replaces the default |
 | `subtitle(string)` | none | Set the graph subtitle |
-| `xtitle(string)` | `Analysis time` | Set the x-axis title |
+| `xtitle(string)` | `Analysis time` | Set the x-axis title; `xtitle("")` draws none, also with `risktable` |
 | `ytitle(string)` | mode-dependent | Set the y-axis title; the default is `Survival probability`, `Cumulative failure`, or `Cumulative incidence` (with ` (%)` under `percent`) |
-| `xlabel(string)` | automatic | Set x-axis labels; numeric positions also set risk-table columns when `timepoints()` is omitted |
+| `xlabel(string)` | automatic | Set x-axis labels; their numeric positions (labelled lists such as `0 "Start" 12 24` included) set risk-table columns when `timepoints()` is omitted, and with `risktable` an `xlabel()` without numeric positions (`#5`, `minmax`, `none`) then needs `timepoints()` |
 | `ylabel(string)` | automatic | Set y-axis labels; survival uses `0(0.25)1`, failure and incidence plots run from 0 to just above the plotted maximum; text labels are supported |
 | `ymax(#)` | automatic | Upper y-axis limit on the plotted scale; refused (rc 198) below the plotted maximum |
 | `percent` | off | Plot 100 × the estimate; `r()` and saved data stay in proportions |
-| `tmax(#)` | last time | Stop curves, x axis, and default risk-table timepoints at `#`; estimates unchanged |
+| `tmax(#)` | last time | Stop curves, x axis, and default risk-table timepoints at `#`; estimates unchanged; risk-table times beyond `#` are refused and median lines beyond it are not drawn |
 | `legend(string)` | automatic | Supply a custom legend specification |
 | `note(string)` | none | Add a graph note; if `medianannotate` is also requested, the user note replaces the automatic median annotation |
 | `scheme(string)` | current Stata scheme | Set the graph scheme |
-| `name(string)` | `kmplot` | Set the graph name |
+| `name(name[, replace])` | `kmplot` | Set the graph name (a single valid name); a graph of that name is always replaced |
 | `aspectratio(string)` | none | Set the graph aspect ratio |
 | `export(string)` | none | Export to a file; the format is inferred from `.pdf`, `.png`, `.eps`, or `.svg`, and graph-export suboptions are passed through |
-| `saving(filename[, replace])` | none | Save curve data with `group`, `group_label`, `time`, `estimate`, `se`, `lower`, `upper`, `censor`, and `anchor` variables; `se`, `lower`, and `upper` are missing where the survival estimate is 1 or 0 |
+| `saving(filename[, replace])` | none | Save curve data with `group`, `group_label`, `time`, `estimate`, `se`, `lower`, `upper`, `censor`, and `anchor` variables: one row per analysis record (tied times repeat) plus one time-zero anchor per group; `lower` and `upper` need `ci`; `se`, `lower`, and `upper` are missing where the survival estimate is 1 or 0 |
 | `risksaving(filename[, replace])` | none | Save risk-table data with `group`, `group_label`, `time`, `at_risk`, `events`, and cumulative censoring exits in `censored` (on the `riskweight()` basis), their summed-weight companions `at_risk_w`, `events_w`, `censored_w`, and with masking the flags `at_risk_masked`, `events_masked`, `censored_masked` |
 | `combineopts(string)` | none | Options for the `graph combine` that joins plot and risk table; requires `risktable` |
 
@@ -357,7 +357,9 @@ matrix list r(landmarks)
 - Landmarks beyond a group's last observed follow-up are missing unless its survival curve has reached zero.
 - Probability weights support point estimates; `ci` and `pvalue` are refused, and saved standard errors are missing. The risk table counts people unless `riskweight(stset)` is given; fractional weighted counts are then printed to one decimal place, while `r(risktable)` and `risksaving()` keep the full values.
 - With importance weights, `ci` and `pvalue` are allowed, as in `sts`, and treat the weights as frequency counts.
-- `saving()` and `risksaving()` support the `replace` suboption only; `export()` passes graph-export suboptions to Stata.
+- `saving()` and `risksaving()` support the `replace` suboption only, spelled out as with `save`, and must name different files; all three file options are checked before the graph is drawn. The saved files carry no dataset label, notes, characteristics (including `stset` settings), or value labels from the data in memory. `export()` passes graph-export suboptions to Stata.
+- With `compete()`, a competing exit lowers the number at risk but is counted as neither an event nor censored in the risk table.
+- Requested times (`timepoints()`, `landmark()`, `tmax()`) are compared with `_t` at the data's precision: with a `float` time variable and constant `origin()`/`scale()`, `landmark(0.3)` includes a death recorded at 0.3 (held as 0.30000001). `sts list, at()` compares exactly and can differ there.
 
 ## References
 
@@ -374,7 +376,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-- **1.0.0** (2026-10-20): Initial release. Folded into 1.0.0 before wider distribution: `compete()` Aalen-Johansen cumulative incidence (weighted point estimates; unweighted `ci` matching `stcompet`); `riskweight()` with people counts by default under pweights/iweights; `riskmask()` small-count masking (with the `tabtools set smallcells` default); automatic y range for failure and incidence plots, `ymax()`, `percent`, and robust text `ylabel()`s; `graphregion()`/`plotregion()`/`xsize()`/`ysize()` and `combineopts()` reach the combined graph; `byorder()`; `tmax()`; new returns `r(estimator)`, `r(compete)`, `r(scale)`, `r(riskweight)`, `r(riskmask)`, `r(ymax)`, `r(tmax)`; `risksaving()` adds `*_w` and `*_masked` variables; `nodraw` now works with `risktable` (and is refused with `export()`).
+- **1.0.0** (2026-10-20): Initial release. Folded into 1.0.0 before wider distribution: `compete()` Aalen-Johansen cumulative incidence (weighted point estimates; unweighted `ci` matching `stcompet`); `riskweight()` with people counts by default under pweights/iweights; `riskmask()` small-count masking (with the `tabtools set smallcells` default); automatic y range for failure and incidence plots, `ymax()`, `percent`, and robust text `ylabel()`s; `graphregion()`/`plotregion()`/`xsize()`/`ysize()` and `combineopts()` reach the combined graph; `byorder()`; `tmax()`; new returns `r(estimator)`, `r(compete)`, `r(scale)`, `r(riskweight)`, `r(riskmask)`, `r(ymax)`, `r(tmax)`; `risksaving()` adds `*_w` and `*_masked` variables; `nodraw` now works with `risktable` (and is refused with `export()`). Review fixes, also folded into 1.0.0: requested times match `float` time variables, decimal ranges equal the typed decimals, and repeated times are dropped; risk-table times beyond `tmax()` are refused and median lines stop at `tmax()`; title options take sub-options and several lines; `xtitle("")` also clears the risk-table title; labelled `xlabel()` lists set the risk-table columns, and unlabelled-position specifications need `timepoints()`; group labels with backticks or dollar signs stay literal; `nodraw` is matched only as a whole option; `name()`, `pvalueformat()`, and `compete()` are validated; file options are checked before drawing, `saving()` and `risksaving()` may not share a file, and saved files carry no source metadata; `r(ymax)` is the decimal axis top.
 
 ## Author
 

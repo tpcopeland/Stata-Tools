@@ -2,9 +2,9 @@
 
 # eplot — Forest and coefficient plots from any source
 
-**Version 1.0.0** | 2026-10-15
+**Version 1.0.1** | 2026-10-20
 
-[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Gallery](#gallery)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -167,7 +167,7 @@ end
 frame put label estimate ll ul pvalue rowtype, into(effects)
 
 eplot, frame(effects) values stars rowtype(rowtype) ///
-    effect("Odds Ratio (95% CI)")
+    effect("Odds Ratio (95% CI)") null(1)
 frame drop effects
 ```
 
@@ -423,6 +423,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.0.1** (2026-10-20): Review fixes. `proportion` and `svy: proportion` limits are now Stata's own (logit by default, honouring `citype()` and `level()`) instead of b ± t·se, which could fall below 0. Variance components of `meqrlogit`, `meqrpoisson`, `xtmelogit` and `xtmepoisson`, trailing `e(k_aux)` ancillary equations (`intreg`, `frontier`, `xtologit`, ...) and `sigma_u`/`sigma_e` of `xtreg, mle` are no longer plotted as effects. `baselevels` adds no rows for `mlogit`'s base outcome; `drop()` accepts omitted and base terms written without their operators; `rename()` targets take their variable labels. `order()` keeps rows that share a label in input order, `headers()` goes above the first such row, and `groups()` accepts quoted labels with spaces. Unusable auto-detected frame `weight`/`type` columns are ignored with a note. Default `Row #` labels use observation numbers. `r(table)` row names fall back to `row#` only for the row that cannot be stored, and keep `` ` `` and `$`. Notes for an estimate outside its interval and for estimate/variable name clashes; a clear `r(920)` when there are too many rows to label. The values column and its header are sized from conservative glyph widths (wide letters, `&`, `@`, and non-ASCII/CJK text included), so they no longer clip within up to half the graph width; a column that needs more is held at half the width with a note suggesting a smaller `vsize()`, a shorter `vtitle()`, or a wider `xsize()`, instead of squeezing the plot away. Bold labels with a literal `}` draw whole. `msize()` and `ciwidth()` (every [G-4] size form and installed named style), `scheme()`, RGB/CMYK/HSV ranges, `dp()` (0-20), `vformat()` (%f/%g/%e only) and multi-word `export()` names are validated up front; `matrix()` with `frame()` is refused. Matrix-mode `r(pvalues)` aligns with `r(table)` and `export()` carries `pvalue`. No `s()` results are left behind.
 - **1.0.0** (2026-10-15): Initial release.
 
 ## Author

@@ -4,6 +4,11 @@
  * Runnable release smoke for the examples shipped in eplot.sthlp.  The
  * examples are deliberately executed after a fresh local net install so this
  * suite checks the installed-user surface, not only the source adopath.
+ *
+ * The examples pass a scheme through with scheme(s1mono), which ships with
+ * Stata.  They used scheme(s1mono), a user-installed scheme that the
+ * sandboxed PLUS directory hides, so graph silently fell back to s2color;
+ * since 1.0.1 eplot refuses an unknown scheme with r(198).
  */
 
 version 16.0
@@ -41,7 +46,7 @@ capture noisily {
     "Wilson 2023" -0.39 -0.65 -0.12 12.8 1
     "Overall"     -0.24 -0.34 -0.13  .   5
     end
-    eplot es lci uci, labels(study) weights(weight) type(type) scheme(plotplainblind)
+    eplot es lci uci, labels(study) weights(weight) type(type) scheme(s1mono)
     assert r(N) == 5
     assert r(k) == 4
 }
@@ -52,7 +57,7 @@ capture graph drop _all
 * Example 2: values annotation on the same data surface.
 local ++test_count
 capture noisily {
-    eplot es lci uci, labels(study) weights(weight) type(type) values scheme(plotplainblind)
+    eplot es lci uci, labels(study) weights(weight) type(type) values scheme(s1mono)
     assert r(N) == 5
 }
 if _rc == 0 local ++pass_count
@@ -65,7 +70,7 @@ capture noisily {
     sysuse auto, clear
     regress price mpg weight foreign
     eplot ., drop(_cons) coeflabels(mpg = "Miles per Gallon" ///
-        weight = "Vehicle Weight" foreign = "Foreign Make") cicap scheme(plotplainblind)
+        weight = "Vehicle Weight" foreign = "Foreign Make") cicap scheme(s1mono)
     assert r(N) == 3
     assert r(k) == 3
 }
@@ -82,7 +87,7 @@ capture noisily {
     quietly regress price mpg weight length foreign headroom
     estimates store extended
     eplot base extended, drop(_cons) ///
-        modellabels("Base" "Extended") scheme(plotplainblind)
+        modellabels("Base" "Extended") scheme(s1mono)
     assert r(n_models) == 2
     assert !missing(r(N))
     assert r(N) > 0
@@ -97,7 +102,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     regress price mpg weight length foreign
-    eplot ., drop(_cons) sort cicap mcolor(cranberry) scheme(plotplainblind)
+    eplot ., drop(_cons) sort cicap mcolor(cranberry) scheme(s1mono)
     assert r(N) == 4
 }
 if _rc == 0 local ++pass_count
@@ -110,7 +115,7 @@ capture noisily {
     sysuse auto, clear
     regress price mpg weight length turn foreign rep78
     eplot ., drop(_cons) groups(mpg weight length turn = ///
-        "Vehicle Characteristics" foreign rep78 = "Other Factors") scheme(plotplainblind)
+        "Vehicle Characteristics" foreign rep78 = "Other Factors") scheme(s1mono)
     assert !missing(r(N))
     assert r(N) > r(k)
 }
@@ -123,7 +128,7 @@ local ++test_count
 capture noisily {
     matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)
     matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"
-    eplot, matrix(R) effect("Odds Ratio") scheme(plotplainblind)
+    eplot, matrix(R) effect("Odds Ratio") scheme(s1mono)
     matrix T = r(table)
     assert r(N) == 3
     assert r(k) == 3
@@ -158,7 +163,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     logit foreign mpg weight length
-    eplot ., drop(_cons) eform values effect("Odds Ratio") scheme(plotplainblind)
+    eplot ., drop(_cons) eform values effect("Odds Ratio") scheme(s1mono)
     assert r(N) == 3
 }
 if _rc == 0 local ++pass_count
@@ -170,7 +175,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     regress price mpg weight foreign
-    eplot ., noconstant stars values scheme(plotplainblind)
+    eplot ., noconstant stars values scheme(s1mono)
     assert r(N) == 3
     capture matrix list r(pvalues)
     assert _rc == 0
@@ -182,7 +187,7 @@ capture graph drop _all
 * Example 11: significance coloring.
 local ++test_count
 capture noisily {
-    eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap scheme(plotplainblind)
+    eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap scheme(s1mono)
     assert r(N) == 3
 }
 if _rc == 0 local ++pass_count
@@ -192,7 +197,7 @@ capture graph drop _all
 * Example 12: journal style preset.
 local ++test_count
 capture noisily {
-    eplot ., noconstant style(lancet) scheme(plotplainblind)
+    eplot ., noconstant style(lancet) scheme(s1mono)
     assert r(N) == 3
 }
 if _rc == 0 local ++pass_count
@@ -204,7 +209,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     logit foreign mpg weight i.rep78
-    eplot ., noconstant eform cicap scheme(plotplainblind)
+    eplot ., noconstant eform cicap scheme(s1mono)
     assert !missing(r(N))
     assert r(N) > 0
 }
@@ -227,7 +232,7 @@ capture noisily {
     end
     eplot es lci uci, labels(study) weights(weight) type(type) values ///
         vformat(%4.2f) i2("42.1%") tau2("0.021") ///
-        qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(plotplainblind)
+        qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(s1mono)
     local cmd `"`r(cmd)'"'
     assert r(N) == 7
     assert r(k) == 6
