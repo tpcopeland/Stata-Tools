@@ -1,6 +1,6 @@
 <p align="center"><img src="../_resources/logos/consort_hex.svg" width="150" alt="consort hex logo"></p>
 
-# consort — Exclusion flowcharts recorded as you drop observations
+# consort — Exclusion flowcharts that write themselves
 
 **Version 1.1.3** | 2026-10-13
 

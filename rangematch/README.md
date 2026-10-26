@@ -1,8 +1,8 @@
 <p align="center"><img src="../_resources/logos/rangematch_hex.svg" width="150" alt="rangematch hex logo"></p>
 
-# rangematch — Range joins for interval data
+# rangematch — Range joins without the joinby blowup
 
-**Version 1.0.0** | 2026-10-15
+**Version 1.0.0** | 2026-10-26
 
 [![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16.1+](https://img.shields.io/badge/Stata-16.1%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 

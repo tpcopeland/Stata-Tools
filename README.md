@@ -128,56 +128,56 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 
 | Package | What it does | Version |
 | --- | --- | --- |
-| [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.1-1a5f91?style=flat-square) |
-| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
-| [compress_tc](compress_tc) | Shrink string-heavy datasets: strL conversion, then `compress` | ![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square) |
-| [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`dataprobe`), a QA ledger (`dataqa`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.10.6-1a5f91?style=flat-square) |
-| [datefix](datefix) | Convert imported date strings to Stata dates, detecting day/month order and reporting values that fail | ![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square) |
-| [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [asof](asof) | As-of joins: attach the last, next, or nearest measurement to each ID and anchor date, with explicit tie and window rules | ![version](https://img.shields.io/badge/version-0.1.1-1a5f91?style=flat-square) |
+| [codescan](codescan) | Code lists to patient-level conditions in one command: regex or prefix rules across any number of wide ICD, ATC, or procedure fields, windowed around an index date, returning flags, first/last dates, counts, and prevalence. No reshape. | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [compress_tc](compress_tc) | Shrink string-heavy datasets beyond what `compress` alone reaches: convert wide strings to strL first, with a dry-run preview of the savings | ![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square) |
+| [datamap](datamap) | Describe and check data you can't share: privacy-safe maps and data dictionaries, QC gates that stop a do-file when an expectation fails, a QA ledger, and missingness patterns | ![version](https://img.shields.io/badge/version-1.10.6-1a5f91?style=flat-square) |
+| [datefix](datefix) | Messy imported date strings to Stata dates in one step: infers day/month order, keeps the raw values if you want, and lists every value that won't convert | ![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square) |
+| [fvgen](fvgen) | Turn factor-variable terms like `i.a##c.b` into real, labeled variables, so interaction models export with readable row names and the same estimable design | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
-| [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
-| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [pkgtransfer](pkgtransfer) | Rebuild your Stata package setup on another machine: a one-file reinstall do-file, or an offline ZIP for servers with no internet | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
+| [rangematch](rangematch) | Range joins without the `joinby` blowup: match points to intervals or intervals to overlapping intervals by binary search and plane sweep, from a file or frame | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 
 ### Cohorts, registries, and time-varying data
 
 | Package | What it does | Version |
 | --- | --- | --- |
 | [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
-| [pygrid](pygrid) | Person-period denominator grids with zero-filled event attachment (`pygrid`, `pyattach`) | ![version](https://img.shields.io/badge/version-1.0.2-1a5f91?style=flat-square) |
-| [setools](setools) | Swedish registry tools: Swedish Charlson index, ICD-7 to ICD-10 (`cci_se`), migration exclusions and censoring (`migrations`), MS progression endpoints (`sustainedss`, `cdp`, `pira`) | ![version](https://img.shields.io/badge/version-1.5.10-1a5f91?style=flat-square) |
-| [tvtools](tvtools) | Time-varying exposure datasets for survival analysis: exposure episodes (`tvexpose`), merges (`tvmerge`), events (`tvevent`), IPTW/IPCW weights (`tvweight`), age bands, and diagnostics | ![version](https://img.shields.io/badge/version-1.18.2-1a5f91?style=flat-square) |
+| [pygrid](pygrid) | Exact person-time denominators: split follow-up into periods and attach event counts without losing the zero-event cells that rate models need | ![version](https://img.shields.io/badge/version-1.0.2-1a5f91?style=flat-square) |
+| [setools](setools) | Swedish registry cohorts: a Swedish Charlson index across ICD-7 to ICD-10, migration exclusions and emigration censoring, and MS progression endpoints (sustained EDSS, CDP, PIRA) | ![version](https://img.shields.io/badge/version-1.5.10-1a5f91?style=flat-square) |
+| [tvtools](tvtools) | Prescription and episode records to analysis-ready time-varying survival data: build exposure episodes, merge several exposures, attach single, competing, or recurrent events, split on age or calendar time, and weight | ![version](https://img.shields.io/badge/version-1.18.2-1a5f91?style=flat-square) |
 
 ### Causal inference and survival
 
 | Package | What it does | Version |
 | --- | --- | --- |
-| [cstat_surv](cstat_surv) | Harrell's C after `stcox`, with a leave-one-out jackknife SE and CI | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
-| [finegray](finegray) | Fast Fine-Gray competing-risks regression, with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic | ![version](https://img.shields.io/badge/version-1.3.8-1a5f91?style=flat-square) |
-| [gcomp](gcomp) | Parametric g-computation for time-varying confounding and mediation; `gcomptab` tabulates the results | ![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square) |
-| [iivw](iivw) | Inverse-intensity (IIW), IPTW, and combined FIPTIW weighting for irregularly timed visits, with diagnostics for informative visit processes | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
-| [msm](msm) | Marginal structural models with IPTW for time-varying treatment: prepare, weight, longitudinal balance and positivity, weighted fit, standardized risks; tables, plots and E-values via tabtools, psdash, eplot and qba | ![version](https://img.shields.io/badge/version-2.0.0-1a5f91?style=flat-square) |
-| [psdash](psdash) | Propensity score diagnostics: overlap, balance (SMD, Love plot), weight distribution, common support; after `teffects`, `logit`/`probit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.8.0-1a5f91?style=flat-square) |
-| [qba](qba) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding: simple or probabilistic, chainable, plotted | ![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square) |
+| [cstat_surv](cstat_surv) | Harrell's C after `stcox` with the standard error and CI that `estat concordance` doesn't give, by leave-one-out jackknife | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
+| [finegray](finegray) | Fine-Gray competing-risks regression up to hundreds of times faster than `stcrreg`, with no data expansion: delayed entry, strata, time-varying effects, weights, and cumulative incidence prediction | ![version](https://img.shields.io/badge/version-1.3.8-1a5f91?style=flat-square) |
+| [gcomp](gcomp) | The parametric g-formula: simulate outcomes under treatment strategies or mediation scenarios despite time-varying confounding, with bootstrap CIs and export-ready tables via `gcomptab` | ![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square) |
+| [iivw](iivw) | Correct for informative visit timing in irregular longitudinal data: inverse-intensity weights, optionally combined with IPTW (FIPTIW), weighted outcome models, and visit-process diagnostics | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [msm](msm) | Marginal structural models end to end: person-period data to stabilized IPTW, longitudinal balance and positivity checks, a weighted outcome model, and standardized risks under always vs never treated | ![version](https://img.shields.io/badge/version-2.0.0-1a5f91?style=flat-square) |
+| [psdash](psdash) | Propensity-score diagnostics in one dashboard with a pass/fail verdict: overlap, SMD balance and Love plots, weight stability, and common support, straight after `teffects`, `logit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.8.0-1a5f91?style=flat-square) |
+| [qba](qba) | How wrong could this estimate be? Simple and probabilistic bias analysis for misclassification, selection, and unmeasured confounding, chained in one simulation, with tornado and tipping-point plots | ![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square) |
 
 ### Tables and reporting
 
 | Package | What it does | Version |
 | --- | --- | --- |
-| [consort](consort) | CONSORT-style exclusion flowcharts, recorded as you drop observations | ![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square) |
-| [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.1.0-1a5f91?style=flat-square) |
-| [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
-| [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square) |
-| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square) |
+| [consort](consort) | Exclusion flowcharts that write themselves: each `consort exclude` drops and records a step, so the CONSORT-style diagram's counts match your analysis sample | ![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square) |
+| [diagtab](diagtab) | Sensitivity, specificity, predictive values, and likelihood ratios with CIs in one call, plus ROC AUC and the Youden-optimal cutoff, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.1.0-1a5f91?style=flat-square) |
+| [logdoc](logdoc) | Stata output as a shareable document: run a do-file or convert a log to HTML, Markdown, Quarto, Word, LaTeX, or PDF, keeping Stata's alignment and colors | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
+| [simtab](simtab) | Simulation results to publication tables: bias, empirical SE, coverage, power, and MSE with their Monte Carlo SEs, flagging cells whose coverage misses nominal | ![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square) |
+| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more, with one set of output options and small-cell suppression | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 
 ### Graphics
 
 | Package | What it does | Version |
 | --- | --- | --- |
-| [eplot](eplot) | Forest and coefficient plots from variables, stored estimates, matrices, or frames | ![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square) |
-| [kmplot](kmplot) | Kaplan-Meier and cumulative-failure curves with CIs, risk tables, landmarks, medians, and censor marks | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [eplot](eplot) | Forest and coefficient plots from anything: variables, stored estimates, matrices, or frames, with several models side by side | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [kmplot](kmplot) | Publication-ready Kaplan-Meier and Aalen-Johansen curves in one command: CI bands, number-at-risk table, medians, log-rank p, and censor marks | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [raincloud](raincloud) | Raincloud plots: density, raw points, and box summary in one figure | ![version](https://img.shields.io/badge/version-1.0.4-1a5f91?style=flat-square) |
-| [spaghetti](spaghetti) | Individual trajectories over time, with optional group means and CIs | ![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square) |
-| [swimlane](swimlane) | Swimmer and state swimlane plots for patient timelines | ![version](https://img.shields.io/badge/version-0.2.0-1a5f91?style=flat-square) |
+| [spaghetti](spaghetti) | Individual trajectories over time with group means and CI bands, plus sampling, highlighting, and color-by to keep large panels readable | ![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square) |
+| [swimlane](swimlane) | Patient timelines as swimmer or state swimlane plots, from wide, long-interval, or `stset` data | ![version](https://img.shields.io/badge/version-0.2.0-1a5f91?style=flat-square) |
 | [tc_schemes](tc_schemes) | 45 graph schemes (blindschemes, schemepack, cleanplots, modern, and originals) behind one command | ![version](https://img.shields.io/badge/version-1.1.1-1a5f91?style=flat-square) |
 
 <details>

@@ -1,8 +1,8 @@
 <p align="center"><img src="../_resources/logos/asof_hex.svg" width="150" alt="asof hex logo"></p>
 
-# asof — One measurement per ID and anchor date
+# asof — As-of joins: the last, next, or nearest measurement
 
-**Version 0.1.1** | 2026-10-12
+**Version 0.1.1** | 2026-10-26
 
 [![version](https://img.shields.io/badge/version-0.1.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 

@@ -1,4 +1,4 @@
-*! _regtab_keys Version 1.0.1  2026/10/20
+*! _regtab_keys Version 1.0.0  2026/10/20
 *! regtab block: key variables of frame(name, flat keys)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

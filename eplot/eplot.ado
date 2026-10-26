@@ -1,4 +1,4 @@
-*! eplot Version 1.0.1  2026/10/20
+*! eplot Version 1.0.0  2026/10/20
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

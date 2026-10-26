@@ -1,9 +1,9 @@
 v 3
-d 'PYGRID': Person-period denominator grids with zero-filled event attachment
+d 'PYGRID': Exact person-time denominators with zero-event cells kept
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261013
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

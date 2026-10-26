@@ -1,5 +1,5 @@
 v 3
-d 'KMPLOT': Publication-Ready Kaplan-Meier Plots for Stata
+d 'KMPLOT': Kaplan-Meier and Aalen-Johansen curves with risk tables
 d
 d Kaplan-Meier survival and cumulative failure plots, and
 d Aalen-Johansen cumulative incidence plots with a competing
@@ -11,7 +11,7 @@ d palette chosen for color-vision deficiency.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261020
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

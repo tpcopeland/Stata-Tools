@@ -260,7 +260,7 @@ else {
 }
 
 **# desctab restores varabbrev when by() is all missing
-* Regression (tabtools 1.0.1): with an all-missing by() variable,
+* Regression: with an all-missing by() variable,
 * `if `r(min)' < 0 {' evaluated `if  < 0 {', whose parse error closed the outer
 * `capture noisily {' block early, so the later `exit 498' skipped the
 * `set varabbrev' restore at the end of desctab.

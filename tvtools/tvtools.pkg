@@ -1,5 +1,5 @@
 v 3
-d 'TVTOOLS': Commands for formatting and merging time-varying data
+d 'TVTOOLS': Prescription and episode records to time-varying survival data
 d
 d Tools for constructing and analyzing time-varying exposures in Stata.
 d Handles episode-format data, creates person-period datasets, merges
@@ -9,7 +9,7 @@ d for observational studies.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261020
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

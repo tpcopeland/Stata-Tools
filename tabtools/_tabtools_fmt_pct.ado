@@ -1,4 +1,4 @@
-*! _tabtools_fmt_pct Version 1.0.1  2026/10/20
+*! _tabtools_fmt_pct Version 1.0.0  2026/10/20
 *! The package's percentage display rule: a share that is neither none nor all never prints as 0 or 100
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

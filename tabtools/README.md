@@ -2,9 +2,9 @@
 
 # tabtools — Manuscript tables to Excel and Markdown
 
-**Version 1.0.1** | 2026-10-20
+**Version 1.0.0** | 2026-10-20
 
-[![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square)](#version-history) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Commands](#commands)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -551,11 +551,6 @@ Returns `r(N_rows)`, `r(N_models)`, `r(N_outcomes)`, `r(N_panels)`, `r(smallcell
 ## QA
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
-
-## Version History
-
-- **1.0.1** (2026-10-20): `desctab, extraspace` no longer swallows an error while padding the p-value column: the padding runs only when a `pvalue` column exists (it is absent under `nopvalue` or `wt()`), and any other failure now stops the command instead of leaving the column unpadded. Removed a dead header-copy step that wrote to columns dropped immediately afterwards. The shared export helper now reports a failure to restore the caller's `r()` on its error path instead of ignoring it. `desctab, by()` with an all-missing `by()` variable now refuses with r(498) and restores `varabbrev`; previously an empty `r(min)` broke the sign check, ended the command's cleanup block early and left `varabbrev` off.
-- **1.0.0** (2026-10-15): First SSC release.
 
 ## Author
 

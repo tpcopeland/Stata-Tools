@@ -1,5 +1,5 @@
 v 3
-d 'RANGEMATCH': Range join using Stata frames and Mata binary search
+d 'RANGEMATCH': Range and interval-overlap joins without a Cartesian product
 d
 d Range join between master data and a using dataset or frame. Point-in-interval
 d mode matches every using observation whose key falls within the
@@ -10,7 +10,7 @@ d pair generation. No external dependencies required.
 d
 d Requires: Stata version 16.1+
 d
-d Distribution-Date: 20261015
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

@@ -1,8 +1,8 @@
 v 3
-d 'ASOF': Index-anchored value extraction
+d 'ASOF': As-of joins: last, next, or nearest measurement per ID and anchor date
 d
 d Requires: Stata version 16+
-d Distribution-Date: 20261012
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

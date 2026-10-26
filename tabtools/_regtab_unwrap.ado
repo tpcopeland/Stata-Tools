@@ -1,4 +1,4 @@
-*! _regtab_unwrap Version 1.0.1  2026/10/20
+*! _regtab_unwrap Version 1.0.0  2026/10/20
 *! one extra quote layer around a whole specification
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

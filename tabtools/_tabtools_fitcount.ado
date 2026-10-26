@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 1.0.1  2026/10/20
+*! _tabtools_fitcount Version 1.0.0  2026/10/20
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

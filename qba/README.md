@@ -1,6 +1,6 @@
 <p align="center"><img src="../_resources/logos/qba_hex.svg" width="150" alt="qba hex logo"></p>
 
-# qba — Quantitative bias analysis for epidemiologic data
+# qba — Quantitative bias analysis: how wrong could this estimate be?
 
 **Version 1.2.0** | 2026-10-13
 

@@ -8,7 +8,7 @@
  * The examples pass a scheme through with scheme(s1mono), which ships with
  * Stata.  They used scheme(s1mono), a user-installed scheme that the
  * sandboxed PLUS directory hides, so graph silently fell back to s2color;
- * since 1.0.1 eplot refuses an unknown scheme with r(198).
+ * eplot refuses an unknown scheme with r(198).
  */
 
 version 16.0

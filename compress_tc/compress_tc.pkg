@@ -1,5 +1,5 @@
 v 3
-d 'COMPRESS_TC': Compress string variables
+d 'COMPRESS_TC': Shrink string-heavy datasets beyond compress
 d
 d compress_tc performs two-stage compression of string variables:
 d first converting fixed-length str# variables to strL (which uses
@@ -19,7 +19,7 @@ d KW: string
 d KW: memory
 d KW: strL
 d
-d Distribution-Date: 20261013
+d Distribution-Date: 20261026
 d License: MIT
 d
 f compress_tc.ado

@@ -1,5 +1,5 @@
 v 3
-d 'CODESCAN': Scan wide-format code variables for pattern matches
+d 'CODESCAN': Code lists to patient-level conditions across wide code fields
 d
 d Scans wide-format code variables (dx1-dx30, proc1-proc20, etc.)
 d for pattern matches using regex or prefix matching, from inline
@@ -22,7 +22,7 @@ d Works with ICD, KVA, CPT, ATC, OPCS, or any string code system.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261015
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

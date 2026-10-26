@@ -1,5 +1,5 @@
 v 3
-d 'DATEFIX': module to convert string date variables to numeric date formatted variables
+d 'DATEFIX': Convert messy imported date strings to Stata dates
 d See {bf:help datefix} after installation.
 d
 d Parses string dates into Stata numeric daily dates.
@@ -12,7 +12,7 @@ d KW: Stata
 d KW: date
 d KW: string
 d
-d Distribution-Date: 20261013
+d Distribution-Date: 20261026
 d
 d License: MIT
 d

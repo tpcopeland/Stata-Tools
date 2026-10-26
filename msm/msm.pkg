@@ -1,5 +1,5 @@
 v 3
-d 'MSM': Marginal Structural Models suite for Stata
+d 'MSM': Marginal structural models with IPTW, end to end
 d
 d Implements inverse probability of treatment weighted (IPTW) marginal
 d structural models for time-varying treatments and confounders. Provides
@@ -10,7 +10,7 @@ d regression adjustment fails.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261020
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

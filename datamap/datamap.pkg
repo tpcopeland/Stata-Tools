@@ -1,5 +1,5 @@
 v 3
-d 'DATAMAP': Generate privacy-safe dataset documentation
+d 'DATAMAP': Describe and check data you can't share
 d
 d datamap generates comprehensive, privacy-safe documentation for Stata
 d datasets. It automatically classifies variables and generates appropriate
@@ -14,7 +14,7 @@ d - dataqa: Session defaults and a structured QA ledger over dataprobe
 d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
-d Distribution-Date: 20261021
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

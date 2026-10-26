@@ -1,5 +1,5 @@
 v 3
-d 'PSDASH': Propensity Score Diagnostics Dashboard
+d 'PSDASH': Propensity-score diagnostics in one dashboard, with a pass/fail verdict
 d
 d Unified interface for propensity score diagnostics including overlap
 d assessment, covariate balance (SMD + Love plot), weight diagnostics
@@ -10,7 +10,7 @@ d propensity scores.
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d
-d Distribution-Date: 20261013
+d Distribution-Date: 20261026
 d License: MIT
 d
 d Requires: Stata version 16.0 or higher
