@@ -1,18 +1,18 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-10-14T23:03:29Z
+date:        2026-10-27T20:34:03Z
 verdict:     PASS
-pkg_tree:    cdb0ccb1c7b25e9f21be8c614ccd46570cb3ed3e (clean)
-head_commit: ad73dcd5b31c1a586cae1f30d86c08eeb3650fbe
+pkg_tree:    b082e04af39b3e319983623cb02dc240cd80f400 (clean)
+head_commit: 6ca5221bf90d236b4e0199c828b101cb4d044e96
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /home/tpcopeland/finegray_runs/lane_full/Stata-Tools/finegray [matches-source-repo (tracked files incl. qa/; 373 files) manifest-sha256 ccc70aff2c442bea4b4c073e7d0b4e8d812eb7458d8c44e757f15a509bb8336f]
+run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/2613d3e4-8283-4d8a-8188-3629031b84a0/scratchpad/fgruns/final2/Stata-Tools/finegray [matches-source-repo (tracked files incl. qa/; 376 files) manifest-sha256 7f883d5be3d2ae7adfc30925e1fd56ba7d963611e79a4c963332474355297062]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   PASS
 wrapper_test: PASS
 audit_qa_test: PASS
-transfer_gate: PASS (4 arms identical vs fc324e68ab7337abba0d1d85e0ca559f7aea1c68)
+transfer_gate: PASS (4 arms identical vs 86e8624d4f2341f61cad554cbb28e9ba5b9cd756)
 
 per-suite RESULT trail (as echoed by each suite):
 RESULT: validation_fixture_recovery tests=4 pass=4 fail=0 skip=0
@@ -20,10 +20,10 @@ RESULT: validation_fixture_matrix tests=16 pass=16 fail=0 skip=0
 RESULT: test_fixture_domains tests=3 pass=3 fail=0 skip=0
 RESULT: test_finegray_entry_state tests=6 pass=6 fail=0
 RESULT: test_finegray tests=137 pass=137 fail=0
-RESULT: test_finegray_v110 tests=60 pass=60 fail=0
+RESULT: test_finegray_v110 tests=62 pass=62 fail=0
 RESULT: test_finegray_v120 tests=4 pass=4 fail=0
 RESULT: test_finegray_errors tests=6 pass=6 fail=0
-RESULT: test_finegray_v120b tests=16 pass=16 fail=0
+RESULT: test_finegray_v120b tests=17 pass=17 fail=0
 RESULT: test_finegray_v121 tests=7 pass=7 fail=0
 RESULT: test_finegray_v130 tests=11 pass=11 fail=0
 RESULT: test_finegray_v133 tests=6 pass=6 fail=0
@@ -35,14 +35,14 @@ RESULT: test_finegray_tvc tests=35 pass=35 fail=0
 RESULT: test_finegray_tvc_bstrata tests=10 pass=10 fail=0
 RESULT: test_finegray_tvc_bstrata_perf tests=3 pass=3 fail=0
 RESULT: test_finegray_fences tests=10 pass=10 fail=0
-RESULT: test_finegray_weights tests=19 pass=19 fail=0
+RESULT: test_finegray_weights tests=20 pass=20 fail=0
 RESULT: test_finegray_wsig_legacy tests=7 pass=7 fail=0
 RESULT: test_finegray_receipts tests=4 pass=4 fail=0
 RESULT: test_finegray_mi_lattice tests=12 pass=12 fail=0
 RESULT: test_finegray_release120 tests=7 pass=7 fail=0
 RESULT: test_finegray_noid tests=6 pass=6 fail=0
 RESULT: test_finegray_ties tests=7 pass=7 fail=0
-RESULT: test_finegray_optimizer tests=10 pass=10 fail=0
+RESULT: test_finegray_optimizer tests=11 pass=11 fail=0
 RESULT: test_finegray_variance tests=7 pass=7 fail=0
 RESULT: test_finegray_bootstrap tests=10 pass=10 fail=0
 RESULT: test_finegray_postest tests=31 pass=31 fail=0
@@ -72,7 +72,7 @@ RESULT: test_finegray_fv_base_terms tests=9 pass=9 fail=0
 RESULT: test_finegray_user_text tests=12 pass=12 fail=0
 RESULT: test_finegray_failclosed tests=12 pass=12 fail=0
 RESULT: test_finegray_hostile tests=2 pass=2 fail=0
-RESULT: test_finegray_estimates_use tests=10 pass=10 fail=0
+RESULT: test_finegray_estimates_use tests=11 pass=11 fail=0
 RESULT: test_finegray_sthlp_render tests=8 pass=8 fail=0
 RESULT: test_finegray_state_surfaces tests=14 pass=14 fail=0
 RESULT: test_finegray_audit_2026_10_05_method tests=10 pass=10 fail=0
@@ -84,6 +84,7 @@ RESULT: validation_finegray_recovery tests=4 pass=4 fail=0
 RESULT: validation_finegray_recovery_paths tests=15 pass=15 fail=0
 RESULT: validation_cluster_recovery tests=4 pass=4 fail=0 skip=0
 RESULT: validation_finegray_cif_recovery tests=5 pass=5 fail=0
+RESULT: validation_finegray_phtest_recovery tests=2 pass=2 fail=0
 RESULT: validation_finegray_cif_se tests=14 pass=14 fail=0
 RESULT: validation_finegray_lt_se tests=8 pass=8 fail=0
 RESULT: validation_finegray_lt_cluster_cif_se tests=8 pass=8 fail=0
@@ -92,7 +93,7 @@ RESULT: validation_nuisance_strata_numeric tests=7 pass=7 fail=0
 RESULT: validation_tvc_recovery tests=27 pass=27 fail=0 repdrop=0
 RESULT: validation_pweight_recovery tests=13 pass=13 fail=0 repdrop=0
 RESULT: crossval_predict_stcrreg tests=15 pass=15 fail=0 skip=0
-RESULT: test_finegray_adversarial_v130 tests=20 pass=20 fail=0
+RESULT: test_finegray_adversarial_v130 tests=21 pass=21 fail=0
 RESULT: test_finegray_adversarial_v120 tests=8 pass=8 fail=0
 RESULT: test_finegray_oracles tests=10 pass=10 fail=0
 RESULT: crossval_cif tests=2 pass=2 fail=0 skip=0
@@ -110,5 +111,5 @@ RESULT: crossval_public_studies tests=5 pass=5 fail=0 skip=0
 RESULT: crossval_tvc tests=7 pass=7 fail=0 skip=0
 RESULT: crossval_tvc_bstrata tests=6 pass=6 fail=0 skip=0
 RESULT: crossval_pweight tests=2 pass=2 fail=0 skip=0
-RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=27
-RESULT: run_all tests=93 pass=93 fail=0 skip=0
+RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=21
+RESULT: run_all tests=94 pass=94 fail=0 skip=0

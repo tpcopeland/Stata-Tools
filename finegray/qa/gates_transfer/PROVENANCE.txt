@@ -1,3 +1,3 @@
-gated_commit: fc324e68ab7337abba0d1d85e0ca559f7aea1c68
+gated_commit: 86e8624d4f2341f61cad554cbb28e9ba5b9cd756
 source_repo: /home/tpcopeland/Stata-Tools
-current_tree: /home/tpcopeland/finegray_runs/lane_full/Stata-Tools/finegray
+current_tree: /tmp/claude-1000/-home-tpcopeland-Stata-Dev/2613d3e4-8283-4d8a-8188-3629031b84a0/scratchpad/fgruns/final2/Stata-Tools/finegray
