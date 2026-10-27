@@ -209,7 +209,7 @@ capture noisily {
     log using `"`lg'"', text replace name(_fgut5)
     finegray_cif, over(grp) attime(1 1000) nograph
     log close _fgut5
-    mata: st_local("want", "(grp = A " + char(36) + "FGUT_G);")
+    mata: st_local("want", "(grp = A " + char(36) + "FGUT_G)")
     mata: st_local("bad", "EXPANDED")
     mata: st_numscalar("fgut_n", _fgut_has(st_local("lg"), st_local("want")))
     assert !missing(scalar(fgut_n))

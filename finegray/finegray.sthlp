@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.8  19oct2026}{...}
+{* *! version 1.3.8  27oct2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -1133,7 +1133,7 @@ data. {it:Biometrics} 2011; 67(2): 661-670.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.8, 2026-10-19{p_end}
+{pstd}Version 1.3.8, 2026-10-27{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

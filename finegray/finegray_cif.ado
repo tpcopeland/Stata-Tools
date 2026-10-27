@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.8  2026/10/19
+*! finegray_cif Version 1.3.8  2026/10/27
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -475,7 +475,7 @@ program define finegray_cif, rclass sortpreserve
                 local _bslevels ""
                 forvalues _bsli = 1/`=rowsof(`_bslvm')' {
                     scalar `_bslv1' = `_bslvm'[`_bsli', 1]
-                    foreach _fw in 9 12 15 18 21 {
+                    foreach _fw in 9 12 15 16 17 18 19 20 21 {
                         local _bsls : display %`_fw'.0g scalar(`_bslv1')
                         local _bsls = trim("`_bsls'")
                         if real("`_bsls'") == scalar(`_bslv1') continue, break
@@ -1796,10 +1796,12 @@ program define finegray_cif, rclass sortpreserve
                 * time.  %9.0g printed ".003" for a float-stored first event
                 * of .0030000000260770, so attime(.003) was reported to
                 * "precede" .003.  %21x is the last resort; %21.0g has
-                * round-tripped every double measured.
+                * round-tripped every double measured.  Every width from 15 up
+                * is tried: %18.0g gives 16 significant digits and %19.0g 17,
+                * so a 15/18/21 ladder printed 19 digits where 17 read back.
                 foreach _fx in tl tf {
                     local _fxs = cond("`_fx'" == "tl", "`_tlast'", "`_tfirst'")
-                    foreach _fw in 9 12 15 18 21 {
+                    foreach _fw in 9 12 15 16 17 18 19 20 21 {
                         local _`_fx' : display %`_fw'.0g scalar(`_fxs')
                         local _`_fx' = trim("`_`_fx''")
                         if real("`_`_fx''") == scalar(`_fxs') continue, break
@@ -1831,7 +1833,7 @@ program define finegray_cif, rclass sortpreserve
                             if "`_fltt'" == "" {
                                 tempname _fltv
                                 scalar `_fltv' = float(`_tt')
-                                foreach _fw in 9 12 15 18 21 {
+                                foreach _fw in 9 12 15 16 17 18 19 20 21 {
                                     local _fltt : display %`_fw'.0g scalar(`_fltv')
                                     local _fltt = trim("`_fltt'")
                                     if real("`_fltt'") == scalar(`_fltv') continue, break
@@ -1848,12 +1850,12 @@ program define finegray_cif, rclass sortpreserve
                     local _which `" (`_bsvar' = `macval(_glbl`g')')"'
                 }
                 if `_nafter' > 0 {
-                    display as text `"note: `_nafter' requested time(s) exceed the last cause-event time (`_tl')`macval(_which)';"'
-                    display as text "the CIF is flat beyond it, so those rows repeat the terminal estimate"
+                    display as text `"note: `_nafter' horizon(s) exceed the last cause-event time (`_tl')`macval(_which)'"'
+                    display as text "(the CIF is flat beyond it, so those rows repeat the terminal estimate)"
                 }
                 if `_nbefore' > 0 {
-                    display as text `"note: `_nbefore' requested time(s) precede the first cause-event time (`_tf')`macval(_which)';"'
-                    display as text "the CIF is exactly 0 there and has no confidence limits"
+                    display as text `"note: `_nbefore' horizon(s) precede the first cause-event time (`_tf')`macval(_which)'"'
+                    display as text "(the CIF is exactly 0 there and has no confidence limits)"
                 }
                 if "`_fltlist'" != "" {
                     * Blame float storage only when the stset time variable
@@ -1867,14 +1869,15 @@ program define finegray_cif, rclass sortpreserve
                     if !_rc & `: word count `_fltsrc'' == 1 {
                         local _fltis = ("`: type `_fltsrc''" == "float")
                     }
-                    display as text `"note: requested time(s) `_fltlist' lie just below a cause-event time equal to their"'
-                    display as text `"float-precision value (`_fltt' for the first)`macval(_which)', so that event is excluded;"'
+                    display as text `"note: horizon(s) `_fltlist' lie just below a cause-event time equal to their"'
+                    display as text `"float-precision value (`_fltt' for the first)`macval(_which)', so that event"'
                     if `_fltis' {
-                        display as text "the time variable `_fltsrc' is stored as float and holds such values;"
-                        display as text "type the stored time to include it"
+                        display as text "is excluded; the time variable `_fltsrc' is stored as float and holds"
+                        display as text "such values; type the stored time to include it"
                     }
                     else {
-                        display as text "horizons are used exactly as typed; type the event time to include it"
+                        display as text "is excluded; horizons are used exactly as typed; type the event time"
+                        display as text "to include it"
                     }
                 }
             }
@@ -1886,8 +1889,9 @@ program define finegray_cif, rclass sortpreserve
     * precision, which is the limit of the estimator at that profile, not
     * evidence that the data reach it.  Say so.
     if "`_fg_cifovf'" != "" {
-        display as text "note: exp(xb) exceeds double precision at one or more requested time(s)/profile(s);"
-        display as text "the CIF is 1 and its SE 0 to machine precision there, with no confidence limits"
+        display as text "note: exp(xb) exceeds double precision at one or more requested"
+        display as text "time(s)/profile(s); the CIF is 1 and its SE 0 to machine precision there,"
+        display as text "with no confidence limits"
     }
 
     * Last observed analysis time in the estimation sample, per curve.  Read

@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.3.8  2026/10/06
+*! _finegray_display Version 1.3.8  2026/10/27
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -74,6 +74,7 @@ program define _finegray_display
     * =====================================================================
     * HEADER
     * =====================================================================
+    display as text ""
     display as text "Fine-Gray competing risks regression"
     display as text ""
 
@@ -260,8 +261,8 @@ program define _finegray_display
     * the thing the reader takes away.
     if e(converged) == 0 {
         display as error "convergence not achieved"
-        display as text "(the coefficients below are the last iterate, not a " ///
-            "solution; post-estimation commands will refuse them)"
+        display as text "(the coefficients below are the last iterate, not a solution;"
+        display as text "post-estimation commands will refuse them)"
         display as text ""
     }
 
@@ -277,8 +278,8 @@ program define _finegray_display
 
         if `_fg_npw' > 0 & `_fg_npw' < . {
             display as error "warning: the combined weight A(t) falls below 1e-10 in `_fg_npw' consulted cells"
-            display as text "(near-zero censoring or entry probability: the weights there are" ///
-                " not estimable and the fit leans on very few subjects)"
+            display as text "(near-zero censoring or entry probability: the weights there are not"
+            display as text "estimable, and the fit leans on very few subjects)"
         }
         if `_fg_nww' > 0 & `_fg_nww' < . {
             display as error "warning: `_fg_nww' retained weights exceed 1e6 (largest `_fg_mxw')"
@@ -320,8 +321,8 @@ program define _finegray_display
         display as text "note: fitted on multiple-imputation data; the coefficients and variance"
         display as text "are ordinary M-estimator output and pool under Rubin's rules, but"
         display as text "finegray_predict, finegray_cif and finegray_phtest are unavailable"
-        display as text "on this fit. See Multiple imputation in {help finegray##mi:help finegray}."
-        display as text "e(postest)=unavailable_mi."
+        display as text "on this fit, which e(postest) records as unavailable_mi; see"
+        display as text "Multiple imputation in {help finegray##mi:help finegray}."
     }
 
     * =====================================================================

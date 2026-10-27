@@ -1,4 +1,4 @@
-*! finegray Version 1.3.8  2026/10/19
+*! finegray Version 1.3.8  2026/10/27
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -2057,7 +2057,8 @@ program define finegray, eclass sortpreserve
         if "`_fv_created'" != "" quietly drop `_fv_created'
         display as error "finegray covariates are not full rank"
         display as error "constant or collinear term(s): `_rk_report'"
-        display as error "(a varying covariate far from zero or on an extreme scale can also fail this check numerically; center and rescale it)"
+        display as error "(a varying covariate far from zero or on an extreme scale can also fail"
+        display as error "this check numerically; center and rescale it)"
         if `_rk_bn' {
             display as error "an ibn. main effect names every level, and the Fine-Gray partial"
             display as error "likelihood has no intercept to absorb the redundancy: the level"

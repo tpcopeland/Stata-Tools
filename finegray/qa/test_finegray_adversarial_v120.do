@@ -300,7 +300,7 @@ capture noisily {
     quietly finegray_cif, attime(3 7 11) ci nograph
     matrix _d3 = r(table)
     _fgadvlt_cap `"finegray_cif, attime(3 7 11) ci nograph"' ///
-        "requested time(s) precede the first cause-event time (`_first')"
+        "horizon(s) precede the first cause-event time (`_first')"
     assert r(rc) == 0
     assert r(saw) == 1
     assert rowsof(_d3) == 3

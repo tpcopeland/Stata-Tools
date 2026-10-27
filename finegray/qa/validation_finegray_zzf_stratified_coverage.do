@@ -215,6 +215,11 @@ display as text "r(459): samples with an observation gap, which finegray decline
 display as text "Bias is the mean estimate minus the truth; cov = coverage of b1 / b2."
 tab design rc
 
+* One test per design, emitted on both paths; smoke=1 marks a reduced run
+* (ZZF_SC_REPS below 1000), which is not the reported study.
+local _nd : word count `designs'
+display as text "RESULT: validation_finegray_zzf_stratified_coverage tests=`_nd' pass=`=`_nd' - `fails'' fail=`fails' smoke=`=(`REPS' < 1000)'"
+
 if `fails' {
     display as error _newline "FAIL: `fails' design(s) outside `LO'-`HI' or with failures other than r(459)"
     log close _zzfsc

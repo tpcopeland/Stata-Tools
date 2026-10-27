@@ -279,7 +279,15 @@ elif [[ "$lane" == "full" ]]; then
         # which is exactly how the release receipt is produced.  The full and
         # gates lanes are the two that CLAIM the transfer gate, so on them an
         # unrun gate is a failed gate; the message still names the flag.
-        transfer_status="NOT-RUN (no git tree for $gated_commit; pass --source-repo PATH)"
+        # Two causes, two remedies: no repo at all (a scratch copy run without
+        # --source-repo), or a repo that lacks the pinned commit (history
+        # rewritten, or a pin never re-gated).  Naming the flag for the second
+        # sent the reader after a flag that was already passed.
+        if [[ -z "$transfer_repo" ]]; then
+            transfer_status="NOT-RUN (no git tree for $gated_commit; pass --source-repo PATH)"
+        else
+            transfer_status="NOT-RUN (pinned gated_commit $gated_commit is not in $transfer_repo; re-gate and accept a fresh bundle)"
+        fi
         verdict="FAIL"
         echo "transfer_gate: $transfer_status" >&2
     elif ! fg_transfer_pin_verify "$qa_dir" "$pkg_dir"; then

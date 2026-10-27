@@ -586,15 +586,18 @@ capture noisily {
     local saw_flt = 0
     local saw_flt5 = 0
     local saw_fltwhy = 0
+    local notew = 0
     file open `fh6' using `"`fltlog'"', read text
     file read `fh6' line
     while r(eof) == 0 {
+        if substr(`"`line'"', 1, 2) != ". " ///
+            local notew = max(`notew', ustrlen(`"`line'"'))
         local _p = strpos(`"`line'"', "precede the first cause-event time (")
         if `_p' > 0 {
             local _rest = substr(`"`line'"', `_p' + 36, .)
             local tprint = substr(`"`_rest'"', 1, strpos(`"`_rest'"', ")") - 1)
         }
-        if strpos(`"`line'"', "requested time(s) .1 .3 lie just below a cause-event time") > 0 ///
+        if strpos(`"`line'"', "horizon(s) .1 .3 lie just below a cause-event time") > 0 ///
             local saw_flt = 1
         if strpos(`"`line'"', ".5 lie just below") > 0 local saw_flt5 = 1
         if strpos(`"`line'"', "stored as float") > 0 local saw_fltwhy = 1
@@ -604,6 +607,13 @@ capture noisily {
     display as text "  first cause-event time printed as `tprint'"
     assert "`tprint'" != ""
     assert real("`tprint'") == scalar(`tmin')
+    * Fewest digits that read back: 17 significant digits.  The 9/12/15/18/21
+    * width ladder skipped them and printed .1000000014901161194 (19).
+    assert "`tprint'" == ".10000000149011612"
+    * Logged at linesize 255, so nothing wraps: every printed line must still
+    * fit an 80-column Results window (the float note's second line was 84).
+    display as text "  widest printed line: `notew' columns"
+    assert `notew' <= 80
     assert `saw_flt' == 1
     assert `saw_flt5' == 0
     assert `saw_fltwhy' == 1
@@ -648,7 +658,7 @@ capture noisily {
     file open `fh8' using `"`intlog'"', read text
     file read `fh8' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "requested time(s) 2.99999999 lie just below") > 0 local saw_int = 1
+        if strpos(`"`line'"', "horizon(s) 2.99999999 lie just below") > 0 local saw_int = 1
         if strpos(`"`line'"', "float") > 0 & strpos(`"`line'"', "stored") > 0 local saw_intwhy = 1
         file read `fh8' line
     }

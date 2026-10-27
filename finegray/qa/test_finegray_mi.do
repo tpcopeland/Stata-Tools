@@ -741,7 +741,7 @@ capture noisily {
     log close _cf
     _fgmi_saw using "`capfit'", phrase("fitted on multiple-imputation data")
     assert r(saw) == 1
-    _fgmi_saw using "`capfit'", phrase("e(postest)=unavailable_mi")
+    _fgmi_saw using "`capfit'", phrase("e(postest) records as unavailable_mi")
     assert r(saw) == 1
 
     tempfile caprep

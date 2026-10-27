@@ -92,7 +92,7 @@ foreach seed of local seeds {
     gen double p1 = 1 - (1 - 0.5)^ez
     gen byte cause = cond(runiform() < p1, 1, 2)
     gen double v = runiform()
-    gen double event_time = -ln(1 - (1 - (1 - v*p1)^(1/ez))/0.5) if cause == 1
+    quietly gen double event_time = -ln(1 - (1 - (1 - v*p1)^(1/ez))/0.5) if cause == 1
     quietly replace event_time = rexponential(1/(0.5*exp(0.5*z1 + 0.5*z2))) if cause == 2
     gen double censor_time = min(rexponential(1/0.15), 6)
     gen double entry_time = rexponential(1/cond(z1 == 1, 1.6, 0.5))
