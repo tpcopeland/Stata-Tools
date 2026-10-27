@@ -102,7 +102,8 @@ local core_files `quick_files' ///
     validation_nuisance_strata_numeric.do ///
     validation_tvc_recovery.do ///
     validation_pweight_recovery.do ///
-    crossval_predict_stcrreg.do
+    crossval_predict_stcrreg.do ///
+    crossval_finegray_published_stcrreg.do
 local python_files test_finegray_oracles.do crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
     crossval_finegray_dta.do crossval_finegray_zzf.do crossval_finegray_zzf_ties.do crossval_nuisance.do ///
     crossval_bstrata.do crossval_public_studies.do ///
@@ -138,7 +139,8 @@ local gates_files validation_finegray_zzf_recovery.do ///
 local adversarial_files test_finegray_adversarial_v130.do ///
     test_finegray_adversarial_v120.do
 
-local full_files `core_files' `adversarial_files' `python_files' validation_variance_default_mc.do
+local full_files `core_files' `adversarial_files' `python_files' validation_variance_default_mc.do ///
+    validation_finegray_cif_calibration.do validation_finegray_predict_calibration.do
 
 local all_files ``lane'_files'
 

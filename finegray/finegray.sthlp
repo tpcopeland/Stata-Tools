@@ -290,7 +290,13 @@ post-estimation restrictions.
 {opth cluster(varname)} adjusts standard errors for intragroup correlation, treating
 whole clusters as the resampling unit. {cmd:finegray} requires more clusters
 than coefficients and errors out otherwise. {opt cluster()} is not allowed with
-{opt norobust}.
+{opt norobust}. Like {helpb stcrreg}, the intervals and tests use normal
+critical values, so with about 100 or fewer clusters they are modestly
+liberal: Zhou, Fine, Latouche and Labopin (2012, table 1) report test sizes of
+0.058-0.065 at nominal 0.05 with 100 clusters, reaching nominal by 250.
+With few clusters, prefer a bootstrap of the whole fit that
+resamples clusters ({help finegray##vcebootstrap:Bootstrap coefficient inference},
+with the cluster variable in {cmd:bootstrap}'s {opt cluster()}).
 
 {phang}
 {opt noadjust} suppresses the finite-sample adjustment applied to the
@@ -1127,6 +1133,12 @@ Zhou B, Latouche A, Rocha V, Fine J. Competing risks regression for stratified
 data. {it:Biometrics} 2011; 67(2): 661-670.
 
 {pstd}{browse "https://doi.org/10.1111/j.1541-0420.2010.01493.x":doi:10.1111/j.1541-0420.2010.01493.x}{p_end}
+
+{pstd}
+Zhou B, Fine J, Latouche A, Labopin M. Competing risks regression for clustered
+data. {it:Biostatistics} 2012; 13(3): 371-383.
+
+{pstd}{browse "https://doi.org/10.1093/biostatistics/kxr032":doi:10.1093/biostatistics/kxr032}{p_end}
 
 
 {marker author}{...}
