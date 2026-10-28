@@ -1,12 +1,12 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-10-28T01:34:27Z
+date:        2026-10-28T02:49:19Z
 verdict:     PASS
-pkg_tree:    dc4f7c00b5b87a8507398b2ef23823e77a30c0cb (clean)
-head_commit: 5d3625e38652fcab170d54749d964b8cfa199cb4
+pkg_tree:    3d60693735577b71142fcf1bcffe1c228963cf5c (clean)
+head_commit: 3552300f3a6a547dc433666eb3a1b87f11702700
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /home/tpcopeland/finegray_runs/rel1027/lane_full/Stata-Tools/finegray [matches-source-repo (tracked files incl. qa/; 381 files) manifest-sha256 f41408497972d50db80223c37bb3a9838cee6a676caf480ed567d3b90de16301]
+run_tree:    /home/tpcopeland/finegray_runs/rel1027/lane_full2/Stata-Tools/finegray [matches-source-repo (tracked files incl. qa/; 381 files) manifest-sha256 da3a2ddafa1c66890720d6b95a1ae04babcc32349b371ecdb9b590e540ba0030]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   PASS
@@ -112,7 +112,7 @@ RESULT: crossval_public_studies tests=5 pass=5 fail=0 skip=0
 RESULT: crossval_tvc tests=7 pass=7 fail=0 skip=0
 RESULT: crossval_tvc_bstrata tests=6 pass=6 fail=0 skip=0
 RESULT: crossval_pweight tests=2 pass=2 fail=0 skip=0
-RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=25
-RESULT: validation_finegray_cif_calibration tests=30 pass=30 fail=0 smoke=0 secs=208
-RESULT: validation_finegray_predict_calibration tests=12 pass=12 fail=0 smoke=0 secs=147
+RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=22
+RESULT: validation_finegray_cif_calibration tests=30 pass=30 fail=0 smoke=0 secs=178
+RESULT: validation_finegray_predict_calibration tests=12 pass=12 fail=0 smoke=0 secs=129
 RESULT: run_all tests=97 pass=97 fail=0 skip=0
