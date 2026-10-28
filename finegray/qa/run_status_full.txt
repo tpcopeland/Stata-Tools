@@ -1,18 +1,18 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-10-27T20:34:03Z
+date:        2026-10-28T01:34:27Z
 verdict:     PASS
-pkg_tree:    b082e04af39b3e319983623cb02dc240cd80f400 (clean)
-head_commit: 6ca5221bf90d236b4e0199c828b101cb4d044e96
+pkg_tree:    dc4f7c00b5b87a8507398b2ef23823e77a30c0cb (clean)
+head_commit: 5d3625e38652fcab170d54749d964b8cfa199cb4
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/2613d3e4-8283-4d8a-8188-3629031b84a0/scratchpad/fgruns/final2/Stata-Tools/finegray [matches-source-repo (tracked files incl. qa/; 376 files) manifest-sha256 7f883d5be3d2ae7adfc30925e1fd56ba7d963611e79a4c963332474355297062]
+run_tree:    /home/tpcopeland/finegray_runs/rel1027/lane_full/Stata-Tools/finegray [matches-source-repo (tracked files incl. qa/; 381 files) manifest-sha256 f41408497972d50db80223c37bb3a9838cee6a676caf480ed567d3b90de16301]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   PASS
 wrapper_test: PASS
 audit_qa_test: PASS
-transfer_gate: PASS (4 arms identical vs 86e8624d4f2341f61cad554cbb28e9ba5b9cd756)
+transfer_gate: PASS (4 arms identical vs 4b0f1b6ee1d0ed8233416ee9122cf82948c3015c)
 
 per-suite RESULT trail (as echoed by each suite):
 RESULT: validation_fixture_recovery tests=4 pass=4 fail=0 skip=0
@@ -93,6 +93,7 @@ RESULT: validation_nuisance_strata_numeric tests=7 pass=7 fail=0
 RESULT: validation_tvc_recovery tests=27 pass=27 fail=0 repdrop=0
 RESULT: validation_pweight_recovery tests=13 pass=13 fail=0 repdrop=0
 RESULT: crossval_predict_stcrreg tests=15 pass=15 fail=0 skip=0
+RESULT: crossval_finegray_published_stcrreg tests=4 pass=4 fail=0 skip=0
 RESULT: test_finegray_adversarial_v130 tests=21 pass=21 fail=0
 RESULT: test_finegray_adversarial_v120 tests=8 pass=8 fail=0
 RESULT: test_finegray_oracles tests=10 pass=10 fail=0
@@ -111,5 +112,7 @@ RESULT: crossval_public_studies tests=5 pass=5 fail=0 skip=0
 RESULT: crossval_tvc tests=7 pass=7 fail=0 skip=0
 RESULT: crossval_tvc_bstrata tests=6 pass=6 fail=0 skip=0
 RESULT: crossval_pweight tests=2 pass=2 fail=0 skip=0
-RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=21
-RESULT: run_all tests=94 pass=94 fail=0 skip=0
+RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=25
+RESULT: validation_finegray_cif_calibration tests=30 pass=30 fail=0 smoke=0 secs=208
+RESULT: validation_finegray_predict_calibration tests=12 pass=12 fail=0 smoke=0 secs=147
+RESULT: run_all tests=97 pass=97 fail=0 skip=0
