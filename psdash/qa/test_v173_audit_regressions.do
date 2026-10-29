@@ -534,7 +534,7 @@ program define _v173_file_has, rclass
     return scalar found = `found'
 end
 
-**# E1: weight-histogram frequency axes print whole counts
+**# E1: weight-histogram axes carry within-arm fractions at default format (v1.9.0: no raw counts, no ".00")
 capture noisily {
     clear
     set seed 2
@@ -547,25 +547,28 @@ capture noisily {
     quietly psdash weights t ps, graph name(v173w1)
     quietly graph export `"`svg1'.svg"', name(v173w1) replace as(svg)
     mata: st_numscalar("v173_dec", ustrregexm(invtokens(cat(st_local("svg1") + ".svg")', char(10)), ">[0-9]+\.00<"))
-    mata: st_numscalar("v173_int", ustrregexm(invtokens(cat(st_local("svg1") + ".svg")', char(10)), ">[1-9][0-9]+<"))
+    mata: st_numscalar("v173_int", ustrregexm(invtokens(cat(st_local("svg1") + ".svg")', char(10)), ">[1-9][0-9][0-9]+<"))
+    mata: st_numscalar("v173_frac1", ustrregexm(invtokens(cat(st_local("svg1") + ".svg")', char(10)), ">\.[0-9]<"))
     assert scalar(v173_dec) == 0
-    assert scalar(v173_int) == 1
+    * fraction axis: default labels (.2, .4), never a multi-digit raw count
+    assert scalar(v173_int) == 0
+    assert scalar(v173_frac1) == 1
     * The binary dashboard's weights panel runs the same graph code.
     * Overlap + weights panels; a density axis never reaches 10, so a
     * multi-digit ".00" label can only be a histogram count.
     quietly psdash combined t ps, covariates(x) nobalance nosupport
     quietly graph export `"`svg2'.svg"', name(psdash_combined) replace as(svg)
     mata: st_numscalar("v173_dec", ustrregexm(invtokens(cat(st_local("svg2") + ".svg")', char(10)), ">[1-9][0-9]+\.00<"))
-    mata: st_numscalar("v173_int", ustrregexm(invtokens(cat(st_local("svg2") + ".svg")', char(10)), ">[1-9][0-9]+<"))
-    assert scalar(v173_int) == 1
+    mata: st_numscalar("v173_int", ustrregexm(invtokens(cat(st_local("svg2") + ".svg")', char(10)), ">[1-9][0-9][0-9]+<"))
+    assert scalar(v173_int) == 0
     assert scalar(v173_dec) == 0
-    * The compact fraction axis keeps its decimals.
+    * compact is accepted and gives the same fraction axis.
     quietly psdash weights t ps, graph compact name(v173w3)
     quietly graph export `"`svg3'.svg"', name(v173w3) replace as(svg)
-    mata: st_numscalar("v173_frac", ustrregexm(invtokens(cat(st_local("svg3") + ".svg")', char(10)), ">0\.[0-9][0-9]<"))
+    mata: st_numscalar("v173_frac", ustrregexm(invtokens(cat(st_local("svg3") + ".svg")', char(10)), ">\.[0-9]<"))
     assert scalar(v173_frac) == 1
     graph drop _all
-    scalar drop v173_dec v173_int v173_frac
+    scalar drop v173_dec v173_int v173_frac v173_frac1
 }
 _v173_record `=_rc' "E1: weight histogram frequency axis prints whole counts"
 

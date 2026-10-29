@@ -71,18 +71,31 @@ and a caution is printed.
 {opt det:ail} displays percentile and arm-specific diagnostics.
 
 {phang}
-{opt gr:aph} requests a weight-distribution graph.
+{opt gr:aph} requests a weight-distribution graph. Histograms show each
+treatment arm's within-arm fraction: a bar's height is the number of the arm's
+weights in that bin divided by all of the arm's weights. When a long tail would
+flatten the bulk of the distribution, the displayed range stops at a round value
+and the graph note reports how many weights lie above it and the maximum; the
+omitted weights still count in their arm's denominator, so the displayed bars of
+a clipped arm sum to less than one. Every reported statistic uses all weights.
+A dashed line marks weight = 1 and is explained in the graph note when 1 lies
+inside the displayed range.
 
 {phang}
-{opt compact} scales each treatment arm's histogram to within-arm fractions
-instead of raw frequencies. This is useful in compact dashboards and when arm
-sample sizes differ.
+{opt compact} is accepted for compatibility; histograms are always scaled to
+within-arm fractions, so arm sizes do not distort the comparison.
 
 {phang}
 {opt sav:ing(filename)} saves the graph.
 
 {phang}
-{opt xlabel(numlist)} sets graph x-axis labels.
+{opt xlabel(numlist)} sets graph x-axis labels. The largest value is the
+upper limit of the displayed range; weights above it are left out of the
+histogram and counted in the graph note. If some arm has no weight at or
+below that value, the range is not limited and a note says so. Only numbers
+are accepted (no text labels or suboptions). Supplying {cmd:xscale()} (or
+{cmd:xsc()}) in {opt graphoptions()} gives the user full control of the axis:
+nothing is omitted and no omission note is added.
 
 {phang}
 {opt sch:eme(schemename)} sets the graph scheme.

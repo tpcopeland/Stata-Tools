@@ -247,6 +247,10 @@ capture noisily {
         psvars(p1 p2 p3) levels(1 2 3) name(psd_mc_detail_layout) ///
         gpsfloor(.01) title("Regression Title")
 
+    * One row of three panels: K = 3 components laid out in 3 columns. The
+    * shared legend sits in an outer combine, so the row is checked through
+    * the returned layout rather than the outer command string.
+    assert r(K) == 3
     assert r(combine_cols) == 3
     assert r(panel_1_floor_line) == 1
     assert r(panel_2_floor_line) == 0
@@ -257,7 +261,6 @@ capture noisily {
     assert r(panel_3_min) > .01
 
     graph describe psd_mc_detail_layout
-    assert strpos("`r(command)'", "cols(3)") > 0
     assert real("`r(xsize)'") >= 2 * real("`r(ysize)'")
     graph drop psd_mc_detail_layout
 }
@@ -338,10 +341,30 @@ capture noisily {
 
     psdash weights treat ps, wvar(wt) graph compact name(psd_mc_weight_axis)
     graph describe psd_mc_weight_axis
-    assert strpos(`"`r(command)'"', "xlabel(0(2)10,") > 0
-    assert strpos(`"`r(command)'"', "wt <= 10") > 0
+    assert strpos(`"`r(command)'"', "xlabel(0(2)10)") > 0
     assert strpos(`"`r(command)'"', "1 weight above 10") > 0
-    assert strpos(`"`r(command)'"', "fraction") > 0
+    assert strpos(`"`r(command)'"', `"ytitle("Fraction")"') > 0
+    * the remote weight is not drawn: every plotted bin centre is <= 10, and
+    * the arm holding it keeps its true scale (999 of 1000/2 weights shown)
+    forvalues p = 1/2 {
+        local iy = `.psd_mc_weight_axis.plotregion1.plot`p'.yvar'
+        local ix = `.psd_mc_weight_axis.plotregion1.plot`p'.xvar'
+        local sid = `.psd_mc_weight_axis.plotregion1.plot`p'.serset.id'
+        preserve
+        serset set `sid'
+        serset use, clear
+        quietly ds
+        local vy : word `iy' of `r(varlist)'
+        local vx : word `ix' of `r(varlist)'
+        quietly summarize `vx'
+        assert r(max) <= 10
+        quietly summarize `vy'
+        local hs`p' = r(sum)
+        restore
+    }
+    assert abs(`hs1' - 1) < 1e-6 | abs(`hs1' - 499/500) < 1e-6
+    assert abs(`hs2' - 1) < 1e-6 | abs(`hs2' - 499/500) < 1e-6
+    assert abs(`hs1' + `hs2' - (1 + 499/500)) < 1e-6
     graph drop psd_mc_weight_axis
 }
 _psdash_mc_record weights_adaptive_tail_axis `=_rc'

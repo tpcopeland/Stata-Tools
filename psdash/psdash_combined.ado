@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.8.0  2026/10/13
+*! psdash_combined Version 1.9.0  2026/10/29
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -21,6 +21,8 @@ Options:
     nobalance           - Skip balance panel
     noweights           - Skip weights panel
     nosupport           - Skip support panel
+    supportgraph        - Binary: show the support density panel instead of
+                          the Diagnostic Summary scorecard (earlier layout)
     saving(string)      - Save combined graph
     scheme(string)      - Graph scheme
     title(string)       - Dashboard title
@@ -47,6 +49,7 @@ program define psdash_combined, rclass
          NOBalance ///
          NOWeights ///
          NOSupport ///
+         SUPPORTGraph ///
          DRYrun ///
          REPort(string) ///
          SAVing(string) ///
@@ -182,13 +185,13 @@ program define psdash_combined, rclass
     }
 
     if "`longitudinal'" == "1" {
-        if "`nooverlap'`nobalance'`noweights'`nosupport'" != "" | ///
+        if "`nooverlap'`nobalance'`noweights'`nosupport'`supportgraph'" != "" | ///
                 `"`report'"' != "" | `"`saving'"' != "" | ///
                 `"`scheme'"' != "" | `threshold' != 0.1 | ///
                 `overlapmax' != 10 | `essmin' != 50 | ///
                 `imbalmax' != 0 | `gpsfloor' != 0.01 {
             display as error "cross-sectional panel and output options are unavailable for longitudinal diagnostics"
-            display as error "  omit panel suppression, report(), saving(), scheme(), and custom thresholds"
+            display as error "  omit panel suppression, supportgraph, report(), saving(), scheme(), and custom thresholds"
             exit 198
         }
         if "`title'" == "" local title "Longitudinal Propensity Score Diagnostics"
@@ -345,11 +348,26 @@ program define psdash_combined, rclass
     local _all_findings ""
     local _total_nfind = 0
     local _panels_run = 0
+    * Binary dashboards replace the support density (a near-copy of the overlap
+    * density) with a Diagnostic Summary scorecard unless supportgraph is
+    * given. The support analysis always runs; only its graph is dropped. With
+    * nooverlap the support graph takes the overlap slot so the bounds stay
+    * visible. Scorecard rows (_sc_*) are built from each panel's r(), captured
+    * before any later command can clobber it.
+    local _sc_show = ("`multigroup'" == "0" & "`supportgraph'" == "")
+    if "`multigroup'" != "0" & "`supportgraph'" != "" & "`nosupport'" == "" {
+        display as text "note: supportgraph ignored: the multi-group dashboard always draws the support panel"
+    }
+    local _sc_rows ""
+    local _sc_support_graph = 1
+    if `_sc_show' & "`nooverlap'" == "" local _sc_support_graph = 0
 
     * OVERLAP PANEL
     if "`nooverlap'" == "" {
+        local _nf0 = `_total_nfind'
+        local _sc_ft ""
         display as text _n "{bf:=== OVERLAP DIAGNOSTICS ===}"
-        local _panel_cmd `"psdash_overlap `treatment' `psvar' if `touse', name(psdash_c_overlap) `scheme_opt' title("PS Overlap") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `compact_subcmd_opt'"'
+        local _panel_cmd `"psdash_overlap `treatment' `psvar' if `touse', name(psdash_c_overlap) _panel `scheme_opt' title("PS Overlap") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `compact_subcmd_opt'"'
         capture noisily `_panel_cmd' `rep_overlap'
         local _panel_rc = _rc
         if `_panel_rc' {
@@ -363,6 +381,8 @@ program define psdash_combined, rclass
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
         local _pct = r(pct_outside)
+        local _sc_nout = r(n_outside)
+        local _sc_n = r(N)
         if "`_pw'" == "" local _pw = 0
         * The combined threshold replaces the panel's built-in 10% cutoff.
         * Preserve every other panel finding (boundaries, orientation, GPS
@@ -380,22 +400,31 @@ program define psdash_combined, rclass
             local verdict_warnings "`verdict_warnings' overlap"
             local _all_findings `"`_all_findings' [overlap] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
+            local _sc_ft `"`_pwt'"'
         }
         if "`multigroup'" == "0" & `_pct' > `overlapmax' {
             local verdict_warnings "`verdict_warnings' overlap"
             local _all_findings `"`_all_findings' [overlap] `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
             local _total_nfind = `_total_nfind' + 1
+            local _sc_ft `"`_sc_ft' | `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
         }
         local _panels_run = `_panels_run' + 1
+        if `_sc_show' {
+            local _sc_l1 "`=strtrim(string(`_pct', "%5.2f"))'% outside common support"
+            local _sc_l2 "`_sc_nout' of `_sc_n' obs (overlapmax `overlapmax'%)"
+            local _sc_rows `"`_sc_rows' row`=`_panels_run''(`"Overlap"' `"`=`_total_nfind' - `_nf0''"' `"`_sc_l1'"' `"`_sc_l2'"' `"`_sc_ft'"')"'
+        }
         return add
     }
 
     * BALANCE PANEL
     if "`nobalance'" == "" & "`covariates'" != "" {
+        local _nf0 = `_total_nfind'
+        local _sc_ft ""
         display as text _n "{bf:=== BALANCE DIAGNOSTICS ===}"
         local wvar_opt ""
         if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
-        local _panel_cmd `"psdash_balance `treatment' `psvar' if `touse', covariates(`covariates') `wvar_opt' threshold(`threshold') loveplot name(psdash_c_balance) `scheme_opt' title("Covariate Balance") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt'"'
+        local _panel_cmd `"psdash_balance `treatment' `psvar' if `touse', covariates(`covariates') `wvar_opt' threshold(`threshold') loveplot name(psdash_c_balance) _panel `scheme_opt' title("Covariate Balance") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt'"'
         capture noisily `_panel_cmd' `rep_balance'
         local _panel_rc = _rc
         if `_panel_rc' {
@@ -409,6 +438,8 @@ program define psdash_combined, rclass
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
         local _nimb = r(n_imbalanced)
+        local _sc_smd_raw = r(max_smd_raw)
+        local _sc_smd_adj = r(max_smd_adj)
         local _panel_vars `"`r(varlist)'"'
         local _nvars : word count `_panel_vars'
         if "`_pw'" == "" local _pw = 0
@@ -427,13 +458,28 @@ program define psdash_combined, rclass
             local verdict_warnings "`verdict_warnings' balance"
             local _all_findings `"`_all_findings' [balance] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
+            local _sc_ft `"`_pwt'"'
         }
         if `_nimb' > `imbalmax' {
             local verdict_warnings "`verdict_warnings' balance"
             local _all_findings `"`_all_findings' [balance] `_nimb' covariate(s) > imbalmax(`imbalmax')"'
             local _total_nfind = `_total_nfind' + 1
+            local _sc_ft `"`_sc_ft' | `_nimb' covariate(s) > imbalmax(`imbalmax')"'
         }
         local _panels_run = `_panels_run' + 1
+        if `_sc_show' {
+            * Same labels and %6.3f format as the panel's console summary.
+            local _sc_l1 "max |SMD| `=strtrim(string(`_sc_smd_raw', "%6.3f"))' raw"
+            if !missing(`_sc_smd_adj') {
+                local _sc_l1 "`_sc_l1', `=strtrim(string(`_sc_smd_adj', "%6.3f"))' adjusted"
+            }
+            * Threshold as the balance panel's band key prints it: leading
+            * zero, the user's decimals kept (0.1, 0.125).
+            local _sc_thr = strtrim(string(abs(`threshold'), "%10.0g"))
+            if substr("`_sc_thr'", 1, 1) == "." local _sc_thr "0`_sc_thr'"
+            local _sc_l2 "`_nimb' of `_nvars' covariates > `_sc_thr' (imbalmax `imbalmax')"
+            local _sc_rows `"`_sc_rows' row`=`_panels_run''(`"Balance"' `"`=`_total_nfind' - `_nf0''"' `"`_sc_l1'"' `"`_sc_l2'"' `"`_sc_ft'"')"'
+        }
         return add
     }
     else if "`nobalance'" == "" & "`covariates'" == "" {
@@ -442,10 +488,12 @@ program define psdash_combined, rclass
 
     * WEIGHTS PANEL
     if "`noweights'" == "" {
+        local _nf0 = `_total_nfind'
+        local _sc_ft ""
         display as text _n "{bf:=== WEIGHT DIAGNOSTICS ===}"
         local wvar_opt ""
         if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
-        local _panel_cmd `"psdash_weights `treatment' `psvar' if `touse', `wvar_opt' graph name(psdash_c_weights) `scheme_opt' estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `compact_subcmd_opt'"'
+        local _panel_cmd `"psdash_weights `treatment' `psvar' if `touse', `wvar_opt' graph name(psdash_c_weights) _panel `scheme_opt' estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `compact_subcmd_opt'"'
         capture noisily `_panel_cmd' `rep_weights'
         local _panel_rc = _rc
         if `_panel_rc' {
@@ -459,6 +507,10 @@ program define psdash_combined, rclass
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
         local _ess = r(ess_pct)
+        local _sc_essn = r(ess)
+        local _sc_ess_t = r(ess_pct_treated)
+        local _sc_ess_c = r(ess_pct_control)
+        local _sc_maxw = r(max_wt)
         if "`_pw'" == "" local _pw = 0
         * essmin() replaces only the panel's overall-ESS cutoff. Per-arm ESS,
         * CV, extreme-weight, dominance, and positivity findings still apply.
@@ -475,20 +527,38 @@ program define psdash_combined, rclass
             local verdict_warnings "`verdict_warnings' weights"
             local _all_findings `"`_all_findings' [weights] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
+            local _sc_ft `"`_pwt'"'
         }
         if `_ess' < `essmin' {
             local verdict_warnings "`verdict_warnings' weights"
             local _all_findings `"`_all_findings' [weights] ESS `=string(`_ess',"%4.1f")'% < essmin(`essmin')"'
             local _total_nfind = `_total_nfind' + 1
+            local _sc_ft `"`_sc_ft' | ESS `=string(`_ess',"%4.1f")'% < essmin(`essmin')"'
         }
         local _panels_run = `_panels_run' + 1
+        if `_sc_show' {
+            local _sc_l1 "ESS `=strtrim(string(`_sc_essn', "%12.1f"))', `=strtrim(string(`_ess', "%6.1f"))'% of N (essmin `essmin'%)"
+            local _sc_arm "treated"
+            local _sc_armpct = `_sc_ess_t'
+            if `_sc_ess_c' < `_sc_ess_t' {
+                local _sc_arm "control"
+                local _sc_armpct = `_sc_ess_c'
+            }
+            local _sc_l2 "min arm ESS `=strtrim(string(`_sc_armpct', "%6.1f"))'% (`_sc_arm'); max weight `=strtrim(string(`_sc_maxw', "%12.3f"))'"
+            local _sc_rows `"`_sc_rows' row`=`_panels_run''(`"Weights"' `"`=`_total_nfind' - `_nf0''"' `"`_sc_l1'"' `"`_sc_l2'"' `"`_sc_ft'"')"'
+        }
         return add
     }
 
     * SUPPORT PANEL
     if "`nosupport'" == "" {
+        local _nf0 = `_total_nfind'
+        local _sc_ft ""
         display as text _n "{bf:=== COMMON SUPPORT ASSESSMENT ===}"
-        local _panel_cmd `"psdash_support `treatment' `psvar' if `touse', name(psdash_c_support) `scheme_opt' title("Common Support") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `compact_subcmd_opt'"'
+        local _sup_graph_opt `"name(psdash_c_support) _panel `scheme_opt' title("Common Support")"'
+        * title() also heads the panel's console output, so keep it without the graph.
+        if !`_sc_support_graph' local _sup_graph_opt `"nograph title("Common Support")"'
+        local _panel_cmd `"psdash_support `treatment' `psvar' if `touse', `_sup_graph_opt' estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `compact_subcmd_opt'"'
         capture noisily `_panel_cmd' `rep_support'
         local _panel_rc = _rc
         if `_panel_rc' {
@@ -498,10 +568,18 @@ program define psdash_combined, rclass
             `_panel_cmd'
             if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
         }
-        local graph_list "`graph_list' psdash_c_support"
+        if `_sc_support_graph' {
+            * With nooverlap the binary support density takes the overlap slot.
+            if `_sc_show' local graph_list "psdash_c_support `graph_list'"
+            else local graph_list "`graph_list' psdash_c_support"
+        }
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
         local _pct = r(pct_outside)
+        local _sc_nout = r(n_outside)
+        local _sc_n = r(N)
+        local _sc_lb = r(lower_bound)
+        local _sc_ub = r(upper_bound)
         if "`_pw'" == "" local _pw = 0
         * As for overlap, overlapmax() replaces the binary panel's built-in
         * 10% cutoff. Multi-group verdicts use full-vector GPS positivity;
@@ -519,32 +597,59 @@ program define psdash_combined, rclass
             local verdict_warnings "`verdict_warnings' support"
             local _all_findings `"`_all_findings' [support] `_pwt'"'
             local _total_nfind = `_total_nfind' + `_pw'
+            local _sc_ft `"`_pwt'"'
         }
         if "`multigroup'" == "0" & `_pct' > `overlapmax' {
             local verdict_warnings "`verdict_warnings' support"
             local _all_findings `"`_all_findings' [support] `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
             local _total_nfind = `_total_nfind' + 1
+            local _sc_ft `"`_sc_ft' | `=string(`_pct',"%4.1f")'% outside > overlapmax(`overlapmax')"'
         }
         local _panels_run = `_panels_run' + 1
+        if `_sc_show' {
+            local _sc_l1 "`=`_sc_n' - `_sc_nout'' of `_sc_n' inside support (`=strtrim(string(100 * (`_sc_n' - `_sc_nout') / `_sc_n', "%6.2f"))'%)"
+            local _sc_l2 "bounds [`=strtrim(string(`_sc_lb', "%10.4f"))', `=strtrim(string(`_sc_ub', "%10.4f"))']"
+            local _sc_rows `"`_sc_rows' row`=`_panels_run''(`"Support"' `"`=`_total_nfind' - `_nf0''"' `"`_sc_l1'"' `"`_sc_l2'"' `"`_sc_ft'"')"'
+        }
         return add
     }
+
+    * Overall verdict (RB-01 binary policy: ANY finding across any panel -> FAIL;
+    * PASS only when every executed panel is clean). Decided once, before the
+    * combine, so the Diagnostic Summary scorecard and r(verdict) read the same
+    * value; the console lines below still print after the graph is built.
+    local verdict_warnings = strtrim("`verdict_warnings'")
+    local verdict_warnings : list uniq verdict_warnings
+    local _all_findings = strtrim("`_all_findings'")
+    local n_warnings = `_total_nfind'
+    if `_total_nfind' == 0 local verdict "PASS"
+    else local verdict "FAIL"
 
     * COMBINE GRAPHS
     local ngraphs : word count `graph_list'
 
     if `ngraphs' > 0 & `_psdash_side_rc' == 0 {
         capture noisily {
+            local combine_scheme ""
+            if "`scheme'" != "" {
+                local combine_scheme "scheme(`scheme')"
+            }
+
+            if `_sc_show' {
+                _psdash_c_summary_graph, name(psdash_c_summary) ///
+                    verdict(`verdict') nfindings(`_total_nfind') ///
+                    npanels(`_panels_run') cellrows(`=cond(`ngraphs' <= 1, 1, 2)') ///
+                    scheme(`scheme') `_sc_rows'
+                local graph_list "`graph_list' psdash_c_summary"
+                local ngraphs : word count `graph_list'
+            }
+
             * Determine layout
             if `ngraphs' <= 2 {
                 local layout "rows(1)"
             }
             else {
                 local layout "rows(2)"
-            }
-
-            local combine_scheme ""
-            if "`scheme'" != "" {
-                local combine_scheme "scheme(`scheme')"
             }
 
             graph combine `graph_list', ///
@@ -571,19 +676,11 @@ program define psdash_combined, rclass
         exit 198
     }
 
-    * Overall verdict (RB-01 binary policy: ANY finding across any panel -> FAIL;
-    * PASS only when every executed panel is clean).
-    local verdict_warnings = strtrim("`verdict_warnings'")
-    local verdict_warnings : list uniq verdict_warnings
-    local _all_findings = strtrim("`_all_findings'")
-    local n_warnings = `_total_nfind'
-    if `_total_nfind' == 0 {
-        local verdict "PASS"
+    if "`verdict'" == "PASS" {
         display as text _n "Overall: " as result "PASS" ///
             as text " (" as result `_panels_run' as text " panel(s), 0 findings)"
     }
     else {
-        local verdict "FAIL"
         display as text _n "Overall: " as text "{err}FAIL{txt}" ///
             as text " (" as result `_total_nfind' as text " finding(s) across " ///
             as result `_panels_run' as text " panel(s): " as result "`verdict_warnings'" as text ")"
@@ -649,5 +746,169 @@ program define psdash_combined, rclass
     if `rc' == 0 & `_psdash_side_rc' {
         local rc = `_psdash_side_rc'
     }
+    if `rc' exit `rc'
+end
+
+* File-private helper: Diagnostic Summary scorecard panel for the binary
+* dashboard. A twoway graph with no axes stating the overall verdict and one row
+* per executed panel. Every number arrives pre-formatted from psdash_combined,
+* so the scorecard repeats exactly what the console and r() report; this helper
+* decides nothing and computes nothing.
+*   rowN() = "Panel" "#findings" "metric line 1" ["metric line 2" ["findings"]]
+capture program drop _psdash_c_summary_graph
+program define _psdash_c_summary_graph, nclass
+    version 16.0
+    local _vao = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , NAME(name) VERDict(string) NFINDings(integer) ///
+            NPANels(integer) [CELLrows(integer 2) SCHeme(string) TItle(string asis) ///
+            ROW1(string asis) ROW2(string asis) ROW3(string asis) ///
+            ROW4(string asis)]
+
+        if !inlist("`verdict'", "PASS", "FAIL") {
+            display as error "_psdash_c_summary_graph: verdict() must be PASS or FAIL"
+            exit 198
+        }
+        if `"`title'"' == "" local title `""Diagnostic Summary""'
+
+        * Accessible status colours on a white background (WCAG contrast
+        * >= 4.5:1); the words PASS/FAIL and OK/Flag carry the meaning too.
+        local c_ok "26 127 55"
+        local c_bad "180 35 24"
+
+        * Parse rows first: the layout is line-based (a row is 2 or 3 lines).
+        local nrows = 0
+        local nlines = 0
+        forvalues i = 1/4 {
+            if `"`row`i''"' == "" continue
+            local ++nrows
+            local spec `"`row`i''"'
+            gettoken r_name`nrows' spec : spec
+            gettoken r_nf`nrows' spec : spec
+            gettoken r_l1`nrows' spec : spec
+            gettoken r_l2`nrows' spec : spec
+            gettoken lf spec : spec
+            confirm integer number `r_nf`nrows''
+            * Findings arrive " | "-separated, as in r(warnings); show them
+            * "; "-separated, wrapped onto at most two lines of the cell.
+            local lf = strtrim(`"`lf'"')
+            if usubstr(`"`lf'"', 1, 2) == "| " local lf = usubstr(`"`lf'"', 3, .)
+            local lf = subinstr(`"`lf'"', " | ", "; ", .)
+            local r_lf`nrows' `"`lf'"'
+        }
+
+        * Vertical positions are offsets from the top in units of a 2x2
+        * dashboard cell; a rows(1) dashboard (cellrows(1)) has cells about
+        * twice as tall, so offsets are halved to keep the same on-screen
+        * spacing, packed under the title.
+        local k = cond(`cellrows' == 1, 0.5, 1)
+
+        local txt ""
+        * Headline: the verdict word alone, so it equals r(verdict) exactly.
+        local vcol = cond("`verdict'" == "PASS", "`c_ok'", "`c_bad'")
+        local txt `"`txt' text(`=100 - 7 * `k'' 50 "{bf:`verdict'}", size(vlarge) color("`vcol'") placement(c))"'
+        local fword = cond(`nfindings' == 1, "finding", "findings")
+        local pword = cond(`npanels' == 1, "panel", "panels")
+        local txt `"`txt' text(`=100 - 19 * `k'' 50 "`nfindings' `fword' across `npanels' `pword'", size(small) placement(c))"'
+
+        * Rows share the band from y = 74 down to y = 0; each row gets its
+        * lines plus a gap, so flagged rows grow and clean rows stay compact.
+        * Findings wrap at a word boundary onto up to two red lines; text
+        * beyond that ends in "..." (r(warnings) holds the full list). When
+        * every row is flagged the pitch would fall below what small text
+        * needs (about 5.5 units in a 2x2 cell): step the text down one size
+        * and tighten the gaps; if even then two finding lines per row do not
+        * fit (about 4.6 units for vsmall text), each finding keeps one line.
+        local nsize "medsmall"
+        local tsize "small"
+        local gapf = 0.8
+        local maxch = 50
+        local maxlf = 2
+        forvalues pass = 1/3 {
+            local nlines = 0
+            forvalues i = 1/`nrows' {
+                local rest `"`r_lf`i''"'
+                local nl = 0
+                while `"`rest'"' != "" & `nl' < `maxlf' {
+                    local ++nl
+                    if ustrlen(`"`rest'"') <= `maxch' {
+                        local w_`i'_`nl' `"`rest'"'
+                        local rest ""
+                    }
+                    else {
+                        local cut = 0
+                        forvalues c = `maxch'(-1)2 {
+                            if usubstr(`"`rest'"', `c', 1) == " " {
+                                local cut = `c'
+                                continue, break
+                            }
+                        }
+                        if `cut' == 0 local cut = `maxch'
+                        local w_`i'_`nl' = strtrim(usubstr(`"`rest'"', 1, `cut'))
+                        local rest = strtrim(usubstr(`"`rest'"', `cut' + 1, .))
+                    }
+                }
+                if `"`rest'"' != "" {
+                    local last `"`w_`i'_`nl''"'
+                    if ustrlen(`"`last'"') > `maxch' - 3 {
+                        local last = strtrim(usubstr(`"`last'"', 1, `maxch' - 3))
+                    }
+                    local w_`i'_`nl' `"`last'..."'
+                }
+                local w_n`i' = `nl'
+                local nlines = `nlines' + 1 + (`"`r_l2`i''"' != "") + `nl'
+            }
+            local d = 74 / max(`nlines' + `gapf' * `nrows', 1)
+            if `pass' == 1 {
+                local d = min(7, `d')
+                if `d' >= 5.5 continue, break
+                local nsize "small"
+                local tsize "vsmall"
+                local gapf = 0.5
+                local maxch = 58
+            }
+            else if `pass' == 2 {
+                if `d' >= 4.6 continue, break
+                local maxlf = 1
+            }
+        }
+        * y is the offset from the top; 100 - k*y is the plot coordinate.
+        local y = 26
+        local seps ""
+        forvalues i = 1/`nrows' {
+            local seps "`seps' `=100 - `k' * `y''"
+            local y = `y' + `gapf' * `d' / 2 + 0.5 * `d'
+            local scol = cond(`r_nf`i'' == 0, "`c_ok'", "`c_bad'")
+            local sword = cond(`r_nf`i'' == 0, "OK", "Flag")
+            local txt `"`txt' text(`=100 - `k' * `y'' 1 "{bf:`r_name`i''}", size(`nsize') placement(e) justification(left))"'
+            local txt `"`txt' text(`=100 - `k' * `y'' 99 "{bf:`sword'}", size(`nsize') color("`scol'") placement(w) justification(right))"'
+            local txt `"`txt' text(`=100 - `k' * `y'' 21 `"`r_l1`i''"', size(`tsize') placement(e) justification(left))"'
+            if `"`r_l2`i''"' != "" {
+                local y = `y' + `d'
+                local txt `"`txt' text(`=100 - `k' * `y'' 21 `"`r_l2`i''"', size(`tsize') placement(e) justification(left))"'
+            }
+            forvalues j = 1/`w_n`i'' {
+                local y = `y' + `d'
+                local txt `"`txt' text(`=100 - `k' * `y'' 21 `"`w_`i'_`j''"', size(`tsize') color("`c_bad'") placement(e) justification(left))"'
+            }
+            local y = `y' + 0.5 * `d' + `gapf' * `d' / 2
+        }
+
+        local scheme_opt ""
+        if "`scheme'" != "" local scheme_opt "scheme(`scheme')"
+
+        twoway (scatteri 0 0 100 100, msymbol(none)), ///
+            `txt' ///
+            yline(`seps', lcolor(gs13) lwidth(thin) lpattern(solid)) ///
+            xscale(off range(0 100)) yscale(off range(0 100)) ///
+            xlabel(none, nogrid) ylabel(none, nogrid) ///
+            xtitle("") ytitle("") legend(off) ///
+            plotregion(margin(zero) style(none)) ///
+            title(`title') ///
+            name(`name', replace) `scheme_opt'
+    }
+    local rc = _rc
+    set varabbrev `_vao'
     if `rc' exit `rc'
 end

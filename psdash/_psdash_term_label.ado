@@ -1,4 +1,4 @@
-*! _psdash_term_label Version 1.8.0  2026/10/13
+*! _psdash_term_label Version 1.9.0  2026/10/29
 *! Readable Love-plot labels for covariate design terms
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

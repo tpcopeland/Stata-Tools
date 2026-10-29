@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.8.0  2026/10/13
+*! psdash_balance Version 1.9.0  2026/10/29
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -92,7 +92,26 @@ program define psdash_balance, rclass
          STRATegies(string) ///
          DISTribution(varlist numeric) ///
          VRBounds(numlist min=2 max=2 >0 ascending) ///
-         PSVars(varlist numeric)]
+         PSVars(varlist numeric) ///
+         _PANEL]
+
+    * _panel (undocumented, set by psdash combined): the graph is drawn as a
+    * 2x2 dashboard panel, which fixes text sizes and keeps scale 1.
+    local _axpanel = cond("`_panel'" != "", "panel", "")
+    * Panel text sizes: those of the white_tableau scheme, so a scheme with
+    * larger defaults (s2color, s1mono) cannot push the legend past the cell.
+    local _plgsz ""
+    local _pxlsz ""
+    local _ptsz ""
+    if "`_panel'" != "" {
+        local _plgsz "size(small) symxsize(5) keygap(vsmall) colgap(small)"
+        local _pxlsz ", labsize(small)"
+        local _ptsz ", size(small)"
+    }
+    * A user ysize()/aspectratio() (minimum abbreviations ysiz, aspect) in
+    * graphoptions() keeps the user's graph shape.
+    local _usershape_re "(^|[^a-z0-9_])(ysiz(e)?|aspect(r|ra|rat|rati|ratio)?)[ ]*[(]"
+
 
     if "`noweights'" != "" {
         local nowvar "nowvar"
@@ -405,6 +424,7 @@ program define psdash_balance, rclass
         exit 198
     }
     if "`sheet'" == "" local sheet "Balance"
+    local _title_user = ("`title'" != "")
     if "`title'" == "" local title "Covariate Balance Assessment"
     if "`name'" == "" local name "psdash_balance"
     local _graphopts0 "`graphoptions'"
@@ -710,36 +730,43 @@ program define psdash_balance, rclass
                     local graphoptions `"scheme(`scheme') `graphoptions'"'
                 }
 
-                * Compute dynamic x-axis range
-                summarize smd_raw
-                local xmax = max(abs(r(min)), abs(r(max)), `threshold') * 1.1
-                local xmax = max(`xmax', 0.5)
-                local xmax = ceil(`xmax' * 4) / 4
-                if `has_adj' {
-                    summarize smd_adj
-                    local xmax2 = max(abs(r(min)), abs(r(max))) * 1.1
-                    local xmax = max(`xmax', `xmax2')
-                    local xmax = ceil(`xmax' * 4) / 4
-                }
-                local xstep = cond(`xmax' <= 1, 0.25, cond(`xmax' <= 5, 0.5, cond(`xmax' <= 20, 5, 10)))
+                * x range fitted to the data (0, +/-threshold and every SMD),
+                * ticks on a round step, shaded |SMD| < threshold band drawn first
+                local _axvars "smd_raw"
+                if `has_adj' local _axvars "smd_raw smd_adj"
+                * psdash combined draws this graph as a dashboard panel (graph combine
+                * ignores a sub-graph's size but honours scale()), so it keeps scale 1
+                _psdash_balance_axis `_axvars', threshold(`threshold') nvars(`nvars') scheme(`scheme') `_axpanel'
+                local _xlab `"`r(xlabel)'"'
+                local _xscl `"`r(xscale)'"'
+                local _ysz `"`r(ysize)'"'
+                local _gscl `"`r(scale)'"'
+                _psdash_balance_band, threshold(`threshold') nvars(`nvars')
+                local _band_key `"`r(key)'"'
+                label values band_y orderlab
 
-                * Generate plot
-                local plotopts "xline(-`threshold' `threshold', lcolor(red) lpattern(dash))"
-                local plotopts "`plotopts' xline(0, lcolor(gs8) lpattern(solid))"
-                local plotopts "`plotopts' ylabel(1(1)`nvars', valuelabel angle(0) labsize(small))"
-                local plotopts "`plotopts' xlabel(-`xmax'(`xstep')`xmax')"
-                local plotopts "`plotopts' ytitle("") xtitle("Standardized Mean Difference")"
+                local plotopts "xline(0, lcolor(gs8) lpattern(solid))"
+                local plotopts "`plotopts' ylabel(1(1)`nvars', valuelabel angle(0) labsize(small)) yscale(range(0.5 `=`nvars'+0.5'))"
+                local plotopts `"`plotopts' xlabel(`_xlab'`_pxlsz') xscale(`_xscl')"'
+                local plotopts `"`plotopts' ytitle("") xtitle("Standardized Mean Difference"`_ptsz')"'
                 local plotopts `"`plotopts' title(`"`title'"')"'
+                if !regexm(lower(`"`graphoptions'"'), "`_usershape_re'") local plotopts "`plotopts' ysize(`_ysz') scale(`_gscl')"
 
+                local _band_plot "(rarea band_lo band_hi band_y, horizontal fcolor(gs12%45) lwidth(none))"
+                _psdash_pstyles, scheme(`scheme') graphopts(`graphoptions')
+                local _ps2 : word 2 of `s(order)'
                 if `has_adj' {
-                    local plotopts "`plotopts' legend(order(1 "Unadjusted" 2 "Adjusted") rows(1) position(6))"
-                    noisily twoway (scatter order smd_raw, msymbol(circle) pstyle(p1)) ///
-                           (scatter order smd_adj, msymbol(diamond) pstyle(p6)), ///
+                    local plotopts `"`plotopts' legend(order(2 "Unadjusted" 3 "Adjusted" 1 `"`_band_key'"') rows(`=cond("`_panel'" != "", 2, 1)') position(6) `_plgsz')"'
+                    noisily twoway `_band_plot' ///
+                           (scatter order smd_raw, msymbol(circle) pstyle(p1)) ///
+                           (scatter order smd_adj, msymbol(diamond) pstyle(p`_ps2')), ///
                            `plotopts' `graphoptions' name(`name', replace)
                 }
                 else {
-                    noisily twoway (scatter order smd_raw, msymbol(circle) pstyle(p1)), ///
-                           `plotopts' `graphoptions' legend(off) name(`name', replace)
+                    local plotopts `"`plotopts' legend(order(2 "Unadjusted" 1 `"`_band_key'"') rows(1) position(6) `_plgsz')"'
+                    noisily twoway `_band_plot' ///
+                           (scatter order smd_raw, msymbol(circle) pstyle(p1)), ///
+                           `plotopts' `graphoptions' name(`name', replace)
                 }
 
                 if "`saving'" != "" {
@@ -771,7 +798,7 @@ program define psdash_balance, rclass
                     forvalues i = 1/`nvars' {
                         matrix `smd_strat'[`i', `sidx'] = `balance_mat'[`i', 3]
                     }
-                    local strat_labels `"`strat_labels' `sidx' "Unadjusted""'
+                    local strat_labels `"`strat_labels' `=`sidx' + 1' "Unadjusted""'
                 }
                 else {
                     quietly {
@@ -807,7 +834,7 @@ program define psdash_balance, rclass
                         matrix `smd_strat'[`i', `sidx'] = `_bs'[`i', 8]
                     }
                     local slab = strupper("`s'")
-                    local strat_labels `"`strat_labels' `sidx' "`slab'""'
+                    local strat_labels `"`strat_labels' `=`sidx' + 1' "`slab'""'
                 }
             }
 
@@ -848,32 +875,45 @@ program define psdash_balance, rclass
                 local _go "`_graphopts0'"
                 if "`scheme'" != "" local _go `"scheme(`scheme') `_go'"'
 
-                summarize abs_smd_max
-                local xmax = max(r(max), `threshold') * 1.1
-                local xmax = max(`xmax', 0.5)
-                local xmax = ceil(`xmax' * 4) / 4
-                local xstep = cond(`xmax' <= 1, 0.25, cond(`xmax' <= 5, 0.5, cond(`xmax' <= 20, 5, 10)))
+                * x range fitted to the data (0, +/-threshold and every strategy's SMD)
+                local _axvars ""
+                forvalues s = 1/`nstrat' {
+                    local _axvars "`_axvars' smd_`s'"
+                }
+                * psdash combined draws this graph as a dashboard panel (graph combine
+                * ignores a sub-graph's size but honours scale()), so it keeps scale 1
+                _psdash_balance_axis `_axvars', threshold(`threshold') nvars(`nvars') scheme(`scheme') `_axpanel'
+                local _xlab `"`r(xlabel)'"'
+                local _xscl `"`r(xscale)'"'
+                local _ysz `"`r(ysize)'"'
+                local _gscl `"`r(scale)'"'
+                _psdash_balance_band, threshold(`threshold') nvars(`nvars')
+                local _band_key `"`r(key)'"'
+                label values band_y orderlab
 
-                * Series colours come from the active scheme in the order p1, p6, p2, p3,
-                * p4, p5, p7, ...: p6 is the second style because p1 vs p2 is nearly
-                * identical in sequential schemes (viridis, cividis, jet). See psdash.sthlp.
+                * Series colours follow the active scheme in the order _psdash_pstyles
+                * returns: p1, p2, p3, ...; in sequential schemes, where p2 sits next to
+                * p1, the order is p1, p6, p2, p3, ... See psdash.sthlp.
+                _psdash_pstyles, scheme(`scheme') graphopts(`graphoptions')
+                local _pso "`s(order)'"
                 local symbol_list "circle diamond triangle square plus X smcircle smsquare"
                 local plot_cmd ""
                 forvalues s = 1/`nstrat' {
-                    local pst = cond(`s' == 1, 1, cond(`s' == 2, 6, cond(`s' <= 6, `s' - 1, mod(`s' - 1, 15) + 1)))
+                    local pst : word `=mod(`s' - 1, 15) + 1' of `_pso'
                     local sym : word `s' of `symbol_list'
                     local plot_cmd `"`plot_cmd' (scatter order smd_`s', msymbol(`sym') pstyle(p`pst'))"'
                 }
 
-                local plotopts "xline(-`threshold' `threshold', lcolor(red) lpattern(dash))"
-                local plotopts "`plotopts' xline(0, lcolor(gs8) lpattern(solid))"
-                local plotopts "`plotopts' ylabel(1(1)`nvars', valuelabel angle(0) labsize(small))"
-                local plotopts "`plotopts' xlabel(-`xmax'(`xstep')`xmax')"
-                local plotopts "`plotopts' ytitle("") xtitle("Standardized Mean Difference")"
+                local plotopts "xline(0, lcolor(gs8) lpattern(solid))"
+                local plotopts "`plotopts' ylabel(1(1)`nvars', valuelabel angle(0) labsize(small)) yscale(range(0.5 `=`nvars'+0.5'))"
+                local plotopts `"`plotopts' xlabel(`_xlab'`_pxlsz') xscale(`_xscl')"'
+                local plotopts `"`plotopts' ytitle("") xtitle("Standardized Mean Difference"`_ptsz')"'
                 local plotopts `"`plotopts' title(`"`title'"')"'
-                local plotopts `"`plotopts' legend(order(`strat_labels') rows(1) position(6))"'
+                if !regexm(lower(`"`_go'"'), "`_usershape_re'") local plotopts "`plotopts' ysize(`_ysz') scale(`_gscl')"
+                local plotopts `"`plotopts' legend(order(`strat_labels' 1 `"`_band_key'"') rows(1) position(6) `_plgsz')"'
 
-                noisily twoway `plot_cmd', `plotopts' `_go' name(`name', replace)
+                noisily twoway (rarea band_lo band_hi band_y, horizontal fcolor(gs12%45) lwidth(none)) ///
+                    `plot_cmd', `plotopts' `_go' name(`name', replace)
 
                 if "`saving'" != "" {
                     _psdash_graph_export, saving("`saving'")
@@ -889,44 +929,91 @@ program define psdash_balance, rclass
     }
 
     * DISTRIBUTIONAL BALANCE PLOT (F1, binary)
+    local _lgname ""
     if "`distribution'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
             quietly {
                 local _other_graph = ("`loveplot'" != "" | "`strategies'" != "")
                 local _go "`_graphopts0'"
                 if "`scheme'" != "" local _go `"scheme(`scheme') `_go'"'
+                _psdash_pstyles, graphopts(`_go')
+                local _ps2 : word 2 of `s(order)'
                 local _dist_names ""
+                local _ndv : word count `distribution'
                 local _dk = 0
                 foreach dv of local distribution {
                     local _dk = `_dk' + 1
                     local _gname "`name'_dist`_dk'"
                     _psdash_term_label `dv', `varnames'
                     local _dvlab `"`r(label_1)'"'
+                    * Weighted = solid, full colour, thicker; raw = lighter dashed,
+                    * same hue per arm. Several panels share one legend (below);
+                    * a lone panel keeps its own.
+                    local _plegend "legend(off)"
                     if `has_adj' {
+                        if `_ndv' == 1 local _plegend `"legend(order(3 "Treated (weighted)" 4 "Control (weighted)" 1 "Treated (raw)" 2 "Control (raw)") size(small) rows(2) position(6))"'
                         noisily twoway ///
-                            (kdensity `dv' if `treatment'==1 & `touse', pstyle(p1) lpattern(solid)) ///
-                            (kdensity `dv' if `treatment'==0 & `touse', pstyle(p6) lpattern(solid)) ///
-                            (kdensity `dv' [aw=`wvar'] if `treatment'==1 & `touse', pstyle(p1) lpattern(dash)) ///
-                            (kdensity `dv' [aw=`wvar'] if `treatment'==0 & `touse', pstyle(p6) lpattern(dash)), ///
-                            legend(order(1 "Treated (raw)" 2 "Control (raw)" ///
-                                3 "Treated (wtd)" 4 "Control (wtd)") size(vsmall) rows(2) position(6)) ///
-                            xtitle("`_dvlab'") ytitle("Density") title("`_dvlab'", size(medium)) ///
+                            (kdensity `dv' if `treatment'==1 & `touse', pstyle(p1) lpattern(dash) lwidth(medium) lcolor(%60)) ///
+                            (kdensity `dv' if `treatment'==0 & `touse', pstyle(p`_ps2') lpattern(dash) lwidth(medium) lcolor(%60)) ///
+                            (kdensity `dv' [aw=`wvar'] if `treatment'==1 & `touse', pstyle(p1) lpattern(solid) lwidth(medthick)) ///
+                            (kdensity `dv' [aw=`wvar'] if `treatment'==0 & `touse', pstyle(p`_ps2') lpattern(solid) lwidth(medthick)), ///
+                            `_plegend' ///
+                            xtitle("`_dvlab'") ytitle("Density") ylabel(, angle(horizontal)) ///
+                            title("`_dvlab'", size(medium)) ///
                             name(`_gname', replace) `_go'
                     }
                     else {
+                        if `_ndv' == 1 local _plegend `"legend(order(1 "Treated" 2 "Control") size(small) rows(1) position(6))"'
                         noisily twoway ///
-                            (kdensity `dv' if `treatment'==1 & `touse', pstyle(p1)) ///
-                            (kdensity `dv' if `treatment'==0 & `touse', pstyle(p6)), ///
-                            legend(order(1 "Treated" 2 "Control") size(small) rows(1) position(6)) ///
-                            xtitle("`_dvlab'") ytitle("Density") title("`_dvlab'", size(medium)) ///
+                            (kdensity `dv' if `treatment'==1 & `touse', pstyle(p1) lwidth(medthick)) ///
+                            (kdensity `dv' if `treatment'==0 & `touse', pstyle(p`_ps2') lwidth(medthick)), ///
+                            `_plegend' ///
+                            xtitle("`_dvlab'") ytitle("Density") ylabel(, angle(horizontal)) ///
+                            title("`_dvlab'", size(medium)) ///
                             name(`_gname', replace) `_go'
                     }
                     local _dist_names "`_dist_names' `_gname'"
                 }
                 local _ndist : word count `_dist_names'
                 if `_ndist' > 1 {
-                    graph combine `_dist_names', name(`name'_dist, replace) ///
-                        title(`"`title' — covariate distributions"')
+                    * One shared legend in a legend-only cell after the panels
+                    * A temporary name: `name'_distlegend could exceed 32
+                    * characters for a long name(); dropped after combining.
+                    tempname _lgname
+                    local _lgsch ""
+                    if "`scheme'" != "" local _lgsch "scheme(`scheme')"
+                    if `has_adj' {
+                        noisily twoway ///
+                            (function y = ., range(0 1) pstyle(p1) lpattern(solid) lwidth(medthick)) ///
+                            (function y = ., range(0 1) pstyle(p`_ps2') lpattern(solid) lwidth(medthick)) ///
+                            (function y = ., range(0 1) pstyle(p1) lpattern(dash) lwidth(medium) lcolor(%60)) ///
+                            (function y = ., range(0 1) pstyle(p`_ps2') lpattern(dash) lwidth(medium) lcolor(%60)), ///
+                            legend(order(1 "Treated (weighted)" 2 "Control (weighted)" 3 "Treated (raw)" 4 "Control (raw)") ///
+                                cols(1) ring(0) position(0) size(medium) symxsize(*1.6) region(lstyle(none))) ///
+                            xscale(off) yscale(off) xlabel(none) ylabel(none) xtitle("") ytitle("") ///
+                            plotregion(style(none)) graphregion(style(none)) name(`_lgname', replace) `_lgsch'
+                    }
+                    else {
+                        noisily twoway ///
+                            (function y = ., range(0 1) pstyle(p1) lwidth(medthick)) ///
+                            (function y = ., range(0 1) pstyle(p`_ps2') lwidth(medthick)), ///
+                            legend(order(1 "Treated" 2 "Control") ///
+                                cols(1) ring(0) position(0) size(medium) symxsize(*1.6) region(lstyle(none))) ///
+                            xscale(off) yscale(off) xlabel(none) ylabel(none) xtitle("") ytitle("") ///
+                            plotregion(style(none)) graphregion(style(none)) name(`_lgname', replace) `_lgsch'
+                    }
+                    local _dcols = cond(`_ndist' + 1 <= 3, `_ndist' + 1, cond(`_ndist' + 1 == 4, 2, 3))
+                    if `_title_user' {
+                        local _dtitle `"`title'"'
+                    }
+                    else if `has_adj' {
+                        local _dtitle "Covariate Distributions: Raw vs Weighted"
+                    }
+                    else {
+                        local _dtitle "Covariate Distributions: Treated vs Control"
+                    }
+                    graph combine `_dist_names' `_lgname', cols(`_dcols') name(`name'_dist, replace) ///
+                        title(`"`_dtitle'"')
                 }
                 if "`saving'" != "" & !`_other_graph' {
                     _psdash_graph_export, saving("`saving'")
@@ -934,6 +1021,10 @@ program define psdash_balance, rclass
             }
         }
         local graph_rc = _rc
+        if "`_lgname'" != "" {
+            capture graph drop `_lgname'
+            local _lg_drop_rc = _rc
+        }
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'
         }
@@ -1451,67 +1542,112 @@ program define psdash_balance, rclass
                     local graphoptions `"scheme(`scheme') `graphoptions'"'
                 }
 
-                * Compute dynamic x-axis range
-                local xmax = `threshold' * 1.1
+                * Dodge the comparisons vertically inside each covariate row
+                * (first comparison on top) so their markers do not overlap.
+                local ncon : word count `contrasts'
+                local dstep = min(0.25, 0.6 / max(`ncon' - 1, 1))
                 local cnum = 0
                 foreach clev of local contrasts {
-                    local cnum = `cnum' + 1
-                    foreach _sv in smd smda {
-                        if "`_sv'" == "smda" & !`has_adj' continue
-                        summarize `_sv'_`cnum'
-                        local xm = max(abs(r(min)), abs(r(max))) * 1.1
-                        if `xm' > `xmax' local xmax = `xm'
-                    }
+                    local ++cnum
+                    quietly generate double ypos_`cnum' = order + ((`ncon' + 1) / 2 - `cnum') * `dstep'
                 }
-                local xmax = max(`xmax', 0.5)
-                local xmax = ceil(`xmax' * 4) / 4
-                local xstep = cond(`xmax' <= 1, 0.25, cond(`xmax' <= 5, 0.5, cond(`xmax' <= 20, 5, 10)))
+
+                * x range fitted to the data (0, +/-threshold and every SMD)
+                local _axvars ""
+                forvalues c = 1/`ncon' {
+                    local _axvars "`_axvars' smd_`c'"
+                    if `has_adj' local _axvars "`_axvars' smda_`c'"
+                }
+                * psdash combined draws this graph as a dashboard panel (graph combine
+                * ignores a sub-graph's size but honours scale()), so it keeps scale 1
+                _psdash_balance_axis `_axvars', threshold(`threshold') nvars(`nvars') scheme(`scheme') `_axpanel'
+                local _xlab `"`r(xlabel)'"'
+                local _xscl `"`r(xscale)'"'
+                local _ysz `"`r(ysize)'"'
+                local _gscl `"`r(scale)'"'
+                _psdash_balance_band, threshold(`threshold') nvars(`nvars')
+                local _band_key `"`r(key)'"'
+                label values band_y orderlab
 
                 * Build plot command: per contrast, a hollow raw series and,
                 * when weighted, a solid adjusted series in the same colour.
-                * Series colours come from the active scheme in the order p1, p6, p2, p3,
-                * p4, p5, p7, ...: p6 is the second style because p1 vs p2 is nearly
-                * identical in sequential schemes (viridis, cividis, jet). See psdash.sthlp.
+                * Series colours follow the active scheme in the order _psdash_pstyles
+                * returns: p1, p2, p3, ...; in sequential schemes, where p2 sits next to
+                * p1, the order is p1, p6, p2, p3, ... See psdash.sthlp.
+                _psdash_pstyles, scheme(`scheme') graphopts(`graphoptions')
+                local _pso "`s(order)'"
                 local symbol_list "circle diamond triangle square plus X smcircle smsquare"
                 local hollow_list "Oh Dh Th Sh plus X smcircle_hollow smsquare_hollow"
+                local hsize_list "medlarge medium medlarge medlarge medium medium medlarge medlarge"
                 local plot_cmd ""
                 local legend_order ""
                 local cnum = 0
-                local snum = 0
+                local snum = 1
                 foreach clev of local contrasts {
                     local cnum = `cnum' + 1
-                    local col = cond(`cnum' == 1, 1, cond(`cnum' == 2, 6, cond(`cnum' <= 6, `cnum' - 1, mod(`cnum' - 1, 15) + 1)))
+                    local col : word `=mod(`cnum' - 1, 15) + 1' of `_pso'
                     local sym : word `cnum' of `symbol_list'
                     local hsym : word `cnum' of `hollow_list'
+                    local hsz : word `cnum' of `hsize_list'
+                    if "`hsz'" == "" local hsz "medium"
                     local lbl `"`macval(_gl_`clev')' vs `macval(_gl_`mg_reference')'"'
+                    * A dashboard cell keys each comparison by its arm alone;
+                    * the note names the reference arm.
+                    if "`_panel'" != "" local lbl `"`macval(_gl_`clev')'"'
                     if `has_adj' {
                         * One legend key per contrast (its adjusted series);
                         * the note explains hollow = raw, which keeps the
-                        * legend narrow enough for a dashboard panel.
+                        * legend narrow enough for a dashboard panel. A thin
+                        * connector in the contrast's colour joins raw to adjusted.
                         local ++snum
-                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`hsym') pstyle(p`col'))"'
+                        local plot_cmd `"`plot_cmd' (pcspike ypos_`cnum' smd_`cnum' ypos_`cnum' smda_`cnum', pstyle(p`col') lwidth(thin))"'
                         local ++snum
-                        local plot_cmd `"`plot_cmd' (scatter order smda_`cnum', msymbol(`sym') pstyle(p`col'))"'
+                        local plot_cmd `"`plot_cmd' (scatter ypos_`cnum' smd_`cnum', msymbol(`hsym') msize(`hsz') pstyle(p`col'))"'
+                        local ++snum
+                        local plot_cmd `"`plot_cmd' (scatter ypos_`cnum' smda_`cnum', msymbol(`sym') pstyle(p`col'))"'
                         local legend_order `"`macval(legend_order)' `snum' `"`macval(lbl)'"'"'
                     }
                     else {
                         local ++snum
-                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`sym') pstyle(p`col'))"'
+                        local plot_cmd `"`plot_cmd' (scatter ypos_`cnum' smd_`cnum', msymbol(`sym') pstyle(p`col'))"'
                         local legend_order `"`macval(legend_order)' `snum' `"`macval(lbl)'"'"'
                     }
                 }
+                * Legend: one key per comparison plus the band; two rows when crowded
                 local legend_layout "rows(1)"
+                if `ncon' > 3 local legend_layout "rows(2)"
+                if "`_panel'" != "" {
+                    * In a dashboard cell the keys wrap onto two rows once their
+                    * text would not fit on one.
+                    local _lgchars = ustrlen(`"`_band_key'"') + 4
+                    foreach clev of local contrasts {
+                        local _lgchars = `_lgchars' + ustrlen(`"`macval(_gl_`clev')'"') + 4
+                    }
+                    local legend_layout = cond(`_lgchars' > 40 | `ncon' > 3, "rows(2)", "rows(1)")
+                    local legend_layout "`legend_layout' `_plgsz'"
+                }
+                local legend_order `"`macval(legend_order)' 1 `"`_band_key'"'"'
                 local raw_adj_note ""
                 if `has_adj' local raw_adj_note `"note("Hollow markers: unadjusted; solid markers: adjusted", size(small))"'
+                if "`_panel'" != "" {
+                    local _ref_note `"Each key: arm vs `macval(_gl_`mg_reference')' (reference)"'
+                    if `has_adj' local raw_adj_note `"note(`"`macval(_ref_note)'"' "Hollow markers: unadjusted; solid markers: adjusted", size(small))"'
+                    else local raw_adj_note `"note(`"`macval(_ref_note)'"', size(small))"'
+                }
 
-                local plotopts "xline(-`threshold' `threshold', lcolor(red) lpattern(dash))"
-                local plotopts "`plotopts' xline(0, lcolor(gs8) lpattern(solid))"
-                local plotopts "`plotopts' ylabel(1(1)`nvars', valuelabel angle(0) labsize(small))"
-                local plotopts "`plotopts' xlabel(-`xmax'(`xstep')`xmax')"
-                local plotopts "`plotopts' ytitle("") xtitle("Standardized Mean Difference")"
+                local plotopts "xline(0, lcolor(gs8) lpattern(solid))"
+                * A dashboard cell loses height to the two-line note, so more
+                * than four rows need smaller labels to stay apart.
+                local _ylsz "small"
+                if "`_panel'" != "" & `nvars' > 4 local _ylsz "vsmall"
+                local plotopts "`plotopts' ylabel(1(1)`nvars', valuelabel angle(0) labsize(`_ylsz')) yscale(range(0.5 `=`nvars'+0.5'))"
+                local plotopts `"`plotopts' xlabel(`_xlab'`_pxlsz') xscale(`_xscl')"'
+                local plotopts `"`plotopts' ytitle("") xtitle("Standardized Mean Difference"`_ptsz')"'
                 local plotopts `"`plotopts' title(`"`title'"')"'
+                if !regexm(lower(`"`graphoptions'"'), "`_usershape_re'") local plotopts "`plotopts' ysize(`_ysz') scale(`_gscl')"
 
-                noisily twoway `plot_cmd', ///
+                noisily twoway (rarea band_lo band_hi band_y, horizontal fcolor(gs12%45) lwidth(none)) ///
+                    `plot_cmd', ///
                     `plotopts' ///
                     legend(order(`macval(legend_order)') `legend_layout' position(6)) ///
                     `raw_adj_note' ///
@@ -1707,4 +1843,97 @@ program define psdash_balance, rclass
         }
     }
     if `rc' exit `rc'
+end
+
+* Love-plot axis helpers (called only from psdash_balance, same file)
+capture program drop _psdash_balance_axis
+program define _psdash_balance_axis, rclass
+    version 16.0
+    syntax varlist(numeric), THReshold(real) NVars(integer) [PANEL SCHeme(string)]
+    * Range = 0, +/-threshold and every plotted SMD (all series), no fixed floor
+    tempname lo hi
+    scalar `lo' = -abs(`threshold')
+    scalar `hi' = abs(`threshold')
+    foreach v of local varlist {
+        quietly summarize `v'
+        if r(N) > 0 {
+            scalar `lo' = min(`lo', r(min))
+            scalar `hi' = max(`hi', r(max))
+        }
+    }
+    * Round tick step: the first of a 1-2-2.5-5 ladder giving <= 9 intervals
+    local step = .
+    foreach cand in .01 .02 .05 .1 .2 .25 .5 1 2 2.5 5 10 20 25 50 100 200 500 1000 {
+        if `step' == . & (`hi' - `lo') / `cand' <= 9.0001 local step = `cand'
+    }
+    * Beyond the ladder (|SMD| in the thousands, e.g. a near-constant
+    * covariate): the same 1-2-2.5-5 rule on the range's power of ten, so the
+    * axis never carries more than 9 intervals.
+    if `step' == . {
+        local magnitude = 10^floor(log10((`hi' - `lo') / 9))
+        foreach m in 1 2 2.5 5 10 {
+            if `step' == . & (`hi' - `lo') / (`m' * `magnitude') <= 9.0001 local step = `m' * `magnitude'
+        }
+    }
+    local kmin = floor(`lo' / `step' + 1e-9)
+    local kmax = ceil(`hi' / `step' - 1e-9)
+    local xlab ""
+    forvalues k = 0/`=`kmax' - `kmin'' {
+        local xlab "`xlab' `=strtrim(string((`kmin' + `k') * `step', "%12.8g"))'"
+    }
+    local pad = 0.04 * (`kmax' - `kmin') * `step'
+    return local xlabel "`xlab'"
+    return local xscale "range(`=string(`kmin' * `step' - `pad', "%12.8g")' `=string(`kmax' * `step' + `pad', "%12.8g")')"
+    * Height proportional to the number of covariate rows
+    local ysz = max(3.25, min(12, 1.9 + 0.3 * `nvars'))
+    return local ysize = string(`ysz', "%6.2f")
+    * Stata sizes text and markers relative to the shorter graph side, so a
+    * resized graph rescales its type. Read the scheme's default size from a
+    * throwaway graph and rescale so type keeps the scheme's default size.
+    local dx = 5.5
+    local dy = 4
+    tempname probe
+    local sch ""
+    if "`scheme'" != "" local sch "scheme(`scheme')"
+    capture quietly twoway scatteri 0 0, nodraw name(`probe', replace) `sch'
+    if !_rc {
+        capture quietly graph describe `probe'
+        if !_rc {
+            local px `"`r(xsize)'"'
+            local py `"`r(ysize)'"'
+            capture confirm number `px'
+            local rcx = _rc
+            capture confirm number `py'
+            if !`rcx' & !_rc {
+                local dx = `px'
+                local dy = `py'
+            }
+        }
+        capture graph drop `probe'
+        local _probe_drop_rc = _rc
+    }
+    return local scale = cond("`panel'" != "", "1", string(min(`dx', `dy') / min(`dx', `ysz'), "%6.3f"))
+end
+
+capture program drop _psdash_balance_band
+program define _psdash_balance_band, rclass
+    version 16.0
+    syntax , THReshold(real) NVars(integer)
+    * Appends two rows holding the |SMD| < threshold band (x from -t to t, y from
+    * 0.5 to nvars + 0.5) to the plot dataset; they carry no SMD, so no marker
+    * is drawn for them.
+    local n0 = _N
+    quietly set obs `=`n0' + 2'
+    quietly generate double band_lo = .
+    quietly generate double band_hi = .
+    quietly generate double band_y = .
+    quietly replace band_lo = -abs(`threshold') in `=`n0' + 1'/`=`n0' + 2'
+    quietly replace band_hi = abs(`threshold') in `=`n0' + 1'/`=`n0' + 2'
+    quietly replace band_y = 0.5 in `=`n0' + 1'
+    quietly replace band_y = `nvars' + 0.5 in `=`n0' + 2'
+    * Leading zero, no rounding of the decimals the user set (0.1, 0.125);
+    * psdash combined prints the threshold on its scorecard the same way.
+    local tk = strtrim(string(abs(`threshold'), "%10.0g"))
+    if substr("`tk'", 1, 1) == "." local tk "0`tk'"
+    return local key `"|SMD| < `tk'"'
 end

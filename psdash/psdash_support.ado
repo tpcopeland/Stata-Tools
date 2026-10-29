@@ -1,4 +1,4 @@
-*! psdash_support Version 1.8.0  2026/10/13
+*! psdash_support Version 1.9.0  2026/10/29
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -99,7 +99,8 @@ program define psdash_support, rclass
          ESTImand(string) ///
          REFerence(string) ///
          PSVars(varlist numeric) ///
-         COMPACT]
+         COMPACT ///
+         _PANEL]
 
     if "`xlsx'" != "" {
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
@@ -635,8 +636,11 @@ program define psdash_support, rclass
                 * Build xline options. xline() has no legend key, so each
                 * reference-line style also gets an empty line plot whose only
                 * job is to label it in the legend.
-                local xlines "xline(`lower_bound' `upper_bound', lcolor(gs8) lpattern(dash))"
-                local keyplots "(scatteri . ., recast(line) lcolor(gs8) lpattern(dash))"
+                * shortdash (not dash) for line and key: a long-dash key is
+                * clipped to a dash plus a dot at the small key width of a
+                * shrunk panel (psdash combined).
+                local xlines "xline(`lower_bound' `upper_bound', lcolor(gs8) lpattern(shortdash))"
+                local keyplots "(scatteri . ., recast(line) lcolor(gs8) lpattern(shortdash))"
                 local legend_keys `"1 "Treated" 2 "Control" 3 "Common support bounds""'
                 local legend_rows "rows(1)"
                 if `has_trimming' {
@@ -648,14 +652,32 @@ program define psdash_support, rclass
                     local legend_rows "rows(2)"
                 }
 
+                * Horizontal y labels never collide with the y title. A 2x2
+                * dashboard panel (psdash combined) fixes the text sizes the
+                * white_tableau scheme uses, so a scheme with larger defaults
+                * (s2color, s1mono) cannot push the legend past the cell.
+                local legend_opt "`legend_rows' position(6)"
+                local ylab_opt "ylabel(, angle(horizontal))"
+                local xlab_opt "xlabel(0(.2)1)"
+                local tsz ""
+                if "`_panel'" != "" {
+                    * three keys do not fit one row of a cell in every scheme
+                    local legend_opt "rows(2) position(6) size(small) symxsize(5) keygap(vsmall) colgap(small)"
+                    local ylab_opt "ylabel(, angle(horizontal) labsize(small))"
+                    local xlab_opt "xlabel(0(.2)1, labsize(small))"
+                    local tsz ", size(small)"
+                }
+                _psdash_pstyles, scheme(`scheme') graphopts(`graphoptions')
+                local _ps2 : word 2 of `s(order)'
                 noisily twoway ///
                     (kdensity `psvar' if `touse' & `treatment' == 1, ///
                         pstyle(p1) lwidth(medthick)) ///
                     (kdensity `psvar' if `touse' & `treatment' == 0, ///
-                        pstyle(p6) lwidth(medthick)) ///
+                        pstyle(p`_ps2') lwidth(medthick)) ///
                     `keyplots', ///
-                    legend(order(`legend_keys') `legend_rows' position(6)) ///
-                    xscale(range(0 1)) xtitle("Propensity Score") ytitle("Density") ///
+                    legend(order(`legend_keys') `legend_opt') ///
+                    xscale(range(0 1)) `xlab_opt' `ylab_opt' ///
+                    xtitle("Propensity Score"`tsz') ytitle("Density"`tsz') ///
                     title(`"`title'"') ///
                     `xlines' ///
                     name(`name', replace) ///
@@ -1044,7 +1066,7 @@ program define psdash_support, rclass
             samplevar(`touse') psvars(`_mg_group_psvars') levels(`levels') ///
             name(`name') gpsfloor(`_graph_floor') ///
             title(`"`title'"') `_saving_opt' `_scheme_opt' `_graphoptions_opt' ///
-            `_compact_opt'
+            `_compact_opt' `_panel'
         local graph_rc = _rc
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'

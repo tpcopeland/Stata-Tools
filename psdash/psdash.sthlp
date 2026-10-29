@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  13oct2026}{...}
+{* *! version 1.9.0  29oct2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -161,7 +161,7 @@ Detailed topics: {helpb psdash_overlap:overlap},
 {cmd:psdash combined} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt w:var(varname)} {opt thr:eshold(#)}
 {opt overlap:max(#)} {opt ess:min(#)} {opt imbal:max(#)}
-{opt noo:verlap} {opt nob:alance} {opt now:eights} {opt nos:upport} {opt dry:run}
+{opt noo:verlap} {opt nob:alance} {opt now:eights} {opt nos:upport} {opt supportg:raph} {opt dry:run}
 {opt rep:ort(filename)} {opt sav:ing(filename)} {opt sch:eme(schemename)} {opt ti:tle(string)}
 {opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)} {opt gpsfloor(#)}]
 
@@ -293,15 +293,16 @@ produced.
 {phang}
 {opt scheme(schemename)} specifies the graph scheme. Series colours (treated,
 control, each group, contrast, or strategy) come from the scheme's plot styles,
-so {opt scheme()} and {cmd:set scheme} change them. They are taken in the order
-{cmd:p1}, {cmd:p6}, {cmd:p2}, {cmd:p3}, {cmd:p4}, {cmd:p5}, {cmd:p7}, ...: the
-second series (control, adjusted, or the second group) uses {cmd:p6} because in
-sequential schemes such as viridis, cividis, or jet {cmd:p1} and {cmd:p2} are
-nearly the same colour. Across Stata's built-in schemes and the 45 tc_schemes
-schemes, {cmd:p1} vs {cmd:p6} keeps a CIEDE2000 colour difference of at least
-15.6 (median 46), whereas {cmd:p1} vs {cmd:p2} falls to 5.2. A scheme can
-still define {cmd:p1} and {cmd:p6} alike, and graphs with three or more series
-reuse later styles; check the legend, and use symbols and line patterns,
+so {opt scheme()} and {cmd:set scheme} change them. They are taken in the
+scheme's own order {cmd:p1}, {cmd:p2}, {cmd:p3}, ... (blue, orange, green in
+{cmd:white_tableau}) when {cmd:p1} and {cmd:p2} are clearly different colours
+(CIE76 colour difference of at least 30). Sequential schemes such as viridis,
+cividis, or piyg put {cmd:p2} next to {cmd:p1}, so there the order is {cmd:p1},
+{cmd:p6}, {cmd:p2}, {cmd:p3}, {cmd:p4}, {cmd:p5}, {cmd:p7}, ... and the second
+series (control, adjusted, or the second group) keeps a distinct colour.
+Monochrome schemes such as {cmd:s1mono} draw every series in one colour either
+way. A scheme can still define both choices alike, and graphs with three or more
+series reuse later styles; check the legend, and use symbols and line patterns,
 which psdash also varies, when colours are close. Grouped box plots in
 {opt compact} multi-group panels use the scheme's own box order.
 Reference lines keep fixed colours: grey dashed for common-support or overlap
@@ -579,9 +580,9 @@ question.
 {opt graph} displays a weight distribution histogram.
 
 {phang}
-{opt compact} scales each treatment arm's histogram to within-arm fractions
-instead of raw frequencies. This makes arm shapes comparable when sample sizes
-differ and is used automatically by multi-group combined dashboards.
+{opt compact} is accepted for compatibility: each treatment arm's histogram is
+always scaled to within-arm fractions of all of that arm's weights, so arm shapes
+are comparable when sample sizes differ.
 
 {phang}
 {opt xlabel(numlist)} specifies custom x-axis labels for the weight histogram. It is
@@ -713,6 +714,21 @@ optimum.
 {opt nooverlap}, {opt nobalance}, {opt noweights}, {opt nosupport} suppress
 the corresponding panel from the combined dashboard.
 
+{pstd}
+For a binary treatment the combined graph shows the overlap density, the Love
+plot, the weight distribution, and a {bf:Diagnostic Summary} scorecard: the
+overall verdict ({cmd:PASS} or {cmd:FAIL}, as in {cmd:r(verdict)}) with its
+finding count, and one row per executed panel giving its key metrics and an
+{cmd:OK} or {cmd:Flag} status. The support analysis always runs and feeds the
+verdict and stored results; only its density graph, which repeats the overlap
+density, is left out. With {opt nooverlap} the support density is shown in the
+overlap panel's place.
+
+{phang}
+{opt supportgraph} restores the support density panel in place of the
+scorecard for a binary treatment. It does not change any diagnostic or stored
+result, and has no effect for multi-group treatments (a note says so).
+
 {phang}
 {opt threshold(#)} sets the SMD imbalance threshold for the balance panel in
 the combined dashboard. It is not passed to the support panel.
@@ -743,9 +759,9 @@ only.
 
 {pstd}
 When a longitudinal producer contract is detected, {cmd:psdash combined} routes
-to period diagnostics. {opt report()}, {opt saving()}, {opt scheme()}, and any
-{opt nooverlap}, {opt nobalance}, {opt noweights}, or {opt nosupport} option are
-rejected with {cmd:r(198)}. Nondefault values of {opt threshold()},
+to period diagnostics. {opt report()}, {opt saving()}, {opt scheme()},
+{opt supportgraph}, and any {opt nooverlap}, {opt nobalance}, {opt noweights}, or
+{opt nosupport} option are rejected with {cmd:r(198)}. Nondefault values of {opt threshold()},
 {opt overlapmax()}, {opt essmin()}, {opt imbalmax()}, or {opt gpsfloor()} are
 also rejected with {cmd:r(198)}. Defaults are accepted but do not alter period
 diagnostics; {opt title()}, {opt dryrun}, and explicit input overrides remain
@@ -1330,7 +1346,7 @@ position.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.8.0, 2026-10-13{p_end}
+{pstd}Version 1.9.0, 2026-10-29{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

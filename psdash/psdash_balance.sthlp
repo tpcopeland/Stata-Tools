@@ -79,8 +79,13 @@ the value must be positive.
 
 {phang}
 {opt love:plot} requests a Love plot of raw and, when weights are applied,
-adjusted SMDs. Multi-group contrasts are named with the treatment's value
-labels, shown verbatim, or with numeric codes for unlabelled levels. Rows
+adjusted SMDs. The x axis is fitted to the data (it always includes 0,
+the threshold, and every plotted SMD), the rows are spaced in proportion to the
+number of covariates, and a light band marks {bf:|SMD| < }{opt threshold()}.
+Multi-group plots offset the
+comparisons vertically within each covariate row and join each hollow
+(unadjusted) marker to its solid (adjusted) marker with a thin line. Multi-group
+contrasts are named with the treatment's value labels, shown verbatim, or with numeric codes for unlabelled levels. Rows
 are labelled with each covariate's variable label (factor levels as
 {it:label}{cmd::} {it:value label}), or with its name when it has no label.
 Labels over 40 characters are shortened with {cmd:...}; a label shared by two
@@ -134,7 +139,11 @@ table and its stored results are posted.
 
 {phang}
 {opt dist:ribution(varlist)} selects assessed covariates for distribution plots and
-is available for binary treatment only.
+is available for binary treatment only. Each covariate gets one density panel
+(weighted: solid, raw: lighter dashed, one hue per arm); panels share a single
+legend. Without {opt title()} the combined figure is titled
+"Covariate Distributions: Raw vs Weighted" when weights are used and
+"Covariate Distributions: Treated vs Control" without weights.
 
 {phang}
 {opt vrb:ounds(# #)} sets the lower and upper variance-ratio cutoffs; default is

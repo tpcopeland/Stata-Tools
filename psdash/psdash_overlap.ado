@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.8.0  2026/10/13
+*! psdash_overlap Version 1.9.0  2026/10/29
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -87,7 +87,8 @@ program define psdash_overlap, rclass
          REFerence(string) ///
          GPSFLOOR(real 0.01) ///
          PSVars(varlist numeric) ///
-         COMPACT]
+         COMPACT ///
+         _PANEL]
 
     * Validate gpsfloor() (multi-arm practical positivity floor on min_j e_j(X));
     * mirrors psdash support so the two panels are configured the same way.
@@ -366,22 +367,55 @@ program define psdash_overlap, rclass
                     local graphoptions `"scheme(`scheme') `graphoptions'"'
                 }
 
+                * xline() has no legend key, so the common-support bounds also
+                * get an empty line plot (plot 3) whose only job is to label
+                * them in the legend. shortdash (not dash) for both the line and
+                * its key: a long-dash key is clipped to a dash plus a dot at the
+                * small key width of a shrunk panel (psdash combined).
+                local xlines "xline(`overlap_lower' `overlap_upper', lcolor(gs8) lpattern(shortdash))"
+                local keyplots "(scatteri . ., recast(line) lcolor(gs8) lpattern(shortdash))"
+                local legend_keys `"1 "Treated" 2 "Control" 3 "Common support bounds""'
+                * Horizontal y labels never collide with the y title. A 2x2
+                * dashboard panel (psdash combined) fixes the text sizes the
+                * white_tableau scheme uses, so a scheme with larger defaults
+                * (s2color, s1mono) cannot push the legend past the cell.
+                local legend_opt "rows(1) position(6)"
+                local ylab_opt "ylabel(, angle(horizontal))"
+                local xlab_opt ""
+                local tsz ""
+                if "`_panel'" != "" {
+                    * three keys do not fit one row of a cell in every scheme
+                    local legend_opt "rows(2) position(6) size(small) symxsize(5) keygap(vsmall) colgap(small)"
+                    local ylab_opt "ylabel(, angle(horizontal) labsize(small))"
+                    local xlab_opt "xlabel(, labsize(small))"
+                    local tsz ", size(small)"
+                }
+
                 if "`histogram'" != "" {
-                    * Histogram version
-                    local ps_range = max(`max_ps_t', `max_ps_c') - min(`min_ps_t', `min_ps_c')
+                    * Histogram version: both groups share ONE start() and width()
+                    * so bins align; each histogram otherwise starts at its own
+                    * group minimum and the bars stagger.
+                    local ps_min = min(`min_ps_t', `min_ps_c')
+                    local ps_range = max(`max_ps_t', `max_ps_c') - `ps_min'
                     if `ps_range' <= 0 local ps_range = 1
                     local bw_hist = `ps_range' / `bins'
                     if `bw_hist' <= 0 local bw_hist = 0.05
 
+                    _psdash_pstyles, scheme(`scheme') graphopts(`graphoptions')
+                    local _ps2 : word 2 of `s(order)'
                     noisily twoway ///
                         (histogram `psvar' if `touse' & `treatment' == 1, ///
-                            frequency pstyle(p1) fcolor(%50) width(`bw_hist')) ///
+                            frequency pstyle(p1) fcolor(%50) ///
+                            start(`ps_min') width(`bw_hist')) ///
                         (histogram `psvar' if `touse' & `treatment' == 0, ///
-                            frequency pstyle(p6) fcolor(%50) width(`bw_hist')), ///
-                        legend(order(1 "Treated" 2 "Control") rows(1) position(6)) ///
-                        xtitle("Propensity Score") ytitle("Frequency") ///
+                            frequency pstyle(p`_ps2') fcolor(%50) ///
+                            start(`ps_min') width(`bw_hist')) ///
+                        `keyplots', ///
+                        legend(order(`legend_keys') `legend_opt') ///
+                        xtitle("Propensity Score"`tsz') ytitle("Frequency"`tsz') ///
+                        `ylab_opt' `xlab_opt' ///
                         title(`"`title'"') ///
-                        xline(`overlap_lower' `overlap_upper', lcolor(gs8) lpattern(dash)) ///
+                        `xlines' ///
                         name(`name', replace) ///
                         `graphoptions'
                 }
@@ -392,15 +426,19 @@ program define psdash_overlap, rclass
                         local bw_opt "bwidth(`bwidth')"
                     }
 
+                    _psdash_pstyles, scheme(`scheme') graphopts(`graphoptions')
+                    local _ps2 : word 2 of `s(order)'
                     noisily twoway ///
                         (kdensity `psvar' if `touse' & `treatment' == 1, ///
                             pstyle(p1) lwidth(medthick) `bw_opt') ///
                         (kdensity `psvar' if `touse' & `treatment' == 0, ///
-                            pstyle(p6) lwidth(medthick) `bw_opt'), ///
-                        legend(order(1 "Treated" 2 "Control") rows(1) position(6)) ///
-                        xtitle("Propensity Score") ytitle("Density") ///
+                            pstyle(p`_ps2') lwidth(medthick) `bw_opt') ///
+                        `keyplots', ///
+                        legend(order(`legend_keys') `legend_opt') ///
+                        xtitle("Propensity Score"`tsz') ytitle("Density"`tsz') ///
+                        `ylab_opt' `xlab_opt' ///
                         title(`"`title'"') ///
-                        xline(`overlap_lower' `overlap_upper', lcolor(gs8) lpattern(dash)) ///
+                        `xlines' ///
                         name(`name', replace) ///
                         `graphoptions'
                 }
@@ -647,7 +685,7 @@ program define psdash_overlap, rclass
             samplevar(`touse') psvars(`_mg_group_psvars') levels(`levels') ///
             name(`name') gpsfloor(`gpsfloor') bins(`bins') ///
             title(`"`title'"') `_hist_opt' `_bwidth_opt' `_saving_opt' ///
-            `_scheme_opt' `_graphoptions_opt' `_compact_opt'
+            `_scheme_opt' `_graphoptions_opt' `_compact_opt' `_panel'
         local graph_rc = _rc
         if `graph_rc' {
             local _psdash_side_rc = `graph_rc'

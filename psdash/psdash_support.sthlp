@@ -46,6 +46,8 @@ multi-group {cmd:r(gps_means)} matrix, is listed under
 Detailed multi-group graphs use one data-driven x axis per GPS component. A
 practical-positivity floor line is drawn only when it lies within that
 component's observed range, and three-component graphs occupy one filled row.
+For a binary treatment, the dashed lines for the common-support and trimming
+bounds each carry a legend key.
 
 {marker options}{...}
 {title:Options}
@@ -117,8 +119,10 @@ and 50.
 
 {phang}
 {opt compact} replaces the detailed multi-group component density panels with
-one box-plot region of the minimum GPS component by observed treatment arm. It
-has no effect for binary treatments.
+one box-plot region of the minimum GPS component by observed treatment arm, with
+one box colour per arm (the same colours as the density graphs) and a note that
+names the dashed red positivity floor line. It has no effect for binary
+treatments.
 
 {marker examples}{...}
 {title:Examples}

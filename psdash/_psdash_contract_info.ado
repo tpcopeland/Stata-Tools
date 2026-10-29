@@ -1,4 +1,4 @@
-*! _psdash_contract_info Version 1.8.0  2026/10/13
+*! _psdash_contract_info Version 1.9.0  2026/10/29
 *! Machine-readable producer compatibility matrix for psdash
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

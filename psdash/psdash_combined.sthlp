@@ -38,8 +38,8 @@ producer contracts it routes to period-specific diagnostics.
 {pstd}
 Once a longitudinal producer contract is detected, {cmd:combined} routes
 directly to period diagnostics. {opt report()}, {opt saving()}, {opt scheme()},
-and {opt nooverlap}, {opt nobalance}, {opt noweights}, or {opt nosupport} are
-rejected with {cmd:r(198)}. A nondefault
+{opt supportgraph}, and {opt nooverlap}, {opt nobalance}, {opt noweights}, or
+{opt nosupport} are rejected with {cmd:r(198)}. A nondefault
 {opt threshold()}, {opt overlapmax()}, {opt essmin()}, {opt imbalmax()}, or
 {opt gpsfloor()} is also rejected with {cmd:r(198)}. The defaults are accepted
 but do not alter period diagnostics; {opt title()}, {opt dryrun}, and explicit
@@ -64,6 +64,21 @@ set: the variable named by the {cmd:_msm_risk_var} characteristic (msm
 contract 1.1) or, under contract 1.0, {cmd:_msm_decision_risk}. Rows after the
 outcome or censoring are excluded by design and counted in
 {cmd:r(n_outside_risk)}, not reported as incomplete.
+
+{pstd}
+For a binary treatment the dashboard graph is a 2x2 grid: PS overlap density,
+covariate balance (Love plot), weight distribution, and a {bf:Diagnostic Summary}
+scorecard. The scorecard states the overall verdict ({cmd:PASS} in green or
+{cmd:FAIL} in red, identical to {cmd:r(verdict)}) and the number of findings,
+then one row per executed panel with its key metrics, an {cmd:OK} or {cmd:Flag}
+status, and, for a flagged panel, its findings, wrapped onto at most two lines
+and abbreviated with "..." when longer; the full list is in {cmd:r(warnings)}. The common-support analysis still runs and feeds the verdict,
+the stored results, and the report workbook, but its density graph, which repeats the overlap
+density, is not drawn; specify {opt supportgraph} to show it in place of the
+scorecard. With {opt nooverlap}, the support density takes the overlap panel's
+place so the support bounds stay visible. Suppressed panels are omitted from
+the scorecard. Multi-group dashboards keep their overlap, balance, weight, and
+support panels.
 
 {pstd}
 Each cross-sectional panel prints a descriptive status line ({cmd:WARNING} or
@@ -112,6 +127,13 @@ variance-ratio findings remain active.
 
 {phang}
 {opt nos:upport} skips the support panel.
+
+{phang}
+{opt supportg:raph} shows the common-support density panel instead of the
+Diagnostic Summary scorecard in a binary-treatment dashboard (the earlier
+layout). It changes only the graph; the support analysis, verdict,
+and stored results are the same either way. It has no effect for multi-group
+treatments, whose dashboards always show the support panel; a note says so.
 
 {phang}
 {opt dry:run} resolves inputs without running diagnostic panels.

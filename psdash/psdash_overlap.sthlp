@@ -37,6 +37,10 @@ Detailed multi-group graphs use one data-driven x axis per GPS component. A
 practical-positivity floor line is drawn only when it lies within that
 component's observed range, and three-component graphs occupy one filled
 row. Histogram bins are aligned across observed arms within each component.
+The panels share one legend below the panel row; when a panel draws the floor
+line, the legend names it (for example "Practical positivity floor (0.01)").
+For a binary treatment, the dashed grey common-support bounds carry a legend
+key, and the treated and control histograms share one bin origin and width.
 
 {pstd}
 The complete stored-result contract and the distinction between the full-vector
@@ -103,7 +107,9 @@ multi-group treatments.
 {phang}
 {opt compact} replaces the detailed multi-group component density panels with
 one grouped box-plot region containing every GPS component. Its treatment-group
-legend uses one row. It has no effect for binary treatments.
+legend uses one row, boxes use the same arm colours as the density graphs, and a
+note names the dashed red positivity floor line. It has no effect for binary
+treatments.
 
 {marker examples}{...}
 {title:Examples}
