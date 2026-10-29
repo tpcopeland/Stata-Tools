@@ -54,6 +54,7 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 | `test_fvgen_oracle.do` | 200 seeded row-level indicator and product oracles over varied shapes (2-5 levels, level gaps, missing values) plus generated-name shadow preservation. |
 | `test_fixture_metadata.do` | Literal hostile labels through centered, factor, reference, interaction, simple-slope, square and continuous-product routes; the console listing printed literally with an unlabeled pass-through shown by name; the ASCII `^2` square label; Unicode 80-character truncation; exact name twins/singleton and named factor-domain/empty-sample refusals. |
 | `test_package_release.do` | Isolated install resolution, repeated autoload, every visible help workflow, and help-render integrity with a positive control. |
+| `test_documentation_examples.do` | Every `fvgen.sthlp` Example (1-9) and every README example run as written against the sandbox-installed package (installed-PLUS resolution asserted), each checked against the native factor-variable fit: coefficients or fitted values, residual sum of squares, labels, `drop` teardown, and `margins` on the stored clone. |
 
 ### Validation
 
@@ -74,7 +75,7 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 
 | Command | Functional | Validation | Also exercised in |
 |---------|------------|------------|-------------------|
-| `fvgen` | `test_fvgen`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_margins_replay_safety`, `test_combinations`, `test_regressions` | `validation_fvgen`, `test_fvgen_oracle` | `test_fvgen_hostile`, `test_package_release` |
+| `fvgen` | `test_fvgen`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_margins_replay_safety`, `test_combinations`, `test_regressions` | `validation_fvgen`, `test_fvgen_oracle` | `test_fvgen_hostile`, `test_package_release`, `test_documentation_examples` |
 
 ## Lane membership
 
@@ -83,7 +84,7 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_fvgen` |
-| `core` | `quick` plus `validation_fixture_truth`, `validation_fixture_matrix`, `test_fixture_metadata`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_margins_replay_safety`, `test_combinations`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, and `validation_fvgen` |
+| `core` | `quick` plus `validation_fixture_truth`, `validation_fixture_matrix`, `test_fixture_metadata`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_margins_replay_safety`, `test_combinations`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, `validation_fvgen`, and `test_documentation_examples` |
 | `full` | `core` plus `test_package_release` |
 
 `validation_fixture_truth.do` has three cases that compare every materialized indicator/product with its labelled-group arithmetic and verify drop removes exactly the six generated variables. Unsorted and label-gap variants are consumed.

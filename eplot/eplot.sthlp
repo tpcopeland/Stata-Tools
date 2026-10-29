@@ -255,8 +255,8 @@ must be nonnegative, lower limits may not exceed upper limits, and every
 required matrix cell must be nonmissing. A row label that cannot be
 represented as a Stata matrix stripe (one longer than 32 characters, or with a
 {cmd:.} that reads as an operator) gets the positional name {cmd:row}{it:#}
-in returned matrices, in every mode, while the graph retains the full label;
-the other rows keep their names.
+in returned matrices, in every mode, while the graph retains the full label; the
+other rows keep their names.
 
 {phang2}
 {bf:4. Frame mode} — you specify {opt frame(framename)}. {cmd:eplot} reads a
@@ -976,8 +976,8 @@ valid color: a color name, optionally with intensity and opacity
 {help colorstyle}): RGB is three integers from 0 to 255, CMYK four integers
 from 0 to 255 or four proportions from 0 to 1, and HSV a hue from 0 to 360
 with a saturation and value from 0 to 1. A list of colors where one is
-expected, an unknown name, or a value out of range exits with {cmd:r(198)};
-{cmd:twoway} would otherwise draw the default color. In
+expected, an unknown name, or a value out of range exits with {cmd:r(198)}; {cmd:twoway}
+would otherwise draw the default color. In
 multi-model estimates mode, {opt mcolor()} takes either one color, applied to
 every model, or exactly one color per model; quote each RGB triplet in a list,
 for example {cmd:mcolor("255 0 0" "0 0 255")}. Without {opt mcolor()} the

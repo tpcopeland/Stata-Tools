@@ -207,9 +207,9 @@ explanatory footnote.
 
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name. The default is
-{cmd:Diagnostics}. This option requires {opt xlsx()}.
-The iivw export path limits worksheet names to 31 UTF-8 bytes.
-A non-ASCII character may occupy more than one byte.
+{cmd:Diagnostics}. This option requires {opt xlsx()}. The
+iivw export path limits worksheet names to 31 UTF-8 bytes. A
+non-ASCII character may occupy more than one byte.
 
 {phang}
 {opt replace} overwrites the target worksheet when it already exists. Excel

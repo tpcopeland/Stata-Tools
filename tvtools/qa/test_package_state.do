@@ -238,8 +238,14 @@ program define _state_error, rclass
             generate byte x = _n > 10
             generate byte a = x
             * Perfect separation: the convergence refusal is deliberate, so its
-            * message stays out of the lane log; cmd_rc is asserted by callers.
-            quietly tvweight a, covariates(x) generate(w) nolog
+            * message stays out of the lane log. quietly does not hold back
+            * tvweight's display-as-error lines inside this capture noisily
+            * block (this program is not echoed, so the log scanner would see
+            * a bare refusal), but a plain capture does. The rc is passed
+            * through unchanged and asserted nonzero by the caller.
+            capture tvweight a, covariates(x) generate(w) nolog
+            local tvweight_rc = _rc
+            if `tvweight_rc' exit `tvweight_rc'
         }
         else if "`command'" == "tvdiagnose" {
             clear

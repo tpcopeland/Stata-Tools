@@ -1,4 +1,4 @@
-*! _tvexpose_eligible Version 1.18.2  2026/10/13
+*! _tvexpose_eligible Version 1.0.0  2026/10/13
 *! Decide whether a tvexpose call may use the categorical fast path
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

@@ -1,4 +1,4 @@
-*! rangematch Version 1.0.0  2026/10/15
+*! rangematch Version 1.0.0  2026/10/28
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

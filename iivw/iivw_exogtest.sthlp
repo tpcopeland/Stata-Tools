@@ -185,8 +185,8 @@ time. A {cmd:float} {opt time()} or {opt censor()} is handled exactly as in
 last visit only after rounding to float is moved onto that visit, with a note,
 and the run is refused (error 198) if a selected visit of any subject falls in
 the gap that would drop. Recasting an already
-rounded {cmd:float} to {cmd:double} does not recover its lost precision;
-rebuild the clock from the original dates or times.
+rounded {cmd:float} to {cmd:double} does not recover its lost precision; rebuild
+the clock from the original dates or times.
 
 {dlgtab:Generated lags}
 
@@ -221,8 +221,8 @@ weights. Since both commands default to Efron, that happens automatically unless
 you override one of them.
 
 {phang2}
-The two methods agree when no events within a fitted model share a time.
-With ties, their likelihood approximations differ and can change the fitted
+The two methods agree when no events within a fitted model share a time. With
+ties, their likelihood approximations differ and can change the fitted
 lagged-outcome coefficients and inference. Hertz-Picciotto and Rockhill (1997)
 found advantages for Efron in grouped-failure simulations with two groups,
 constant exponential hazards, and no censoring. Those results motivate the
@@ -265,9 +265,9 @@ footnote.
 
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name. The default is
-{cmd:Exogeneity}. This option requires {opt xlsx()}.
-The iivw export path limits worksheet names to 31 UTF-8 bytes.
-A non-ASCII character may occupy more than one byte.
+{cmd:Exogeneity}. This option requires {opt xlsx()}. The
+iivw export path limits worksheet names to 31 UTF-8 bytes. A
+non-ASCII character may occupy more than one byte.
 
 {phang}
 Excel output follows the tabtools workbook convention: only the named sheet is

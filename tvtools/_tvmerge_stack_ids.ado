@@ -1,4 +1,4 @@
-*! _tvmerge_stack_ids Version 1.18.2  2026/10/13
+*! _tvmerge_stack_ids Version 1.0.0  2026/10/13
 *! Stack one ID column across source frames into a destination frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (wrapper)

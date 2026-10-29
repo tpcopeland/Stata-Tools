@@ -161,22 +161,22 @@ inverse-weight target SMD exactly zero.
 {phang2}
 In the special case of saturated stabilization, the visit weights are
 identically 1. With Breslow fitting, the model's own fitted covariates satisfy
-a score identity giving a zero target contrast, up to numerical precision.
-Efron uses a different tied-event likelihood and prediction calculation. The
+a score identity giving a zero target contrast, up to numerical precision. Efron
+uses a different tied-event likelihood and prediction calculation. The
 implemented target contrast need not preserve that saturated identity under
 Efron ties, so its verdict is withheld: {cmd:r(target_status)} is
-{cmd:tie_method_efron} and {cmd:r(balance_flag)} is {cmd:not_assessed}.
-{cmd:r(balance_max_tsmd)} is still returned. This is a bounded implementation
+{cmd:tie_method_efron} and {cmd:r(balance_flag)} is {cmd:not_assessed}. {cmd:r(balance_max_tsmd)}
+is still returned. This is a bounded implementation
 policy; the discrepancy need not have the same size in other datasets.
 
 {phang2}
 The gate detects any event-time tie (multiplicity greater than 1), rather than
 using the separate advisory cutoff of 2. Efron and Breslow coincide when no
 two events in a fitted risk set share a time, so an untied Efron fit may receive
-a verdict. Leverage and effective-sample-size descriptions remain available.
-The {opt balcut()} threshold remains a descriptive heuristic, not a test with
-established size or a proof that the visit model is correctly specified.
-To request a verdict on tied data, rebuild the weights with
+a verdict. Leverage and effective-sample-size descriptions remain available. The
+{opt balcut()} threshold remains a descriptive heuristic, not a test with
+established size or a proof that the visit model is correctly specified. To
+request a verdict on tied data, rebuild the weights with
 {helpb iivw_weight:iivw_weight, breslow}. Changing the tie method changes the
 fitted weighting model and should be reported.
 
@@ -206,9 +206,9 @@ numeric values are rendered from {cmd:r(balance)} for presentation.
 
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name. The default is
-{cmd:Balance}. This option requires {opt xlsx()}.
-The iivw export path limits worksheet names to 31 UTF-8 bytes.
-A non-ASCII character may occupy more than one byte.
+{cmd:Balance}. This option requires {opt xlsx()}. The
+iivw export path limits worksheet names to 31 UTF-8 bytes. A
+non-ASCII character may occupy more than one byte.
 
 {phang}
 {opt replace} overwrites the target worksheet when it already exists. Excel
@@ -301,8 +301,8 @@ modeled-covariate target SMD is at or below
 {opt balcut()}, and {cmd:exceeds_rule} otherwise. {cmd:r(extra_flag)} applies the
 same rule to the largest absolute target SMD over the extra {it:varlist}
 covariates, {cmd:r(extra_max_tsmd)}. The flags name where the
-measured SMD falls relative to the {opt balcut()} convention (0.10 by default);
-neither is a proof that the visit model is correctly specified. Computing the
+measured SMD falls relative to the {opt balcut()} convention (0.10 by default); neither
+is a proof that the visit model is correctly specified. Computing the
 person-time target
 requires each subject's terminal at-risk interval, which is why the weights
 must have been built with {opt censor()} or {opt maxfu()} to get the most out
@@ -387,8 +387,8 @@ it is against the clock's origin or unit. When {opt time()} or the stored
 rounding to float is moved onto that visit, and data where a visit of any
 subject falls in the gap that would drop are refused, as described under
 {helpb iivw_weight##options:iivw_weight}. A visit after the
-stored end of follow-up means the data changed after the weights were built:
-the refit is then unavailable and no target-SMD verdict is issued, while the
+stored end of follow-up means the data changed after the weights were built: the
+refit is then unavailable and no target-SMD verdict is issued, while the
 descriptive results remain available.
 
 {pstd}
@@ -464,9 +464,9 @@ returned whether or not any were found.
 person-time target supports a verdict. {cmd:not_identified} means no terminal
 at-risk interval exists. {cmd:tie_method_efron} means that the fitted model
 contains tied events and uses Efron, so this implementation withholds its
-target-SMD verdict under the policy described above.
-{cmd:target_incomplete} is the unusable-increment case just described.
-{cmd:unavailable} means the supporting refit did not complete at
+target-SMD verdict under the policy described above. {cmd:target_incomplete}
+is the unusable-increment case just described. {cmd:unavailable}
+means the supporting refit did not complete at
 all. {cmd:r(balance_flag)} likewise takes five: {cmd:within_rule} and
 {cmd:exceeds_rule} when a verdict was issued, {cmd:not_identified} and
 {cmd:not_assessed} when it was deliberately withheld, and {cmd:unknown}
@@ -547,8 +547,8 @@ flag.
 at-risk person-time target mean, the target SMD, and the modeled-covariate
 flag. Rows with {cmd:modeled} = 1 set {cmd:r(balance_max_tsmd)} and
 {cmd:r(balance_flag)}; rows with {cmd:modeled} = 0 set
-{cmd:r(extra_max_tsmd)} and {cmd:r(extra_flag)}.
-Entries are missing when the refit that supports the target did not complete.
+{cmd:r(extra_max_tsmd)} and {cmd:r(extra_flag)}. Entries
+are missing when the refit that supports the target did not complete.
 
 
 {marker sourcing}{...}

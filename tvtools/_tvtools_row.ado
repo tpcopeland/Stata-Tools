@@ -1,4 +1,4 @@
-*! _tvtools_row Version 1.18.2  2026/10/13
+*! _tvtools_row Version 1.0.0  2026/10/13
 *! Print one aligned label/value row of a tvtools report
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

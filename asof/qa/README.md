@@ -52,6 +52,7 @@ archetypes: A4
 | `test_asof_errors.do` | Exact error codes, unchanged master data, and successful recovery after invalid calls. |
 | `test_asof_hostile.do` | 31/32-character output-name rejection, structural collisions, empty restrictions, repeated calls, and unsorted-row preservation. |
 | `test_asof_v011.do` | Fractional daily/clock endpoints for numeric/string IDs, outside neighbors, `%tC` refusal with state fingerprints, and warning output. |
+| `test_asof_v012.do` | Left-justified and centered (`%-`/`%~`) `td`/`tc` units at every date site and `tC`/`tm` refusal pinned to the format message; caller-state fingerprints with planted internal names on syntax, missing-frame, `ties(error)` and type-clash failures and on success; `r()`/console/warning parity of match counts; zero-length `window(0 0)`; strL, case, Unicode and whitespace identifiers; `matastrict on`; `_all`; carried labels and date format; `replace` value fidelity; `replace` attaching the carried value and variable labels, refusing (109) to mix codings when retained rows hold values under another label, including a same-named master label with other contents, missing-key retained rows, `datename()`, an unlabeled carried variable and two carried variables, accepting identical contents under another name, and matching a new output in every label language; no carried label sets left in the master after failure or when unused; all-or-nothing outputs across the `maxvar` boundary; current-frame self-join; no stale `r()` after failure. |
 | `test_asof_oracle.do` | Seeded brute-force `joinby` parity over randomized fixtures plus missing-key and exact-tie cases. |
 
 ### Validation
@@ -59,6 +60,7 @@ archetypes: A4
 | File | Covers |
 |---|---|
 | `validation_fixture_contract.do` | Brute-force Cartesian event/date oracle for every direction and selection, exact tied identity, duplicate events, inclusive window edges, missing anchors and shuffled input. |
+| `validation_asof_range_spells.do` | `range()` bounds built from A4 spell fixtures (`zero_length`, `open_end`, `abut`, `overlap`, `boundary_values`, `dup_key`, `unsorted`, plus hand-opened lower bounds) across five direction/selection/tie rules against a Cartesian `joinby` oracle, including matched values, dates, gaps and `r(N_eligible)`. |
 | `validation_asof_known_truth.do` | Hand-computed rows and gaps, strict anchors, exact parity with a brute-force `joinby` oracle, and eligible-row union counts. |
 | `validation_asof_mogad.do` | All eleven MOGAD extraction sites from the build spec, represented by twelve exact single-call assertions because the cleaning site produces both index and last values. |
 
@@ -76,6 +78,7 @@ archetypes: A4
 | `_qa_hostile.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `run_all.do` | Curated quick, core, crossval, full, and benchmark lanes. |
 | `_qa_state.do` | Vendored caller-state fingerprint helper. |
+| `_qa_parity.do` | Vendored qa-lib surface-parity helper (one value, every sink). |
 | `_asof_qa_common.do` | Relocatable sandbox installation bootstrap. |
 | `benchmark_asof_scaling.do` | On-demand 10K/100K/1M event shape gate; excluded from correctness lanes. |
 | `.gitignore` | Generated-artifact policy. |
@@ -84,7 +87,7 @@ archetypes: A4
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `asof` | `test_asof_*` | `validation_asof_known_truth.do`, `validation_asof_mogad.do`, `validation_fixture_contract.do` | `crossval_asof_pandas.do` | `benchmark_asof_scaling.do` |
+| `asof` | `test_asof_*` | `validation_asof_known_truth.do`, `validation_asof_mogad.do`, `validation_fixture_contract.do`, `validation_asof_range_spells.do` | `crossval_asof_pandas.do` | `benchmark_asof_scaling.do` |
 
 ## Lane membership
 
@@ -92,15 +95,15 @@ archetypes: A4
 
 | Lane | Suites |
 |---|---|
-| `quick` | Functional, hostile, install, help-render, example, and error and v0.1.1 regression suites; excludes the randomized oracle. |
-| `core` | Quick plus canonical event/date contract, both general validations and randomized point oracle. |
+| `quick` | Functional, hostile, install, help-render, example, and error and v0.1.1/v0.1.2 regression suites; excludes the randomized oracle. |
+| `core` | Quick plus canonical event/date contract, both general validations, the `range()` spell validation and randomized point oracle. |
 | `crossval` | `crossval_asof_pandas.do`. |
 | `full` | `core` plus `crossval`. |
 | `benchmark` | `benchmark_asof_scaling.do` only, on demand. |
 
 ## Known gaps
 
-ASOF inputs are point events and anchors; spell overlap/open-end operators do not define point-event matching coverage.
+Measurements and anchors are point dates. The A4 spell operators apply only to the per-row `range()` interval and are covered there by `validation_asof_range_spells.do`; `window()` is the same interval for every row, with zero-length and open bounds covered in `test_asof_v012.do` and `test_asof_windows.do`.
 
 ## False-green checks
 
@@ -111,5 +114,12 @@ Run these manual mutation checks only in disposable scratch copies. Each mutatio
 - Zero-fill unmatched numeric outputs: `test_asof_edge_cases.do`.
 - Reverse the recorded using-file order: `test_asof_ties.do`.
 - Leak `varabbrev off`: `test_asof_syntax.do`.
+- Classify date units from the raw format string (drop the `%-`/`%~` normalization): `test_asof_v012.do`.
+- Treat a missing `range()` upper bound as closed at the lower bound: `validation_asof_range_spells.do`.
+- Skip `label values` on a replaced numeric output: `test_asof_v012.do`.
+- Never refuse a replaced output whose retained rows use another value label: `test_asof_v012.do`.
+- Skip dropping unused carried label sets in the cleanup zone: `test_asof_v012.do`.
+- Compare value-label names instead of contents, or only the current label language: `test_asof_v012.do`.
+- Drop the pre-creation `maxvar` guard or summarize the gaps after creating outputs: `test_asof_v012.do`.
 
 Never apply these mutations to the working package.

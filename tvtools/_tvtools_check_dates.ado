@@ -1,4 +1,4 @@
-*! _tvtools_check_dates Version 1.18.2  2026/10/13
+*! _tvtools_check_dates Version 1.0.0  2026/10/13
 *! Validate daily-date variables and interval bounds against the suite contract
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

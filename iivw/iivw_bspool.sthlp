@@ -282,8 +282,8 @@ stamp it has not earned.
 {pstd}
 {bf:BCa intervals are outside this pooler's supported scope.} BCa combines
 a bias correction computed from the bootstrap draws with an acceleration
-computed by a delete-one-cluster jackknife of the observed analysis.
-Shards of the same analysis should have the same acceleration. This version
+computed by a delete-one-cluster jackknife of the observed analysis. Shards
+of the same analysis should have the same acceleration. This version
 of {cmd:iivw_bspool} does not verify or repost the BCa acceleration metadata
 and errors on {cmd:citype(bca)} shards. Use {cmd:citype(wald)},
 {cmd:citype(percentile)} or {cmd:citype(basic)} for pooling.

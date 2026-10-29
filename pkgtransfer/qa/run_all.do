@@ -93,7 +93,7 @@ foreach review_suite in test_pkgtransfer_v111 test_pkgtransfer_v113 test_pkgtran
 }
 
 if inlist("`mode'", "core", "full") {
-    foreach fixture_suite in validation_pkgtransfer_fixture_contract validation_pkgtransfer_fixture_primitives test_pkgtransfer_fixture_state {
+    foreach fixture_suite in validation_pkgtransfer_fixture_contract validation_pkgtransfer_fixture_primitives test_pkgtransfer_fixture_state test_documentation_examples {
         capture noisily do "`qa_dir'/`fixture_suite'.do"
         local fixture_rc = _rc
         local ++suite_count

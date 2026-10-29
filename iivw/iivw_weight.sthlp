@@ -338,26 +338,26 @@ ends at different times for different people.
 
 {pmore}
 A visit falling {bf:on} the end of follow-up is allowed: that subject was at
-risk right up to the boundary and is seen at it, and gets no terminal interval.
-Both orderings against the last visit -- this one and {opt maxfu()}'s -- are
+risk right up to the boundary and is seen at it, and gets no terminal interval. Both
+orderings against the last visit -- this one and {opt maxfu()}'s -- are
 judged {bf:exactly} on the stored values, so every positive interval between
 the last visit and the end of follow-up enters the risk set, however short it
-is against the clock's origin or unit. The one exception is a {cmd:float}.
-{opt censor()} and {opt time()} usually descend from the same calendar dates
+is against the clock's origin or unit. The one exception is a {cmd:float}. {opt censor()}
+and {opt time()} usually descend from the same calendar dates
 by different expressions, and a {cmd:float} holding {cmd:days/365.25} differs
-from the {cmd:double} holding the same quantity by up to half a float unit.
-Under a {cmd:float} {opt time()} the end of follow-up is rounded to float
+from the {cmd:double} holding the same quantity by up to half a float unit. Under
+a {cmd:float} {opt time()} the end of follow-up is rounded to float
 before it is compared or used; no recorded visit time can lie between an
 endpoint and its float rounding, so this changes no risk set. Under a
 {cmd:float} {opt censor()} with a non-float {opt time()}, an end of follow-up
 that differs from the subject's last visit but equals it after rounding to
 float is moved onto that visit: no terminal interval is added and no ordering
-error is raised, and a note reports how many subjects were treated this way.
-That is refused (error 198) when the end lies above the last visit and any
+error is raised, and a note reports how many subjects were treated this way. That
+is refused (error 198) when the end lies above the last visit and any
 subject's recorded visit falls between the two, because dropping that gap
 would remove the subject from a real event's risk set; store {opt censor()}
-and {opt time()} at the same precision and rerun.
-Storing both as {cmd:double} is still worth doing: near six years a
+and {opt time()} at the same precision and rerun. Storing
+both as {cmd:double} is still worth doing: near six years a
 {cmd:float} year count cannot separate two instants closer together than about
 15 seconds, so it is the wrong type for a time variable, and recasting it to
 {cmd:double} afterwards does not recover the lost digits -- rebuild it from
@@ -1328,8 +1328,8 @@ estimation of average treatment effects. {it:Biometrika}
 96(1): 187-199. doi:10.1093/biomet/asn055.
 
 {phang}
-Hernan MA, Robins JM. 2020. {it:Causal Inference: What If}. Boca Raton:
-Chapman & Hall/CRC.
+Hernan MA, Robins JM. 2020. {it:Causal Inference: What If}. Boca Raton: Chapman
+& Hall/CRC.
 
 {phang}
 Robins JM, Hernan MA, Brumback B. 2000. Marginal structural models and causal

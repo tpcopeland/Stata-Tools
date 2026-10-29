@@ -2,9 +2,9 @@
 
 # pkgtransfer — Move your installed packages to another machine
 
-**Version 1.2.2** | 2026-10-26
+**Version 1.0.0** | 2026-10-28
 
-[![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -232,6 +232,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.0.0** (2026-10-28): Version number reset to 1.0.0 for the first SSC release. No change to command behaviour since 1.2.2; the entries below are the pre-SSC development history.
 - **1.2.2** (2026-10-13): The "Copying OS-specific plugins from online..." progress line is now printed only when the bundle has platform-specific files to fetch; a bundle without them (including every plain `download(local)` bundle) no longer claims to go online. Demo output is stable: the restore log shows `<PLUS>` instead of a random temporary path. Bundle creation now stages in a unique temporary directory instead of `./pkgtransfer_files`, so running the offline installer (which unpacks into `pkgtransfer_files`) no longer makes the next bundle run in the same directory fail with r(602); the README examples now run in order in one directory, with Worked Examples 2 to 4 writing to distinct file names (`online_bundle.*`, `local_setup.*`, `all_packages.do`) because a run refuses to overwrite `pkgtransfer.do` or `pkgtransfer_files.zip` without `replace`.
 - **1.2.1** (2026-10-12): `download(local)` on a machine set up from a bundle whose `pkgtransfer_files` folder has been removed now stops with error 601, naming the package and `pkgtransfer, restore`, instead of failing with a bare `file not found` (plugin packages) or shipping this machine's build of a `g`/`G` file under another `os()` (other platform files). An unreadable descriptor for a `.plugin` package names the package, the descriptor, and `skip()`. The help no longer suggests `download()` combined with `restore` for such a machine, and the `.pkg` description is accurate.
 - **1.2.0** (2026-10-12): **Behaviour change:** an existing do-file or ZIP file is no longer overwritten silently; add the new `replace` option to scripts that rerun `pkgtransfer` with the same output names. Offline bundles keep `F` records, so runtime data a package forces into PLUS (for example `F data.dta`) is installed on the destination instead of being dropped; `download(local)` writes every tracked file as `F`. `download(local)` identifies `g`/`G`-installed files from each source descriptor rather than by the `.plugin` extension, so `os()` also filters platform-specific `.jar`, `.dll`, data, and other files. A second transfer from a bundle-installed machine carries the original source forward, and `restore` picks the original source from bundles made by earlier versions. `download()` and `os()` accept any case. The duplicate-tracker error names `ado dir` and `ado uninstall [#]`. The help file gains Remarks on source-versus-version fidelity.

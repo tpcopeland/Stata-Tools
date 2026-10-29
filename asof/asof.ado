@@ -1,4 +1,4 @@
-*! asof Version 0.1.1  2026/09/30
+*! asof Version 0.1.2  2026/10/29
 *! Attach measurement values selected relative to a reference date
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,6 +14,10 @@ program define asof, rclass sortpreserve
     local _key_made = 0
     local _master_link_made = 0
     local _return_ready = 0
+    local _labels_snapped = 0
+    local _labels_before ""
+    local _frget_vars ""
+    local _lang_restore ""
 
     tempname eventframe keyframe
     tempvar keyok eventorder eventkey pick keylink masterlink
@@ -208,13 +212,32 @@ program define asof, rclass sortpreserve
             }
         }
 
+        * Reserved words (_N, _b, in, _all) pass confirm new variable but fail
+        * at creation; probe every output name before any user data changes.
+        tempname nameframe
+        frame create `nameframe'
+        local badname ""
+        foreach out of local allout {
+            capture frame `nameframe': generate byte `out' = .
+            if _rc {
+                local badname "`out'"
+                continue, break
+            }
+        }
+        frame drop `nameframe'
+        if "`badname'" != "" {
+            display as error "`badname' is not a valid output variable name"
+            exit 198
+        }
+
         _asof_load_using, frame(`eventframe') id(`id') date(`date') ///
             carry(`carry') require(`require') ///
             order(`eventorder') eventkey(`eventkey')
         local N_using = r(N_using)
         local N_events = r(N_events)
         local using_idtype "`r(idtype)'"
-        local datefmt "`r(date_format)'"
+        * Units are classified without the justification flag: %-tc and %~tc are %tc.
+        local datefmt = regexr("`r(date_format)'", "^%[-~]", "%")
 
         if "`master_idtype'" != "`using_idtype'" {
             display as error "id() must have the same numeric or string type in master and using data"
@@ -222,6 +245,7 @@ program define asof, rclass sortpreserve
         }
 
         local anchorfmt : format `anchor'
+        local anchorfmt = regexr("`anchorfmt'", "^%[-~]", "%")
         local date_tc = (substr("`datefmt'", 1, 3) == "%tc")
         local anchor_tc = (substr("`anchorfmt'", 1, 3) == "%tc")
         local date_td = (substr("`datefmt'", 1, 3) == "%td")
@@ -240,6 +264,7 @@ program define asof, rclass sortpreserve
 
         foreach bound of local range {
             local boundfmt : format `bound'
+            local boundfmt = regexr("`boundfmt'", "^%[-~]", "%")
             local bound_tc = (substr("`boundfmt'", 1, 3) == "%tc")
             local bound_td = (substr("`boundfmt'", 1, 3) == "%td")
             if substr("`boundfmt'", 1, 2) == "%t" & !`bound_tc' & !`bound_td' {
@@ -381,13 +406,20 @@ program define asof, rclass sortpreserve
             generate(`masterlink')
         local _master_link_made = 1
 
+        * frget copies value-label sets into the master; note the existing
+        * ones so cleanup can drop any this call adds but does not use.
+        quietly label dir
+        local _labels_before "`r(names)'"
+        local _labels_snapped = 1
         local gotvars ""
         foreach keysource of local key_sources {
             tempvar got
+            local _frget_vars `_frget_vars' `got'
             quietly frget `got' = `keysource', from(`masterlink')
             local gotvars `gotvars' `got'
         }
         tempvar gotdate gotgap gotmatch
+        local _frget_vars `_frget_vars' `gotdate' `gotgap' `gotmatch'
         quietly frget `gotdate' = `keydate', from(`masterlink')
         quietly frget `gotgap' = `keygap', from(`masterlink')
         quietly frget `gotmatch' = `keymatch', from(`masterlink')
@@ -422,6 +454,93 @@ program define asof, rclass sortpreserve
             }
         }
 
+        * A replaced output takes the carried value and variable labels in
+        * every label language, as clonevar gives a new output. Refuse when
+        * rows outside the update keep values (extended missing codes
+        * included) whose value label in some language differs in contents
+        * from the carried one: no one label fits both sets of rows.
+        * Read the languages from the chars label language keeps: querying
+        * or switching with label language writes those chars even when the
+        * data have only the default language.
+        local lang_now : char _dta[_lang_c]
+        if "`lang_now'" == "" local lang_now "default"
+        local langs : char _dta[_lang_list]
+        local langs : list langs - lang_now
+        local langs `lang_now' `langs'
+        local nlangs : word count `langs'
+        if `nlangs' > 1 local _lang_restore "`lang_now'"
+        local labouts `outvars' `datename'
+        local labgots `gotvars'
+        if "`datename'" != "" local labgots `labgots' `gotdate'
+        local i = 0
+        foreach out of local labouts {
+            local ++i
+            local got : word `i' of `labgots'
+            capture confirm numeric variable `out'
+            if _rc continue
+            quietly count if !`keyok' & (!missing(`out') | `out' > .)
+            local nkeep = r(N)
+            if `nkeep' == 0 continue
+            local conflict ""
+            foreach lang of local langs {
+                if `nlangs' > 1 quietly label language `lang'
+                local oldlab : value label `out'
+                local newlab : value label `got'
+                local same = ("`oldlab'" == "`newlab'")
+                if !`same' & "`oldlab'" != "" & "`newlab'" != "" {
+                    mata: st_local("same", ///
+                        strofreal(_asof_vlabel_same("`oldlab'", "`newlab'")))
+                }
+                if !`same' {
+                    local conflict "`oldlab'"
+                    if "`conflict'" == "" local conflict "(none)"
+                    if "`newlab'" == "" local newlab "(none)"
+                    if `nlangs' > 1 {
+                        local conflict "`conflict' in label language `lang'"
+                    }
+                    continue, break
+                }
+            }
+            if `nlangs' > 1 quietly label language `lang_now'
+            if "`conflict'" != "" {
+                local obs = cond(`nkeep' == 1, "observation", "observations")
+                display as error "existing variable `out' has value label" ///
+                    " `conflict' but the carried values use `newlab'"
+                display as error "`nkeep' `obs' outside the update would keep" ///
+                    " values coded under the old label; drop or rename `out' first"
+                exit 109
+            }
+        }
+
+        * Summaries come first: summarize, detail needs a free variable slot.
+        quietly count if `keyok' & `gotmatch' == 1
+        local N_matched = r(N)
+        local N_unmatched = `N_keyrows' - `N_matched'
+
+        local gap_min = .
+        local gap_max = .
+        local gap_mean = .
+        local gap_p50 = .
+        if `N_matched' > 0 {
+            quietly summarize `gotgap' if `keyok' & `gotmatch' == 1, detail
+            local gap_min = r(min)
+            local gap_max = r(max)
+            local gap_mean = r(mean)
+            local gap_p50 = r(p50)
+        }
+
+        * Every output must fit before the first one is created.
+        local nnew = 0
+        foreach out in `outvars' `datename' `gapname' `matchname' {
+            capture confirm variable `out'
+            if _rc local ++nnew
+        }
+        if c(k) + `nnew' > c(maxvar) {
+            display as error "no room for `nnew' new variables;" ///
+                " increase set maxvar or drop variables"
+            exit 900
+        }
+
         local i = 0
         foreach out of local outvars {
             local ++i
@@ -438,6 +557,7 @@ program define asof, rclass sortpreserve
                 if _rc == 0 quietly recast strL `out'
                 else quietly recast double `out'
                 quietly replace `out' = `got' if `keyok'
+                _asof_copy_labels `out' `got' `"`langs'"'
             }
         }
 
@@ -450,6 +570,7 @@ program define asof, rclass sortpreserve
             else {
                 quietly recast double `datename'
                 quietly replace `datename' = `gotdate' if `keyok'
+                _asof_copy_labels `datename' `gotdate' `"`langs'"'
             }
         }
         if "`gapname'" != "" {
@@ -471,22 +592,6 @@ program define asof, rclass sortpreserve
             label variable `matchname' "As-of record matched"
         }
 
-        quietly count if `keyok' & `gotmatch' == 1
-        local N_matched = r(N)
-        local N_unmatched = `N_keyrows' - `N_matched'
-
-        local gap_min = .
-        local gap_max = .
-        local gap_mean = .
-        local gap_p50 = .
-        if `N_matched' > 0 {
-            quietly summarize `gotgap' if `keyok' & `gotmatch' == 1, detail
-            local gap_min = r(min)
-            local gap_max = r(max)
-            local gap_mean = r(mean)
-            local gap_p50 = r(p50)
-        }
-
         _asof_report, master(`N_master') keys(`N_keys') ///
             matched(`N_matched') unmatched(`N_unmatched') nokey(`N_nokey') ///
             using(`N_using') eligible(`N_eligible') ties(`N_ties') ///
@@ -497,6 +602,27 @@ program define asof, rclass sortpreserve
     }
     local rc = _rc
     if `_master_link_made' capture drop `masterlink'
+    if "`_lang_restore'" != "" capture label language `_lang_restore'
+    if `_labels_snapped' {
+        * Drop label sets this call added that no remaining variable uses:
+        * all of them after a failure, an unrequested date label on success.
+        foreach v of local _frget_vars {
+            capture drop `v'
+        }
+        capture quietly label dir
+        if _rc == 0 {
+            local _labels_new "`r(names)'"
+            local _labels_new : list _labels_new - _labels_before
+            local _labels_used ""
+            capture unab _allvars : _all
+            if _rc local _allvars ""
+            foreach v of local _allvars {
+                local _labels_used `_labels_used' `: value label `v''
+            }
+            local _labels_drop : list _labels_new - _labels_used
+            if "`_labels_drop'" != "" capture label drop `_labels_drop'
+        }
+    }
     if `_key_made' capture frame drop `keyframe'
     if `_event_made' capture frame drop `eventframe'
     set matastrict `_orig_matastrict'
@@ -523,4 +649,26 @@ program define asof, rclass sortpreserve
         return local ties "`ties'"
     }
     if `rc' exit `rc'
+end
+
+* Give a replaced output the source's variable and value labels in every
+* label language, then return to the first (current) language.
+capture program drop _asof_copy_labels
+program define _asof_copy_labels
+    version 16.0
+    args out src langs
+    local lang_now : word 1 of `langs'
+    local nlangs : word count `langs'
+    capture confirm numeric variable `out'
+    local numeric = (_rc == 0)
+    foreach lang of local langs {
+        if `nlangs' > 1 quietly label language `lang'
+        if `numeric' {
+            local vl : value label `src'
+            label values `out' `vl'
+        }
+        local varlab : variable label `src'
+        label variable `out' `"`varlab'"'
+    }
+    if `nlangs' > 1 quietly label language `lang_now'
 end

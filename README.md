@@ -128,14 +128,14 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 
 | Package | What it does | Version |
 | --- | --- | --- |
-| [asof](asof) | As-of joins: attach the last, next, or nearest measurement to each ID and anchor date, with explicit tie and window rules | ![version](https://img.shields.io/badge/version-0.1.1-1a5f91?style=flat-square) |
+| [asof](asof) | As-of joins: attach the last, next, or nearest measurement to each ID and anchor date, with explicit tie and window rules | ![version](https://img.shields.io/badge/version-0.1.2-1a5f91?style=flat-square) |
 | [codescan](codescan) | Code lists to patient-level conditions in one command: regex or prefix rules across any number of wide ICD, ATC, or procedure fields, windowed around an index date, returning flags, first/last dates, counts, and prevalence. No reshape. | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [compress_tc](compress_tc) | Shrink string-heavy datasets beyond what `compress` alone reaches: convert wide strings to strL first, with a dry-run preview of the savings | ![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square) |
 | [datamap](datamap) | Describe and check data you can't share: privacy-safe maps and data dictionaries, QC gates that stop a do-file when an expectation fails, a QA ledger, and missingness patterns | ![version](https://img.shields.io/badge/version-1.10.6-1a5f91?style=flat-square) |
 | [datefix](datefix) | Messy imported date strings to Stata dates in one step: infers day/month order, keeps the raw values if you want, and lists every value that won't convert | ![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square) |
 | [fvgen](fvgen) | Turn factor-variable terms like `i.a##c.b` into real, labeled variables, so interaction models export with readable row names and the same estimable design | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
-| [pkgtransfer](pkgtransfer) | Rebuild your Stata package setup on another machine: a one-file reinstall do-file, or an offline ZIP for servers with no internet | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
+| [pkgtransfer](pkgtransfer) | Rebuild your Stata package setup on another machine: a one-file reinstall do-file, or an offline ZIP for servers with no internet | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [rangematch](rangematch) | Range joins without the `joinby` blowup: match points to intervals or intervals to overlapping intervals by binary search and plane sweep, from a file or frame | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 
 ### Cohorts, registries, and time-varying data
@@ -145,7 +145,7 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 | [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
 | [pygrid](pygrid) | Exact person-time denominators: split follow-up into periods and attach event counts without losing the zero-event cells that rate models need | ![version](https://img.shields.io/badge/version-1.0.2-1a5f91?style=flat-square) |
 | [setools](setools) | Swedish registry cohorts: a Swedish Charlson index across ICD-7 to ICD-10, migration exclusions and emigration censoring, and MS progression endpoints (sustained EDSS, CDP, PIRA) | ![version](https://img.shields.io/badge/version-1.5.10-1a5f91?style=flat-square) |
-| [tvtools](tvtools) | Prescription and episode records to analysis-ready time-varying survival data: build exposure episodes, merge several exposures, attach single, competing, or recurrent events, split on age or calendar time, and weight | ![version](https://img.shields.io/badge/version-1.18.2-1a5f91?style=flat-square) |
+| [tvtools](tvtools) | Prescription and episode records to analysis-ready time-varying survival data: build exposure episodes, merge several exposures, attach single, competing, or recurrent events, split on age or calendar time, and weight | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 
 ### Causal inference and survival
 

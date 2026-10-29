@@ -2,9 +2,9 @@
 
 # asof — As-of joins: the last, next, or nearest measurement
 
-**Version 0.1.1** | 2026-10-26
+**Version 0.1.2** | 2026-10-29
 
-[![version](https://img.shields.io/badge/version-0.1.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-0.1.2-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Options](#options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -526,7 +526,7 @@ macros:
 | `datename()` / `gapname()` / `matchname()` | Store the selected date, signed day gap, and match flag. |
 | `ties()` | Resolve equally ranked records. |
 | `frame()` | Read events from a copied Stata frame. |
-| `replace` | Overwrite existing compatible output variables. |
+| `replace` | Overwrite existing compatible output variables; they take the carried variable and value labels. |
 | `nowarn` | Suppress the unmatched-observation message. |
 | `noisily` | Display the full coverage report. |
 
@@ -552,8 +552,9 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
-Version 0.1.1, 2026-09-30.
+Version 0.1.2, 2026-10-29.
 
+- 0.1.2 (2026-10-29): Read left-justified and centered `%-td`/`%-tc`/`%~tc` formats in their own units instead of as daily (such a clock window or gap was previously measured in milliseconds), refuse `%-tC`, `%-tm` and their centered forms like the right-justified ones, and reject reserved output names such as `_N` or `in` before any variable is created. With `replace`, an existing output now takes the carried value and variable labels (previously it kept its old value label, so new codes could display under another coding's text), and `asof` exits 109 instead of mixing two codings when rows outside the update keep values under a value label with different contents, in any label language. Value-label sets copied in from the using data are no longer left behind in the master after a failed call or when unused. A call that runs out of variable slots (`set maxvar`) now exits 900 before creating any output instead of leaving some outputs half-built.
 - 0.1.1 (2026-09-30): Preserve fractional window endpoints, reject leap-second `%tC` encodings, honor `nowarn`, and restore caller `matastrict`.
 - 0.1.0 (2026-08-12): Initial release.
 

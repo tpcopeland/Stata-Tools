@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.2.2  2026/10/13
+*! pkgtransfer Version 1.0.0  2026/10/28
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 * Writes an online reinstall script, or an offline bundle (do-file + ZIP),

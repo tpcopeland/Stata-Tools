@@ -2,9 +2,9 @@
 
 # tvtools — Prescription and episode records to time-varying survival data
 
-**Version 1.18.2** | 2026-10-26
+**Version 1.0.0** | 2026-10-28
 
-[![version](https://img.shields.io/badge/version-1.18.2-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Commands](#commands)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -551,6 +551,10 @@ The help files cite these sources; `tvevent` uses the first two and `tvweight` t
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.0.0 (2026-10-28)
+
+- Version reset to 1.0.0 for the first SSC release. No code changes from 1.18.2; the entries below record the pre-SSC history.
 
 ### 1.18.2 (2026-10-13)
 

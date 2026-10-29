@@ -115,7 +115,7 @@ void _qa_badge_row_contract(
     while ((line = fget(fh)) != J(0, 0, "")) {
         if (strpos(line, anchor)) {
             nrow++
-            if (strpos(line, vbadge) & strpos(line, dbadge)) ngood++
+            if (strpos(line, vbadge) & (dbadge == "" | strpos(line, dbadge))) ngood++
         }
     }
     fclose(fh)
@@ -304,8 +304,11 @@ if _rc {
     display as text "NOTE: no repo-level README.md above `pkg_dir'; top-level badge check not applicable here"
 }
 else {
-    local vbadge "version-`pkg_version'-blue"
-    local dbadge "updated-`badge_date'-brightgreen"
+    * House style for the top-level package table: one version badge,
+    * "badge/version-X.Y.Z-1a5f91", and no date badge (the dbadge slot is
+    * empty, so only the version badge is required).
+    local vbadge "badge/version-`pkg_version'-1a5f91"
+    local dbadge ""
     * The package table links each row relatively, "[rangematch](rangematch)".
     * The anchor once read "tree/main/rangematch)", an absolute-URL form the
     * README dropped on 2026-09-22; from then on this gate found zero rows and
@@ -313,12 +316,12 @@ else {
     local anchor "[rangematch](rangematch)"
     mata: _qa_badge_row_contract(st_local("repo_readme"), st_local("anchor"), st_local("vbadge"), st_local("dbadge"))
     if scalar(__badge_rows) != 1 | scalar(__badge_good) != 1 {
-        display as error "top-level README.md must contain one rangematch row with both current badges"
-        display as error "found `=scalar(__badge_rows)' rangematch rows and `=scalar(__badge_good)' rows with both badges"
+        display as error "top-level README.md must contain one rangematch row with the current version badge"
+        display as error "found `=scalar(__badge_rows)' rangematch rows and `=scalar(__badge_good)' rows with that badge"
         display as error "the package-table row is the release contract; badges elsewhere do not satisfy it"
         exit 9
     }
-    display as result "PASS: top-level README badges match (`vbadge', `dbadge')"
+    display as result "PASS: top-level README version badge matches (`vbadge')"
 }
 
 **# README option and stored-result surface

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.1  30sep2026}{...}
+{* *! version 0.1.2  29oct2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] frames" "help frames intro"}{...}
 {viewerjumpto "Syntax" "asof##syntax"}{...}
@@ -81,11 +81,13 @@ Eligibility is the intersection of {cmd:direction()}, {cmd:window()}, and
 {cmd:range()}. Missing range bounds are open. Records with missing {cmd:id()},
 {cmd:date()}, or any {cmd:require()} variable are ineligible. Master rows with
 a missing identifier or anchor are not changed and are counted in
-{cmd:r(N_nokey)}.
+{cmd:r(N_nokey)}. If no selected master row has both a nonmissing identifier
+and a nonmissing anchor, {cmd:asof} exits with error 2000.
 
 {pstd}
 Daily dates may be unformatted or formatted {cmd:%td}. Clock datetimes must be
-formatted {cmd:%tc} on both sides. Mixing daily dates and clock datetimes
+formatted {cmd:%tc} on both sides. Left-justified and centered forms such as
+{cmd:%-td}, {cmd:%-tc}, and {cmd:%~tc} are the same units. Mixing daily dates and clock datetimes
 produces error 109. Window offsets and reported gaps are always measured in
 days.
 
@@ -156,7 +158,17 @@ is left unchanged.
 
 {phang}
 {opt replace} permits existing output variables. Numeric outputs require
-numeric destinations and string outputs require string destinations.
+numeric destinations and string outputs require string destinations. A
+replaced output takes the carried variable's variable label and value label
+in every label language, as a new output would; if the carried variable has no
+value label, any value label on the existing output is removed. Rows outside
+{it:if}/{it:in}, and rows with a missing identifier or anchor, keep their old
+values, so {cmd:asof} exits with error 109 when such rows hold nonmissing
+values (extended missing codes included) and, in any label language, the
+existing output's value label maps values to different text than the carried
+one; drop or rename the output first. The same rule applies to an existing
+{opt datename()} variable. If the outputs would not fit within
+{cmd:set maxvar}, {cmd:asof} exits with error 900 before creating any.
 
 {dlgtab:Behavior}
 
@@ -269,7 +281,7 @@ Select the latest record on or before the end of observable follow-up:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 0.1.1, 2026-09-30{p_end}
+{pstd}Version 0.1.2, 2026-10-29{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

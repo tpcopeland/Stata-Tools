@@ -1,4 +1,4 @@
-*! _asof_parse_rules Version 0.1.1  2026/09/30
+*! _asof_parse_rules Version 0.1.2  2026/10/29
 *! Validate and normalize asof selection rules
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

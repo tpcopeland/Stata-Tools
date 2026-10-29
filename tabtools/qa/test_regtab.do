@@ -3859,7 +3859,7 @@ if _rc == 0 {
     local _found_hint = 0
     file read `_rh' _line
     while r(eof) == 0 {
-        if strpos(`"`_line'"', "collect clear") > 0 & strpos(`"`_line'"', "Hint") > 0 {
+        if strpos(`"`macval(_line)'"', "collect clear") > 0 & strpos(`"`macval(_line)'"', "Hint") > 0 {
             local _found_hint = 1
         }
         file read `_rh' _line

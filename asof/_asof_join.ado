@@ -1,4 +1,4 @@
-*! _asof_join Version 0.1.1  2026/09/30
+*! _asof_join Version 0.1.2  2026/10/29
 *! Run the Mata as-of scan over prepared key and event frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -6,7 +6,17 @@ set more off
 capture log close _all
 log using "validation_pkgtransfer_fixture_contract.log", text replace
 local pkg_dir=substr("`c(pwd)'",1,strlen("`c(pwd)'")-3)
+* The source directory goes first on the adopath for this suite only. $S_ADO
+* (the adopath itself) is restored exactly on every exit path below, so later
+* suites in the lane do not resolve pkgtransfer from this source tree. The body
+* runs captured so an abort still reaches that restore and the sysdir cleanup.
+local saved_s_ado `"$S_ADO"'
+local transferroot ""
+local tests 0
+local pass 0
+local fail 0
 adopath ++ "`pkg_dir'"
+capture noisily {
 do _qa_fx_a7.do
 do _qa_state.do
 local tests 0
@@ -104,6 +114,17 @@ else {
 }
 _pkgtransfer_qa_cleanup, root(`"`macval(transferroot)'"') originalplus(`"`macval(originalplus)'"') originalpersonal(`"`macval(originalpersonal)'"')
 
+}
+local body_rc = _rc
+global S_ADO `"`saved_s_ado'"'
+if `body_rc' {
+    display as error "suite body aborted (rc=`body_rc')"
+    local ++tests
+    local ++fail
+    if `"`transferroot'"' != "" {
+        capture noisily _pkgtransfer_qa_cleanup, root(`"`transferroot'"') originalplus(`"`originalplus'"') originalpersonal(`"`originalpersonal'"')
+    }
+}
 display "RESULT: validation_pkgtransfer_fixture_contract tests=`tests' pass=`pass' fail=`fail'"
 log close
 if `fail' exit 1

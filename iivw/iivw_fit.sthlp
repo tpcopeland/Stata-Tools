@@ -150,8 +150,8 @@ when no stored package metadata are present. It is required when
 {phang}
 {opt family(string)} specifies the GLM family distribution for GEE models. Default
 is {cmd:gaussian} (identity link, for continuous outcomes). Other common
-choices: {cmd:binomial} for binary outcomes, {cmd:poisson} for count outcomes.
-Grouped binomial data are specified as in {cmd:glm}, {cmd:family(binomial} {it:varname}{cmd:)},
+choices: {cmd:binomial} for binary outcomes, {cmd:poisson} for count outcomes. Grouped
+binomial data are specified as in {cmd:glm}, {cmd:family(binomial} {it:varname}{cmd:)},
 where {it:varname} holds each row's number of trials; rows with a missing trial
 count leave the estimation sample.
 
@@ -369,8 +369,8 @@ only -- {opt family(gaussian)} {opt link(identity)}, {opt family(poisson)}
 not differentiable in the nuisance parameters and the delta method the sandwich
 rests on does not apply there. Use {cmd:vce(bootstrap, reps(999))} for a trimmed
 weighting or a non-canonical link. Which nuisance
-parameters were propagated is recorded in {cmd:e(iivw_stacked_terms)}.
-Intercept-only outcome models and {cmd:geeopts(noconstant)} designs are
+parameters were propagated is recorded in {cmd:e(iivw_stacked_terms)}. Intercept-only
+outcome models and {cmd:geeopts(noconstant)} designs are
 supported. The model-wide Wald test in {cmd:e(chi2)}, {cmd:e(df_m)}, and
 {cmd:e(p)} is recomputed from the stacked {cmd:e(V)} (all slopes; missing with
 {cmd:e(df_m)}=0 for an intercept-only model), so it never pairs a fixed-weight
@@ -574,12 +574,12 @@ by {opt cit:ype()}. {cmd:wald} uses coefficient {+/-} {it:z} {cmd:*} SE, whereas
 {cmd:percentile}, {cmd:basic}, and {cmd:bca} use the corresponding full-refit
 bootstrap endpoints. {cmd:citype(none)} prints coefficients only. The selected
 endpoints are stored in {cmd:e(iivw_ci)}; Stata's additional bootstrap results
-remain available through {helpb estat bootstrap}.
-If a {cmd:citype(percentile)}, {cmd:citype(basic)} or {cmd:citype(bca)} interval
+remain available through {helpb estat bootstrap}. If
+a {cmd:citype(percentile)}, {cmd:citype(basic)} or {cmd:citype(bca)} interval
 is undefined for any retained (non-omitted) coefficient, for example a BCa bias
 correction that cannot be computed from a small or degenerate draw set, the fit
-stops with error 498 rather than reporting {cmd:e(iivw_interval_available)}=1;
-use more draws or another {opt cit:ype()}. A {cmd:citype(wald)} interval for a
+stops with error 498 rather than reporting {cmd:e(iivw_interval_available)}=1; use
+more draws or another {opt cit:ype()}. A {cmd:citype(wald)} interval for a
 coefficient whose model variance is missing or nonpositive (the underlying
 {cmd:glm} can post a missing standard error for an active term) does not stop
 the fit: a note names each such coefficient, {cmd:e(iivw_interval_available)}
@@ -835,14 +835,14 @@ stable at the boundaries of the time range.
 {bf:Convergence}
 
 {pstd}
-After fitting the GEE model, {cmd:iivw_fit} checks convergence.
-A nonconverged observed outcome fit is refused with error 430. On a single-fit
+After fitting the GEE model, {cmd:iivw_fit} checks convergence. A
+nonconverged observed outcome fit is refused with error 430. On a single-fit
 route, an applicable explicit {opt allownonconverged} override allows the fit
 to continue with a warning and an unusable-for-diagnostics stamp. Both fixed-weight and refit
 bootstrap wrappers check the observed evaluation and each resampled outcome
 fit. Missing convergence status or nonconvergence is an error inside those
-wrappers, and {opt allownonconverged} does not override that outcome gate.
-Nonconvergence can indicate misspecification, collinearity, or extreme weights.
+wrappers, and {opt allownonconverged} does not override that outcome gate. Nonconvergence
+can indicate misspecification, collinearity, or extreme weights.
 
 {pstd}
 {bf:Table export with collect and regtab}
@@ -1277,7 +1277,7 @@ command in {cmd:e()}, plus the following:
 {synopt:{cmd:e(V)}}covariance matrix; absent for point-only FIPTIW{p_end}
 {synopt:{cmd:e(sample)}}rows the outcome engine used{p_end}
 {synopt:{cmd:e(depvar)}}outcome variable{p_end}
-{synopt:{cmd:e(offset)}}{cmd:geeopts()} offset, or {cmd:ln(}{it:varname}{cmd:)} for an exposure; kept on point-only fits{p_end}
+{synopt:{cmd:e(offset)}}{cmd:geeopts()} offset or {cmd:ln(}{it:exposure}{cmd:)}{p_end}
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Macros}{p_end}
@@ -1401,18 +1401,18 @@ each nonmissing generated value in the rows selected by {cmd:predict}'s
 {it:if} and {it:in} with the expression that generated it (stored in
 {cmd:e(iivw_expr}{it:#}{cmd:)}); if the source of a generated column was edited
 (for example, the raw time variable of a quadratic or spline trend) or dropped,
-it exits with error 459 rather than combining an edited term with a stale one.
-For the same reason, {cmd:margins, at()} and {cmd:predict} at counterfactual
+it exits with error 459 rather than combining an edited term with a stale one. For
+the same reason, {cmd:margins, at()} and {cmd:predict} at counterfactual
 values of a raw time variable that feeds generated columns (for example
-{cmd:margins, at(t=(1 2))} after {cmd:timespec(quadratic)}) exit with error 459:
-the generated columns would no longer match their stored expressions. Setting
+{cmd:margins, at(t=(1 2))} after {cmd:timespec(quadratic)}) exit with error 459: the
+generated columns would no longer match their stored expressions. Setting
 {cmd:at()} on the generated columns as well is refused too. To predict at other
 times, set the raw time and every generated column consistently in a copy of the
 data (for example {cmd:replace t = 2} and {cmd:replace _iivw_time_sq = 4}) and
-run {cmd:predict}, or refit with the times of interest in the data.
-{cmd:margins, dydx(}{it:x}{cmd:)} for a predictor that is not a generated
-column is unaffected.
-New rows whose generated columns agree with the stored expressions can be
+run {cmd:predict}, or refit with the times of interest in the
+data. {cmd:margins, dydx(}{it:x}{cmd:)} for a predictor that is not a generated
+column is unaffected. New
+rows whose generated columns agree with the stored expressions can be
 predicted. Refit the model, or restore the data it was fitted on, to predict
 from it again. Estimates stored by a version of {cmd:iivw_fit} that did not
 record these expressions must be refitted before {cmd:predict} when the fit
@@ -1421,8 +1421,8 @@ the native {cmd:glm} routines on the fitted model. A point-only fit ({cmd:citype
 FIPTIW fit) retains coefficients in {cmd:e(b)} but deliberately posts no
 {cmd:e(V)}, and the underlying model's other results are not kept, except for
 the {cmd:offset()}/{cmd:exposure()} term in {cmd:e(offset)}. Its
-{cmd:predict} offers the linear prediction ({cmd:xb}, including any offset;
-{cmd:nooffset} excludes it) only, through the same
+{cmd:predict} offers the linear prediction ({cmd:xb}, including any offset; {cmd:nooffset}
+excludes it) only, through the same
 design-column check; {cmd:stdp}, model-specific statistics such as {cmd:mu},
 and inference-dependent postestimation are unavailable unless an interval
 method was explicitly requested.
@@ -1461,8 +1461,8 @@ irregular, outcome-dependent follow-up. {it:Journal of the Royal Statistical}
 66(3): 791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 
 {phang}
-Rabe-Hesketh S, Skrondal A. 2006. Multilevel modelling of complex survey data.
-{it:Journal of the Royal Statistical Society: Series A (Statistics in Society)}
+Rabe-Hesketh S, Skrondal A. 2006. Multilevel modelling of complex survey
+data. {it:Journal of the Royal Statistical Society: Series A (Statistics in Society)}
 169(4): 805-827. doi:10.1111/j.1467-985X.2006.00426.x.
 
 {phang}

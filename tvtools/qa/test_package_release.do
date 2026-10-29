@@ -608,13 +608,46 @@ capture noisily {
     assert scalar(__demo_axis_reversed) == 0
 
     * A late graph-export failure must still restore the caller transaction.
-    local bad_demo_dir "$TVTOOLS_QA_RUN_DIR/__missing_demo_output"
-    capture rmdir "`bad_demo_dir'"
-    capture noisily do "`pkg_dir'/demo/demo_tvtools.do" "`bad_demo_dir'"
+    * The demo derives its package and repository roots from its directory
+    * argument, so a missing directory fails at the tc_schemes lookup, long
+    * before any graph. Stage a throwaway repository instead -- flat copies of
+    * the package and tc_schemes beside an empty demo/ -- in which every step
+    * succeeds until the first graph export, whose target is occupied by a
+    * directory. The failure is then the intended one: rc 603 at
+    * balance_loveplot.png, after all five console logs were written and
+    * before the swimlane export.
+    local late_repo "$TVTOOLS_QA_RUN_DIR/demo_late_fail"
+    local late_demo "`late_repo'/tvtools/demo"
+    foreach d in "`late_repo'" "`late_repo'/tvtools" "`late_demo'" ///
+        "`late_repo'/tc_schemes" "`late_demo'/balance_loveplot.png" {
+        mkdir "`d'"
+    }
+    * graph export, replace removes an EMPTY directory and writes the PNG, so
+    * the blocking directory must hold a file.
+    tempname late_fh
+    file open `late_fh' using "`late_demo'/balance_loveplot.png/occupied", ///
+        write text replace
+    file write `late_fh' "graph export cannot replace a non-empty directory" _n
+    file close `late_fh'
+    local late_files : dir "`pkg_dir'" files "*", respectcase
+    foreach f of local late_files {
+        copy "`pkg_dir'/`f'" "`late_repo'/tvtools/`f'"
+    }
+    confirm file "`pkg_dir'/../tc_schemes/tc_schemes.pkg"
+    local late_files : dir "`pkg_dir'/../tc_schemes" files "*", respectcase
+    foreach f of local late_files {
+        copy "`pkg_dir'/../tc_schemes/`f'" "`late_repo'/tc_schemes/`f'"
+    }
+    capture noisily do "`pkg_dir'/demo/demo_tvtools.do" "`late_demo'"
     local demo_fail_rc = _rc
     capture log close _all
     quietly log using "`qa_dir'/test_package_release.log", append nomsg
-    assert `demo_fail_rc' != 0
+    assert `demo_fail_rc' == 603
+    foreach lg in primitives tvbuild msm recurrent multigroup {
+        confirm file "`late_demo'/console_`lg'.log"
+    }
+    capture confirm file "`late_demo'/swimlane_plot.png"
+    assert _rc != 0
     datasignature confirm
     assert "`c(more)'" == "`demo_more'"
     assert "`c(varabbrev)'" == "`demo_varabbrev'"

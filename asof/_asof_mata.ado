@@ -1,4 +1,4 @@
-*! _asof_mata Version 0.1.1  2026/09/30
+*! _asof_mata Version 0.1.2  2026/10/29
 *! Mata engine for the asof join
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal Mata source (loaded by _asof_join)
@@ -10,6 +10,7 @@ capture mata: mata drop _asof_choose()
 capture mata: mata drop _asof_scan_num()
 capture mata: mata drop _asof_scan_str()
 capture mata: mata drop _asof_scan()
+capture mata: mata drop _asof_vlabel_same()
 capture mata: mata drop _asof_mata_present()
 
 mata:
@@ -459,6 +460,21 @@ mata:
             st_framecurrent(original)
             return(stats)
         }
+
+// Two value-label sets hold the same value-to-text mapping.
+real scalar _asof_vlabel_same(string scalar a, string scalar b)
+{
+    real colvector va, vb, pa, pb
+    string colvector ta, tb
+
+    st_vlload(a, va, ta)
+    st_vlload(b, vb, tb)
+    if (rows(va) != rows(vb)) return(0)
+    if (rows(va) == 0) return(1)
+    pa = order(va, 1)
+    pb = order(vb, 1)
+    return(va[pa] == vb[pb] & ta[pa] == tb[pb])
+}
 
 void _asof_mata_present() {}
 

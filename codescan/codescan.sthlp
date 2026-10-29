@@ -1093,10 +1093,9 @@ failure rolls the data back, the results that describe the data in memory
 say so: {cmd:r(newvars)} and {cmd:r(frame)} are empty and {cmd:r(collapsed)}
 and {cmd:r(merged)} are 0. A failed output always rolls the data back,
 including after {cmd:collapse} without {cmd:preserve}: the data in memory are
-the data as they were before the call, and the error code is returned.
-{cmd:r(n_excluded_missingdate)} is returned
-only when a window was requested, and counts the rows dropped for a missing
-{cmd:date()} or {cmd:refdate()}.
+the data as they were before the call, and the error code is returned. {cmd:r(n_excluded_missingdate)}
+is returned only when a window was requested, and counts the rows dropped for a
+missing {cmd:date()} or {cmd:refdate()}.
 
 {pstd}
 When {opt detail} is requested, {cmd:r(detail_allslots)} says which attribution

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  13oct2026}{...}
+{* *! version 1.0.0  28oct2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -305,7 +305,7 @@ uses net install to bootstrap it.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.2, 2026-10-13{p_end}
+{pstd}Version 1.0.0, 2026-10-28{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.18.2  13oct2026}{...}
+{* *! version 1.0.0  13oct2026}{...}
 {vieweralsosee "tvbuild" "help tvbuild"}{...}
 {vieweralsosee "tvspec" "help tvspec"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -406,7 +406,7 @@ To install or update tvtools:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.18.2, 2026-10-13{p_end}
+{pstd}Version 1.0.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
