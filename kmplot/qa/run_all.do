@@ -24,8 +24,8 @@ local full_suites "`core_suites' crossval_kmplot_sts.do crossval_kmplot_survfit.
 * Coverage simulations (R = 1000 each): KM survival, and the compete()
 * cumulative incidence. Not in full: the bounds they calibrate are pinned
 * exactly by validation_kmplot.do (closed form), crossval_kmplot_survfit.do
-* (R survfit, all three transforms) and crossval_kmplot_cif.do (stcompet). Run them
-* when the interval code changes or before a release.
+* (R survfit, all three transforms) and crossval_kmplot_cif.do (stcompet, all
+* three transforms). Optional: run them when the interval code changes.
 local calibration_suites "validation_kmplot_calibration.do validation_kmplot_cif_calibration.do"
 local suites "``mode'_suites'"
 

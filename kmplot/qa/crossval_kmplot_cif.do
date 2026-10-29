@@ -20,8 +20,10 @@
 * Checks, each at EVERY reference time (1e-10): the saved kmplot curve against
 * survfit pstate in all scenarios, against cuminc in plain/ties, against
 * stcompet in plain/ties; the unweighted ci limits against stcompet hi/lo
-* (1e-8, ln(-ln) transform, Aalen variance as in stcompet); and r(landmarks)
-* against the survfit step function.  R and stcompet are required: the suite
+* (1e-8, ln(-ln) transform, Aalen variance as in stcompet); the log and plain
+* limits against the standard error recovered from stcompet's ln(-ln) limits
+* (1e-8, saved curve and r(landmarks)); and r(landmarks) against the survfit
+* step function.  R and stcompet are required: the suite
 * fails, not skips, without them.
 
 clear all
@@ -168,6 +170,8 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 local kmfile "`c(tmpdir)'/kmcif_curve.dta"
+local kmfile_tr "`c(tmpdir)'/kmcif_curve_tr.dta"
+local n_lm_bounds 0
 
 foreach sc in plain ties wt entry multirec gridentry gridid gridfw gridpw {
     forvalues r = 1/`nrep' {
@@ -327,10 +331,117 @@ foreach sc in plain ties wt entry multirec gridentry gridid gridfw gridpw {
                 local ++fail_count
                 display as error "FAIL: `sc' rep `r' kmplot estimate/ci vs stcompet (rc=`rc4')"
             }
+
+            * ---- log and plain limits against the stcompet standard error
+            * stcompet reports only the ln(-ln) interval.  Inverting its lower
+            * limit lo = F^exp(-z se/(F ln F)) gives se = -(F ln F)/z ln(ln lo/ln F),
+            * and its upper limit gives the same se with the sign flipped; the
+            * two recoveries must agree.  From that se, citransform(log) is
+            * F exp(-/+ z se/F) and citransform(plain) is F -/+ z se, each
+            * clipped to [0, 1] (kmplot.sthlp, citransform()).  kmplot's saved
+            * curve at every stcompet time, and r(landmarks) where no competing
+            * event falls between the last event of interest and the landmark,
+            * must equal them to 1e-8.  The landmark restriction is
+            * conservative: a competing time adds a zero term to the variance
+            * while F is flat, so the limits could be checked at every
+            * landmark.
+            foreach tr in log plain {
+                local ++test_count
+                capture noisily {
+                    assert `krc' == 0
+                    use "`sim'", clear
+                    quietly keep if scenario == "`sc'" & rep == `r'
+                    quietly stset t, failure(status == 1)
+                    quietly kmplot, by(g) compete(status == 2) ci citransform(`tr') ///
+                        landmark(`lm') saving("`kmfile_tr'", replace) nodraw name(kmcif, replace)
+                    assert "`r(citransform)'" == "`tr'"
+                    tempname LMT
+                    matrix `LMT' = r(landmarks)
+                    assert rowsof(`LMT') == 6
+                    * landmarks whose last event-of-interest time is also the
+                    * last event time of either cause
+                    forvalues gi = 1/2 {
+                        foreach tm of local lm {
+                            quietly summarize _t if _st & g == `gi' & _d == 1 & _t <= `tm', meanonly
+                            local tl_`gi'_`tm' = r(max)
+                            quietly summarize _t if _st & g == `gi' & (_d == 1 | status == 2) & _t <= `tm', meanonly
+                            local ok_`gi'_`tm' = (r(max) == `tl_`gi'_`tm'') & !missing(`tl_`gi'_`tm'')
+                        }
+                    }
+                    quietly stcompet sc_ci = ci sc_hi = hi sc_lo = lo, ///
+                        compet1(2) by(g)
+                    quietly keep if _d == 1 & !missing(sc_ci)
+                    gen double time = _t
+                    rename (g sc_ci) (group est)
+                    keep group time est sc_lo sc_hi
+                    quietly duplicates drop
+                    isid group time
+                    local z = invnormal(.975)
+                    quietly gen double se_lo = -(est * ln(est)) / `z' * ///
+                        ln(ln(sc_lo) / ln(est)) if est > 0 & est < 1 & sc_lo > 0 & sc_lo < est
+                    quietly gen double se_hi = (est * ln(est)) / `z' * ///
+                        ln(ln(sc_hi) / ln(est)) if est > 0 & est < 1 & sc_hi < 1 & sc_hi > est
+                    quietly count if !missing(se_lo, se_hi)
+                    assert r(N) > 10
+                    quietly gen double sed = abs(se_lo - se_hi) / se_lo
+                    summarize sed, meanonly
+                    assert r(max) < 1e-8
+                    quietly gen double se = se_lo
+                    if "`tr'" == "log" {
+                        quietly gen double lo = est * exp(-`z' * se / est) if !missing(se)
+                        quietly gen double hi = min(est * exp(`z' * se / est), 1) if !missing(se)
+                    }
+                    else {
+                        quietly gen double lo = max(est - `z' * se, 0) if !missing(se)
+                        quietly gen double hi = min(est + `z' * se, 1) if !missing(se)
+                    }
+                    tempfile rtr
+                    quietly save "`rtr'"
+                    _kmqa_cmp, km("`kmfile_tr'") ref("`rtr'") bounds
+                    assert r(nmiss) == 0 & r(nref) >= 15
+                    assert r(maxdiff) < 1e-10
+                    assert r(nbounds) > 10
+                    assert r(maxbound) < 1e-8
+                    local row 0
+                    forvalues gi = 1/2 {
+                        foreach tm of local lm {
+                            local ++row
+                            assert `LMT'[`row', 1] == `gi' & `LMT'[`row', 2] == `tm'
+                            if `ok_`gi'_`tm'' {
+                                quietly summarize lo if group == `gi' & time == `tl_`gi'_`tm'', meanonly
+                                assert r(N) == 1
+                                assert abs(`LMT'[`row', 4] - r(mean)) < 1e-8
+                                quietly summarize hi if group == `gi' & time == `tl_`gi'_`tm'', meanonly
+                                assert abs(`LMT'[`row', 5] - r(mean)) < 1e-8
+                                local ++n_lm_bounds
+                            }
+                        }
+                    }
+                }
+                local rc5 = _rc
+                if `rc5' == 0 {
+                    local ++pass_count
+                }
+                else {
+                    local ++fail_count
+                    display as error "FAIL: `sc' rep `r' kmplot `tr' limits vs stcompet se (rc=`rc5')"
+                }
+            }
         }
     }
 }
 capture erase "`kmfile'"
+capture erase "`kmfile_tr'"
+* the r(landmarks) limit checks above must have run, not been skipped
+local ++test_count
+display as text "log/plain r(landmarks) limits checked: `n_lm_bounds'"
+if `n_lm_bounds' >= 20 {
+    local ++pass_count
+}
+else {
+    local ++fail_count
+    display as error "FAIL: only `n_lm_bounds' log/plain landmark limits were checked"
+}
 display as text "comparisons: `test_count'  passed: `pass_count'  failed: `fail_count'"
 if `fail_count' == 0 {
     display as result "RESULT: crossval_kmplot_cif tests=`test_count' pass=`pass_count' fail=0 skip=0"
