@@ -1,4 +1,4 @@
-*! _kmplot_times Version 1.0.0  2026/10/20
+*! _kmplot_times Version 1.0.1  2026/10/30
 *! Expand numeric time lists without rounding explicit double values
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

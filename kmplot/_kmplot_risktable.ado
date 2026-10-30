@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.0.0  2026/10/20
+*! _kmplot_risktable Version 1.0.1  2026/10/30
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -531,7 +531,11 @@ program define _kmplot_risktable, rclass
             else {
                 local top_xlabel_cmd xlabel(`timepoints', labsize(small) noticks nogrid axis(2))
             }
-            local xlabel_cmd `"xlabel(, nolabels noticks nogrid axis(1)) `top_xlabel_cmd'"'
+            * axis(1) is hidden, but its ticks still set its range.  Left to
+            * Stata's default rule they ran past xmax (0 5 10 15 for a 0-12
+            * axis), so the panel was wider than tmax(); put them on the
+            * timepoints instead.
+            local xlabel_cmd `"xlabel(`timepoints', nolabels noticks nogrid axis(1)) `top_xlabel_cmd'"'
             local xtitle_cmd `"xtitle("", axis(1)) xtitle("", axis(2))"'
             local xscale_cmd `"xscale(range(`xstart' `xmax') noextend noline axis(1)) xscale(range(`xstart' `xmax') noextend noline axis(2))"'
             local ymax = (`ngroups' + 1.50 + `rt_row_offset') * `rt_yk'

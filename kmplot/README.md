@@ -2,9 +2,9 @@
 
 # kmplot — Kaplan-Meier and competing-risks curves with risk tables
 
-**Version 1.0.0** | 2026-10-28
+**Version 1.0.1** | 2026-10-30
 
-[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Options](#options)** · **[Gallery](#gallery)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -376,6 +376,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.0.1** (2026-10-30): `tmax()` now ends the x axis at `tmax()`. A value that was not one of Stata's default ticks ran on to the next one, so `tmax(12)` drew a 0-15 axis with blank space after the curves, with or without `risktable`. Without `xlabel()`, or with an `xlabel()` that carries sub-options only such as `xlabel(, angle(45))`, the axis is labelled with `timepoints()` or the default risk-table grid; a passthrough option that asks for a wider axis, such as `xscale(range(0 20))`, still gets it. Plots without `tmax()` are unchanged.
 - **1.0.0** (2026-10-20): Initial release. Folded into 1.0.0 before wider distribution: `compete()` Aalen-Johansen cumulative incidence (weighted point estimates; unweighted `ci` matching `stcompet`); `riskweight()` with people counts by default under pweights/iweights; `riskmask()` small-count masking (with the `tabtools set smallcells` default); automatic y range for failure and incidence plots, `ymax()`, `percent`, and robust text `ylabel()`s; `graphregion()`/`plotregion()`/`xsize()`/`ysize()` and `combineopts()` reach the combined graph; `byorder()`; `tmax()`; new returns `r(estimator)`, `r(compete)`, `r(scale)`, `r(riskweight)`, `r(riskmask)`, `r(ymax)`, `r(tmax)`; `risksaving()` adds `*_w` and `*_masked` variables; `nodraw` now works with `risktable` (and is refused with `export()`). Review fixes, also folded into 1.0.0: requested times match `float` time variables, decimal ranges equal the typed decimals, and repeated times are dropped; risk-table times beyond `tmax()` are refused and median lines stop at `tmax()`; title options take sub-options and several lines; `xtitle("")` also clears the risk-table title; labelled `xlabel()` lists set the risk-table columns, and unlabelled-position specifications need `timepoints()`; group labels with backticks or dollar signs stay literal; `nodraw` is matched only as a whole option; `name()`, `pvalueformat()`, and `compete()` are validated; file options are checked before drawing, `saving()` and `risksaving()` may not share a file, and saved files carry no source metadata; `r(ymax)` is the decimal axis top.
 
 ## Author

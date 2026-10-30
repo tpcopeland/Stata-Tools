@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  20oct2026}{...}
+{* *! version 1.0.1  30oct2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -457,6 +457,13 @@ the whole curve, and {opt landmark()} times beyond {it:#} are computed. Risk-tab
 times may not exceed {it:#} (r(198)), and median lines beyond it
 are not drawn. {it:#} must be positive.{p_end}
 
+{pmore}The x axis ends at {it:#}. Without {opt xlabel()}, its labels are the
+default risk-table grid, with or without {opt risktable}; an {opt xlabel()}
+with sub-options only, such as {cmd:xlabel(, angle(45))}, labels
+{opt timepoints()} or that grid. A passthrough option that asks for a wider
+axis, such as {cmd:xscale(range(0 20))}, still gets it, and the risk table
+follows the same range.{p_end}
+
 {phang}{opt legend(string)} supplies a custom Stata legend
 specification. Without it, {cmd:kmplot} constructs a legend from the plotted
 groups.{p_end}
@@ -806,7 +813,7 @@ confidence interval, and the log-rank test.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-20{p_end}
+{pstd}Version 1.0.1, 2026-10-30{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

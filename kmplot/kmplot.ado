@@ -1,4 +1,4 @@
-*! kmplot Version 1.0.0  2026/10/20
+*! kmplot Version 1.0.1  2026/10/30
 *! Publication-ready Kaplan-Meier survival, cumulative failure and cumulative incidence plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -136,6 +136,28 @@ program define kmplot, rclass
                 if `_tp' > `tmax_user' {
                     noisily display as error "timepoints() value `_tp' is beyond tmax(`tmax'); risk-table times must not exceed tmax()"
                     exit 198
+                }
+            }
+            * Default x-label grid up to tmax(), the one _kmplot_risktable
+            * builds for its default timepoints.  Stata's own default labels
+            * run on to the next tick past tmax() (0 5 10 15 for tmax(12)).
+            local _tg_step = `tmax_user' / 5
+            if `_tg_step' >= 100      local _tg_step = round(`_tg_step', 50)
+            else if `_tg_step' >= 10  local _tg_step = round(`_tg_step', 5)
+            else if `_tg_step' >= 1   local _tg_step = round(`_tg_step', 1)
+            else                      local _tg_step = round(`_tg_step', 0.5)
+            if `_tg_step' <= 0 local _tg_step = `tmax_user' / 5
+            numlist "0(`_tg_step')`tmax_user'"
+            local tmax_grid "`r(numlist)'"
+            * xlabel() with sub-options only, such as xlabel(, angle(45)),
+            * gives no positions, so Stata's default ones would apply: label
+            * timepoints(), else the grid.
+            if `"`macval(xlabel)'"' != "" {
+                gettoken _xl_first : xlabel, parse(",") quotes
+                if `"`macval(_xl_first)'"' == "," {
+                    local _xl_pos "`tmax_grid'"
+                    if "`timepoints'" != "" local _xl_pos "`timepoints'"
+                    local xlabel `"`_xl_pos'`macval(xlabel)'"'
                 }
             }
         }
@@ -1163,7 +1185,7 @@ program define kmplot, rclass
                 `rt_height_opt' `rt_flags' ///
                 compvar(`km_comp') riskweight(`riskweight') `rt_mask_opt' ///
                 regionopts(`macval(_km_region_only)') `rt_ylabhi_opt' ///
-                callerversion("1.0.0") toptimeaxis
+                callerversion("1.0.1") toptimeaxis
             matrix `risktable_mat' = r(risktable)
             matrix `risktable_w_mat' = r(risktable_w)
             matrix `risktable_f_mat' = r(risktable_flag)
@@ -1594,6 +1616,12 @@ program define kmplot, rclass
         }
         if `tmax_user' < . & "`risktable'" == "" {
             local tw_opts `"`macval(tw_opts)' xscale(range(0 `tmax_user'))"'
+            * range() only widens an axis: left to Stata's default labels,
+            * tmax(12) was drawn as 0 5 10 15.  Label the default grid, so the
+            * axis ends at tmax() and matches the same plot with risktable.
+            if `"`xlabel'"' == "" {
+                local tw_opts `"`macval(tw_opts)' xlabel(`tmax_grid')"'
+            }
         }
 
         if `"`xlabel'"' != "" & "`risktable'" == "" {
@@ -1745,10 +1773,35 @@ program define kmplot, rclass
             if `"`macval(note)'"' == "" & `"`macval(med_note)'"' != "" {
                 local combine_note `"note(`"`macval(med_note)'"', size(vsmall) color(gs5))"'
             }
+            * xcommon rescales both panels to one x range, and Stata rounds
+            * that range up to its default ticks: tmax(12) was drawn on a 0-15
+            * axis with blank space after 12.  With tmax() both panels are
+            * built to span [0, tmax], and the invisible label columns give
+            * them the same width, so they align without xcommon.  Read the
+            * ranges the two panels were built with: when a passthrough option
+            * such as xscale(range()) widened the main panel, they differ and
+            * xcommon puts the risk table on the same range.
+            local _km_xcommon "xcommon"
+            if `tmax_user' < . {
+                local _km_xsame = 1
+                foreach _km_end in curmin curmax {
+                    local _km_xm `.`_kmplot_main_graph'.plotregion1.xscale.`_km_end''
+                    local _km_xr `.`_kmplot_risk_graph'.plotregion1.xscale.`_km_end''
+                    capture confirm number `_km_xm'
+                    if _rc local _km_xsame = 0
+                    capture confirm number `_km_xr'
+                    if _rc local _km_xsame = 0
+                    if `_km_xsame' {
+                        if missing(`_km_xm', `_km_xr') local _km_xsame = 0
+                        else if reldif(`_km_xm', `_km_xr') > 1e-9 local _km_xsame = 0
+                    }
+                }
+                if `_km_xsame' local _km_xcommon ""
+            }
             * The user's region and size options also shape the combined
             * graph; combineopts() goes last, so it wins.
             graph combine `_kmplot_main_graph' `_kmplot_risk_graph', ///
-                cols(1) xcommon ///
+                cols(1) `_km_xcommon' ///
                 imargin(0 0 0 0) ///
                 name(`name', replace) ///
                 scheme(`scheme') `macval(_km_region_opts)' `macval(combine_note)' ///

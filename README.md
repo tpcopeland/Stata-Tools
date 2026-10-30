@@ -174,7 +174,7 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 | Package | What it does | Version |
 | --- | --- | --- |
 | [eplot](eplot) | Forest and coefficient plots from anything: variables, stored estimates, matrices, or frames, with several models side by side | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
-| [kmplot](kmplot) | Publication-ready Kaplan-Meier and Aalen-Johansen curves in one command: CI bands, number-at-risk table, medians, log-rank p, and censor marks | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [kmplot](kmplot) | Publication-ready Kaplan-Meier and Aalen-Johansen curves in one command: CI bands, number-at-risk table, medians, log-rank p, and censor marks | ![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square) |
 | [raincloud](raincloud) | Raincloud plots: density, raw points, and box summary in one figure | ![version](https://img.shields.io/badge/version-1.0.4-1a5f91?style=flat-square) |
 | [spaghetti](spaghetti) | Individual trajectories over time with group means and CI bands, plus sampling, highlighting, and color-by to keep large panels readable | ![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square) |
 | [swimlane](swimlane) | Patient timelines as swimmer or state swimlane plots, from wide, long-interval, or `stset` data | ![version](https://img.shields.io/badge/version-0.2.0-1a5f91?style=flat-square) |
