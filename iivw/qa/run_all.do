@@ -158,7 +158,7 @@ local quick_suites ///
     test_iivw_final_adversarial ///
     test_iivw_release_adversarial
 
-local core_suites validation_fixture_phase2_iivw validation_fixture_analytical validation_fixture_weightdomains validation_fixture_inference test_fixture_weight_state validation_fixture_domains test_fixture_balance_state validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool validation_fixture_qa29_weight validation_fixture_qa29_fit validation_fixture_qa29_bspool validation_fixture_qa29_balance validation_fixture_qa29_diagnose validation_fixture_qa29_exogtest ///
+local core_suites validation_fixture_phase2_iivw validation_fixture_analytical validation_fixture_weightdomains validation_fixture_inference test_fixture_weight_state validation_fixture_domains test_fixture_balance_state validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool validation_fixture_qa29_weight validation_fixture_qa29_fit validation_fixture_qa29_bspool validation_fixture_qa29_balance validation_fixture_qa29_diagnose validation_fixture_qa29_exogtest validation_iivw_exogtest_corpus validation_iivw_exogtest_command ///
     test_iivw ///
     test_iivw_expanded ///
     test_iivw_replay ///
@@ -190,6 +190,7 @@ local core_suites validation_fixture_phase2_iivw validation_fixture_analytical v
     test_theme_removed ///
     test_iivw_diagnostic_workflow ///
     test_iivw_exogtest_adversarial ///
+    test_iivw_exogtest_separation_regress ///
     validation_iivw_diagnostics_known_answers ///
     test_iivw_literature_invariants ///
     test_iivw_ties ///

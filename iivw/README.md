@@ -2,9 +2,9 @@
 
 # iivw — Inverse intensity weighting for irregular visit data
 
-**Version 1.0.1** | 2026-10-30
+**Version 1.0.2** | 2026-10-30
 
-[![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.2-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Inference](#inference)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -471,6 +471,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.0.2** (2026-10-30): Bug fixes in the `iivw_exogtest` monotone-likelihood check. It now reports a group as separated or finite only on an exactly verified certificate, and otherwise counts it in `r(n_unknown)`. In 1.0.1, floating-point tolerances could give a wrong verdict, withholding z/p/CI for a finite group or reporting estimates for a separated one. This happened with nearly collinear lags and with lags whose values span many orders of magnitude. The check now runs on the lags `stcox` fitted rather than on SD-rescaled copies, and its verdict no longer depends on the sort order of tied rows. It is also faster on typical data. A joint p-value below about 1e-308 is now reported instead of aborting with r(198).
 - **1.0.1** (2026-10-30): Bug fixes. `iivw_exogtest` keeps a visit's lag history when its `adjust()` value is missing, so only that interval drops (counted in `r(n_excluded_missing)`); a visit after `maxfu()` with a missing `adjust()` value is now refused instead of dropped silently. It now detects monotone-likelihood separation, where a Cox coefficient diverges but `stcox` reports a finite one: z, p, HR, CI and the joint test are withheld for that group and it is counted in the new `r(n_monotone)`. It withholds the omnibus test when the robust variance is rank-deficient, and its tests no longer depend on a lag's units. `iivw_fit` restores the caller's estimation results when it refuses a fit, and `iivw_fit` and `iivw_bspool` report no Wald interval, with a note, for a retained term whose variance is zero instead of posting the point as its own interval. `font()` names longer than 31 characters (Excel's limit) are refused before any computation.
 - **1.0.0** (2026-10-15): Initial release.
 

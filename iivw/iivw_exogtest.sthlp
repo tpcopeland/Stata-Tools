@@ -566,11 +566,13 @@ the values at which {cmd:stcox} stopped, not estimates; {cmd:z}, {cmd:p},
 {cmd:hr}, {cmd:lb}, and {cmd:ub} are missing for every term of the group, the
 group's omnibus test is withheld, and the group is counted in
 {cmd:r(n_unknown)} and {cmd:r(n_monotone)}. Its terms do not enter
-{cmd:r(min_p)}. If the check itself cannot settle (its decision falls within
-floating-point error of the boundary, or it does not finish within 500
-refinement rounds), the group is treated the same way, with a different note, and is
-counted in {cmd:r(n_unknown)} but {it:not} in {cmd:r(n_monotone)}: an
-unsettled check is not evidence that the likelihood has no maximum.
+{cmd:r(min_p)}. The check returns a verdict only with an exactly verified
+certificate. If it finds none (for example a nonzero term value whose
+magnitude is outside [1e-100, 1e100], a missing value, or slacks or ranks
+that cannot be signed exactly), the group is treated the same way, with a
+different note, and is counted in {cmd:r(n_unknown)} but {it:not} in
+{cmd:r(n_monotone)}: an unsettled check is not evidence that the likelihood
+has no maximum.
 
 {pstd}
 The individual term p-values in the table are {bf:exploratory}. They are reported

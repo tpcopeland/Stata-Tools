@@ -1093,10 +1093,16 @@ else {
     local failed "`failed' E31"
 }
 
-**# E32: a lag of -1e9 on two visits: the check may not settle, and says so
-* The reviewer's case 40. Whatever the check concludes it must not claim a
-* verdict it cannot support: here it reports "did not settle", which counts
-* the group unknown but not monotone.
+**# E32: a lag of -1e9 on two visits is decided; an input it cannot certify is declared
+* The reviewer's case 40. The rows the check receives (each lag divided by its
+* SD) are certified NOT separated in exact rational arithmetic (a Stiemke
+* vector y > 0 with Z'y = 0, min y = 0.32; the raw lags give the same
+* answer), so the check, which now returns a verdict only with a certificate,
+* settles it: finite, neither unknown nor monotone, and no "did not settle"
+* note. The second half keeps the declared path covered: a lag value of
+* 1e-150 puts the scaled rows outside the range where the check's exact
+* arithmetic holds, so it must report "did not settle", which counts the
+* group unknown but not monotone.
 local ++test_count
 capture noisily {
     * expect: DEGRADED-DECLARED
@@ -1110,8 +1116,21 @@ capture noisily {
     gen double y1 = inlist(_n, 1, 4, 7, 9, 10, 11)
     gen double y2 = cond(inlist(_n, 3, 8), -1e9, inlist(_n, 2, 4, 5))
     gen byte grp = 1
+    tempfile e32raw
+    quietly save `e32raw'
     _q29_ctrl
     tempfile clog
+    log using `clog', name(q29e32) text replace nomsg
+    iivw_exogtest y1 y2, id(id) time(t) maxfu(6) by(grp) nolog
+    local nu = r(n_unknown)
+    local nm = r(n_monotone)
+    log close q29e32
+    assert `nu' == 0 & `nm' == 0
+    _q29_logcount `clog' "the monotone-likelihood check did not settle"
+    assert r(n) == 0
+    use `e32raw', clear
+    quietly replace y2 = 1e-150 if _n == 4
+    _q29_ctrl
     log using `clog', name(q29e32) text replace nomsg
     iivw_exogtest y1 y2, id(id) time(t) maxfu(6) by(grp) nolog
     local nu = r(n_unknown)
@@ -1122,11 +1141,11 @@ capture noisily {
     assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: E32 unsettled check declared: unknown, not monotone"
+    display as result "  PASS: E32 certified -1e9 lag decided finite; uncertifiable input declared unknown, not monotone"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: E32 unsettled check (rc `=_rc')"
+    display as error "  FAIL: E32 decided/declared check (rc `=_rc')"
     local ++fail_count
     local failed "`failed' E32"
 }

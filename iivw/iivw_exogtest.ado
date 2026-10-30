@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.0.1  2026/10/30
+*! iivw_exogtest Version 1.0.2  2026/10/30
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -591,11 +591,8 @@ program define iivw_exogtest, rclass sortpreserve
     * terms at rc 0. The Wald tests are therefore formed on the coefficients
     * of the lags divided by their SD over the usable rows (b * sd, V scaled
     * by sd sd'), where that decision reflects the data's information and not
-    * its units; the chi2 and p are invariant to the rescaling. The divided
-    * copies also feed the monotone-likelihood check. A constant column keeps
-    * divisor 1.
-    local __iivw_zlags ""
-    local __iivw_zadj ""
+    * its units; the chi2 and p are invariant to the rescaling. A constant
+    * column keeps divisor 1.
     local __iivw_zi = 0
     foreach __iivw_zv in `generated_lags' `adjust' {
         local ++__iivw_zi
@@ -605,12 +602,6 @@ program define iivw_exogtest, rclass sortpreserve
         if !(`__iivw_zs`__iivw_zi'' > 0 & `__iivw_zs`__iivw_zi'' < .) {
             scalar `__iivw_zs`__iivw_zi'' = 1
         }
-        tempvar __iivw_zc
-        quietly gen double `__iivw_zc' = `__iivw_zv' / `__iivw_zs`__iivw_zi''
-        if `__iivw_zi' <= `: word count `generated_lags'' {
-            local __iivw_zlags "`__iivw_zlags' `__iivw_zc'"
-        }
-        else local __iivw_zadj "`__iivw_zadj' `__iivw_zc'"
     }
 
     local n_groups : word count `group_levels'
@@ -811,18 +802,20 @@ program define iivw_exogtest, rclass sortpreserve
         * collinear (a copy 1e-9 away) is not in the model; handing it to the
         * check made it judge a design the fit did not use. Omitted terms are
         * the o.-prefixed columns of e(b); a diverging term is kept even when
-        * its standard error is missing.
+        * its standard error is missing. The check gets the variables stcox
+        * fitted, not the SD-divided copies: it verifies its verdict exactly,
+        * and the rounding in the division can separate a design that the
+        * fitted one does not (g_collinP 305), or the reverse.
         local __iivw_kz ""
         local __iivw_kn ""
         local __iivw_mi = 0
-        local __iivw_allz "`__iivw_zlags' `__iivw_zadj'"
         local __iivw_ecn : colnames e(b)
         foreach __iivw_mv in `generated_lags' `adjust' {
             local ++__iivw_mi
             local __iivw_isom : list posof "o.`__iivw_mv'" in __iivw_ecn
             local __iivw_isin : list posof "`__iivw_mv'" in __iivw_ecn
             if `__iivw_isin' & !`__iivw_isom' {
-                local __iivw_kz "`__iivw_kz' `: word `__iivw_mi' of `__iivw_allz''"
+                local __iivw_kz "`__iivw_kz' `__iivw_mv'"
                 local __iivw_kn "`__iivw_kn' `__iivw_mv'"
             }
         }
@@ -897,7 +890,7 @@ program define iivw_exogtest, rclass sortpreserve
         scalar `__iivw_jps' = .
         if `test_rc' == 0 {
             scalar `__iivw_jps' = chi2tail(`__iivw_wdf', `__iivw_wchi2')
-            local joint_p : display %21x `__iivw_jps'
+            _iivw_exog_x21 joint_p `__iivw_jps'
             if `__iivw_jps' < `__iivw_jmin' scalar `__iivw_jmin' = `__iivw_jps'
         }
         matrix `__iivw_JP'[1, `group_index'] = `__iivw_jps'
@@ -929,12 +922,11 @@ program define iivw_exogtest, rclass sortpreserve
             local ++term_index
             local b = .
             local se = .
-            * Each value travels as a %21x hexadecimal literal, which
-            * round-trips a double exactly; local x = expr would keep only
-            * about 12 significant digits.
-            capture local b : display %21x _b[`lv']
+            * Each value travels as an exact literal (_iivw_exog_x21, below);
+            * local x = expr would keep only about 12 significant digits.
+            capture _iivw_exog_x21 b _b[`lv']
             local b_rc = _rc
-            capture local se : display %21x _se[`lv']
+            capture _iivw_exog_x21 se _se[`lv']
             local se_rc = _rc
 
             local z = .
@@ -955,11 +947,11 @@ program define iivw_exogtest, rclass sortpreserve
                 local __iivw_tdf = 0`__iivw_tdf_`term_index''
             }
             if `b_rc' == 0 & `se_rc' == 0 & `se' > 0 & `se' < . & `__iivw_tdf' == 1 {
-                local z : display %21x (`b') / (`se')
-                local p : display %21x 2 * normal(-abs(`z'))
-                local hr : display %21x exp(`b')
-                local lb : display %21x exp((`b') - (`zcrit') * (`se'))
-                local ub : display %21x exp((`b') + (`zcrit') * (`se'))
+                _iivw_exog_x21 z (`b') / (`se')
+                _iivw_exog_x21 p 2 * normal(-abs(`z'))
+                _iivw_exog_x21 hr exp(`b')
+                _iivw_exog_x21 lb exp((`b') - (`zcrit') * (`se'))
+                _iivw_exog_x21 ub exp((`b') + (`zcrit') * (`se'))
                 if `p' < `min_p' local min_p `p'
                 * Individual term p-values are EXPLORATORY and no longer set the
                 * flag. Flagging on "any term in any group is significant" gave
@@ -1616,4 +1608,24 @@ program define iivw_exogtest, rclass sortpreserve
     if `__iivw_exog_export_rc' != 0 & `__iivw_exog_export_rc' != 602 {
         exit `__iivw_exog_export_rc'
     }
+end
+
+* An exact literal for one double, left in the caller's local `name'.
+* %21x round-trips every normal double, but Stata prints a subnormal
+* (0 < |x| < c(smallestdouble)) as +0.xxxxxxxxxxxxxX-3ff, which it cannot
+* read back: a two-lag joint p of chi2tail(2, 1450) = 1e-315 aborted the
+* whole diagnostic with r(198) at its first comparison. Seventeen
+* significant digits identify every double, subnormals included, and are
+* read back exactly. Missing values pass through as their own literal.
+program define _iivw_exog_x21
+    version 16.0
+    gettoken __iivw_lname 0 : 0
+    tempname __iivw_v
+    scalar `__iivw_v' = `0'
+    if `__iivw_v' != 0 & abs(`__iivw_v') < c(smallestdouble) {
+        local __iivw_lit : display %24.17e `__iivw_v'
+        local __iivw_lit = strtrim("`__iivw_lit'")
+    }
+    else local __iivw_lit : display %21x `__iivw_v'
+    c_local `__iivw_lname' `__iivw_lit'
 end

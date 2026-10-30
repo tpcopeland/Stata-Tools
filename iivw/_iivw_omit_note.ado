@@ -1,4 +1,4 @@
-*! _iivw_omit_note Version 1.0.1  2026/10/30
+*! _iivw_omit_note Version 1.0.2  2026/10/30
 *! Name the terms a nuisance model omitted, after a fit run quietly
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

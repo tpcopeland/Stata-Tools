@@ -1,4 +1,4 @@
-*! _iivw_check_passthru Version 1.0.1  2026/10/30
+*! _iivw_check_passthru Version 1.0.2  2026/10/30
 *! Reject variance/resampling tokens in a pass-through option string
 *! (geeopts()).  Part of iivw.
 *! Author: Timothy P Copeland, Karolinska Institutet
