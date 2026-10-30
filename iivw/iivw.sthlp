@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  15oct2026}
+{* *! version 1.0.1  30oct2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -463,7 +463,7 @@ answer.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-15{p_end}
+{pstd}Version 1.0.1, 2026-10-30{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

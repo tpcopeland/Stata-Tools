@@ -127,6 +127,8 @@ local quick_suites ///
     test_iivw_ownership ///
     test_iivw_sample_contract ///
     test_iivw_nullcase ///
+    test_iivw_qa29_returns ///
+    test_iivw_qa29_bspool_nullcase ///
     test_iivw_phase2_contract ///
     test_iivw_inference_contract ///
     test_iivw_v341_regressions ///
@@ -156,7 +158,7 @@ local quick_suites ///
     test_iivw_final_adversarial ///
     test_iivw_release_adversarial
 
-local core_suites validation_fixture_phase2_iivw validation_fixture_analytical validation_fixture_weightdomains validation_fixture_inference test_fixture_weight_state validation_fixture_domains test_fixture_balance_state validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool ///
+local core_suites validation_fixture_phase2_iivw validation_fixture_analytical validation_fixture_weightdomains validation_fixture_inference test_fixture_weight_state validation_fixture_domains test_fixture_balance_state validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool validation_fixture_qa29_weight validation_fixture_qa29_fit validation_fixture_qa29_bspool validation_fixture_qa29_balance validation_fixture_qa29_diagnose validation_fixture_qa29_exogtest ///
     test_iivw ///
     test_iivw_expanded ///
     test_iivw_replay ///
@@ -165,6 +167,8 @@ local core_suites validation_fixture_phase2_iivw validation_fixture_analytical v
     test_iivw_ownership ///
     test_iivw_sample_contract ///
     test_iivw_nullcase ///
+    test_iivw_qa29_returns ///
+    test_iivw_qa29_bspool_nullcase ///
     test_iivw_phase2_contract ///
     test_iivw_inference_contract ///
     test_iivw_invariance ///

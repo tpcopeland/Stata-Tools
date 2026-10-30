@@ -240,7 +240,9 @@ three-rule (top/header/bottom) layout with no vertical rules at all. {cmd:defaul
 is the same as {cmd:thin}.
 
 {phang}
-{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its
+{opt font(string)} selects the Excel font family, at most 31 characters (the
+longest font name an Excel workbook can store; a longer name is refused with
+error 198), and {opt fontsize(#)} sets its
 point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}. Both options require {opt xlsx()}.
 
 {phang}

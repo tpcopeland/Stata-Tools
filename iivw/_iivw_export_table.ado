@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 1.0.0  2026/10/15
+*! _iivw_export_table Version 1.0.1  2026/10/30
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -17,7 +17,7 @@ program define _iivw_export_table, rclass
 
     capture noisily {
 
-    syntax , TABLEFRAME(name) ///
+    syntax , [TABLEFRAME(name) CHECKONLY] ///
         [XLSX(string asis) SHEET(string asis) ///
          REPLACE OPEN TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(integer 4) LAYout(string) VALUESPANFROM(integer 0) ///
@@ -72,9 +72,29 @@ program define _iivw_export_table, rclass
     local borderstyle = lower(strtrim(subinstr(`"`borderstyle'"', `"`__iivw_dq'"', "", .)))
     mata: st_local("__iivw_font", _iivw_xlsx_font(st_local("font")))
     if `"`macval(__iivw_font)'"' == "" local __iivw_font "Arial"
+    * Excel requires a font name of 1 to 31 characters ([MS-OI29500]
+    * 2.1.1235, Part 1 Section 18.8.29, font name), and xl() wrote any
+    * length, so a 32-character family produced a workbook Excel rejects, at
+    * rc 0.
+    mata: st_local("__iivw_fontlen", strofreal(ustrlen(st_local("__iivw_font"))))
+    if `__iivw_fontlen' > 31 {
+        display as error "font() must be at most 31 characters (got `__iivw_fontlen')"
+        display as error "  an Excel workbook cannot store a longer font name"
+        error 198
+    }
     local __iivw_fontsize = cond(`fontsize' == -1, 10, `fontsize')
     if `fontsize' != -1 & (`__iivw_fontsize' < 1 | `__iivw_fontsize' > 72) {
         display as error "fontsize() must be between 1 and 72"
+        error 198
+    }
+    * checkonly: the reporting commands call this before any computation, so
+    * a style the workbook cannot hold is refused before the diagnostic runs.
+    if "`checkonly'" != "" {
+        set varabbrev `__iivw_old_varabbrev'
+        exit 0
+    }
+    if "`tableframe'" == "" {
+        display as error "_iivw_export_table: tableframe() required"
         error 198
     }
 

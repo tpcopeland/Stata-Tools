@@ -471,8 +471,14 @@ capture noisily {
     assert !missing(`b_a', `b_b')
     assert reldif(`b_a', `b_b') < 1e-12
     estimates restore ivl_tw_a
+    * The refusal leaves the caller exactly as it was: the restored anchor
+    * e(), the data, globals and settings (fingerprint, not just the rc).
+    qa_state_snapshot, tag(ivl_tw)
+    * expect: REFUSED
     capture iivw_bspool using "$IVL_W/tw_a.dta $IVL_W/tw_b.dta", notable
-    assert _rc == 459
+    local tw_rc = _rc
+    qa_state_compare, tag(ivl_tw)
+    assert `tw_rc' == 459
 }
 _ivl_result `=_rc' "TW-pool F04: counterfeit-twin shards (y = 1 +- 1 vs 1 +- 10) are refused"
 local pass_count = `pass_count' + r(pass)

@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.0.0  2026/10/15
+*! iivw_fit Version 1.0.1  2026/10/30
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -62,6 +62,16 @@ program define iivw_fit, eclass
     local __iivw_rng_restore = 0
     local __iivw_rng_prior ""
     local __iivw_rngstream_prior ""
+
+    * The caller's estimation results. The outcome engine replaces e() before
+    * the convergence, variance-lock and commit checks run, so a call refused
+    * after it -- r(430) for a nonconverged outcome model -- used to leave that
+    * engine's raw result active, and predict and margins ran on the very
+    * coefficients the refusal called unusable, at rc 0. They are held just
+    * before the engine runs and put back on every failure path, matching the
+    * data rollback below.
+    local __iivw_ehold = 0
+    tempname __iivw_eprior
 
     * Snapshot the prior fit contract as part of the same transaction.  Delaying
     * the commit protects it from model/variance failures; this snapshot also
@@ -1992,6 +2002,10 @@ program define iivw_fit, eclass
     display as text "Fitting `weighttype' GEE model..."
     display as text ""
 
+    * Nothing above this line replaces e(); every engine below does.
+    _estimates hold `__iivw_eprior', copy nullok
+    local __iivw_ehold = 1
+
     if `bootstrap' > 0 & "`refitweights'" != "" {
         tempvar bsid
         `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
@@ -2294,6 +2308,16 @@ program define iivw_fit, eclass
         }
     }
 
+    * A retained term whose variance is exactly zero has no Wald interval:
+    * b -/+ z*0 would post the point as its own interval. A negative or missing
+    * variance already gives missing limits through sqrt(). Omitted (o.) terms
+    * are left as they are, b = V = 0. Reachable: a noise-free outcome under a
+    * bootstrap whose completed draws are bit-identical (qa29 R10).
+    if "`citype'" == "wald" {
+        tempname __iivw_wald_omit
+        quietly _ms_omit_info e(b)
+        matrix `__iivw_wald_omit' = r(omit)
+    }
     forvalues j = 1/`iivw_k' {
         if "`citype'" == "none" {
             matrix `iivw_ci_selected'[1,`j'] = .
@@ -2302,6 +2326,9 @@ program define iivw_fit, eclass
         else if "`citype'" == "wald" {
             local _ci_b = el(e(b),1,`j')
             local _ci_se = sqrt(el(e(V),`j',`j'))
+            if el(`__iivw_wald_omit', 1, `j') == 0 & el(e(V),`j',`j') == 0 {
+                local _ci_se = .
+            }
             matrix `iivw_ci_selected'[1,`j'] = `_ci_b' - `iivw_z'*`_ci_se'
             matrix `iivw_ci_selected'[2,`j'] = `_ci_b' + `iivw_z'*`_ci_se'
         }
@@ -2806,6 +2833,11 @@ program define iivw_fit, eclass
         local __iivw_expr : char `__iivw_v'[_iivw_fit_expr]
         ereturn local iivw_expr`__iivw_expr_j' "`__iivw_expr'"
     }
+    * Dormant forward-compatibility guard. glm, the only outcome engine, posts
+    * no e(estat_cmd) (Stata 17; [R] glm stored results), so this never fires
+    * today and e(estat_cmd)/e(iivw_estat) stay empty. Kept so that an engine
+    * which does post a hook is routed through _iivw_fit_estat, which refuses
+    * foreign identities, rather than being called under e(cmd)=iivw_fit.
     if "`e(estat_cmd)'" != "" & "`e(estat_cmd)'" != "_iivw_fit_estat" {
         ereturn local iivw_estat "`e(estat_cmd)'"
         ereturn local estat_cmd "_iivw_fit_estat"
@@ -2861,6 +2893,27 @@ program define iivw_fit, eclass
             display as error "  Do not analyze this dataset. Reload it from disk."
             display as error ///
                 "  (The command's own failure, reported above, is the return code.)"
+        }
+    }
+    * Put the caller's estimation results back on failure (see the hold above).
+    * On success the copy is dropped at once. That is hygiene only: a hold under
+    * a tempname is released by Stata when this program ends anyway.
+    if `__iivw_ehold' {
+        if `rc' != 0 {
+            capture _estimates unhold `__iivw_eprior'
+            if _rc {
+                display as error ""
+                display as error "iivw_fit: could not restore the previous estimation results"
+                display as error "  e() holds no usable fit; refit before using predict or margins"
+                ereturn clear
+            }
+        }
+        else {
+            capture _estimates drop `__iivw_eprior'
+            if _rc {
+                display as error "iivw_fit: could not discard the held prior results `__iivw_eprior'"
+                display as error "  the fit in e() is unaffected; drop variable `__iivw_eprior' if present"
+            }
         }
     }
     * Put the caller's generator back on every path, success or failure. A fit

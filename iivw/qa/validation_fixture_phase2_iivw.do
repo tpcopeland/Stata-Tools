@@ -171,31 +171,122 @@ program define _phase2_iivw_precision, rclass
     return scalar pass=`pass'
     return scalar fail=`fail'
 end
+capture program drop _phase2_iivw_xcat_data
+program define _phase2_iivw_xcat_data
+    version 16.0
+    qa_fx_a3_visit, clear tier(unit) n(100) seed(931)
+    drop if !visit
+    generate byte xcat=mod(floor((id-1)/2),3)+1
+    replace y=y+.137*xcat+.071*xcat*time
+end
 local tests=0
 local pass=0
 local fail=0
-foreach weighted in no yes {
-    foreach relation in unsorted codes_multidigit codes_sparse long_names {
-        local ++tests
-        capture noisily {
-            qa_fx_a3_visit, clear tier(unit) n(100) seed(931)
-            drop if !visit
-            generate byte xcat=mod(floor((id-1)/2),3)+1
-            replace y=y+.137*xcat+.071*xcat*time
-            local w ""
-            if "`weighted'"=="yes" local w weighted
-            local v ""
-            if "`relation'"!="unsorted" local v "var(xcat)"
-            * expect: INVARIANT
-            qa_metamorphic `relation', command(_phase2_iivw_relation, source(@var@) `w') returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
-        }
-        local rc=_rc
-        if `rc'==0 local ++pass
-        else {
-            local ++fail
-            di as error "FAIL phase2 IIVW `weighted' `relation' rc=`rc'"
-        }
-    }
+* The eight metamorphic relations are unrolled so that every qa_metamorphic
+* call names its operator literally for the fixture census.
+* Metamorphic unsorted, unweighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic unsorted, command(_phase2_iivw_relation, source(@var@)) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW no unsorted rc=`rc'"
+}
+* Metamorphic codes_multidigit, unweighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic codes_multidigit, command(_phase2_iivw_relation, source(@var@)) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW no codes_multidigit rc=`rc'"
+}
+* Metamorphic codes_sparse, unweighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic codes_sparse, command(_phase2_iivw_relation, source(@var@)) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW no codes_sparse rc=`rc'"
+}
+* Metamorphic long_names, unweighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic long_names, command(_phase2_iivw_relation, source(@var@)) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW no long_names rc=`rc'"
+}
+* Metamorphic unsorted, weighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic unsorted, command(_phase2_iivw_relation, source(@var@) weighted) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW yes unsorted rc=`rc'"
+}
+* Metamorphic codes_multidigit, weighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic codes_multidigit, command(_phase2_iivw_relation, source(@var@) weighted) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW yes codes_multidigit rc=`rc'"
+}
+* Metamorphic codes_sparse, weighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic codes_sparse, command(_phase2_iivw_relation, source(@var@) weighted) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW yes codes_sparse rc=`rc'"
+}
+* Metamorphic long_names, weighted fit
+local ++tests
+capture noisily {
+    _phase2_iivw_xcat_data
+    * expect: INVARIANT
+    qa_metamorphic long_names, command(_phase2_iivw_relation, source(@var@) weighted) returns(r(B) r(V) r(prediction) r(N)) var(xcat) tol(1e-9)
+}
+local rc=_rc
+if `rc'==0 local ++pass
+else {
+    local ++fail
+    di as error "FAIL phase2 IIVW yes long_names rc=`rc'"
 }
 foreach weighted in no yes {
     local ++tests

@@ -126,6 +126,21 @@ outside the selected analysis rows.
 {opt adjust(varlist)} specifies covariates to include in the Cox timing model
 alongside the lagged test variables. These are usually baseline or design
 covariates, such as age, sex, baseline severity, calendar period, or clinic.
+An interval after a subject's first selected visit whose lagged test value or
+{opt adjust()} value is missing is excluded from the model, so the subject is
+out of the risk set over that interval. The command prints a note when this
+happens and stores the count in {cmd:r(n_excluded_missing)}.
+Such a visit still belongs to the selected history: it supplies the previous
+visit and lagged values of the next interval, and it is checked against
+{opt maxfu()} and {opt censor()} like any other visit, so a visit after the
+end of follow-up is refused (error 198) whether or not its {opt adjust()}
+value is missing. An {opt adjust()} value is read from the row of the visit
+that ends each interval, and over the terminal interval it is carried forward
+from the last visit, the same convention {helpb iivw_weight} uses for
+{opt visit_cov()}. The model therefore treats it as known when that interval
+began: use baseline, design, or externally determined covariates, and pass a
+quantity measured at the visit through {it:varlist} instead, which enters
+lagged.
 
 {phang}
 {opt by(varname)} fits one model per level of {it:varname}. This is useful
@@ -301,7 +316,9 @@ the same layout with medium lines. {cmd:academic} uses a three-rule
 same as {cmd:thin}.
 
 {phang}
-{opt font(string)} selects the Excel font family, and {opt fontsize(#)} sets its
+{opt font(string)} selects the Excel font family, at most 31 characters (the
+longest font name an Excel workbook can store; a longer name is refused with
+error 198), and {opt fontsize(#)} sets its
 point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}. Both options require {opt xlsx()}.
 
 {phang}
@@ -430,6 +447,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(n_ids)}}subjects represented across fitted models{p_end}
 {synopt:{cmd:r(n_models)}}number of fitted Cox models{p_end}
 {synopt:{cmd:r(n_skipped)}}number of skipped groups{p_end}
+{synopt:{cmd:r(n_excluded_missing)}}intervals dropped for a missing lag or {opt adjust()} value{p_end}
 {synopt:{cmd:r(n_groups)}}groups examined, fitted, and skipped{p_end}
 {synopt:{cmd:r(n_terms)}}number of lagged terms tested{p_end}
 {synopt:{cmd:r(min_p)}}minimum unadjusted Wald p-value{p_end}
@@ -437,6 +455,7 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(holm_min_p)}}minimum Holm-adjusted omnibus p-value{p_end}
 {synopt:{cmd:r(alpha)}}diagnostic alpha, equal to {cmd:(100-level)/100}{p_end}
 {synopt:{cmd:r(n_unknown)}}groups fitted but not interpretable{p_end}
+{synopt:{cmd:r(n_monotone)}}groups whose partial likelihood has no finite maximum{p_end}
 {synopt:{cmd:r(n_tests)}}groups in the Holm family{p_end}
 {synopt:{cmd:r(history_association_flag)}}1 if {cmd:r(holm_min_p)} < alpha, else 0{p_end}
 {synopt:{cmd:r(tie_multiplicity)}}events per distinct time (1 if untied){p_end}
@@ -468,7 +487,18 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {pstd}
 {cmd:r(results)} has columns {cmd:group_index}, {cmd:term_index}, {cmd:b},
 {cmd:se}, {cmd:z}, {cmd:p}, {cmd:hr}, {cmd:lb}, {cmd:ub}, {cmd:N}, and
-{cmd:n_ids}.
+{cmd:n_ids}. A term whose own Wald test has no degree of freedom -- for
+example, a group in which every subject at risk visits at every event time,
+so the robust variance is zero -- has {cmd:z}, {cmd:p}, {cmd:hr}, {cmd:lb}, and
+{cmd:ub} missing, and its p-value does not enter {cmd:r(min_p)}. The Cox
+models are fitted on the variables as given. Whether a term or the omnibus
+test can be formed is decided on the lags' coefficients and covariance
+rescaled by each lag's standard deviation over the usable intervals, so it
+does not depend on the units a variable is recorded in; the test statistics
+themselves are unchanged by that rescaling.
+The omnibus test is withheld, with a note, when the robust variance has no
+information in the direction of a lag the model estimated; a lag omitted for
+collinearity is reported missing and carries no constraint.
 
 {phang}
 Labels are returned one per macro, indexed, rather than joined into a single
@@ -514,9 +544,33 @@ nothing at all about groups counted in {cmd:r(n_unknown)} or
 {cmd:r(n_skipped)}. {cmd:r(n_unknown)}
 counts groups whose model was fitted but cannot be
 interpreted -- the Cox model stopped without converging, or its omnibus test
-could not be computed. Those groups contribute no p-value to the Holm
+could not be computed, or its partial likelihood has no finite maximum
+(below). Those groups contribute no p-value to the Holm
 family. When every group is unknown or skipped there is no valid test at all, and the
 command exits with an error rather than reporting a flag of 0.
+
+{pstd}
+{bf:Monotone likelihood.} A Cox partial likelihood can have no finite maximum:
+when, along some combination of the model terms, every visit in a group falls
+on the most extreme value of that combination among the subjects at risk at
+its time -- for example, a lagged outcome after which no subject is ever seen
+again -- the likelihood keeps increasing as the coefficients run off to
+infinity. {cmd:stcox} still declares convergence once the log likelihood
+stops changing, and it reports a finite coefficient with a small standard
+error. {cmd:iivw_exogtest} checks every fitted group for this structurally,
+over all lagged and {opt adjust()} terms the fitted model kept, jointly
+and on every risk set; it
+does not use the size of the fitted coefficients. In a group where it holds,
+a note names the diverging terms; {cmd:b} and {cmd:se} in {cmd:r(results)} are
+the values at which {cmd:stcox} stopped, not estimates; {cmd:z}, {cmd:p},
+{cmd:hr}, {cmd:lb}, and {cmd:ub} are missing for every term of the group, the
+group's omnibus test is withheld, and the group is counted in
+{cmd:r(n_unknown)} and {cmd:r(n_monotone)}. Its terms do not enter
+{cmd:r(min_p)}. If the check itself cannot settle (its decision falls within
+floating-point error of the boundary, or it does not finish within 500
+refinement rounds), the group is treated the same way, with a different note, and is
+counted in {cmd:r(n_unknown)} but {it:not} in {cmd:r(n_monotone)}: an
+unsettled check is not evidence that the likelihood has no maximum.
 
 {pstd}
 The individual term p-values in the table are {bf:exploratory}. They are reported

@@ -2,9 +2,9 @@
 
 # iivw — Inverse intensity weighting for irregular visit data
 
-**Version 1.0.0** | 2026-10-28
+**Version 1.0.1** | 2026-10-30
 
-[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Inference](#inference)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -424,7 +424,7 @@ Bootstrap provenance is recorded in `e(iivw_bs_reps_requested)`, `e(iivw_bs_reps
 
 ### iivw_exogtest
 
-The result matrix `r(results)` contains model-by-term coefficients, standard errors, tests, hazard ratios, intervals, and sample counts. Useful scalars include `r(N)`, `r(n_ids)`, `r(n_models)`, `r(n_skipped)`, `r(n_unknown)`, `r(min_p)`, `r(joint_min_p)`, `r(holm_min_p)`, `r(history_association_flag)`, `r(tie_multiplicity)`, `r(n_event_times)`, and `r(n_modeled_events)`.
+The result matrix `r(results)` contains model-by-term coefficients, standard errors, tests, hazard ratios, intervals, and sample counts. Useful scalars include `r(N)`, `r(n_ids)`, `r(n_models)`, `r(n_skipped)`, `r(n_unknown)`, `r(n_monotone)`, `r(n_excluded_missing)`, `r(min_p)`, `r(joint_min_p)`, `r(holm_min_p)`, `r(history_association_flag)`, `r(tie_multiplicity)`, `r(n_event_times)`, and `r(n_modeled_events)`.
 
 Macros record `r(id)`, `r(time)`, `r(testvars)`, `r(lagvars)`, `r(adjust)`, `r(by)`, indexed group/term labels, `r(result_row_labels)`, `r(result_columns)`, and `r(conclusion)`. Export results are returned in `r(xlsx)`, `r(sheet)`, and `r(decimals)` when an export succeeds.
 
@@ -471,6 +471,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.0.1** (2026-10-30): Bug fixes. `iivw_exogtest` keeps a visit's lag history when its `adjust()` value is missing, so only that interval drops (counted in `r(n_excluded_missing)`); a visit after `maxfu()` with a missing `adjust()` value is now refused instead of dropped silently. It now detects monotone-likelihood separation, where a Cox coefficient diverges but `stcox` reports a finite one: z, p, HR, CI and the joint test are withheld for that group and it is counted in the new `r(n_monotone)`. It withholds the omnibus test when the robust variance is rank-deficient, and its tests no longer depend on a lag's units. `iivw_fit` restores the caller's estimation results when it refuses a fit, and `iivw_fit` and `iivw_bspool` report no Wald interval, with a note, for a retained term whose variance is zero instead of posting the point as its own interval. `font()` names longer than 31 characters (Excel's limit) are refused before any computation.
 - **1.0.0** (2026-10-15): Initial release.
 
 ## Author

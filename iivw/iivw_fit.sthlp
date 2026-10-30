@@ -1268,7 +1268,9 @@ time variable creation.
 
 {pstd}
 {cmd:iivw_fit} stores the results from the underlying {cmd:glm}
-command in {cmd:e()}, plus the following:
+command in {cmd:e()}, plus the following. If {cmd:iivw_fit} exits with an
+error, {cmd:e()} holds the estimation results that were active before the
+call, including after a refused nonconverged outcome model.
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Standard estimation results}{p_end}
@@ -1287,8 +1289,8 @@ command in {cmd:e()}, plus the following:
 {synopt:{cmd:e(iivw_design_token)}}ID stamped on this fit's design columns{p_end}
 {synopt:{cmd:e(iivw_design_vars)}}design columns this fit generated{p_end}
 {synopt:{cmd:e(iivw_expr}{it:#}{cmd:)}}expression that generated the {it:#}th design column{p_end}
-{synopt:{cmd:e(estat_cmd)}}{cmd:_iivw_fit_estat} if the model has an estat hook{p_end}
-{synopt:{cmd:e(iivw_estat)}}underlying estat hook ({cmd:glm_estat}){p_end}
+{synopt:{cmd:e(estat_cmd)}}{cmd:_iivw_fit_estat} if the outcome engine posts an estat hook; {cmd:glm} posts none, so empty{p_end}
+{synopt:{cmd:e(iivw_estat)}}the engine's own estat hook, when it posts one; empty for {cmd:glm}{p_end}
 {synopt:{cmd:e(iivw_model)}}always {cmd:gee}; kept for shard identity{p_end}
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}

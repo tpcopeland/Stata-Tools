@@ -118,6 +118,7 @@ program define _fx_weight_state, rclass
         qa_state_snapshot, tag(weight_late)
         tempfile cause
         log using `cause', text name(weight_cause) replace
+        * expect: REFUSED
         capture noisily iivw_weight, id(id) time(time) visit_cov(lag_y) maxfu(4) wtype(iivw) nolog
         local call_rc=_rc
         log close weight_cause

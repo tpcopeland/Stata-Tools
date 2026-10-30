@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 1.0.0  2026/10/15
+*! iivw_exogtest Version 1.0.1  2026/10/30
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -132,8 +132,14 @@ program define iivw_exogtest, rclass sortpreserve
     * if/in restriction are not inputs to this diagnostic and cannot invalidate
     * it. As below, varlist itself is deliberately not marked out: the model
     * uses its one-visit lag, not its current value.
+    * adjust() is not marked out either. A visit whose adjust() value is
+    * missing still happened: marking it out deleted it from the history, so
+    * the next interval ran from the visit before it and the timing model saw
+    * a gap with no visit that the data do not contain. The row now supplies
+    * history like any other, and only its own interval leaves the model
+    * (counted in r(n_excluded_missing) below).
     marksample touse, novarlist
-    markout `touse' `id' `time' `adjust', strok
+    markout `touse' `id' `time', strok
     if "`by'" != "" {
         markout `touse' `by', strok
     }
@@ -219,6 +225,15 @@ program define iivw_exogtest, rclass sortpreserve
         display as text "  they affect only the exported workbook; with no xlsx() to write,"
         display as text "  they would be silently ignored"
         error 198
+    }
+    * Workbook style values are checked before any computation, with the
+    * writer's own rule, so a font name or size Excel cannot store is refused
+    * before the diagnostic runs rather than after it.
+    if `"`macval(xlsx)'"' != "" & (`"`macval(font)'"' != "" | `fontsize' != -1) {
+        local __iivw_stylechk ""
+        if `"`macval(font)'"' != "" local __iivw_stylechk `"font(`"`macval(font)'"')"'
+        if `fontsize' != -1 local __iivw_stylechk `"`macval(__iivw_stylechk)' fontsize(`fontsize')"'
+        _iivw_export_table, checkonly `macval(__iivw_stylechk)'
     }
 
     local __iivw_dec_final = 3
@@ -476,9 +491,29 @@ program define iivw_exogtest, rclass sortpreserve
     quietly replace `__iivw_usable' = 0 if missing(`__iivw_start', `__iivw_stop')
     quietly replace `__iivw_usable' = 0 if `__iivw_stop' <= `__iivw_start'
 
+    * A positive-length interval after a subject's first selected visit that
+    * is dropped only because a lagged test value or an adjust() covariate is
+    * missing takes that subject out of the risk set over it. Dropping a
+    * terminal interval this way is the truncated risk set the terminal row
+    * exists to prevent. The fit is still a complete-case fit, so count the
+    * intervals, say so, and return the count rather than drop them silently.
+    tempvar __iivw_firstrow
+    quietly bysort `id' (`time'): gen byte `__iivw_firstrow' = (_n == 1)
+    quietly count if `touse' & !`__iivw_usable' & !`__iivw_firstrow' & ///
+        !missing(`__iivw_start', `__iivw_stop') & `__iivw_stop' > `__iivw_start'
+    local __iivw_n_missex = r(N)
+    drop `__iivw_firstrow'
+    if `__iivw_n_missex' > 0 {
+        display as text "note: `__iivw_n_missex' at-risk interval(s) after a first visit are excluded"
+        display as text "  because a lagged test variable or an adjust() covariate is missing on"
+        display as text "  them; those subjects are out of the risk set over those intervals"
+        display as text "  (complete-case). r(n_excluded_missing) holds the count."
+    }
+
     quietly count if `__iivw_usable'
     if r(N) == 0 {
-        display as error "no observations with nonmissing lagged predictors"
+        display as error "no usable at-risk intervals: every interval after a first visit"
+        display as error "  lacks a lagged test value or an adjust() value"
         error 2000
     }
 
@@ -547,6 +582,37 @@ program define iivw_exogtest, rclass sortpreserve
     quietly stset `__iivw_stop' if `__iivw_usable', enter(time `__iivw_start') ///
         failure(`__iivw_event') id(`id') exit(time .)
 
+    * Scale-free decisions. The Cox models are fitted on the variables as
+    * given, so every estimate is the one -stcox- reports. What depends on
+    * units is the decision that a constraint is degenerate: -test- (and
+    * invsym) judge a variance against an absolute tolerance, so a lag
+    * recorded in large units (z = l_t * 1e9) lost its term statistics and was
+    * dropped from the omnibus test, turning it into a test of the remaining
+    * terms at rc 0. The Wald tests are therefore formed on the coefficients
+    * of the lags divided by their SD over the usable rows (b * sd, V scaled
+    * by sd sd'), where that decision reflects the data's information and not
+    * its units; the chi2 and p are invariant to the rescaling. The divided
+    * copies also feed the monotone-likelihood check. A constant column keeps
+    * divisor 1.
+    local __iivw_zlags ""
+    local __iivw_zadj ""
+    local __iivw_zi = 0
+    foreach __iivw_zv in `generated_lags' `adjust' {
+        local ++__iivw_zi
+        quietly summarize `__iivw_zv' if `__iivw_usable'
+        tempname __iivw_zs`__iivw_zi'
+        scalar `__iivw_zs`__iivw_zi'' = r(sd)
+        if !(`__iivw_zs`__iivw_zi'' > 0 & `__iivw_zs`__iivw_zi'' < .) {
+            scalar `__iivw_zs`__iivw_zi'' = 1
+        }
+        tempvar __iivw_zc
+        quietly gen double `__iivw_zc' = `__iivw_zv' / `__iivw_zs`__iivw_zi''
+        if `__iivw_zi' <= `: word count `generated_lags'' {
+            local __iivw_zlags "`__iivw_zlags' `__iivw_zc'"
+        }
+        else local __iivw_zadj "`__iivw_zadj' `__iivw_zc'"
+    }
+
     local n_groups : word count `group_levels'
     local n_terms : word count `generated_lags'
     local max_rows = `n_groups' * `n_terms'
@@ -596,6 +662,29 @@ program define iivw_exogtest, rclass sortpreserve
     * enter no fitted risk set and contribute nothing (DX06).
     tempvar __iivw_fitrows
     quietly gen byte `__iivw_fitrows' = 0
+
+    * The monotone-likelihood check below is Mata in _iivw_mlib.ado, which an
+    * ado autoload never compiles (see that file); run it once and verify.
+    local __iivw_mata_ok "0"
+    capture mata: st_local("__iivw_mata_ok", ///
+        strofreal(findexternal("_iivw_cox_recession()") != NULL))
+    if _rc | "`__iivw_mata_ok'" != "1" {
+        capture findfile _iivw_mlib.ado
+        if _rc {
+            display as error "_iivw_mlib.ado not found; reinstall iivw"
+            error 111
+        }
+        local __iivw_mlib_fn "`r(fn)'"
+        run "`__iivw_mlib_fn'"
+        local __iivw_mata_ok "0"
+        capture mata: st_local("__iivw_mata_ok", ///
+            strofreal(findexternal("_iivw_cox_recession()") != NULL))
+        if _rc | "`__iivw_mata_ok'" != "1" {
+            display as error "could not compile iivw's Mata functions from `__iivw_mlib_fn'"
+            error 499
+        }
+    }
+    local __iivw_n_mono = 0
 
     local group_index = 0
     foreach g of local group_levels {
@@ -697,17 +786,117 @@ program define iivw_exogtest, rclass sortpreserve
         local total_N = `total_N' + `gN'
         local total_ids = `total_ids' + `gIds'
 
+        * Monotone likelihood. stcox declares convergence once the log
+        * likelihood stops changing, which it also does when a coefficient is
+        * running off to infinity: a lagged outcome that is followed by no
+        * further visit came back as b = -38, se = 0.21, p = 0 at rc 0. Whether
+        * the partial likelihood has a finite maximum is a property of the
+        * risk sets, not of the fitted numbers, so it is decided structurally
+        * (_iivw_cox_recession in _iivw_mlib.ado: a direction along which every
+        * visit carries the most extreme linear predictor of its risk set,
+        * searched over all model terms and verified on every risk set). No
+        * threshold on b or se enters the decision.
+        *
+        * When such a direction exists the model has no estimates to test: the
+        * diverging terms are at an arbitrary stopping point, and the Wald
+        * statistics of the other terms are evaluated at a point that is not a
+        * maximum, so neither the term tests nor the omnibus test has its
+        * reference distribution. All are withheld and the group is unknown.
+        tempvar __iivw_esamp
+        quietly gen byte `__iivw_esamp' = e(sample)
+        local __iivw_mono_terms ""
+        * Any failure inside the check is "did not settle" (status 2), never
+        * an abort of the diagnostic.
+        * Only the terms stcox kept enter the check. A lag stcox omitted as
+        * collinear (a copy 1e-9 away) is not in the model; handing it to the
+        * check made it judge a design the fit did not use. Omitted terms are
+        * the o.-prefixed columns of e(b); a diverging term is kept even when
+        * its standard error is missing.
+        local __iivw_kz ""
+        local __iivw_kn ""
+        local __iivw_mi = 0
+        local __iivw_allz "`__iivw_zlags' `__iivw_zadj'"
+        local __iivw_ecn : colnames e(b)
+        foreach __iivw_mv in `generated_lags' `adjust' {
+            local ++__iivw_mi
+            local __iivw_isom : list posof "o.`__iivw_mv'" in __iivw_ecn
+            local __iivw_isin : list posof "`__iivw_mv'" in __iivw_ecn
+            if `__iivw_isin' & !`__iivw_isom' {
+                local __iivw_kz "`__iivw_kz' `: word `__iivw_mi' of `__iivw_allz''"
+                local __iivw_kn "`__iivw_kn' `__iivw_mv'"
+            }
+        }
+        local __iivw_mono_r "0"
+        if "`__iivw_kz'" != "" {
+            local __iivw_mono_r ""
+            capture mata: st_local("__iivw_mono_r", invtokens(strofreal(_iivw_cox_recession( ///
+                "_t0", "_t", "_d", "`__iivw_kz'", "`__iivw_esamp'"))))
+            if _rc | `: word count `__iivw_mono_r'' != 1 + `: word count `__iivw_kz'' {
+                local __iivw_mono_r "2"
+                foreach __iivw_mv of local __iivw_kz {
+                    local __iivw_mono_r "`__iivw_mono_r' 0"
+                }
+            }
+        }
+        drop `__iivw_esamp'
+        gettoken __iivw_mono_status __iivw_mono_flags : __iivw_mono_r
+        local __iivw_mono = (`__iivw_mono_status' != 0)
+        if `__iivw_mono' {
+            if `__iivw_mono_status' == 1 local ++__iivw_n_mono
+            local __iivw_mi = 0
+            foreach __iivw_mv of local __iivw_kn {
+                local ++__iivw_mi
+                if `: word `__iivw_mi' of `__iivw_mono_flags'' == 1 {
+                    local __iivw_mono_terms "`__iivw_mono_terms' `__iivw_mv'"
+                }
+            }
+            local __iivw_mono_terms = strtrim("`__iivw_mono_terms'")
+        }
+
         * The within-group omnibus test is the PRIMARY test. It is one test per
         * group regardless of how many terms are in the model, so the only
         * multiplicity left to control is across groups -- which is done with
         * Holm after the loop. The flag is NOT set here; setting it on any raw
         * p-value is what inflated it (see below).
-        capture test `generated_lags'
-        local test_rc = _rc
+        * The omnibus test must test every lag the model estimated. A lag
+        * that stcox omitted (collinear) carries no constraint; any other
+        * dropped constraint means the robust variance is rank-deficient in
+        * an estimated direction, and the test would silently become a test
+        * of fewer terms. That is withheld, with a note, not reported.
+        local test_rc = 1
+        local __iivw_nest = 0
+        foreach __iivw_zl of local generated_lags {
+            capture local __iivw_zse = _se[`__iivw_zl']
+            if _rc == 0 & `__iivw_zse' > 0 & `__iivw_zse' < . local ++__iivw_nest
+        }
+        local __iivw_sdl ""
+        forvalues __iivw_zi = 1/`: word count `generated_lags'' {
+            local __iivw_sdl "`__iivw_sdl' `: display %21x `__iivw_zs`__iivw_zi'''"
+        }
+        tempname __iivw_eb __iivw_eV
+        matrix `__iivw_eb' = e(b)
+        matrix `__iivw_eV' = e(V)
+        local __iivw_wdf = 0
+        local __iivw_wchi2 = .
+        forvalues __iivw_zi = 1/`: word count `generated_lags'' {
+            local __iivw_tdf_`__iivw_zi' = 0
+        }
+        capture mata: _iivw_exog_wald("`__iivw_eb'", "`__iivw_eV'", ///
+            "`generated_lags'", "`__iivw_sdl'")
+        local __iivw_waldfail = (_rc != 0)
+        if _rc local __iivw_wdf = 0
+        local __iivw_rankdef = 0
+        if !`__iivw_mono' & `__iivw_wdf' > 0 & `__iivw_wchi2' < . {
+            local test_rc = 0
+            if `__iivw_wdf' < `__iivw_nest' {
+                local __iivw_rankdef = 1
+                local test_rc = 1
+            }
+        }
         local joint_p = .
         scalar `__iivw_jps' = .
         if `test_rc' == 0 {
-            scalar `__iivw_jps' = r(p)
+            scalar `__iivw_jps' = chi2tail(`__iivw_wdf', `__iivw_wchi2')
             local joint_p : display %21x `__iivw_jps'
             if `__iivw_jps' < `__iivw_jmin' scalar `__iivw_jmin' = `__iivw_jps'
         }
@@ -753,7 +942,19 @@ program define iivw_exogtest, rclass sortpreserve
             local hr = .
             local lb = .
             local ub = .
-            if `b_rc' == 0 & `se_rc' == 0 & `se' > 0 & `se' < . {
+            * A term is testable only when its own Wald test has one degree of
+            * freedom. When every subject in a group visits at every event
+            * time, each cluster's score is zero and the robust variance is
+            * rounding noise (se 3e-16 on b 2e-15): z = b/se was then a
+            * reported p < 0.001, and it entered r(min_p), from no information
+            * at all. The omnibus drops that rank-0 constraint; the term
+            * statistics follow the same rank decision, made on the
+            * SD-scaled covariance (_iivw_exog_wald) so it is unit-free.
+            local __iivw_tdf = 0
+            if `b_rc' == 0 & `se_rc' == 0 & !`__iivw_mono' {
+                local __iivw_tdf = 0`__iivw_tdf_`term_index''
+            }
+            if `b_rc' == 0 & `se_rc' == 0 & `se' > 0 & `se' < . & `__iivw_tdf' == 1 {
                 local z : display %21x (`b') / (`se')
                 local p : display %21x 2 * normal(-abs(`z'))
                 local hr : display %21x exp(`b')
@@ -806,6 +1007,26 @@ program define iivw_exogtest, rclass sortpreserve
                 as text _col(64) "`__iivw_smcl_lb'ralign 8:`p_fmt'`__iivw_smcl_rb'"
         }
 
+        if `__iivw_mono' & `__iivw_mono_status' == 1 {
+            display as text "note: the Cox partial likelihood has no finite maximum (monotone"
+            display as text "  likelihood): along some direction every visit carries the most"
+            display as text "  extreme linear predictor of its risk set. Diverging: `__iivw_mono_terms'."
+            display as text "  b and se are where stcox stopped, not estimates; z, p, HR, CI and"
+            display as text "  the joint test are withheld for every term of this group."
+        }
+        else if `__iivw_mono' {
+            display as text "note: the monotone-likelihood check did not settle for this group;"
+            display as text "  z, p, HR, CI and the joint test are withheld for every term."
+        }
+        if `__iivw_waldfail' {
+            display as text "note: the omnibus test is withheld: its Wald statistic could not be"
+            display as text "  computed from the fitted covariance."
+        }
+        if `__iivw_rankdef' {
+            display as text "note: the omnibus test is withheld: the robust variance has no"
+            display as text "  information in the direction of an estimated lag, so a Wald test"
+            display as text "  of all lags cannot be formed."
+        }
         if `joint_p' < . {
             display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
             display as text "Joint test p-value: " as result %8.4f `joint_p'
@@ -1329,6 +1550,8 @@ program define iivw_exogtest, rclass sortpreserve
         return scalar n_models = `n_models'
         return scalar n_skipped = `n_skipped'
         return scalar n_unknown = `n_unknown'
+        return scalar n_excluded_missing = `__iivw_n_missex'
+        return scalar n_monotone = `__iivw_n_mono'
         * min_p is the smallest INDIVIDUAL term p-value: exploratory, unadjusted,
         * and no longer part of the flag. joint_min_p is the smallest raw
         * within-group omnibus p. holm_min_p is that family Holm-adjusted across

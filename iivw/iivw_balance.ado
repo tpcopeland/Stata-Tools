@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.0.0  2026/10/15
+*! iivw_balance Version 1.0.1  2026/10/30
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -148,6 +148,15 @@ program define iivw_balance, rclass
         display as text "  they affect only the exported workbook; with no xlsx() to write,"
         display as text "  they would be silently ignored"
         error 198
+    }
+    * Workbook style values are checked before any computation, with the
+    * writer's own rule, so a font name or size Excel cannot store is refused
+    * before the diagnostic runs rather than after it.
+    if `"`macval(xlsx)'"' != "" & (`"`macval(font)'"' != "" | `fontsize' != -1) {
+        local __iivw_stylechk ""
+        if `"`macval(font)'"' != "" local __iivw_stylechk `"font(`"`macval(font)'"')"'
+        if `fontsize' != -1 local __iivw_stylechk `"`macval(__iivw_stylechk)' fontsize(`fontsize')"'
+        _iivw_export_table, checkonly `macval(__iivw_stylechk)'
     }
 
     local log_opt ""

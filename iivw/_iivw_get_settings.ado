@@ -1,4 +1,4 @@
-*! _iivw_get_settings Version 1.0.0  2026/10/15
+*! _iivw_get_settings Version 1.0.1  2026/10/30
 *! The canonical weighting specification: the one place any consumer reads the
 *! contract that iivw_weight committed.
 *! Author: Timothy P Copeland, Karolinska Institutet

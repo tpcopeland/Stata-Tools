@@ -360,6 +360,7 @@ program define _ivs_hpanel
     gen double y = 1 + .4*z1 + .2*k1 + rnormal()
     sort id t
     local mf = cond("`ranks'" != "", 6, 2)
+    * expect: INVARIANT
     quietly iivw_weight, id(id) time(t) visit_cov(z1) maxfu(`mf') nolog
 end
 
@@ -385,6 +386,7 @@ capture noisily {
                 assert r(N) == 0
             }
         }
+        * expect: INVARIANT
         quietly iivw_exogtest y, id(id) time(t) maxfu(`mf') nolog
         matrix ivs_X_`p' = r(results)
         quietly iivw_fit y z1 k1, timespec(none) vce(fixed) replace

@@ -123,6 +123,7 @@ program define _draft_analytical, rclass
             local base=1
             local interact=0
             python: from __main__ import analytical_prepare; analytical_prepare()
+            * expect: EXACT
             iivw_fit y, timespec(`specification') vce(fixed) nolog
             local fitted_N=e(N)
             local b_names : colnames e(b)
@@ -147,6 +148,7 @@ program define _draft_analytical, rclass
                 local ix ""
                 if `interact' local ix "interaction(xcat)"
                 python: from __main__ import analytical_prepare; analytical_prepare()
+                * expect: EXACT
                 iivw_fit y xcat, categorical(xcat) basecat(`base') timespec(linear) `ix' vce(fixed) nolog
                 local fitted_N=e(N)
                 local b_names : colnames e(b)
@@ -177,6 +179,7 @@ program define _draft_analytical, rclass
             replace time=ln(`wave')
             sort `source_order'
             drop `source_order' `wave'
+            * expect: EXACT
             iivw_weight, id(id) time(time) visit_cov(lag_y) maxfu(4) nolog
             local kind timecategory
             local degree=0
@@ -210,6 +213,7 @@ program define _draft_analytical, rclass
         local base=1
         local interact=0
         python: from __main__ import analytical_prepare; analytical_prepare()
+        * expect: EXACT
         iivw_fit y duplicate_time, timespec(linear) vce(fixed) nolog
         local fitted_N=e(N)
         local b_names : colnames e(b)

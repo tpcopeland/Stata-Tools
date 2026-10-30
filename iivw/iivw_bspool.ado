@@ -1,4 +1,4 @@
-*! iivw_bspool Version 1.0.0  2026/10/15
+*! iivw_bspool Version 1.0.1  2026/10/30
 *! Pool sharded iivw_fit bootstrap replicate files into one estimation result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (reposts the current iivw_fit results)
@@ -346,8 +346,13 @@ program define iivw_bspool, eclass
                     error 459
                 }
             }
-            if `s_req`i'' < 2 | ///
-                `s_req`i'' != `s_done`i'' + `s_fail`i'' | ///
+            * A bootstrap variance needs at least two draws; a shard that
+            * requested fewer is refused for that, not for a count mismatch.
+            if `s_req`i'' < 2 {
+                display as error "iivw_bspool: `path`i'' requested `s_req`i'' draw(s); a shard must request at least 2"
+                error 459
+            }
+            if `s_req`i'' != `s_done`i'' + `s_fail`i'' | ///
                 `s_rows`i'' != `s_req`i'' {
                 display as error "iivw_bspool: artifact row count/stamps disagree in `path`i''"
                 error 459
@@ -777,10 +782,27 @@ program define iivw_bspool, eclass
         matrix `CIbas'[1,`j'] = 2*el(e(b),1,`j') - el(`CIpct',2,`j')
         matrix `CIbas'[2,`j'] = 2*el(e(b),1,`j') - el(`CIpct',1,`j')
     }
+    * Wald: the same rule as iivw_fit. A retained term whose pooled variance is
+    * zero, negative or missing gets missing limits and a note; an omitted (o.)
+    * term keeps b = V = 0. Split-and-repool depends on the two agreeing.
+    local _wald_none ""
+    if "`citype'" == "wald" {
+        tempname _womit
+        quietly _ms_omit_info e(b)
+        matrix `_womit' = r(omit)
+        local _wnames : colfullnames e(b)
+    }
     forvalues j = 1/`kcol' {
         if "`citype'" == "wald" {
             local _b  = el(e(b),1,`j')
             local _se = sqrt(el(`Vpool',`j',`j'))
+            if el(`_womit', 1, `j') == 0 & el(`Vpool',`j',`j') == 0 {
+                local _se = .
+            }
+            if el(`_womit', 1, `j') == 0 & missing(`_se') {
+                local _wn : word `j' of `_wnames'
+                local _wald_none "`_wald_none' `_wn'"
+            }
             matrix `CIsel'[1,`j'] = `_b' - `zcrit'*`_se'
             matrix `CIsel'[2,`j'] = `_b' + `zcrit'*`_se'
         }
@@ -792,6 +814,10 @@ program define iivw_bspool, eclass
             matrix `CIsel'[1,`j'] = el(`CIbas',1,`j')
             matrix `CIsel'[2,`j'] = el(`CIbas',2,`j')
         }
+    }
+    if "`_wald_none'" != "" {
+        display as text "note: no Wald interval for" as result "`_wald_none'" ///
+            as text ": the model variance is missing or nonpositive"
     }
 
     * =====================================================================

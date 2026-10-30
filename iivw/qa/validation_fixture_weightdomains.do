@@ -57,12 +57,36 @@ program define _fx_visit_weightdomains, rclass
             * Explicitly adapt lag_y there to the observed person's u+2, without
             * borrowing any original fixture population truth for this adapter.
             bysort id (time): replace lag_y=u+2 if _n==1
+            * expect: EXACT
             iivw_weight, id(id) time(time) visit_cov(lag_y) maxfu(4) entry(risk_entry) baseline(`baseline') nolog
             assert r(nobaseevent)==("`baseline'"=="entry")
             assert r(n_ids_weighted)==100 & r(N_weighted)==_N
+            tempname G
+            matrix `G'=r(visit_b)
+            assert colsof(`G')==1 & "`: colnames `G''"=="lag_y" & !missing(`G'[1,1])
             assert !missing(_iivw_weight) & _iivw_weight>0
             quietly summarize _iivw_iw, meanonly
             assert abs(r(mean)-1)<1e-10
+            * Which rows are modeled is fixed by the design, not by the fit:
+            * baseline(entry) reserves exactly 1 for each subject's first
+            * visit and renormalizes exp(-xb) over the follow-up visits only;
+            * baseline(event) models and renormalizes every visit.
+            tempvar first raw want
+            bysort id (time): generate byte `first'=(_n==1)
+            generate double `raw'=exp(-`G'[1,1]*lag_y)
+            if "`baseline'"=="entry" {
+                assert _iivw_iw==1 if `first'
+                quietly summarize `raw' if !`first', meanonly
+                generate double `want'=`raw'/r(mean) if !`first'
+                assert !missing(_iivw_iw, `want') & reldif(_iivw_iw,`want')<1e-10 if !`first'
+            }
+            else {
+                quietly count if `first' & reldif(_iivw_iw,1)<1e-6
+                assert r(N)<100 & !missing(r(N))
+                quietly summarize `raw', meanonly
+                generate double `want'=`raw'/r(mean)
+                assert !missing(_iivw_iw, `want') & reldif(_iivw_iw,`want')<1e-10
+            }
         }
         if _rc==0 local ++pass
         else local ++fail
