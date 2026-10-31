@@ -44,6 +44,7 @@ one composite sheet with {cmd:stacktab}.
   {opt frames(name ["label"] [\ name ["label"] ...])}
   {opt sh:eet(sheetname)}
   [{opt ti:tle()} {opt no:te()}|{opt foot:note()} {opt csv()} {opt mark:down()} {opt mdapp:end}
+  {opt latex()} {opt texapp:end}
   {opt headers:hade} {opt border:style()} {opt font()} {opt fontsize()} {opt zeb:ra} {opt dig:its()} {opt open}]
 
 {marker options}{...}
@@ -73,6 +74,10 @@ one composite sheet with {cmd:stacktab}.
 {synopt:{opt csv(filename)}}export the composed table to CSV{p_end}
 {synopt:{opt mark:down(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdapp:end}}append the Markdown table to an existing file{p_end}
+{synopt:{opt latex(filename)}}export as LaTeX (needs {cmd:booktabs}){p_end}
+{synopt:{opt texapp:end}}append the LaTeX table to an existing file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 {synopt:{opt dis:play}}list the composed table in Results{p_end}
 {synopt:{opt app:end}}append rows below an existing output sheet{p_end}
 {synopt:{opt she:etreplace}}replace the output sheet if it exists{p_end}
@@ -140,6 +145,33 @@ Excel, CSV, and frame exports{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt latex(filename)} export the composed table as a LaTeX {cmd:table} float with
+{cmd:booktabs} rules; the file must end in {cmd:.tex} and the document needs
+{cmd:\usepackage{c -(}booktabs{c )-}} and nothing else. May be combined with Excel, CSV,
+Markdown, and frame exports. The first composed row is the header; {opt title()} becomes
+the {cmd:\caption} (with {cmd:\label{c -(}tab:}{it:stem}{cmd:{c )-}}) and {opt note()} the notes below
+the table. With {opt frames()}, each panel label is a bold heading row and the rows under
+it are indented. An existing file is replaced; see {opt texappend}.{p_end}
+
+{phang}
+{opt texapp:end} append the LaTeX table to an existing file instead of replacing it; requires
+{opt latex()}. The appended table's label is {cmd:tab:}{it:stem}{cmd:-}{it:n}, {it:n} being its position
+in the file{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
 {opt no:te(string)} note row written below the table in the first table column{p_end}
@@ -270,9 +302,11 @@ delimited file, with {opt title()} as its first row and {opt note()} as its
 last row (both in the first column), and requires a {cmd:.csv} extension. All requested destinations
 are staged and committed together, so a
 failed export leaves existing frames and files unchanged. An existing
-{opt markdown()} file is replaced; specify {opt mdappend} to append to it
-instead. The workbook, {opt csv()} and {opt markdown()} must name different
-files.
+{opt markdown()} or {opt latex()} file is replaced; specify {opt mdappend} or
+{opt texappend} to append to it instead. The workbook, {opt csv()}, {opt markdown()},
+and {opt latex()} must name different files. After {cmd:tabtools set latex}, the
+session LaTeX file receives the table whenever {opt latex()} is omitted: the first
+write replaces it, later writes append.
 
 {marker examples}{...}
 {title:Examples}
@@ -313,11 +347,14 @@ Stack two {cmd:table1_tc} frames, one per unit of analysis, as panels:
 {synopt:{cmd:r(note_row)}}Excel row of the note/footnote, when specified{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 
 {p2col 5 22 26 2: Macros}{p_end}
 {synopt:{cmd:r(layout)}}layout used: {cmd:vstack} or {cmd:hstack}{p_end}
 {synopt:{cmd:r(sheet)}}output sheet name{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(book)}}workbook path{p_end}
 {synopt:{cmd:r(table_start)}}top-left cell of the composed table{p_end}
 {synopt:{cmd:r(title_cell)}}title cell, when {opt title()} is specified{p_end}

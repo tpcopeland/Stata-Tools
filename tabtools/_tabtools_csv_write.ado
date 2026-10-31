@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 1.0.0  2026/10/20
+*! _tabtools_csv_write Version 1.1.0  2026/10/31
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -98,7 +98,19 @@ program define _tabtools_csv_write, nclass
         * quietly: export delimited announces "(file X not found)" and "file X
         * saved" from its own replace handling. Each caller prints its own
         * "CSV exported to ..." line, so that is internal chatter.
+        * export delimited quotes a cell holding the delimiter or a double
+        * quote (RFC 4180) but wrote a CR or LF raw, so a cell with a line
+        * break split its CSV row in two. Each CR/LF is hidden behind a
+        * token that starts with a comma, which makes export delimited quote
+        * that field; the tokens are turned back into the original bytes
+        * inside the quoted field after the export. A cell without a line
+        * break is written exactly as before.
+        local _tt_csv_hasbrk 0
+        mata: _tt_csv_hide_breaks(st_local("_vars"))
         quietly export delimited `_vars' using `"`using'"', replace novarnames
+        if `_tt_csv_hasbrk' {
+            mata: _tt_csv_show_breaks(st_local("using"), st_local("_tt_csv_mark"))
+        }
 
         * nclass: the row-trim above runs count/summarize, whose r() would
         * otherwise survive into the caller and read as the caller's own.
@@ -113,6 +125,8 @@ end
 version 17.0
 capture mata: mata drop _tt_csv_fn_rows()
 capture mata: mata drop _tt_csv_fn_paras()
+capture mata: mata drop _tt_csv_hide_breaks()
+capture mata: mata drop _tt_csv_show_breaks()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -154,6 +168,76 @@ void _tt_csv_fn_rows(string scalar foot)
     paras = _tt_csv_fn_paras(foot)
     for (j = 1; j <= rows(paras); j++) st_local("_tt_fn_p" + strofreal(j), paras[j])
     st_local("_tt_fn_n", strofreal(rows(paras)))
+}
+
+// Replace every CR and LF in the string variables of varlist by
+// "," + mark + "R" / "L", where mark is a string found in no cell. The comma
+// makes export delimited quote the field. Posts _tt_csv_hasbrk (1 when a
+// cell held a line break) and _tt_csv_mark.
+void _tt_csv_hide_breaks(string scalar varlist)
+{
+    string rowvector vars
+    string colvector x
+    string scalar mark, cr, lf
+    real rowvector idx, brk
+    real scalar j, n, taken
+
+    vars = tokens(varlist)
+    cr = char(13)
+    lf = char(10)
+    idx = J(1, cols(vars), .)
+    brk = J(1, cols(vars), 0)
+    for (j = 1; j <= cols(vars); j++) {
+        idx[j] = st_varindex(vars[j])
+        if (!st_isstrvar(idx[j])) continue
+        x = st_sdata(., idx[j])
+        brk[j] = (sum((strpos(x, cr) :> 0) :| (strpos(x, lf) :> 0)) > 0)
+    }
+    st_local("_tt_csv_hasbrk", strofreal(sum(brk) > 0))
+    st_local("_tt_csv_mark", "")
+    if (sum(brk) == 0) return
+
+    n = 0
+    do {
+        mark = char(31) + "tt" + strofreal(n) + char(31)
+        taken = 0
+        for (j = 1; j <= cols(vars) & !taken; j++) {
+            if (!st_isstrvar(idx[j])) continue
+            taken = (sum(strpos(st_sdata(., idx[j]), mark) :> 0) > 0)
+        }
+        n++
+    } while (taken)
+    st_local("_tt_csv_mark", mark)
+
+    for (j = 1; j <= cols(vars); j++) {
+        if (!brk[j]) continue
+        // the tokens are longer than the bytes they replace
+        stata("quietly recast strL " + vars[j])
+        x = st_sdata(., idx[j])
+        x = subinstr(x, cr, "," + mark + "R")
+        x = subinstr(x, lf, "," + mark + "L")
+        st_sstore(., idx[j], x)
+    }
+}
+
+// Turn the tokens back into CR and LF bytes in the exported file.
+void _tt_csv_show_breaks(string scalar path, string scalar mark)
+{
+    string scalar s
+    real scalar fh, n
+
+    fh = fopen(path, "r")
+    fseek(fh, 0, 1)
+    n = ftell(fh)
+    fseek(fh, 0, -1)
+    s = (n > 0 ? fread(fh, n) : "")
+    fclose(fh)
+    s = subinstr(s, "," + mark + "R", char(13))
+    s = subinstr(s, "," + mark + "L", char(10))
+    unlink(path)
+    fh = fopen(path, "w")
+    fwrite(fh, s)
+    fclose(fh)
 }
 
 end

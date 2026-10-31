@@ -1,4 +1,4 @@
-*! tabtools Version 1.0.0  2026/10/20
+*! tabtools Version 1.1.0  2026/10/31
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -96,7 +96,9 @@ program define tabtools, rclass
     if "`subcmd'" == "set" {
         gettoken setkey setrest : rest, quotes
         local setkey = lower(strtrim("`setkey'"))
-        local setval = strtrim(`"`setrest'"')
+        * macval: a texopts value may hold a dollar sign or a backtick the
+        * user escaped on the command line; expanding it again would lose it.
+        local setval = strtrim(`"`macval(setrest)'"')
 
         if "`setkey'" == "" {
             display as error "tabtools set requires a setting key"
@@ -131,18 +133,18 @@ program define tabtools, rclass
             global TABTOOLS_DIGITS
             global TABTOOLS_BOLDP
             display as text "tabtools: all persistent defaults cleared"
-            * 2.3.0: session settings (workbook, markdown, headershade,
-            * smallcells) are cleared with them.
+            * 2.3.0: session settings (workbook, markdown, latex,
+            * headershade, smallcells) are cleared with them.
             _tabtools_set clear, quiet
             return local action "cleared"
         }
         * 2.3.0 session settings (U1, W1): logic in _tabtools_set.ado.
-        else if inlist("`setkey'", "workbook", "markdown", "headershade", "smallcells") {
+        else if inlist("`setkey'", "workbook", "markdown", "latex", "texopts", "headershade", "smallcells") {
             if "`permanent'" != "" {
                 display as error "tabtools set `setkey' is a session setting and is not saved to a profile"
                 exit 198
             }
-            _tabtools_set set `setkey' `setval'
+            _tabtools_set set `setkey' `macval(setval)'
             return add
         }
         else if "`setkey'" == "font" {
@@ -243,7 +245,7 @@ program define tabtools, rclass
             return scalar boldp = `setval'
         }
         else {
-            display as error `"Unknown setting "`setkey'". Valid: font, fontsize, borderstyle, headercolor, zebracolor, digits, boldp, workbook, markdown, headershade, smallcells, clear"'
+            display as error `"Unknown setting "`setkey'". Valid: font, fontsize, borderstyle, headercolor, zebracolor, digits, boldp, workbook, markdown, latex, texopts, headershade, smallcells, clear"'
             exit 198
         }
 

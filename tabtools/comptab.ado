@@ -1,4 +1,4 @@
-*! comptab Version 1.0.0  2026/10/20
+*! comptab Version 1.1.0  2026/10/31
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -101,7 +101,7 @@ program define comptab, rclass
             RELAbel(string asis) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
             OPEN ZEBRA HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
             HEADERColor(string) ZEBRAColor(string) CSV(string) ///
-            MARKdown(string) MDAPPend FRAme(string asis) ///
+            MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string asis) ///
             EPLOTFrame(string asis) FOREST EPLOTOptions(string asis) ///
             LABELWidth(integer 0) CFormat(string) CISep(string) ///
             KEYed MODELOnly ALLModels *]
@@ -160,6 +160,18 @@ program define comptab, rclass
         }
         if "`mdappend'" != "" {
             local _common_opts `"`macval(_common_opts)' mdappend"'
+        }
+        if `"`latex'"' != "" {
+            local _common_opts `"`macval(_common_opts)' latex(`"`latex'"')"'
+        }
+        if "`texappend'" != "" {
+            local _common_opts `"`macval(_common_opts)' texappend"'
+        }
+        if "`texdocument'" != "" {
+            local _common_opts `"`macval(_common_opts)' texdocument"'
+        }
+        if `"`macval(texopts)'"' != "" {
+            local _common_opts `"`macval(_common_opts)' texopts(`macval(texopts)')"'
         }
         if `"`frame'"' != "" {
             local _common_opts `"`macval(_common_opts)' frame(`macval(frame)')"'
@@ -321,7 +333,8 @@ program define _comptab_rates, rclass
             BORDERstyle(string) FONT(string) FONTSIZE(integer -1) ///
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
-            CSV(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
+            CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) ///
+            FRAme(string) EPLOTFrame(string asis) ///
             FOREST EPLOTOptions(string asis) CFormat(string) CISep(string) ///
             KEYed MODELOnly ALLModels]
 
@@ -363,14 +376,17 @@ program define _comptab_rates, rclass
 
         * Resolve core options
         if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-        * Session destinations (tabtools set workbook/markdown) apply only when
-        * sheet() asks for a sheet; an explicit option wins. Without this a
-        * sheet() call after tabtools set workbook wrote nothing, silently.
+        * Session destinations (tabtools set workbook/markdown/latex) apply
+        * only when sheet() asks for a sheet; an explicit option wins. Without
+        * this a sheet() call after tabtools set workbook wrote nothing.
         if `"`macval(sheet)'"' != "" {
-            _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+            _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend' ///
+                latex(`"`latex'"') `texappend'
             local xlsx `"`_ss_xlsx'"'
             local markdown `"`_ss_md'"'
             local mdappend "`_ss_mdappend'"
+            local latex `"`_ss_tex'"'
+            local texappend "`_ss_texappend'"
             if `"`xlsx'"' == "" display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
         }
         local _has_xlsx = (`"`xlsx'"' != "")
@@ -443,7 +459,21 @@ program define _comptab_rates, rclass
                 exit 198
             }
         }
-        _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+        if "`texappend'" != "" & `"`latex'"' == "" {
+            display as error "texappend requires latex()"
+            exit 198
+        }
+        if "`texdocument'" != "" & `"`latex'"' == "" {
+            display as error "texdocument requires latex()"
+            exit 198
+        }
+        if `"`macval(texopts)'"' != "" & `"`latex'"' == "" {
+            display as error "texopts() requires latex()"
+            exit 198
+        }
+        if `"`latex'"' != "" _tabtools_validate_path `"`latex'"' "latex()"
+        _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"') ///
+            latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)')
         _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
         * Resolve formatting
@@ -1840,6 +1870,23 @@ program define _comptab_rates, rclass
             noisily display as text ""
         }
 
+        * The analytical results are posted before any file is written: a
+        * failed CSV, Markdown, LaTeX or workbook export still hands them to
+        * the caller (hrcomptab's return add relays them; pinned by
+        * "hrcomptab preserves r() after export failure" in
+        * qa/test_package_adversarial.do). Path returns follow their writes.
+        return scalar N_rows = `lastrow'
+        return scalar N_outcomes = `outcomes'
+        return scalar N_sections = `n_sections'
+        return scalar N_modelrows = `_selected_total'
+        return scalar N_modelframes = `n_frames'
+        return scalar N_models_per_outcome = `_K'
+        return scalar N_modelonly = `_n_mo'
+        return scalar ci_level = `_ci_level'
+        return local rateframe "`_rateframe_original'"
+        return local modelframes "`_modelframes_original'"
+        return local effect "`effect'"
+
         * CSV export
         if "`csv'" != "" {
             order title c*
@@ -1857,17 +1904,82 @@ program define _comptab_rates, rclass
         if `"`markdown'"' != "" {
             local _mdappend_opt ""
             if "`mdappend'" != "" local _mdappend_opt "append"
-            capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-                `_mdappend_opt' title(`"`macval(_out_title)'"') footnote(`"`macval(footnote)'"') strictheaders
-            if _rc {
+            * Markdown has one header row: in a copy, flatten the outcome row
+            * over the statistic row to "outcome: statistic" (as stratetab and
+            * regtab do), with the exposure header over the label column, so
+            * the statistic row is not written as the first body row.
+            tempname _md_frame
+            frame put *, into(`_md_frame')
+            local _md_rc 0
+            frame `_md_frame' {
+                quietly replace c1 = c1[2] in 3
+                forvalues _o = 1/`outcomes' {
+                    local _out_s = 2 + (`_o' - 1) * `_bw'
+                    * cell to cell, no macro: label text is never expanded
+                    if c`_out_s'[2] == "" continue
+                    forvalues _fc = `_out_s'/`=`_out_s' + `_bw' - 1' {
+                        quietly replace c`_fc' = c`_out_s'[2] + ": " + c`_fc' in 3
+                    }
+                }
+                capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+                    `_mdappend_opt' title(`"`macval(_out_title)'"') footnote(`"`macval(footnote)'"') ///
+                    headerstart(3) datastart(4) strictheaders
                 local _md_rc = _rc
+                if !`_md_rc' {
+                    local _ret_markdown_rows = r(n_rows)
+                    local _ret_markdown_cols = r(n_cols)
+                }
+            }
+            frame drop `_md_frame'
+            if `_md_rc' {
                 display as error "Failed to export Markdown to `markdown'"
                 exit `_md_rc'
             }
             local _ret_markdown `"`markdown'"'
-            local _ret_markdown_rows = r(n_rows)
-            local _ret_markdown_cols = r(n_cols)
             display as text "Markdown exported to `markdown'"
+        }
+
+        local _ret_latex ""
+        local _ret_latex_rows .
+        local _ret_latex_cols .
+        if `"`latex'"' != "" {
+            local _texdocument_opt ""
+            if "`texdocument'" != "" local _texdocument_opt "document"
+            local _texappend_opt ""
+            if "`texappend'" != "" local _texappend_opt "append"
+            * LaTeX keeps both header rows: each outcome label in row 2 is a
+            * \multicolumn spanner over the columns the workbook merges for
+            * that outcome (declared from the layout, never inferred from
+            * blank cells), over the statistic row. It reads the unflattened
+            * table; its copy only moves the exposure header, which the
+            * workbook merges down over rows 2-3, into the statistic row.
+            local _tex_spans ""
+            forvalues _o = 1/`outcomes' {
+                local _out_s = 2 + (`_o' - 1) * `_bw'
+                local _tex_spans "`_tex_spans' 2 `_out_s' `=`_out_s' + `_bw' - 1'"
+            }
+            tempname _tex_frame
+            frame put *, into(`_tex_frame')
+            local _tex_rc 0
+            frame `_tex_frame' {
+                quietly replace c1 = c1[2] in 3
+                quietly replace c1 = "" in 2
+                capture noisily _tabtools_latex_write using `"`latex'"', ///
+                    `_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') title(`"`macval(_out_title)'"') footnote(`"`macval(footnote)'"') ///
+                    headerstart(2) datastart(4) strictheaders spans(`_tex_spans')
+                local _tex_rc = _rc
+                if !`_tex_rc' {
+                    local _ret_latex_rows = r(n_rows)
+                    local _ret_latex_cols = r(n_cols)
+                }
+            }
+            frame drop `_tex_frame'
+            if `_tex_rc' {
+                display as error "Failed to export LaTeX to `latex'"
+                exit `_tex_rc'
+            }
+            local _ret_latex `"`latex'"'
+            display as text "LaTeX exported to `latex'"
         }
 
 	        * Stage display-frame output. The caller-visible destination is not
@@ -1910,23 +2022,17 @@ program define _comptab_rates, rclass
 	        }
 	        if `"$TABTOOLS_QA_HRC_STAGE_FAIL"' == "1" error 459
 
-	        return scalar N_rows = `lastrow'
-        return scalar N_outcomes = `outcomes'
-        return scalar N_sections = `n_sections'
-        return scalar N_modelrows = `_selected_total'
-        return scalar N_modelframes = `n_frames'
-        return scalar N_models_per_outcome = `_K'
-        return scalar N_modelonly = `_n_mo'
-	        return scalar ci_level = `_ci_level'
-	        return local rateframe "`_rateframe_original'"
-	        return local modelframes "`_modelframes_original'"
-        return local effect "`effect'"
         if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
         if "`csv'" != "" return local csv "`csv'"
         if `"`_ret_markdown'"' != "" {
             return local markdown `"`_ret_markdown'"'
             return scalar markdown_rows = `_ret_markdown_rows'
             return scalar markdown_cols = `_ret_markdown_cols'
+        }
+        if `"`_ret_latex'"' != "" {
+            return local latex `"`_ret_latex'"'
+            return scalar latex_rows = `_ret_latex_rows'
+            return scalar latex_cols = `_ret_latex_cols'
         }
 
         * Excel export
@@ -2204,6 +2310,11 @@ program define _comptab_rates, rclass
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
     }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
+    }
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet `"`macval(sheet)'"'
@@ -2252,7 +2363,8 @@ program define _comptab_vertical, rclass
         FONT(string) FONTSIZE(integer -1) BORDERstyle(string) open zebra HEADERShade ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
-        csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
+        csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) ///
+        FRAme(string) EPLOTFrame(string asis) ///
         FOREST EPLOTOptions(string asis) LABELWidth(integer 0) ///
         CFormat(string) CISep(string)]
 
@@ -2296,14 +2408,17 @@ program define _comptab_vertical, rclass
 
     * Accept excel() as synonym for xlsx()
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-    * Session destinations (tabtools set workbook/markdown) apply only when
-    * sheet() asks for a sheet; an explicit option wins. Without this a
+    * Session destinations (tabtools set workbook/markdown/latex) apply only
+    * when sheet() asks for a sheet; an explicit option wins. Without this a
     * sheet() call after tabtools set workbook wrote nothing, silently.
     if `"`macval(sheet)'"' != "" {
-        _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+        _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend' ///
+            latex(`"`latex'"') `texappend'
         local xlsx `"`_ss_xlsx'"'
         local markdown `"`_ss_md'"'
         local mdappend "`_ss_mdappend'"
+        local latex `"`_ss_tex'"'
+        local texappend "`_ss_texappend'"
         if `"`xlsx'"' == "" display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
     }
     local _has_xlsx = "`xlsx'" != ""
@@ -2350,6 +2465,19 @@ program define _comptab_vertical, rclass
             exit 198
         }
     }
+    if "`texappend'" != "" & `"`latex'"' == "" {
+        noisily display as error "texappend requires latex()"
+        exit 198
+    }
+    if "`texdocument'" != "" & `"`latex'"' == "" {
+        noisily display as error "texdocument requires latex()"
+        exit 198
+    }
+    if `"`macval(texopts)'"' != "" & `"`latex'"' == "" {
+        noisily display as error "texopts() requires latex()"
+        exit 198
+    }
+    if `"`latex'"' != "" _tabtools_validate_path `"`latex'"' "latex()"
 
     local _eplotframe_name ""
     local _eplotframe_replace 0
@@ -2957,7 +3085,8 @@ program define _comptab_vertical, rclass
         _tabtools_validate_path "`xlsx'" "xlsx()"
     }
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
-    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"') ///
+        latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)')
 
     quietly {
 
@@ -3438,6 +3567,18 @@ program define _comptab_vertical, rclass
 
     drop A_length factor_length
 
+    * Return results before any file-writing failure can abort the command:
+    * a failed CSV, Markdown, LaTeX or workbook export still hands the
+    * analytical results to the caller (pinned by "comptab preserves r()
+    * after export failure" in qa/test_package_adversarial.do).
+    local num_rows = _N
+    local num_cols = c(k)
+    return scalar N_rows = `num_rows'
+    return scalar N_cols = `num_cols'
+    return scalar N_models = `n_models'
+    return scalar N_frames = `n_frames'
+    return scalar ci_level = real("`_ci_level_ref'")
+
     * =====================================================================
     * CSV EXPORT
     * =====================================================================
@@ -3460,18 +3601,81 @@ program define _comptab_vertical, rclass
     if `"`markdown'"' != "" {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' labelvar(A) datastart(3) title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
-        if _rc {
+        * Markdown has one header row: in a copy, flatten each model label
+        * (row 2, first column of its block) over the statistic row to
+        * "model: statistic", as regtab and stratetab do, so the statistic
+        * row is not written as the first body row.
+        tempname _md_frame
+        frame put *, into(`_md_frame')
+        local _md_rc 0
+        frame `_md_frame' {
+            forvalues _bs = 1(`n_cols_per_model')`n' {
+                * cell to cell, no macro: label text is never expanded
+                if c`_bs'[2] == "" continue
+                forvalues _fc = `_bs'/`=`_bs' + `n_cols_per_model' - 1' {
+                    quietly replace c`_fc' = c`_bs'[2] + ": " + c`_fc' in 3
+                }
+            }
+            capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+                `_mdappend_opt' labelvar(A) headerstart(3) datastart(4) ///
+                title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
             local _md_rc = _rc
+            if !`_md_rc' {
+                local _ret_markdown_rows = r(n_rows)
+                local _ret_markdown_cols = r(n_cols)
+            }
+        }
+        frame drop `_md_frame'
+        if `_md_rc' {
             noisily display as error "Failed to export Markdown to `markdown'"
             restore
             exit `_md_rc'
         }
         local _ret_markdown `"`markdown'"'
-        local _ret_markdown_rows = r(n_rows)
-        local _ret_markdown_cols = r(n_cols)
         noisily display as text "Markdown exported to `markdown'"
+    }
+
+    * =====================================================================
+    * LATEX EXPORT
+    * =====================================================================
+    * Both header rows: each model label (row 2) is a \multicolumn spanner
+    * over the columns the workbook merges for that model (declared from the
+    * layout, never inferred from blank cells), over the statistic row. The
+    * table is read as built: the Markdown flattening above works on a copy.
+    local _ret_latex ""
+    local _ret_latex_rows .
+    local _ret_latex_cols .
+    if `"`latex'"' != "" {
+        local _texdocument_opt ""
+        if "`texdocument'" != "" local _texdocument_opt "document"
+        local _texappend_opt ""
+        if "`texappend'" != "" local _texappend_opt "append"
+        local _tex_spans ""
+        forvalues _bs = 1(`n_cols_per_model')`n' {
+            if c`_bs'[2] == "" continue
+            local _tex_spans "`_tex_spans' 2 `=`_bs' + 1' `=`_bs' + `n_cols_per_model''"
+        }
+        * no model labels at all: the statistic row is the only header row
+        local _tex_hs 3
+        local _tex_spans_opt ""
+        if `"`_tex_spans'"' != "" {
+            local _tex_hs 2
+            local _tex_spans_opt "spans(`_tex_spans')"
+        }
+        capture noisily _tabtools_latex_write using `"`latex'"', ///
+            `_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') labelvar(A) headerstart(`_tex_hs') datastart(4) ///
+            title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders ///
+            `_tex_spans_opt'
+        if _rc {
+            local _tex_rc = _rc
+            noisily display as error "Failed to export LaTeX to `latex'"
+            restore
+            exit `_tex_rc'
+        }
+        local _ret_latex `"`latex'"'
+        local _ret_latex_rows = r(n_rows)
+        local _ret_latex_cols = r(n_cols)
+        noisily display as text "LaTeX exported to `latex'"
     }
 
     * =====================================================================
@@ -3513,20 +3717,16 @@ program define _comptab_vertical, rclass
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
     }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
+    }
 
     * =====================================================================
     * EXCEL EXPORT
     * =====================================================================
-    local num_rows = _N
-    local num_cols = c(k)
     local _xlsx_ok 0
-
-    * Return results before any file-writing failure can abort the command
-    return scalar N_rows = `num_rows'
-    return scalar N_cols = `num_cols'
-    return scalar N_models = `n_models'
-    return scalar N_frames = `n_frames'
-    return scalar ci_level = real("`_ci_level_ref'")
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
 
     if `_has_xlsx' {
@@ -3802,6 +4002,11 @@ program define _comptab_vertical, rclass
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
     }
     return scalar N_rows = `num_rows'
     return scalar N_cols = `num_cols'

@@ -25,6 +25,7 @@
 {opt eplotf:rame(name[, replace])} {opt from(name)}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt mark:down(filename)} {opt mdapp:end}
+{opt latex(filename)} {opt texapp:end} {opt texdocument} {opt texopts(string)}
 {opt addr:ow(string asis)} {opt ref:cat(string)} {opt omitl:abel(string)}
 {opt emptyl:abel(string)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 
@@ -90,6 +91,10 @@ collection must remain unchanged.{p_end}
 {synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
+{synopt:{opt latex(filename)}}export as a LaTeX (booktabs) table{p_end}
+{synopt:{opt texapp:end}}append to an existing LaTeX file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom rows below the table body{p_end}
 {synopt:{opt ref:cat(string)}}label for reference rows (default {cmd:Reference}){p_end}
 {synopt:{opt omitl:abel(string)}}label for dropped terms (default {cmd:Omitted}){p_end}
@@ -118,7 +123,7 @@ values. Use backslash to separate multiple rows{p_end}
 
 {phang}
 {opt csv(filename)} also export the table as a CSV file. {it:filename} must end in {cmd:.csv} and differ from the
-Excel and Markdown targets. The CSV mirrors the
+Excel, Markdown, and LaTeX targets. The CSV mirrors the
 workbook with {opt title()} written as the first row and {opt footnote()} as
 the last row, both in the first column and the table body between them.{p_end}
 
@@ -211,6 +216,34 @@ Excel, CSV, and frame exports{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt latex(filename)} export the rendered table as a LaTeX {cmd:table} float; may be
+combined with Excel, CSV, Markdown, and frame exports. {it:filename} must end in
+{cmd:.tex} and differ from the other output files; an existing file is replaced.
+With {opt models()} each model name spans its estimate, CI, and p-value columns
+({cmd:\multicolumn} with {cmd:\cmidrule}) over the statistic labels; without it
+the table has the single statistic header row. {opt title()} becomes the
+{cmd:\caption} (with a {cmd:\label} built from the file name) and {opt footnote()}
+a note under the table. The file needs only
+{cmd:\usepackage{c -(}booktabs{c )-}} in the document preamble{p_end}
+
+{phang}
+{opt texappend} append the LaTeX table to an existing file instead of replacing it;
+requires {opt latex()}. The appended table's label gets a {cmd:-}{it:n} suffix{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
 {opt models(string)} labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}{p_end}
@@ -458,11 +491,14 @@ to align compatible sources and rejects ambiguous or conflicting metadata.{p_end
 {synopt:{cmd:r(ci_level)}}confidence level used for the displayed intervals{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(type)}}detected or specified result type{p_end}
 {synopt:{cmd:r(effect_label)}}effect column label{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}

@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.0  2026/10/20
+*! crosstab Version 1.1.0  2026/10/31
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,7 +62,7 @@ capture noisily {
         FOOTnote(string) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra ///
-        csv(string) MARKdown(string) MDAPPend FRAme(string) ///
+        csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) ///
         SMALLCells(string) NOSMALLCells open]
 
     gettoken rowvar colvar : varlist
@@ -87,13 +87,18 @@ capture noisily {
     * sheet() asks for a sheet; an explicit option wins.
     local _sess_xlsx 0
     local _sess_md 0
+    local _sess_tex 0
     if `"`macval(sheet)'"' != "" {
-        _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+        _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend' ///
+            latex(`"`latex'"') `texappend'
         local xlsx `"`_ss_xlsx'"'
         local markdown `"`_ss_md'"'
         local mdappend "`_ss_mdappend'"
+        local latex `"`_ss_tex'"'
+        local texappend "`_ss_texappend'"
         local _sess_xlsx = `_ss_xlsx_sess'
         local _sess_md = `_ss_md_sess'
+        local _sess_tex = `_ss_tex_sess'
         if `"`xlsx'"' == "" display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
     }
     local _has_xlsx = `"`macval(xlsx)'"' != ""
@@ -153,6 +158,19 @@ capture noisily {
         noisily display as error "mdappend requires markdown()"
         exit 198
     }
+    if "`texappend'" != "" & `"`latex'"' == "" {
+        noisily display as error "texappend requires latex()"
+        exit 198
+    }
+    if "`texdocument'" != "" & `"`latex'"' == "" {
+        noisily display as error "texdocument requires latex()"
+        exit 198
+    }
+    if `"`macval(texopts)'"' != "" & `"`latex'"' == "" {
+        noisily display as error "texopts() requires latex()"
+        exit 198
+    }
+    if `"`latex'"' != "" _tabtools_validate_path `"`latex'"' "latex()"
     if `"`markdown'"' != "" {
         _tabtools_validate_path `"`markdown'"' "markdown()"
         local _md_lower = lower(`"`markdown'"')
@@ -164,7 +182,8 @@ capture noisily {
             exit 198
         }
     }
-    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"') ///
+        latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)')
     * C2 (codex audit 2026-09-26): validate frame() before anything is
     * written. It was checked only when the frame was stored, after the CSV
     * and Markdown files, so an occupied or invalid frame returned an error
@@ -714,48 +733,9 @@ capture noisily {
     * An SMCL paragraph wraps the note at word boundaries, not mid-word.
     if `_sc_active' noisily display as text `"{p 0 0 2}`_sc_note'{p_end}"'
 
-**# CSV Export
-    if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
-        noisily display as text "CSV exported to `csv'"
-    }
-
-**# Markdown Export
-    local _ret_markdown ""
-    local _ret_markdown_rows .
-    local _ret_markdown_cols .
-    if `"`markdown'"' != "" {
-        local _mdappend_opt ""
-        if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
-        if _rc {
-            local _md_rc = _rc
-            noisily display as error "Failed to export Markdown to `markdown'"
-            restore
-            exit `_md_rc'
-        }
-        local _ret_markdown `"`markdown'"'
-        local _ret_markdown_rows = r(n_rows)
-        local _ret_markdown_cols = r(n_cols)
-        noisily display as text "Markdown exported to `markdown'"
-        if `_sess_md' _tabtools_set_sinks mddone
-    }
-
-**# Frame Output
-    if `"`frame'"' != "" {
-        _tabtools_frame_put `"`frame'"'
-        local frame `"`_frame_name'"'
-        frame `frame': char _dta[tabtools_ci_level] "`_level_txt'"
-        frame `frame': char _dta[tabtools_source] "crosstab"
-        if `_sc_active' {
-            frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
-            frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
-            if `_sc_primary' frame `frame': char _dta[tabtools_suppression_scope] "printed counts only (primary); single invocation; all sinks"
-            else frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
-        }
-    }
-
+    * Methods and the analytical payload are posted before any file sink runs,
+    * so a failed CSV, Markdown or LaTeX export still returns r(table), r(N), the
+    * test statistics and r(methods), as a failed workbook export does.
     * Methods paragraph
     local _methods `"Cross-tabulation was performed for `macval(_rowlabel)' by `macval(_collabel)'."'
     local _methods `"`macval(_methods)' Statistical significance was assessed using `_test_name'."'
@@ -824,12 +804,6 @@ capture noisily {
     return scalar N = `_sc_safe_N'
     return scalar ci_level = `level'
     return local methods `"`macval(_methods)'"'
-    if "`frame'" != "" return local frame "`frame'"
-    if `"`_ret_markdown'"' != "" {
-        return local markdown `"`_ret_markdown'"'
-        return scalar markdown_rows = `_ret_markdown_rows'
-        return scalar markdown_cols = `_ret_markdown_cols'
-    }
     if `_sc_active' {
         return scalar smallcells = `smallcells'
         return local smallcells_mode = cond(`_sc_primary', "primary", "full")
@@ -839,6 +813,90 @@ capture noisily {
         return matrix suppression = `_scmask', copy
     }
     return matrix table = `_rtable', copy
+
+**# CSV Export
+    if "`csv'" != "" {
+        _tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
+        noisily display as text "CSV exported to `csv'"
+    }
+
+**# Markdown Export
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
+    if `"`markdown'"' != "" {
+        local _mdappend_opt ""
+        if "`mdappend'" != "" local _mdappend_opt "append"
+        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+            `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
+        if _rc {
+            local _md_rc = _rc
+            noisily display as error "Failed to export Markdown to `markdown'"
+            restore
+            exit `_md_rc'
+        }
+        local _ret_markdown `"`markdown'"'
+        local _ret_markdown_rows = r(n_rows)
+        local _ret_markdown_cols = r(n_cols)
+        noisily display as text "Markdown exported to `markdown'"
+        if `_sess_md' _tabtools_set_sinks mddone
+    }
+
+**# LaTeX Export
+    * One header row (row 2: row-variable label, column-level labels, Total),
+    * body from row 3. The workbook merges nothing across the header, and the
+    * association-measure rows under the table are one-cell body rows, so no
+    * spans() are declared.
+    local _ret_latex ""
+    local _ret_latex_rows .
+    local _ret_latex_cols .
+    if `"`latex'"' != "" {
+        local _texdocument_opt ""
+        if "`texdocument'" != "" local _texdocument_opt "document"
+        local _texappend_opt ""
+        if "`texappend'" != "" local _texappend_opt "append"
+        capture noisily _tabtools_latex_write using `"`latex'"', ///
+            `_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
+        if _rc {
+            local _tex_rc = _rc
+            noisily display as error "Failed to export LaTeX to `latex'"
+            restore
+            exit `_tex_rc'
+        }
+        local _ret_latex `"`latex'"'
+        local _ret_latex_rows = r(n_rows)
+        local _ret_latex_cols = r(n_cols)
+        noisily display as text "LaTeX exported to `latex'"
+        if `_sess_tex' _tabtools_set_sinks texdone
+    }
+
+**# Frame Output
+    if `"`frame'"' != "" {
+        _tabtools_frame_put `"`frame'"'
+        local frame `"`_frame_name'"'
+        frame `frame': char _dta[tabtools_ci_level] "`_level_txt'"
+        frame `frame': char _dta[tabtools_source] "crosstab"
+        if `_sc_active' {
+            frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
+            frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
+            if `_sc_primary' frame `frame': char _dta[tabtools_suppression_scope] "printed counts only (primary); single invocation; all sinks"
+            else frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+        }
+    }
+
+    * Sink-dependent returns join the payload posted above.
+    if "`frame'" != "" return local frame "`frame'"
+    if `"`_ret_markdown'"' != "" {
+        return local markdown `"`_ret_markdown'"'
+        return scalar markdown_rows = `_ret_markdown_rows'
+        return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
+    }
+
 
 **# Excel Export
     local _xlsx_ok 0
@@ -1030,6 +1088,11 @@ capture noisily {
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
     }
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"

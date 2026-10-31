@@ -241,9 +241,9 @@ any work and written after the table.
 {phang}
 All other options are passed to {helpb stratetab}: {opt xlsx()},
 {opt sheet()}, {opt title()}, {opt footnote()} (passed unchanged), {opt csv()},
-{opt markdown()}, {opt mdappend}, {opt frame()}, and its formatting options. {cmd:stratetab}'s
-{opt rateratio} is refused (r(198)): it compares independent
-exposure groups, adding the variances of their log rates, whereas the grouping
+{opt markdown()}, {opt mdappend}, {opt latex()}, {opt texappend}, {opt texdocument}, {opt texopts()}, {opt frame()}, and
+its formatting options. {cmd:stratetab}'s {opt rateratio} is refused
+(r(198)): it compares independent exposure groups, adding the variances of their log rates, whereas the grouping
 variables of {cmd:ratetab} split one sample, so it would divide rates of
 overlapping groups. For rate ratios between the levels of one variable, fit
 {cmd:poisson _d i.}{it:var}{cmd:, exposure(}{it:pt}{cmd:) irr} with {it:pt} =

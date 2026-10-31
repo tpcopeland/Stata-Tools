@@ -40,7 +40,8 @@ for treatment effects and margins tables.
 {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
 {opt font(string)} {opt fontsize(#)} {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt csv(string)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)}
+{opt csv(string)} {opt mark:down(filename)} {opt mdapp:end}
+{opt latex(filename)} {opt texapp:end} {opt fra:me(name)}
 {opt eplotf:rame(name[, replace])} {opt keep(varlist)}
 {opt drop(varlist)} {opt labelm:atch} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
 {opt omitl:abel(string)} {opt emptyl:abel(string)} {opt notestl:abel(string)}
@@ -106,6 +107,10 @@ main table begins at {cmd:B2}.{p_end}
 {synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the table as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
+{synopt:{opt latex(filename)}}export the table as a LaTeX (booktabs) table{p_end}
+{synopt:{opt texapp:end}}append to an existing LaTeX file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 {synopt:{opt fra:me(name[, replace flat keys])}}store output in a named frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame{p_end}
 {synopt:{opt keep(varlist)}}keep exact variable or factor names{p_end}
@@ -279,7 +284,7 @@ omitted (see Remarks){p_end}
 
 {phang}
 {opt csv(filename)} also export the table as a CSV file. {it:filename} must end in {cmd:.csv}
-and differ from the Excel and Markdown targets. The CSV mirrors the workbook
+and differ from the Excel, Markdown, and LaTeX targets. The CSV mirrors the workbook
 with {opt title()} written as the first row and {opt footnote()} as the last row, both in
 the first column and the table body between them.{p_end}
 
@@ -417,6 +422,33 @@ rows keep their indentation: each leading space of a row label is written as
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt latex(filename)} export the table as a LaTeX {cmd:table} float; {it:filename}
+must end in {cmd:.tex} and differ from the other output files. An existing file is
+replaced. Both header levels are kept: each model's name spans its own columns
+({cmd:\multicolumn} with {cmd:\cmidrule}) over the statistic labels; a
+one-column model block ({opt compact} {opt nopvalue}, {opt transpose}) keeps the
+model name as a plain cell. {opt title()} becomes the {cmd:\caption} (with a
+{cmd:\label} built from the file name) and {opt footnote()} a note under the table.
+The file needs only {cmd:\usepackage{c -(}booktabs{c )-}} in the document preamble{p_end}
+
+{phang}
+{opt texappend} append the LaTeX table to an existing file instead of replacing it;
+requires {opt latex()}. The appended table's label gets a {cmd:-}{it:n} suffix{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
 {opt models(string)} labels merged above each model's columns,
@@ -577,10 +609,10 @@ numbers; see {help tabtools##sep:interval separators}.{p_end}
 
 {phang}
 {opt sheet(string)} target sheet to create/replace in {opt xlsx()}. Default
-{cmd:"Regression"}. After {cmd:tabtools set workbook} (or {cmd:markdown}), a call that gives
-{opt sheet()} without {opt xlsx()} (or {opt markdown()}) writes to the session target and says
+{cmd:"Regression"}. After {cmd:tabtools set workbook} (or {cmd:markdown}, {cmd:latex}), a call that gives
+{opt sheet()} without {opt xlsx()} (or {opt markdown()}, {opt latex()}) writes to the session target and says
 so in the log; the first write of the session workbook starts it over (see
-{helpb tabtools}). An explicit {opt xlsx()} or {opt markdown()} wins. When {opt sheet()} is given and no
+{helpb tabtools}). An explicit file option wins. When {opt sheet()} is given and no
 workbook resolves, {cmd:regtab} prints
 {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}.{p_end}
 
@@ -1297,11 +1329,14 @@ an estimate:{p_end}
 {synopt:{cmd:r(e_}{it:name}{cmd:_}{it:#}{cmd:)}}{cmd:e(}{it:name}{cmd:)} for model {it:#} (when {cmd:stats(e(}{it:name}{cmd:))}){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(coef_label)}}shared or mixed coefficient label{p_end}
 {synopt:{cmd:r(methods)}}auto-generated methods paragraph{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}

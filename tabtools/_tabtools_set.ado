@@ -1,11 +1,11 @@
-*! _tabtools_set Version 1.0.0  2026/10/20
+*! _tabtools_set Version 1.1.0  2026/10/31
 *! Session destinations and defaults behind tabtools set / tabtools query
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
-    _tabtools_set set <key> <value>     key: workbook, markdown, headershade,
-                                             smallcells
+    _tabtools_set set <key> <value>     key: workbook, markdown, latex,
+                                             texopts, headershade, smallcells
     _tabtools_set set <key> clear       remove one session setting
     _tabtools_set clear [, quiet]       remove every session setting
     _tabtools_set query                 list them; r(workbook) etc.
@@ -15,6 +15,9 @@
         TABTOOLS_set_workbook_fresh    1 until the first write to it
         TABTOOLS_set_markdown          path of the session Markdown file
         TABTOOLS_set_markdown_fresh    1 until the first write to it
+        TABTOOLS_set_latex             path of the session LaTeX file
+        TABTOOLS_set_latex_fresh       1 until the first write to it
+        TABTOOLS_set_texopts           LaTeX layout sub-options (texopts())
         TABTOOLS_set_headershade       on | off
         TABTOOLS_set_smallcells        # (3 or more)
         TABTOOLS_set_smallcells_mode   full | primary
@@ -26,11 +29,11 @@
                                        this session (absolute, normalised);
                                        kept by -tabtools set clear-
 
-    A _fresh flag is set by -tabtools set workbook|markdown- and cleared by
-    the first command that writes to that session target. That first write
-    replaces the file (a workbook is erased and started again, a Markdown
-    file is overwritten); every later write adds a sheet to the workbook or
-    appends to the Markdown file. Setting a different target re-arms the
+    A _fresh flag is set by -tabtools set workbook|markdown|latex- and
+    cleared by the first command that writes to that session target. That
+    first write replaces the file (a workbook is erased and started again, a
+    Markdown or LaTeX file is overwritten); every later write adds a sheet to
+    the workbook or appends to the Markdown or LaTeX file. Setting a different target re-arms the
     flag; setting the current one again is a no-op; a file this session has
     already written is never replaced. Paths are stored absolute.
 */
@@ -46,9 +49,9 @@ program define _tabtools_set, rclass
         if "`_action'" == "set" {
             gettoken _key _val : 0
             local _key = lower(strtrim(`"`_key'"'))
-            local _val = strtrim(`"`_val'"')
+            local _val = strtrim(`"`macval(_val)'"')
             * One layer of quotes around a path is the user's, not the path's.
-            if inlist("`_key'", "workbook", "markdown") {
+            if inlist("`_key'", "workbook", "markdown", "latex") {
                 gettoken _v1 _vrest : _val, quotes
                 if `"`_vrest'"' != "" {
                     display as error `"tabtools set `_key' takes one path; quote a path that contains spaces"'
@@ -62,8 +65,8 @@ program define _tabtools_set, rclass
                 exit 198
             }
             if lower(`"`_val'"') == "clear" {
-                if !inlist("`_key'", "workbook", "markdown", "headershade", "smallcells") {
-                    display as error `"Unknown session setting "`_key'". Valid: workbook, markdown, headershade, smallcells"'
+                if !inlist("`_key'", "workbook", "markdown", "latex", "texopts", "headershade", "smallcells") {
+                    display as error `"Unknown session setting "`_key'". Valid: workbook, markdown, latex, texopts, headershade, smallcells"'
                     exit 198
                 }
                 global TABTOOLS_set_`_key'
@@ -135,6 +138,45 @@ program define _tabtools_set, rclass
                 }
                 return local markdown `"`_val'"'
             }
+            else if "`_key'" == "latex" {
+                if !strmatch(lower(`"`_val'"'), "*.tex") {
+                    display as error "tabtools set latex: the file must have a .tex extension"
+                    exit 198
+                }
+                _tabtools_validate_path `"`_val'"' "tabtools set latex"
+                * Stored absolute and normalised, so a later cd does not move
+                * the target. The same target again is a no-op; a different
+                * one re-arms "first write replaces" unless this session has
+                * already written that file, which is never replaced.
+                _tabtools_set_sinks normalize, path(`"`_val'"')
+                local _val `"`_ss_abs'"'
+                if `"`_val'"' == `"$TABTOOLS_set_latex"' {
+                    display as text "tabtools: " as result `""`_val'""' ///
+                        as text " is already the session LaTeX file; later writes append"
+                }
+                else if `_ss_written' {
+                    global TABTOOLS_set_latex `"`_val'"'
+                    global TABTOOLS_set_latex_fresh 0
+                    display as text "tabtools: session LaTeX file " as result `""`_val'""' ///
+                        as text " (already written in this session; later writes append)"
+                }
+                else {
+                    global TABTOOLS_set_latex `"`_val'"'
+                    global TABTOOLS_set_latex_fresh 1
+                    display as text "tabtools: session LaTeX file " as result `""`_val'""' ///
+                        as text " (the first write replaces it; later writes append)"
+                }
+                return local latex `"`_val'"'
+            }
+            else if "`_key'" == "texopts" {
+                * Validated now (label() refused: one key on every table),
+                * applied by the LaTeX writer when a command gives none.
+                _tabtools_texopts `"`macval(_val)'"', session
+                global TABTOOLS_set_texopts `"`macval(_val)'"'
+                display as text "tabtools: session LaTeX layout " as result `"`macval(_val)'"' ///
+                    as text " (a command's own texopts() replaces it)"
+                return local texopts `"`macval(_val)'"'
+            }
             else if "`_key'" == "headershade" {
                 local _val = lower(`"`_val'"')
                 if !inlist("`_val'", "on", "off") {
@@ -170,13 +212,13 @@ program define _tabtools_set, rclass
                 return local smallcells_mode "`_mode'"
             }
             else {
-                display as error `"Unknown session setting "`_key'". Valid: workbook, markdown, headershade, smallcells"'
+                display as error `"Unknown session setting "`_key'". Valid: workbook, markdown, latex, texopts, headershade, smallcells"'
                 exit 198
             }
         }
         else if "`_action'" == "clear" {
             syntax [, QUIET]
-            foreach _k in workbook markdown headershade smallcells {
+            foreach _k in workbook markdown latex texopts headershade smallcells {
                 global TABTOOLS_set_`_k'
                 global TABTOOLS_set_`_k'_fresh
                 global TABTOOLS_set_`_k'_mode
@@ -192,6 +234,8 @@ program define _tabtools_set, rclass
             }
             local _wb `"$TABTOOLS_set_workbook"'
             local _md `"$TABTOOLS_set_markdown"'
+            local _tx `"$TABTOOLS_set_latex"'
+            mata: st_local("_to", st_global("TABTOOLS_set_texopts"))
             local _hs `"$TABTOOLS_set_headershade"'
             local _sc `"$TABTOOLS_set_smallcells"'
             local _scm `"$TABTOOLS_set_smallcells_mode"'
@@ -199,9 +243,19 @@ program define _tabtools_set, rclass
             if `"`_sc'"' != "" & `"`_scm'"' == "" local _scm "full"
             display as text ""
             display as text "tabtools session settings"
-            foreach _k in workbook markdown {
-                local _v = cond("`_k'" == "workbook", `"`_wb'"', `"`_md'"')
-                local _lab = cond("`_k'" == "workbook", "  Workbook:    ", "  Markdown:    ")
+            foreach _k in workbook markdown latex {
+                if "`_k'" == "workbook" {
+                    local _v `"`_wb'"'
+                    local _lab "  Workbook:    "
+                }
+                else if "`_k'" == "markdown" {
+                    local _v `"`_md'"'
+                    local _lab "  Markdown:    "
+                }
+                else {
+                    local _v `"`_tx'"'
+                    local _lab "  LaTeX:       "
+                }
                 if `"`_v'"' == "" display as text "`_lab'" as text "(not set)"
                 else {
                     local _st "later writes append"
@@ -210,6 +264,8 @@ program define _tabtools_set, rclass
                     display as text "`_lab'" as result `""`_v'""' as text " (`_st')"
                 }
             }
+            if `"`macval(_to)'"' == "" display as text "  LaTeX layout: (not set)"
+            else display as text "  LaTeX layout: " as result `"`macval(_to)'"'
             if `"`_hs'"' == "" display as text "  Headershade: (not set)"
             else display as text "  Headershade: " as result "`_hs'"
             if `"`_sc'"' == "" display as text "  Smallcells:  (not set)"
@@ -218,12 +274,15 @@ program define _tabtools_set, rclass
             else display as text "  Borderstyle: " as result `"`_bs'"'
             return local workbook `"`_wb'"'
             return local markdown `"`_md'"'
+            return local latex `"`_tx'"'
+            return local texopts `"`macval(_to)'"'
             return local headershade `"`_hs'"'
             return local smallcells `"`_sc'"'
             return local smallcells_mode `"`_scm'"'
             return local borderstyle `"`_bs'"'
             return local workbook_fresh = cond(`"`_wb'"' != "", cond("$TABTOOLS_set_workbook_fresh" == "1", "1", "0"), "")
             return local markdown_fresh = cond(`"`_md'"' != "", cond("$TABTOOLS_set_markdown_fresh" == "1", "1", "0"), "")
+            return local latex_fresh = cond(`"`_tx'"' != "", cond("$TABTOOLS_set_latex_fresh" == "1", "1", "0"), "")
         }
         else {
             display as error "_tabtools_set: unknown action `_action'"

@@ -1,4 +1,4 @@
-*! outtab Version 1.0.0  2026/10/20
+*! outtab Version 1.1.0  2026/10/31
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -40,7 +40,7 @@ program define outtab, rclass
             RATIOLabel(string) Format(string) SEP(string) ///
             NONCONVtext(string asis) FAILtext(string asis) DROPtext(string asis) FRAme(string) ///
             XLSX(string) EXCEL(string) SHeet(string) TItle(string) FOOTnote(string) ///
-            CSV(string) MARKdown(string) MDAPPend BORDERstyle(string) HEADERShade ///
+            CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) BORDERstyle(string) HEADERShade ///
             FONT(string) FONTSIZE(integer -1)]
 
         **# Options
@@ -430,28 +430,47 @@ program define outtab, rclass
 
         **# Sinks through puttab
         local _put_opts ""
-        if `"`macval(title)'"' != "" local _put_opts `"`_put_opts' title(`"`macval(title)'"')"'
-        if `"`macval(footnote)'"' != "" local _put_opts `"`_put_opts' footnote(`"`macval(footnote)'"')"'
-        if `"`sheet'"' != "" local _put_opts `"`_put_opts' sheet(`"`sheet'"')"'
-        if `"`csv'"' != "" local _put_opts `"`_put_opts' csv(`"`csv'"')"'
-        if `"`markdown'"' != "" local _put_opts `"`_put_opts' markdown(`"`markdown'"')"'
-        if "`mdappend'" != "" local _put_opts `"`_put_opts' mdappend"'
-        if `"`borderstyle'"' != "" local _put_opts `"`_put_opts' borderstyle(`borderstyle')"'
-        if "`headershade'" != "" local _put_opts `"`_put_opts' headershade"'
-        if `"`font'"' != "" local _put_opts `"`_put_opts' font(`"`font'"')"'
-        if `fontsize' != -1 local _put_opts `"`_put_opts' fontsize(`fontsize')"'
+        if `"`macval(title)'"' != "" local _put_opts `"`macval(_put_opts)' title(`"`macval(title)'"')"'
+        if `"`macval(footnote)'"' != "" local _put_opts `"`macval(_put_opts)' footnote(`"`macval(footnote)'"')"'
+        if `"`sheet'"' != "" local _put_opts `"`macval(_put_opts)' sheet(`"`sheet'"')"'
+        if `"`csv'"' != "" local _put_opts `"`macval(_put_opts)' csv(`"`csv'"')"'
+        if `"`markdown'"' != "" local _put_opts `"`macval(_put_opts)' markdown(`"`markdown'"')"'
+        * mdappend without markdown() has never been an error: with a session
+        * Markdown file (tabtools set markdown) puttab appends to it; with
+        * none, it is dropped with a note rather than forwarded (puttab itself
+        * refuses a lone mdappend)
+        if "`mdappend'" != "" & `"`markdown'"' == "" & `"$TABTOOLS_set_markdown"' == "" {
+            display as text "(outtab: mdappend ignored; no markdown() and no session Markdown file)"
+            local mdappend ""
+        }
+        if "`mdappend'" != "" local _put_opts `"`macval(_put_opts)' mdappend"'
+        if `"`latex'"' != "" local _put_opts `"`macval(_put_opts)' latex(`"`latex'"')"'
+        if "`texappend'" != "" local _put_opts `"`macval(_put_opts)' texappend"'
+        if "`texdocument'" != "" local _put_opts `"`macval(_put_opts)' texdocument"'
+        if `"`borderstyle'"' != "" local _put_opts `"`macval(_put_opts)' borderstyle(`borderstyle')"'
+        if "`headershade'" != "" local _put_opts `"`macval(_put_opts)' headershade"'
+        if `"`font'"' != "" local _put_opts `"`macval(_put_opts)' font(`"`font'"')"'
+        if `fontsize' != -1 local _put_opts `"`macval(_put_opts)' fontsize(`fontsize')"'
         local _head_rows : list clean _head_rows
         if "`_head_rows'" != "" {
-            * puttab counts the header row: body row i is sheet row i + 1
-            local _bold ""
-            foreach _h of local _head_rows {
-                local _bold "`_bold' `=`_h' + 1'"
-            }
-            local _put_opts `"`_put_opts' boldrows(`_bold')"'
+            * puttab's boldrows() numbers the exported data rows from 1, so a
+            * panel heading at body row i is boldrows() row i (it was i + 1,
+            * which bolded the first outcome under the heading instead)
+            local _bold "`_head_rows'"
+            local _put_opts `"`macval(_put_opts)' boldrows(`_bold')"'
         }
-        if `"`xlsx'"' != "" | `"`csv'"' != "" | `"`markdown'"' != "" {
+        if `"`xlsx'"' != "" | `"`csv'"' != "" | `"`markdown'"' != "" | `"`latex'"' != "" | "`mdappend'" != "" | "`texappend'" != "" | "`texdocument'" != "" | `"`macval(texopts)'"' != "" {
+            * a lone mdappend/texappend reaches puttab only to resolve the
+            * session Markdown/LaTeX file (tabtools set); texappend without one
+            * is refused there ("texappend requires latex()")
             local _using ""
             if `"`xlsx'"' != "" local _using `"using `"`xlsx'"'"'
+            * texopts() last, and in block form: the one-line "if ... local"
+            * form expands its command a second time, which would turn a
+            * user's \$name into the global's value.
+            if `"`macval(texopts)'"' != "" {
+                local _put_opts `"`macval(_put_opts)' texopts(`macval(texopts)')"'
+            }
             capture noisily puttab rowlabel c* `_using', frame(`_stage') varlabels `macval(_put_opts)'
             if _rc {
                 local _prc = _rc

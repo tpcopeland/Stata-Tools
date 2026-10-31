@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.0  2026/10/20
+*! stratetab Version 1.1.0  2026/10/31
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -79,7 +79,7 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	unitlabel(string) PTUnit(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
 	BORDERstyle(string) FONT(string) FONTSIZE(integer -1) HEADERShade ///
-	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) ///
+	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) ///
 	Level(real -1) CFormat(string) SEP(string) SMALLcells(integer -1) NOSMALLcells ///
 	ZEROexact ZEROCells(string) MASKtext(string)]
 
@@ -150,15 +150,18 @@ if `_mask_given' & `smallcells' == 0 {
 if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" {
     local xlsx `"`macval(excel)'"'
 }
-* Session destinations (tabtools set workbook/markdown) apply only when
-* sheet() asks for a sheet; an explicit option wins (as in regtab). The
+* Session destinations (tabtools set workbook/markdown/latex) apply only
+* when sheet() asks for a sheet; an explicit option wins (as in regtab). The
 * first write to the session workbook starts it over: _tabtools_xlsx_write
 * calls _tabtools_set_sinks xlsxstart for every write.
 if `"`macval(sheet)'"' != "" {
-	_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+	_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend' ///
+		latex(`"`latex'"') `texappend'
 	local xlsx `"`_ss_xlsx'"'
 	local markdown `"`_ss_md'"'
 	local mdappend "`_ss_mdappend'"
+	local latex `"`_ss_tex'"'
+	local texappend "`_ss_texappend'"
 	if `"`macval(xlsx)'"' == "" {
 		di as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
 	}
@@ -196,7 +199,23 @@ if `"`macval(markdown)'"' != "" {
 		exit 198
 	}
 }
-_tabtools_check_sinks, xlsx(`"`macval(xlsx)'"') csv(`"`macval(csv)'"') markdown(`"`macval(markdown)'"')
+if "`texappend'" != "" & `"`macval(latex)'"' == "" {
+	di as err "texappend requires latex()"
+	exit 198
+}
+if "`texdocument'" != "" & `"`macval(latex)'"' == "" {
+	di as err "texdocument requires latex()"
+	exit 198
+}
+if `"`macval(texopts)'"' != "" & `"`macval(latex)'"' == "" {
+	di as err "texopts() requires latex()"
+	exit 198
+}
+if `"`macval(latex)'"' != "" {
+	_tabtools_validate_path `"`macval(latex)'"' "latex()"
+}
+_tabtools_check_sinks, xlsx(`"`macval(xlsx)'"') csv(`"`macval(csv)'"') markdown(`"`macval(markdown)'"') ///
+	latex(`"`macval(latex)'"') `texappend' `texdocument' texopts(`macval(texopts)')
 if `"`macval(sheet)'"' != "" {
 	_tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 }
@@ -871,88 +890,10 @@ forvalues e = 1/`n_exposures' {
 
 local lastrow = _N
 
-* CSV export (if requested)
-if `"`macval(csv)'"' != "" {
-	_tabtools_validate_path `"`macval(csv)'"' "csv()"
-	order title c*
-	_tabtools_csv_write using `"`macval(csv)'"', reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
-	local _ret_csv `"`macval(csv)'"'
-}
-
-local sht = cond(`"`macval(sheet)'"' != "", `"`macval(sheet)'"', "Results")
-_tabtools_validate_sheet `"`macval(sht)'"' "sheet()"
-local _ret_markdown ""
-local _ret_markdown_rows .
-local _ret_markdown_cols .
-if `"`macval(markdown)'"' != "" {
-	local _mdappend_opt ""
-	if "`mdappend'" != "" local _mdappend_opt "append"
-	* Markdown has one header row: flatten the outcome and statistic rows to
-	* "outcome: statistic" (as regtab writes "model: statistic") in a copy,
-	* so the statistic row is not written as the first body row.
-	tempname _md_frame
-	frame put *, into(`_md_frame')
-	local _md_rc 0
-	frame `_md_frame' {
-		local col = 2
-		forvalues o = 1/`outcomes' {
-			forvalues _s = 1/`_cols_per_outcome' {
-				quietly replace c`col' = `"`macval(outlab`o')'"' + ": " + c`col' in 3
-				local ++col
-			}
-		}
-		capture noisily _tabtools_markdown_write using `"`macval(markdown)'"', ///
-			`_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
-			headerstart(3) datastart(4) strictheaders
-		local _md_rc = _rc
-		if !`_md_rc' {
-			local _ret_markdown_rows = r(n_rows)
-			local _ret_markdown_cols = r(n_cols)
-		}
-	}
-	frame drop `_md_frame'
-	if `_md_rc' {
-		noi di as err "Failed to export Markdown to `macval(markdown)'"
-		exit `_md_rc'
-	}
-	local _ret_markdown `"`macval(markdown)'"'
-	noi di as text "Markdown exported to `macval(markdown)'"
-}
-* Console display. Row 3 repeats "Exposure" under row 2 so the merged
-* workbook header (B2:B3) and the frame layout keep it; the console lists
-* both header rows, so it is shown once there.
-local _c1_row3 = c1[3]
-quietly replace c1 = "" in 3
-noisily _tabtools_console_display `ncols' `"`macval(title)'"', datastart(4)
-quietly replace c1 = `"`_c1_row3'"' in 3
-if `_n_round0' > 0 {
-	noi di as text "Note: `_n_round0' nonzero rate(s) or confidence limit(s) round to 0 at the decimals shown;"
-	noi di as text "      increase digits() or the rate multiplier (per() in ratetab, ratescale() in stratetab)."
-}
-
-* Frame output is staged here and committed only after every export has
-* succeeded, so a failed xlsx write neither creates nor replaces frame().
-if `"`_frame_name'"' != "" {
-	frame put *, into(`_frame_stage')
-	local _frame_stage_created 1
-	frame `_frame_stage': char _dta[tabtools_source] "stratetab"
-	frame `_frame_stage': char _dta[tabtools_ci_level] "`_ci_level_txt'"
-	* A rateratio table has a fourth column per outcome; say so, so comptab
-	* can refuse it by name rather than by a width that can coincide with a
-	* plain table of more outcomes.
-	if "`rateratio'" != "" {
-		frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci irr_ci"
-	}
-	else {
-		frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
-	}
-	frame `_frame_stage': char _dta[tabtools_n_outcomes] "`outcomes'"
-	frame `_frame_stage': char _dta[tabtools_smallcells] "`smallcells'"
-	forvalues _meta_o = 1/`outcomes' {
-		frame `_frame_stage': char _dta[tabtools_outcome_id_`_meta_o'] `"`macval(outcome_id_`_meta_o')'"'
-	}
-}
-
+* The analytical results are posted before any file is written: a failed
+* CSV, Markdown, LaTeX or workbook export still hands them to the caller
+* (qa/test_package_adversarial.do, "stratetab preserves r() after export
+* failure"); each file-path return follows its successful write.
 * Build r(rates) matrix: rows = exposure categories, columns = outcomes
 * Each cell contains the rate per exposure-category × outcome
 tempname _rrates
@@ -1046,14 +987,6 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 		* No matrix exists when every comparison exposure is empty.
 		if `_ratio_cats' > 0 return matrix ratios = `_rratios'
 	}
-if `"`macval(_ret_csv)'"' != "" {
-    return local csv `"`macval(_ret_csv)'"'
-}
-if `"`macval(_ret_markdown)'"' != "" {
-	return local markdown `"`macval(_ret_markdown)'"'
-	return scalar markdown_rows = `_ret_markdown_rows'
-	return scalar markdown_cols = `_ret_markdown_cols'
-}
 return scalar N_rows = `lastrow'
 return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
@@ -1067,6 +1000,143 @@ forvalues _meta_o = 1/`outcomes' {
 local _outcome_ids_return = substr(strtrim(`"`macval(_outcome_ids_return)'"'), 3, .)
 return local outcome_ids `"`macval(_outcome_ids_return)'"'
 return local methods "Incidence rates and confidence intervals were formatted at the `_ci_level_txt'% level; rate-ratio intervals use an independent-rate log-normal approximation at the same level."
+
+* CSV export (if requested)
+if `"`macval(csv)'"' != "" {
+	_tabtools_validate_path `"`macval(csv)'"' "csv()"
+	order title c*
+	_tabtools_csv_write using `"`macval(csv)'"', reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
+	local _ret_csv `"`macval(csv)'"'
+}
+
+local sht = cond(`"`macval(sheet)'"' != "", `"`macval(sheet)'"', "Results")
+_tabtools_validate_sheet `"`macval(sht)'"' "sheet()"
+local _ret_markdown ""
+local _ret_markdown_rows .
+local _ret_markdown_cols .
+if `"`macval(markdown)'"' != "" {
+	local _mdappend_opt ""
+	if "`mdappend'" != "" local _mdappend_opt "append"
+	* Markdown has one header row: flatten the outcome and statistic rows to
+	* "outcome: statistic" (as regtab writes "model: statistic") in a copy,
+	* so the statistic row is not written as the first body row.
+	tempname _md_frame
+	frame put *, into(`_md_frame')
+	local _md_rc 0
+	frame `_md_frame' {
+		local col = 2
+		forvalues o = 1/`outcomes' {
+			forvalues _s = 1/`_cols_per_outcome' {
+				quietly replace c`col' = `"`macval(outlab`o')'"' + ": " + c`col' in 3
+				local ++col
+			}
+		}
+		capture noisily _tabtools_markdown_write using `"`macval(markdown)'"', ///
+			`_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
+			headerstart(3) datastart(4) strictheaders
+		local _md_rc = _rc
+		if !`_md_rc' {
+			local _ret_markdown_rows = r(n_rows)
+			local _ret_markdown_cols = r(n_cols)
+		}
+	}
+	frame drop `_md_frame'
+	if `_md_rc' {
+		noi di as err "Failed to export Markdown to `macval(markdown)'"
+		exit `_md_rc'
+	}
+	local _ret_markdown `"`macval(markdown)'"'
+	noi di as text "Markdown exported to `macval(markdown)'"
+}
+local _ret_latex ""
+local _ret_latex_rows .
+local _ret_latex_cols .
+if `"`macval(latex)'"' != "" {
+	local _texdocument_opt ""
+	if "`texdocument'" != "" local _texdocument_opt "document"
+	local _texappend_opt ""
+	if "`texappend'" != "" local _texappend_opt "append"
+	* LaTeX keeps both header rows: the outcome labels in row 2 become
+	* \multicolumn spanners over the column ranges the workbook merges per
+	* outcome (declared here from the layout, never inferred from blank
+	* cells), and row 3 holds the statistics. It reads the unflattened table,
+	* not the Markdown "outcome: statistic" copy; its own copy only blanks
+	* the row-2 "Exposure" that the workbook merges down into row 3 (B2:B3),
+	* so the stub label is printed once, in the statistic row.
+	local _tex_spans ""
+	forvalues o = 1/`outcomes' {
+		local _tex_spans "`_tex_spans' 2 `=2 + (`o' - 1) * `_cols_per_outcome'' `=1 + `o' * `_cols_per_outcome''"
+	}
+	tempname _tex_frame
+	frame put *, into(`_tex_frame')
+	local _tex_rc 0
+	frame `_tex_frame' {
+		quietly replace c1 = "" in 2
+		capture noisily _tabtools_latex_write using `"`macval(latex)'"', ///
+			`_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
+			headerstart(2) datastart(4) strictheaders spans(`_tex_spans')
+		local _tex_rc = _rc
+		if !`_tex_rc' {
+			local _ret_latex_rows = r(n_rows)
+			local _ret_latex_cols = r(n_cols)
+		}
+	}
+	frame drop `_tex_frame'
+	if `_tex_rc' {
+		noi di as err "Failed to export LaTeX to `macval(latex)'"
+		exit `_tex_rc'
+	}
+	local _ret_latex `"`macval(latex)'"'
+	noi di as text "LaTeX exported to `macval(latex)'"
+}
+if `"`macval(_ret_csv)'"' != "" {
+    return local csv `"`macval(_ret_csv)'"'
+}
+if `"`macval(_ret_markdown)'"' != "" {
+	return local markdown `"`macval(_ret_markdown)'"'
+	return scalar markdown_rows = `_ret_markdown_rows'
+	return scalar markdown_cols = `_ret_markdown_cols'
+}
+if `"`macval(_ret_latex)'"' != "" {
+	return local latex `"`macval(_ret_latex)'"'
+	return scalar latex_rows = `_ret_latex_rows'
+	return scalar latex_cols = `_ret_latex_cols'
+}
+* Console display. Row 3 repeats "Exposure" under row 2 so the merged
+* workbook header (B2:B3) and the frame layout keep it; the console lists
+* both header rows, so it is shown once there.
+local _c1_row3 = c1[3]
+quietly replace c1 = "" in 3
+noisily _tabtools_console_display `ncols' `"`macval(title)'"', datastart(4)
+quietly replace c1 = `"`_c1_row3'"' in 3
+if `_n_round0' > 0 {
+	noi di as text "Note: `_n_round0' nonzero rate(s) or confidence limit(s) round to 0 at the decimals shown;"
+	noi di as text "      increase digits() or the rate multiplier (per() in ratetab, ratescale() in stratetab)."
+}
+
+* Frame output is staged here and committed only after every export has
+* succeeded, so a failed xlsx write neither creates nor replaces frame().
+if `"`_frame_name'"' != "" {
+	frame put *, into(`_frame_stage')
+	local _frame_stage_created 1
+	frame `_frame_stage': char _dta[tabtools_source] "stratetab"
+	frame `_frame_stage': char _dta[tabtools_ci_level] "`_ci_level_txt'"
+	* A rateratio table has a fourth column per outcome; say so, so comptab
+	* can refuse it by name rather than by a width that can coincide with a
+	* plain table of more outcomes.
+	if "`rateratio'" != "" {
+		frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci irr_ci"
+	}
+	else {
+		frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
+	}
+	frame `_frame_stage': char _dta[tabtools_n_outcomes] "`outcomes'"
+	frame `_frame_stage': char _dta[tabtools_smallcells] "`smallcells'"
+	forvalues _meta_o = 1/`outcomes' {
+		frame `_frame_stage': char _dta[tabtools_outcome_id_`_meta_o'] `"`macval(outcome_id_`_meta_o')'"'
+	}
+}
+
 
 	* Export to Excel
 	if `_has_xlsx' {

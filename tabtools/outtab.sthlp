@@ -55,6 +55,8 @@
 {synopt:{opt csv(filename)}}CSV file{p_end}
 {synopt:{opt mark:down(filename)}}Markdown file{p_end}
 {synopt:{opt mdapp:end}}append to the Markdown file{p_end}
+{synopt:{opt latex(filename)}}LaTeX file (needs {cmd:booktabs}){p_end}
+{synopt:{opt texapp:end}}append to the LaTeX file{p_end}
 {synopt:{opt fra:me(name[, replace])}}save the table in a frame{p_end}
 {synopt:{opt border:style()}, {opt headers:hade}, {opt font()}, {opt fontsize()}}passed to {helpb puttab}{p_end}
 {synoptline}
@@ -183,7 +185,30 @@ and {opt footnote()} as the last.
 {opt mark:down(filename)} also writes the table as GitHub-Flavored Markdown,
 replacing an existing file. {opt mdapp:end} adds the table to the end of the
 existing file instead, after a blank line, so several tables can share one
-file; it is ignored without {opt markdown()}.
+file; without {opt markdown()} it appends to the session file after
+{cmd:tabtools set markdown}; with no session file it is ignored, with a note, and
+nothing is written (not an error).
+
+{phang}
+{opt latex(filename)} also writes the table as a LaTeX {cmd:table} float with
+{cmd:booktabs} rules, replacing an existing file; the file must end in {cmd:.tex}
+and the document needs {cmd:\usepackage{c -(}booktabs{c )-}} and nothing else.
+{opt title()} becomes the {cmd:\caption}, {opt footnote()} the notes below the
+table, and each {opt panels()} heading is a bold row. The file is written by
+{helpb puttab}, so its layout rules are those of {opt latex()} there.
+{opt texapp:end} adds the table to the end of the existing file instead, so
+several tables can share one file; each appended table's label is
+{cmd:tab:}{it:stem}{cmd:-}{it:n}. {opt texappend} without {opt latex()} appends to the
+session file after {cmd:tabtools set latex}, and is an error (198) when none is set.
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own;
+by default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error. {opt texopts(string)} sets the layout of the LaTeX table; see
+{help tabtools##texopts:LaTeX layout} in {help tabtools}.
 
 {phang}
 {opt fra:me(name[, replace])} also saves the table in the frame {it:name}: a
@@ -206,8 +231,8 @@ overrides.
 
 {pstd}
 {opt sheet()}, {opt title()}, {opt footnote()}, and the styling options write
-nothing by themselves: with none of {opt xlsx()}, {opt csv()}, and
-{opt markdown()}, {cmd:outtab} only prints the table and fills
+nothing by themselves: with none of {opt xlsx()}, {opt csv()},
+{opt markdown()}, and {opt latex()}, {cmd:outtab} only prints the table and fills
 {opt frame()}. {opt sheet()}, {opt borderstyle()}, {opt headershade}, {opt font()}, and
 {opt fontsize()} affect the workbook only.
 

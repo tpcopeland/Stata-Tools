@@ -1,14 +1,14 @@
 <p align="center"><img src="../_resources/logos/tabtools_hex.svg" width="150" alt="tabtools hex logo"></p>
 
-# tabtools — Manuscript tables to Excel and Markdown
+# tabtools — Manuscript tables to Excel, Markdown, and LaTeX
 
-**Version 1.0.0** | 2026-10-20
+**Version 1.1.0** | 2026-10-31
 
-[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Commands](#commands)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
-`tabtools` turns descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. Its commands share one set of output options, so the same rendered table can go to a workbook, a Markdown report, a CSV file, or a Stata frame.
+`tabtools` turns descriptive, model, survival, rate, and composite results into publication-ready Excel, GitHub-Flavored Markdown, and LaTeX tables. Its commands share one set of output options, so the same rendered table can go to a workbook, a Markdown report, a LaTeX manuscript, a CSV file, or a Stata frame.
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ table1_tc, by(treated) vars(index_age contn %5.1f \ female bin \ diabetes bin \ 
 
 ## Features
 
-- **One set of output options.** A table command can write any of the targets it supports, `xlsx()`, `csv()`, `markdown()`, `frame()`, and, for model and effect tables, a graph-ready `eplotframe()`, from the same rendered table in one call.
+- **One set of output options.** A table command can write any of the targets it supports, `xlsx()`, `csv()`, `markdown()`, `latex()`, `frame()`, and, for model and effect tables, a graph-ready `eplotframe()`, from the same rendered table in one call.
 - **Tables from the models you already ran.** `regtab` and `effecttab` format the active `collect` result of `regress`, `logistic`, `margins`, `teffects` and similar commands, and `comptab` combines their frames into one composite table.
 - **Small-cell disclosure control.** `smallcells(#)` in `table1_tc`, `desctab`, and `crosstab` applies primary, complementary, and dependent-result suppression before any output is written, so every sink receives the same redacted table.
 - **Confidence levels that are checked.** An explicit `level()` that conflicts with the level recorded in a collection or a saved `strate` file is an error, not a relabelled interval.
@@ -82,16 +82,16 @@ The suite contains 16 public commands. The version column is the minimum Stata r
 | `ratetab` | 17+ | Events, person-time, and rates by group from `stset` or event/exposure data, with exact, Poisson, or cluster-robust intervals |
 | `hrcomptab` | 17+ | Compatibility wrapper for `comptab` rate-scaffold mode |
 | `comptab` | 17+ | Combine model frames vertically or interlock them with a rate scaffold |
-| `puttab` | 17+ | Put variables, a frame, or a matrix into a formatted workbook or Markdown table |
+| `puttab` | 17+ | Put variables, a frame, or a matrix into a formatted workbook, Markdown, or LaTeX table |
 | `stacktab` | 17+ | Stack or place blocks from an existing workbook into a new worksheet |
-| `tabtools` | 17+ | Inspect and set shared fonts, digits, borders, colors, and persistent profiles; session destinations (`tabtools set workbook`/`markdown`); fit-time counts (`tabtools fitcount`) |
+| `tabtools` | 17+ | Inspect and set shared fonts, digits, borders, colors, and persistent profiles; session destinations (`tabtools set workbook`/`markdown`/`latex`) and the LaTeX layout default (`tabtools set texopts`); fit-time counts (`tabtools fitcount`) |
 | `tabtools_tips` | 17+ | Open or print a compact recipe reference for the suite |
 
 ## How It Works
 
-Most table commands follow the same three-stage pattern: calculate or receive results, render a table in Results, then optionally export or expose that same rendered structure. The export targets are independent, so a command can write Excel, CSV, Markdown, a Stata frame, or an eplot-ready frame in one call when that command supports the target.
+Most table commands follow the same three-stage pattern: calculate or receive results, render a table in Results, then optionally export or expose that same rendered structure. The export targets are independent, so a command can write Excel, CSV, Markdown, LaTeX, a Stata frame, or an eplot-ready frame in one call when that command supports the target.
 
-`xlsx()` is the main Excel option and `excel()` is retained as a synonym on commands that support both names. `sheet()` selects the worksheet. `open` opens an Excel target after writing it and therefore requires an `xlsx()` or `using` target. `csv()` exports the visible table data for commands that offer it; `markdown()` writes GitHub-Flavored Markdown, and `mdappend` appends to an existing Markdown file rather than replacing it.
+`xlsx()` is the main Excel option and `excel()` is retained as a synonym on commands that support both names. `sheet()` selects the worksheet. `open` opens an Excel target after writing it and therefore requires an `xlsx()` or `using` target. `csv()` exports the visible table data for commands that offer it; `markdown()` writes GitHub-Flavored Markdown, and `mdappend` appends to an existing Markdown file rather than replacing it. `latex()` writes a `booktabs` LaTeX table float for `\input` into a manuscript, and `texappend` appends to an existing `.tex` file. `texdocument` writes a complete document that compiles on its own instead; an appended table goes in just before a file's `\end{document}` line. `texopts()` sets the layout of the LaTeX table (caption position, type size, float placement, fitting to the line width, landscape, and the preamble of a `texdocument` file); `tabtools set texopts` applies it to every LaTeX export in the session.
 
 `frame(name[, replace])` stores the rendered table in a Stata frame for later composition or inspection. `eplotframe(name[, replace])` stores graph-ready estimates, confidence limits, p-values, labels, and model identifiers for the model/effect commands that support it. `comptab` consumes compatible model/effect frames and, with `rateframe()`, a rate frame plus model frames; `hrcomptab` is the compatibility wrapper for that mode.
 
@@ -228,11 +228,12 @@ puttab price mpg weight, markdown("selected.md")
 
 ## Demo
 
-Run `demo/demo_tabtools.do` from a repository checkout to regenerate the workbooks and the Markdown report below; it uses the repository's `_data/` fixtures and writes under `demo/`. These files are repository documentation assets and are not part of the `net install` payload.
+Run `demo/demo_tabtools.do` from a repository checkout to regenerate the workbooks and the Markdown and LaTeX reports below; it uses the repository's `_data/` fixtures and writes under `demo/`. These files are repository documentation assets and are not part of the `net install` payload.
 
 | File | What it holds |
 | --- | --- |
 | `demo/demo_markdown_report.md` | Three tables appended to one Markdown file with `mdappend`: `table1_tc`, `crosstab` with an odds ratio, and `puttab` records |
+| `demo/demo_latex_report.tex` | A complete LaTeX document that compiles as it is: `table1_tc` with `texdocument` starts it, then a two-model `regtab` with `\multicolumn` model headings and `crosstab` with an odds ratio go in with `texappend` |
 | `demo/demo_table1.xlsx` | 16 sheets: `table1_tc` with totals, weights, `wtcompare`, statistics and format variants, missingness, explicit fonts, small cells, and `cellreplace()` |
 | `demo/demo_desctab.xlsx` | 10 sheets: descriptive tables (events, mean and SD, median and IQR) and small cells |
 | `demo/demo_regtab.xlsx` | 18 sheets: logistic, Cox, mixed, Poisson, and GEE tables, multi-model layouts, `keep()`/`drop()`, `addrow()`, `cformat()`, a flat frame with `reftop`, `transpose`, `cellnote()`, and `tabtools fitcount` counts |
@@ -248,6 +249,31 @@ Run `demo/demo_tabtools.do` from a repository checkout to regenerate the workboo
 | `demo/demo_puttab.xlsx` | 6 sheets: matrix, frame, and collapsed sources, stacked tables with `hlines()`/`boldrows()`, `panel()`, and `spanheader()` |
 | `demo/demo_stacktab.xlsx` | 5 sheets: two source blocks, a stacked composite, a side-by-side layout, and `stacktab frames()` |
 | `demo/demo_tabcell.xlsx` | 1 sheet: a column of `tabcell` cells written through a `tabtools set workbook` session destination |
+
+<details>
+<summary>LaTeX written by <code>regtab, ... latex("report.tex") texappend</code> (second table of <code>demo/demo_latex_report.tex</code>)</summary>
+
+```latex
+\begin{table}[htbp]
+\centering
+\caption{Propensity Score Models}
+\label{tab:demo_latex_report-2}
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{3}{c}{Demographics} & \multicolumn{3}{c}{+ Comorbidities} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+ & OR & 95\% CI & p-value & OR & 95\% CI & p-value \\
+\midrule
+Age at cohort entry (years) & 1.04 & (1.03, 1.04) & \textless{}0.001 & 1.05 & (1.05, 1.05) & \textless{}0.001 \\
+Female sex & 0.80 & (0.75, 0.86) & \textless{}0.001 & 0.75 & (0.69, 0.81) & \textless{}0.001 \\
+Diabetes &  &  &  & 8.37 & (7.67, 9.12) & \textless{}0.001 \\
+Hypertension &  &  &  & 7.15 & (6.56, 7.79) & \textless{}0.001 \\
+\bottomrule
+\end{tabular}
+\end{table}
+```
+
+</details>
 
 The `table1_tc`, `desctab`, and `crosstab` workbooks each contain paired `smallcells(5)` examples. The `Small Cells Primary` sheets use a 2×2 table with counts 2/3/3/2, so only below-threshold cells are hidden as `<5`. The `Small Cells Complement` sheets use counts 2/8/6/4, which also hide reconstructive cells as `≥5`. The `Small Cells Primary Mode` sheets rerun the 2/8/6/4 table with `smallcells(5, primary)`, which hides only the two printed counts below 5.
 
@@ -265,7 +291,7 @@ The command help files are the authoritative reference for abbreviations and com
 ### `table1_tc`
 
 ```stata
-table1_tc [varlist] [if] [in] [fweight], [by(varname) vars(string) format(string) percformat(string) nformat(string) iqrmiddle(string) sdleft(string) sdright(string) gsdleft(string) gsdright(string) percent missing pdp(#) highpdp(#) test statistic excel(string) xlsx(string) sheet(string) title(string) clear percent_n percsign(string) spacelowpercent extraspace slashN total(string) catrowperc varlabplus headerperc font(string) fontsize(#) borderstyle(string) wt(varname) smd smdtype(string) smdpair(g1 g2[, values|labels]) footnote(string) open boldp(#) zebra highlight(#) headershade frame(string) smdthreshold(#) nosmdhighlight headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend missingsummary smallcells(#[, primary]) nosmallcells cellreplace(string) dots wtcompare wtn nopvalue]
+table1_tc [varlist] [if] [in] [fweight], [by(varname) vars(string) format(string) percformat(string) nformat(string) iqrmiddle(string) sdleft(string) sdright(string) gsdleft(string) gsdright(string) percent missing pdp(#) highpdp(#) test statistic excel(string) xlsx(string) sheet(string) title(string) clear percent_n percsign(string) spacelowpercent extraspace slashN total(string) catrowperc varlabplus headerperc font(string) fontsize(#) borderstyle(string) wt(varname) smd smdtype(string) smdpair(g1 g2[, values|labels]) footnote(string) open boldp(#) zebra highlight(#) headershade frame(string) smdthreshold(#) nosmdhighlight headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) missingsummary smallcells(#[, primary]) nosmallcells cellreplace(string) dots wtcompare wtn nopvalue]
 ```
 
 `table1_tc` is Stata 17+ and accepts frequency weights. Without `vars()`, it infers row types from the varlist; the default display formats are `%2.0f`, `%5.0f`, and `%12.0fc` for common continuous, percentage, and count cells, with `pdp(3)`, `highpdp(2)`, and an SMD threshold of `0.1`. The Excel sheet defaults to `Table 1`; `nosmdhighlight` (or `smdthreshold(-1)`) disables SMD highlighting, and `clear` replaces the current dataset with the table. `smallcells(#)` requires an integer threshold of at least 3 and protects exact disclosure within one invocation; it does not certify anonymization or account for linkage across separate releases. `smallcells(#, primary)` masks only printed counts 1 to #−1 as `<#` (with their percentages) and adds no complementary suppression; the footnote names the mode. `cellreplace("row label" column "text" [\ ...])` overwrites body cells and errors unless each names exactly one cell. `puttab, varlabels` consumes the embedded header row of a `frame()` table, so no `drop in 1` is needed. With three or more `by()` groups, `smd` compares the first two groups by default (`smdtype(pair)`) and says so in every output: the column header is `SMD (A vs B)` in the console, Excel, CSV, Markdown, `frame()`, and `clear`, and a note naming the comparison joins `footnote()`, `r(smdnote)`, and the frame characteristic `_dta[tabtools_smdnote]`. `smdpair(g1 g2)` picks the two groups by `by()` value or label; a number that is one group's value and another group's label is refused unless `, values` or `, labels` says which is meant. `smdtype(population)` reports the largest absolute difference between a group mean and the overall mean in overall-sample SDs (McCaffrey et al. 2013; header `Pop. SB`), and `smdtype(maxpair)` the largest absolute pairwise SMD on one shared scale, the root-mean of the group variances (header `Max SMD`). A group with no values for a variable leaves that variable's statistic blank; it is never computed over fewer groups. Two-group output is unchanged.
@@ -281,7 +307,7 @@ desctab [varlist] [if] [in] [fweight], [the same options as table1_tc]
 ### `crosstab`
 
 ```stata
-crosstab rowvar colvar [if] [in] [fweight=exp], [xlsx(string) excel(string) colpct rowpct totalpct or rr rd trend cochran exact fisher label missing level(#) digits(#) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headershade headercolor(string) zebracolor(string) boldp(#) zebra csv(string) markdown(string) mdappend frame(string) smallcells(#[, primary]) nosmallcells open]
+crosstab rowvar colvar [if] [in] [fweight=exp], [xlsx(string) excel(string) colpct rowpct totalpct or rr rd trend cochran exact fisher label missing level(#) digits(#) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headershade headercolor(string) zebracolor(string) boldp(#) zebra csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) smallcells(#[, primary]) nosmallcells open]
 ```
 
 `crosstab` is Stata 17+, accepts numeric categorical variables and frequency weights, and defaults to column percentages, the current `c(level)`, and session digits or `1`. `smallcells(#)` requires an integer of at least 3 and protects counts, released margins, dependent percentages, tests, and requested measures before any sink runs. `or`, `rr`, and `rd` require a 2x2 table; `trend` and `cochran` are separate ordered-trend tests; `exact` and `fisher` are synonyms. Numeric level order, not value-label order, determines the requested 2x2 measures.
@@ -289,7 +315,7 @@ crosstab rowvar colvar [if] [in] [fweight=exp], [xlsx(string) excel(string) colp
 ### `regtab`
 
 ```stata
-regtab, [xlsx(string) excel(string) sheet(string) sep(string) models(string) coef(string) nointercept keepintercept noreffects stats(string) relabel(string) digits(#) footnote(string) open zebra headershade highlight(#) boldp(#) cdisc font(string) fontsize(#) borderstyle(string) stars starslevels(numlist) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) keep(string) drop(string) labelmatch dimnonsig factorlabel refcat(string) omitlabel(string) emptylabel(string) notestlabel(string) absentlabel(string) cnslabel(string) cutlabels(string) addrow(string) compact nopvalue pdp(#) highpdp(#) labelwidth(#) level(#) cformat(%fmt) reftop cellnote(string) mincount(#) transpose exposurelabel(string) cilabel(string) plabel(string) addcol(string) statlabels(string) collabels(string)]
+regtab, [xlsx(string) excel(string) sheet(string) sep(string) models(string) coef(string) nointercept keepintercept noreffects stats(string) relabel(string) digits(#) footnote(string) open zebra headershade highlight(#) boldp(#) cdisc font(string) fontsize(#) borderstyle(string) stars starslevels(numlist) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) eplotframe(name[, replace]) keep(string) drop(string) labelmatch dimnonsig factorlabel refcat(string) omitlabel(string) emptylabel(string) notestlabel(string) absentlabel(string) cnslabel(string) cutlabels(string) addrow(string) compact nopvalue pdp(#) highpdp(#) labelwidth(#) level(#) cformat(%fmt) reftop cellnote(string) mincount(#) transpose exposurelabel(string) cilabel(string) plabel(string) addcol(string) statlabels(string) collabels(string)]
 ```
 
 `regtab` is Stata 17+ and renders the active `collect` result. The sheet defaults to `Regression`, digits to the session setting or `2`, `sep()` to `, `, `pdp(3)`, `highpdp(2)`, `refcat()` to `Reference`, `omitlabel()` to `Omitted`, `emptylabel()` to `Empty`, `labelwidth()` to `45`, and `starslevels()` to `0.05 0.01 0.001`. Ratio-scale models receive their conventional coefficient labels and suppress intercepts automatically where appropriate; `keep()` and `drop()` are mutually exclusive. `stats()` accepts `n`, `obs`, `aic`, `bic`, `qic`, `icc`, `ll`, `groups`, `r2`, `events`, `people`, and `exposure`; `obs` prints `e(N)` even for survival models, and `events`/`people`/`exposure` work for any model after `tabtools fitcount` (st models fall back to `e(N_fail)` for `events`).
@@ -305,7 +331,7 @@ The command does not fit models and can alter the active collection's layout and
 ### `effecttab`
 
 ```stata
-effecttab, [xlsx(string) excel(string) sheet(string) sep(string) type(string) effect(string) models(string) title(string) clean tlabels(string) footnote(string) open zebra headershade highlight(#) boldp(#) font(string) fontsize(#) borderstyle(string) full digits(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) from(name) addrow(string) pdp(#) highpdp(#) labelwidth(#) level(#) refcat(string) cformat(%fmt)]
+effecttab, [xlsx(string) excel(string) sheet(string) sep(string) type(string) effect(string) models(string) title(string) clean tlabels(string) footnote(string) open zebra headershade highlight(#) boldp(#) font(string) fontsize(#) borderstyle(string) full digits(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) eplotframe(name[, replace]) from(name) addrow(string) pdp(#) highpdp(#) labelwidth(#) level(#) refcat(string) cformat(%fmt)]
 ```
 
 `effecttab` is Stata 17+ and accepts an active `margins`/`teffects` collection or a matrix through `from()`. The sheet defaults to `Effects`, digits to `2`, `sep()` to `, `, `pdp(3)`, `highpdp(2)`, `refcat()` to `Reference`, and `labelwidth()` to `45`; `type()` and `effect()` are inferred when omitted. Matrix input uses 95% intervals unless `level()` is supplied, and collection-level provenance rules match `regtab`. `cformat()` and `frame(name, flat)` behave as in `regtab`.
@@ -313,7 +339,7 @@ effecttab, [xlsx(string) excel(string) sheet(string) sep(string) type(string) ef
 ### `survtab`
 
 ```stata
-survtab, times(numlist) [by(varname) rmst(#) median riskset timeunit(string) reverse difference events level(#) digits(#) xlsx(string) excel(string) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headershade headercolor(string) boldp(#) zebra zebracolor(string) highlight(#) pdp(#) highpdp(#) csv(string) markdown(string) mdappend frame(string) open addrow(string)]
+survtab, times(numlist) [by(varname) rmst(#) median riskset timeunit(string) reverse difference events level(#) digits(#) xlsx(string) excel(string) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headershade headercolor(string) boldp(#) zebra zebracolor(string) highlight(#) pdp(#) highpdp(#) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) open addrow(string)]
 ```
 
 `survtab` is Stata 17+ and requires `stset` data. Frequency weights declared by `stset` use replication semantics consistently for Kaplan-Meier estimates, event and risk-set counts, and Greenwood RMST variance. Probability and importance weights are rejected before output. The default time unit is years, the sheet is `Survival`, the confidence level is `c(level)`, digits are the session setting or `1`, and `pdp()`/`highpdp()` default to `3`/`2`. `by()` adds group columns; `median`, `riskset`, `events`, and `rmst()` add corresponding quantities; `difference` reports group 1 minus group 2 RMST when exactly two groups are supplied. `reverse` reports `1 − KM` and is not a competing-risks estimator.
@@ -321,7 +347,7 @@ survtab, times(numlist) [by(varname) rmst(#) median riskset timeunit(string) rev
 ### `stratetab`
 
 ```stata
-stratetab, using(string) outcomes(integer) [xlsx(string) excel(string) sheet(string) title(string) outlabels(string) outcomeids(string) explabels(string) digits(#) eventdigits(#) pydigits(#) unitlabel(string) ptunit(string) pyscale(#) ratescale(#) rateratio ratiodigits(#) footnote(string) open zebra font(string) fontsize(#) borderstyle(string) headershade headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) level(#) cformat(%fmt) sep(string) smallcells(#) nosmallcells masktext(string) zeroexact zerocells(dash|blank[, persontime])]
+stratetab, using(string) outcomes(integer) [xlsx(string) excel(string) sheet(string) title(string) outlabels(string) outcomeids(string) explabels(string) digits(#) eventdigits(#) pydigits(#) unitlabel(string) ptunit(string) pyscale(#) ratescale(#) rateratio ratiodigits(#) footnote(string) open zebra font(string) fontsize(#) borderstyle(string) headershade headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) level(#) cformat(%fmt) sep(string) smallcells(#) nosmallcells masktext(string) zeroexact zerocells(dash|blank[, persontime])]
 ```
 
 `stratetab` is Stata 17+ and reads `.dta` files produced by `strate, output()`. Pass the `output()` filename stem to `using()`; `stratetab` adds the `.dta` suffix automatically. `outcomes()` is required and must divide the number of input files; files are interpreted as all outcomes for exposure 1, then all outcomes for exposure 2, and so on. Defaults are sheet `Results`, `digits(1)`, `eventdigits(0)`, `pydigits(0)`, `unitlabel("1,000")`, `pyscale(1)`, `ratescale(1000)`, and `ratiodigits(2)`. Rate confidence-level metadata must be present and consistent, or be supplied explicitly with `level()`. `smallcells(#)` suppresses a rate with 1 to #−1 events together with its person-time and honours the session default; `zeroexact` prints the exact one-sided upper limit for zero-event cells instead of the default dash. A row with zero person-time (`_Y` = 0) has no rate and is left empty, its rate ratio and reference cell included, and is counted in `r(N_nopt)`; a row with events but no person-time is refused.
@@ -329,7 +355,7 @@ stratetab, using(string) outcomes(integer) [xlsx(string) excel(string) sheet(str
 ### `hrcomptab`
 
 ```stata
-hrcomptab rateframe, modelframes(framelist) rows(string) [rownames(string) outcomemap(string) xlsx(string) excel(string) sheet(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) forest eplotoptions(string) open title(string) footnote(string) effect(string) reflabel(string) font(string) fontsize(#) borderstyle(string) zebra headershade headercolor(string) zebracolor(string)]
+hrcomptab rateframe, modelframes(framelist) rows(string) [rownames(string) outcomemap(string) xlsx(string) excel(string) sheet(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) eplotframe(name[, replace]) forest eplotoptions(string) open title(string) footnote(string) effect(string) reflabel(string) font(string) fontsize(#) borderstyle(string) zebra headershade headercolor(string) zebracolor(string)]
 ```
 
 `hrcomptab` is a compatibility wrapper for `comptab, rateframe()`. It preserves the existing syntax, defaults, outputs, and stored results.
@@ -337,9 +363,9 @@ hrcomptab rateframe, modelframes(framelist) rows(string) [rownames(string) outco
 ### `comptab`
 
 ```stata
-comptab framelist, rows(string) [rownames(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) compact separator(numlist) section(string) relabel(string) font(string) fontsize(#) borderstyle(string) open zebra headershade highlight(#) boldp(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) forest eplotoptions(string) labelwidth(#) cformat(%fmt) cisep(string)]
+comptab framelist, rows(string) [rownames(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) compact separator(numlist) section(string) relabel(string) font(string) fontsize(#) borderstyle(string) open zebra headershade highlight(#) boldp(#) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) eplotframe(name[, replace]) forest eplotoptions(string) labelwidth(#) cformat(%fmt) cisep(string)]
 
-comptab modelframes, rateframe(name) rows(string) [rownames(string) effect(string) reflabel(string) outcomemap(string) allmodels keyed modelonly cformat(%fmt) cisep(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) open zebra headershade headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) forest eplotoptions(string)]
+comptab modelframes, rateframe(name) rows(string) [rownames(string) effect(string) reflabel(string) outcomemap(string) allmodels keyed modelonly cformat(%fmt) cisep(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) open zebra headershade headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) eplotframe(name[, replace]) forest eplotoptions(string)]
 ```
 
 `comptab` is Stata 17+ and combines compatible `regtab`/`effecttab` source frames. Supply exactly one of `rows()` or `rownames()`; the sheet defaults to `Composite` and `labelwidth()` to `45`. Without `rateframe()`, `separator()`, `section()`, `relabel()`, and `compact` control vertical composition. With `rateframe()`, the model frames are interlocked with a `stratetab` scaffold and `effect()`, `reflabel()`, and `outcomemap()` become available. The two option families are mutually exclusive. `hrcomptab` forwards to this rate mode. In rate mode, `allmodels` (or an `outcomemap()` naming several frames per outcome) prints one effect column per model; `keyed` places model rows on their exact block and level identity, allows sections that carry rates only, and refuses a row it cannot place exactly; `modelonly` lists model rows with no rate section (spline read-outs, nonlinearity tests) after the table. `cformat()` re-renders estimates from the numeric companions, `cisep()` sets the interval separator, and `frame(name, flat)` writes the flat frame.
@@ -347,7 +373,7 @@ comptab modelframes, rateframe(name) rows(string) [rownames(string) effect(strin
 ### `puttab`
 
 ```stata
-puttab [varlist] [if] [in] [using filename.xlsx], [frame(string) matrix(name) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headercolor(string) zebracolor(string) zebra headershade digits(#) nformat(%fmt) varlabels noheader noembedheader hlines(numlist) vlines(numlist) boldrows(numlist) csv(string) markdown(string) mdappend open noheadershade panel(varname) panelheader(varlist|strings) panelinline noindent spanheader(string) blockheader]
+puttab [varlist] [if] [in] [using filename.xlsx], [frame(string) matrix(name) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headercolor(string) zebracolor(string) zebra headershade digits(#) nformat(%fmt) varlabels noheader noembedheader hlines(numlist) vlines(numlist) boldrows(numlist) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) open noheadershade panel(varname) panelheader(varlist|strings) panelinline noindent spanheader(string) blockheader]
 ```
 
 `puttab` is Stata 17+ and accepts exactly one source: a current-data varlist, `frame()`, or `matrix()`. The default sheet is `Table` and digits default to the session setting or `2`; `using` is required for Excel output, while Markdown-only output can omit it. `varlabels` uses variable labels and `noheader` suppresses the header row. `nformat(%12.0fc)` writes every integer-valued column with thousands separators; a column whose own display format ends in `fc` keeps its separators without it, with `digits()` still setting its decimals. `hlines()` draws a rule above the listed data rows, `vlines()` a rule right of the listed columns, and `boldrows()` bolds the listed data rows, so a second table stacked in the same source can be ruled off with its own bold header row. `panel(varname)` starts a bold, ruled heading row (the value label or value) whenever the panel variable changes and indents the rows beneath it; `panelheader(varlist)` repeats a per-panel header row, and literal text such as `panelheader("" "Events" "PY")` writes the same header under every panel; `noindent` keeps panel row labels flush, and `panelinline` writes each panel heading into the first cell of its `panelheader()` row, so heading and column headers share one row (the first header cell must be blank). `blockheader`, for a `regtab` flat frame, adds a row of model names merged over each model's columns (read from `char c#[tabtools_block]`), and variables marked as `regtab` frame keys are skipped unless named. `spanheader("label" first/last [\ ...])` adds a second header row with merged spanning labels. After `tabtools set workbook` or `tabtools set markdown`, `using` and `markdown()` may be omitted; the first write replaces the file and later writes add sheets or append.
@@ -355,9 +381,9 @@ puttab [varlist] [if] [in] [using filename.xlsx], [frame(string) matrix(name) sh
 ### `stacktab`
 
 ```stata
-stacktab using outbook.xlsx, blocks(blockspec) sheet(sheetname) [layout(string) title(string) note(string) footnote(string) columnmerge style(string) borders(string) spacing(#) csv(string) markdown(string) mdappend frame(string) display append sheetreplace]
+stacktab using outbook.xlsx, blocks(blockspec) sheet(sheetname) [layout(string) title(string) note(string) footnote(string) columnmerge style(string) borders(string) spacing(#) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) frame(string) display append sheetreplace]
 
-stacktab [using outbook.xlsx], frames(name ["label"] [\ ...]) sheet(sheetname) [title(string) footnote(string) csv(string) markdown(string) mdappend]
+stacktab [using outbook.xlsx], frames(name ["label"] [\ ...]) sheet(sheetname) [title(string) footnote(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string)]
 ```
 
 `stacktab` is Stata 17+ and reads an existing `.xlsx` workbook. `blocks()` identifies the source ranges, `sheet()` identifies the output worksheet, and `layout()` defaults to vertical stacking; `hstack` places blocks horizontally. The default title cell is `A1`, the first table starts at `B2`, and `spacing()` defaults to `0`. `append` and `sheetreplace` control an existing target sheet and cannot be used together. `frames()` stacks in-memory frames such as `table1_tc` output, each under its own panel heading, through `puttab, panel()`.
@@ -389,7 +415,7 @@ ratetab groupvars [if] [in] [, events(varlist) exposure(varlist) per(#) ci(exact
 ### `outtab`
 
 ```stata
-outtab outcomes [if] [in], exposure(varname) [models(string) modellabels(string) estimator(string) eform minevents(#) mintext(string) smallcells(#) nosmallcells panels(varlist) obsprefix(name) grouplabels(string) ratiolabel(string) format(%fmt) sep(string) nonconvtext(string) failtext(string) droptext(string) frame(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) csv(string) markdown(string) mdappend borderstyle(string) headershade font(string) fontsize(#)]
+outtab outcomes [if] [in], exposure(varname) [models(string) modellabels(string) estimator(string) eform minevents(#) mintext(string) smallcells(#) nosmallcells panels(varlist) obsprefix(name) grouplabels(string) ratiolabel(string) format(%fmt) sep(string) nonconvtext(string) failtext(string) droptext(string) frame(string) xlsx(string) excel(string) sheet(string) title(string) footnote(string) csv(string) markdown(string) mdappend latex(string) texappend texdocument texopts(string) borderstyle(string) headershade font(string) fontsize(#)]
 ```
 
 `outtab` is Stata 17+ and tabulates binary outcomes by a binary exposure: events/N (%) in each group and one ratio column per model in `models()` (each a covariate list, `""` for crude), fitted with `estimator()` (for example `poisson, irr vce(cluster id)`). Adjusted models are complete-case. A fit that fails, does not converge, drops observations beyond its complete-case sample, or has too few exposed events (`minevents()`) prints its text instead of a ratio. The caller's `e()` is restored.
@@ -402,7 +428,9 @@ tabtools set key value [, permanent profile(string)]
 tabtools set clear [, permanent profile(string)]
 tabtools get
 tabtools use [using filename] [, profile(string)]
-tabtools set {workbook|markdown} filename
+tabtools set {workbook|markdown|latex} filename
+tabtools set texopts sub-options
+tabtools set texopts clear
 tabtools set headershade {on|off}
 tabtools set smallcells # [primary]
 tabtools set borderstyle {default|thin|medium|academic|clear}
@@ -428,8 +456,9 @@ tabtools_tips [, open]
 - `xlsx(filename)` writes an Excel workbook; `excel(filename)` is a compatibility synonym where listed in command syntax.
 - `sheet(name)` selects the Excel sheet. Defaults are `Table 1` for `table1_tc`/`desctab`, `Crosstab` for `crosstab`, `Regression` for `regtab`, `Effects` for `effecttab`, `Survival` for `survtab`, `Results` for `stratetab`, `Composite` for `comptab`/`hrcomptab`, and `Table` for `puttab`. `stacktab` requires an explicit sheet name.
 - `csv(filename)` writes the visible table data for commands that support CSV output, and must name a `.csv` file. Titles and footnotes are not additional CSV columns.
-- The workbook, `csv()`, and `markdown()` must name different files; paths are compared after resolving them against the working directory and ignoring case, and a collision is refused before anything is written.
+- The workbook, `csv()`, `markdown()`, and `latex()` must name different files; paths are compared after resolving them against the working directory and ignoring case, and a collision is refused before anything is written.
 - `markdown(filename)` writes GitHub-Flavored Markdown and replaces an existing file. `mdappend` appends when the target exists and creates it otherwise. Cell, header, title, and footnote text is written literally: it is never macro-expanded, and `\ | * _`, backtick, `< > & [ ] ~` are backslash-escaped so data never render as emphasis, HTML, entities, links, strikethrough, or code. Leading spaces in the row-label (first) column are written as `&nbsp;` entities, so indented categorical and factor-level rows keep their hierarchy after GFM trims cell whitespace; value cells are trimmed.
+- `latex(filename)` writes the table as a LaTeX `table` float with `booktabs` rules, ready for `\input{}`; the preamble needs only `\usepackage{booktabs}`, and the file compiles under `pdflatex`. The file must end in `.tex` and is replaced; `texappend` appends instead. `title()` becomes the `\caption` with `\label{tab:<file stem>}` (an appended table's label ends in `-<n>`); because LaTeX numbers the table, a leading "Table 1." is dropped from the caption only. Multi-row headers keep their rows, model or outcome groups that span columns in the workbook become `\multicolumn` headings over `\cmidrule` rules, and a row with text only in the first column (a section heading or test line) spans the table width. Text is written literally and never macro-expanded: LaTeX special characters are escaped, and the symbols tabtools prints (`±`, `×`, `²`, `–`, `≥`) become LaTeX commands. Other non-ASCII text is written as UTF-8; accented Latin letters compile under `pdflatex`, other scripts need `xelatex` or `lualatex`.
 - `frame(name[, replace])` stores the rendered table; `eplotframe(name[, replace])` stores graph-ready model/effect results.
 - `open` requires an Excel target and asks Stata to open the written workbook.
 
@@ -551,6 +580,11 @@ Returns `r(N_rows)`, `r(N_models)`, `r(N_outcomes)`, `r(N_panels)`, `r(smallcell
 ## QA
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+
+## Version History
+
+- **1.1.0** (2026-10-31): LaTeX export. Every table command takes `latex()` (a `booktabs` table float for `\input`), `texappend`, and `texdocument` (a complete document that compiles on its own; appended tables go in before `\end{document}`); `texopts()` sets the layout (`captionleft`, `captionbelow`, `nocentering`, `placement()`, `size()`, `fit`, `landscape`, `label()`, and, for a created document, `preamble()` and `docclass()`); `tabtools set latex` and `tabtools set texopts` set a session file and a session layout. Fixes: the CSV writer no longer splits a row at a line break inside a cell; `outtab, panels()` bolds the panel heading rather than the first outcome under it; a failed Markdown write no longer drops the analytical `r()` of `comptab`, `hrcomptab`, `stratetab`, `crosstab`, and `survtab`; `comptab`'s Markdown header joins the model and statistic rows; `outtab, mdappend` without `markdown()` appends to the session Markdown file, or prints a note.
+- **1.0.0** (2026-10-20): Initial SSC release.
 
 ## Author
 

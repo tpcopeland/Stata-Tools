@@ -11,8 +11,8 @@
 {title:Title}
 
 {phang}
-{bf:crosstab} {hline 2} Cross-tabulation table with association measures for Excel and
-Markdown export
+{bf:crosstab} {hline 2} Cross-tabulation table with association measures for Excel,
+Markdown, and LaTeX export
 
 {marker syntax}{title:Syntax}
 
@@ -24,7 +24,8 @@ Markdown export
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt font(string)} {opt fontsize(#)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt open}]{p_end}
+{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt latex(filename)} {opt texapp:end} {opt texdocument} {opt texopts(string)}
+{opt fra:me(name)} {opt open}]{p_end}
 
 {marker description}{title:Description}
 
@@ -80,6 +81,10 @@ below 0.001, three decimals below 0.10, two decimals from 0.10, and
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt latex(filename)}}export as a LaTeX (booktabs) table{p_end}
+{synopt:{opt texapp:end}}append the LaTeX table to an existing file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
 {synopt:{opt open}}open Excel output; requires {opt xlsx()} or {opt excel()}{p_end}
 
@@ -122,7 +127,7 @@ and 1{p_end}
 
 {phang}
 {opt csv(filename)} also export the output dataset as CSV. {it:filename} must end in {cmd:.csv} and differ from the
-Excel and Markdown targets. The CSV mirrors the
+Excel, Markdown, and LaTeX targets. The CSV mirrors the
 workbook with {opt title()} written as the first row and {opt footnote()} as
 the last row, both in the first column and the table body between them.{p_end}
 
@@ -160,6 +165,27 @@ Excel, CSV, and frame exports{p_end}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
 {phang}
+{opt latex(filename)} export the rendered table as a LaTeX {cmd:table} float with {cmd:booktabs} rules; {it:filename} must end in
+{cmd:.tex}, and an existing file is replaced. The file needs {cmd:\usepackage}{c -(}{cmd:booktabs}{c )-} in the
+document preamble and nothing else. May be combined with Excel, CSV, Markdown, and frame exports. A table with many columns can run past the text width: set it in a smaller font or wrap it in {cmd:\resizebox}. The association-measure and test rows under the table carry text in their first column only and span the table width.{p_end}
+
+{phang}
+{opt texapp:end} append the LaTeX table to an existing file; requires {opt latex()}{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
+
+{phang}
 {opt mis:sing} include observations with missing values as separate categories; system missing is
 labelled {cmd:Missing}, while extended missing values remain distinct and are
 labelled {cmd:Missing (.a)} through {cmd:Missing (.z)}.{p_end}
@@ -172,8 +198,8 @@ labelled {cmd:Missing (.a)} through {cmd:Missing (.z)}.{p_end}
 
 {phang}
 {opt sheet(string)} Excel sheet name (default {cmd:"Crosstab"}). After
-{cmd:tabtools set workbook} (or {cmd:markdown}), a call that gives {opt sheet()} without
-{opt xlsx()} (or {opt markdown()}) writes to the session target and says so in the log; see
+{cmd:tabtools set workbook} (or {cmd:markdown} or {cmd:latex}), a call that gives {opt sheet()} without
+{opt xlsx()} (or {opt markdown()} or {opt latex()}) writes to the session target and says so in the log; see
 {helpb tabtools}.{p_end}
 
 {phang}
@@ -330,6 +356,8 @@ order; the combination exits with an error.{p_end}
 {synopt:{cmd:r(z_trend)}}Cochran-Armitage trend z statistic{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 {synopt:{cmd:r(smallcells)}}requested threshold when {opt smallcells()} is used{p_end}
 {synopt:{cmd:r(N_primary_suppressed)}}primary values hidden{p_end}
 {synopt:{cmd:r(N_secondary_suppressed)}}complementary values hidden{p_end}
@@ -351,6 +379,7 @@ complementary count cells.{p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 
 {pstd}
 With {opt smallcells()}, a protected {cmd:r(N)} is returned as {cmd:.p} or

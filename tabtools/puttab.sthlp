@@ -42,7 +42,8 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt hl:ines(numlist)} {opt vl:ines(numlist)} {opt bold:rows(numlist)}
 {opt pan:el(varname)} {opt panelh:eader(spec)} {opt paneli:nline} {opt noind:ent} {opt span:header(spec)}
 {opt block:header}
-{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
+{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end}
+{opt latex(filename)} {opt texapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
 (required when no {opt frame()} or {opt matrix()} is given), a named
@@ -65,9 +66,10 @@ rows given to {opt hlines()} and {opt boldrows()}, which count the exported
 data rows. Variables without the characteristic are unaffected.{p_end}
 
 {pstd}Specify either {cmd:using} {it:filename}{cmd:.xlsx} for Excel output or
-{opt markdown(filename)} for Markdown-only output. {opt open} requires an
-Excel workbook target. After {cmd:tabtools set workbook} or
-{cmd:tabtools set markdown}, either may be omitted; see
+{opt markdown(filename)} for Markdown-only output, or {opt latex(filename)} for
+LaTeX-only output. {opt open} requires an
+Excel workbook target. After {cmd:tabtools set workbook},
+{cmd:tabtools set markdown}, or {cmd:tabtools set latex}, either may be omitted; see
 {it:Session destinations} below.{p_end}
 
 {marker description}{...}
@@ -129,6 +131,10 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt csv(filename)}}write the assembled table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt latex(filename)}}export as LaTeX (needs {cmd:booktabs}){p_end}
+{synopt:{opt texapp:end}}append the LaTeX table to an existing file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 {synopt:{opt open}}open Excel output after export{p_end}
 {synoptline}
 
@@ -162,7 +168,7 @@ and matrices in memory are left unchanged.{p_end}
 
 {phang}
 {opt csv(filename)} write the assembled table to a CSV file. At least one of
-{cmd:using}, {opt csv()}, and {opt markdown()} is required; {opt csv()} alone
+{cmd:using}, {opt csv()}, {opt markdown()}, and {opt latex()} is required; {opt csv()} alone
 writes only the CSV. The CSV
 mirrors the workbook with {opt title()} written as the first row and
 {opt footnote()} as the last row, both in the first column and the table body
@@ -198,6 +204,41 @@ Excel and CSV exports. Leading spaces of string cells in the first column are wr
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt latex(filename)} export the rendered table as a LaTeX {cmd:table} float with {cmd:booktabs}
+rules, for {cmd:\input} into a manuscript; the file must end in {cmd:.tex} and needs
+{cmd:\usepackage{c -(}booktabs{c )-}} in the preamble and nothing else. May be combined with
+Excel, CSV, and Markdown exports, but must name a different file from each. {opt title()} becomes
+the {cmd:\caption} (with {cmd:\label{c -(}tab:}{it:stem}{cmd:{c )-}}) and {opt footnote()} the notes
+below the table, one paragraph per {cmd:" \ "}-separated part. The real header rows are kept:
+the span row of {opt spanheader()} or {opt blockheader} is a first header row with one
+{cmd:\multicolumn} per span and a {cmd:\cmidrule} under it, over the header row. A {opt panel()}
+heading row and a {opt panelheader()} row are bold, as are the rows named in {opt boldrows()}.
+Leading spaces of string cells in the first column become {cmd:\hspace*}. A row blank in every
+column is kept as an empty row, as in the other sinks. Under {opt noheader} the table has no
+header block and every row, a leading {opt panel()} heading included, is a body row with the
+same bold treatment as the other headings. Markdown, which needs a header line, promotes a
+leading panel row into it, so for that case {cmd:r(latex_rows)} is {cmd:r(markdown_rows)} + 1;
+otherwise the two are equal for the same call. An existing file is replaced; see {opt texappend}.{p_end}
+
+{phang}
+{opt texapp:end} append the LaTeX table to an existing file instead of replacing it; requires
+{opt latex()}. The appended table's label is {cmd:tab:}{it:stem}{cmd:-}{it:n}, {it:n} being its position
+in the file{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
 {opt noh:eader} omit the header row entirely. A Markdown (GFM) table cannot omit its
@@ -335,7 +376,7 @@ where columns are numbered as exported with the row-label column as 1; for examp
 is merged across its columns, centred, bold, and ruled below, and the table's top rule
 moves above the span row. The CSV carries the span row with each label in its first
 column. Markdown tables have a single header row, so there each spanned column's header
-reads {it:label}{cmd:, }{it:header}. Columns outside the table (r(125)), overlapping spans,
+reads {it:label}{cmd:, }{it:header}; LaTeX keeps the span row, with a {cmd:\multicolumn} per span. Columns outside the table (r(125)), overlapping spans,
 a range that ends before it starts, an unquoted or empty label, and {opt noheader} are
 errors.{p_end}
 
@@ -386,19 +427,21 @@ or RGB triplet{p_end}
 {pstd}After {cmd:tabtools set workbook "}{it:file}{cmd:.xlsx"}, {cmd:puttab} writes to that
 workbook whenever {cmd:using} is omitted; after {cmd:tabtools set markdown "}{it:file}{cmd:.md"},
 it writes Markdown there whenever {opt markdown()} is omitted; after
+{cmd:tabtools set latex "}{it:file}{cmd:.tex"}, it writes LaTeX there whenever {opt latex()} is omitted; after
 {cmd:tabtools set headershade on}, it shades the header row. Each call that uses a session
 setting says so in the log, e.g. {cmd:(tabtools: using session workbook "out.xlsx")}. An
-explicit {cmd:using}, {opt markdown()}, {opt headershade}, or {opt noheadershade} always wins
+explicit {cmd:using}, {opt markdown()}, {opt latex()}, {opt headershade}, or {opt noheadershade} always wins
 for that call; the session headershade is honoured by {cmd:puttab} only. Session paths are
 stored absolute ({cmd:.} and {cmd:..} resolved; symbolic links and letter case are not), so
 a later {cmd:cd} does not move them. The
 first write to a session workbook after {cmd:tabtools set workbook} erases the file and
 starts it over; later writes add or replace sheets. The first write to a session Markdown
-file overwrites it; later writes append, as does an explicit {opt mdappend}. A table any
+file overwrites it; later writes append, as does an explicit {opt mdappend}; a session LaTeX file
+follows the same rule, with {opt texappend}. A table any
 tabtools command writes to the session file with an explicit {cmd:using}, {opt xlsx()}, or
-{opt markdown()} (the same file, however its path is spelled) counts as that first write,
+{opt markdown()}, or {opt latex()} (the same file, however its path is spelled) counts as that first write,
 so a later session write never erases it. Setting a different file with
-{cmd:tabtools set workbook} or {cmd:tabtools set markdown} re-arms the replace; setting the
+{cmd:tabtools set workbook}, {cmd:tabtools set markdown}, or {cmd:tabtools set latex} re-arms the replace; setting the
 current file again changes nothing; and a file any tabtools command already wrote in this
 Stata session is never replaced, so switching A, then B, then back to A keeps A's tables. See
 {helpb tabtools} for {cmd:tabtools set} and {cmd:tabtools query}.{p_end}
@@ -510,11 +553,14 @@ decimals.{p_end}
 {synopt:{cmd:r(n_spans)}}spans of {opt spanheader()} or {opt blockheader} (0 without){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}source type: {cmd:data}, {cmd:frame}, or {cmd:matrix}{p_end}
 {synopt:{cmd:r(sheet)}}sheet name as spelled in the workbook{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(file)}}Excel filename, when an Excel workbook was written{p_end}
 {synopt:{cmd:r(csv)}}CSV filename (if written){p_end}
 

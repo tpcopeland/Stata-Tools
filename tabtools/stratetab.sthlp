@@ -30,7 +30,8 @@
 {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt border:style(string)} {opt font(string)} {opt fontsize(#)} {opt headers:hade}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
-{opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt l:evel(#)}
+{opt mark:down(filename)} {opt mdapp:end} {opt latex(filename)} {opt texapp:end} {opt texdocument} {opt texopts(string)}
+{opt fra:me(name)} {opt l:evel(#)}
 {opt cf:ormat(%fmt)} {opt sep(string)} {opt small:cells(#)} {opt nosmall:cells} {opt mask:text(string)}
 {opt zero:exact} {opt zeroc:ells(dash|blank[, persontime])}]
 
@@ -89,7 +90,8 @@ can still display the table, write {opt csv()} or {opt markdown()}, or populate 
 {opt sheet()} is given without {opt xlsx()}, the session workbook set by
 {cmd:tabtools set workbook} receives the sheet (and a session Markdown file set
 by {cmd:tabtools set markdown} receives the table when {opt markdown()} is not
-given); the first write since {cmd:tabtools set workbook} starts that workbook
+given, and likewise a session LaTeX file set by {cmd:tabtools set latex} when
+{opt latex()} is not given); the first write since {cmd:tabtools set workbook} starts that workbook
 over, later writes add sheets. With no session workbook either, the log says
 {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}.
 
@@ -289,6 +291,27 @@ one header row, so the outcome and statistic headers are joined as
 {phang2}{opt mdappend} appends the Markdown table to an existing file; requires
 {opt markdown()}.{p_end}
 
+{phang2}{opt latex(filename)} exports the rendered table as a LaTeX {cmd:table}
+float; the file must end in {cmd:.tex} and needs
+{cmd:\usepackage{c -(}booktabs{c )-}} in the document preamble. Both header rows are
+kept: each outcome label is a column spanner over that outcome's columns, as
+the workbook merges them, above the statistic row. An existing file is
+replaced. It may be used with or without {opt xlsx()}.{p_end}
+
+{phang2}{opt texappend} appends the LaTeX table to an existing file; requires
+{opt latex()}.{p_end}
+
+{phang2}{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang2}{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
+
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify
 {cmd:frame(name, replace)} to replace an existing frame. The frame is created
 or replaced only after every requested export has succeeded.{p_end}
@@ -402,6 +425,8 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(N_nopt)}}cells with zero person-time (no rate; printed empty){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(rates)}}numeric incidence-rate matrix{p_end}
@@ -414,6 +439,7 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(outcome_ids)}}machine-readable outcome identities{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph with rate and CI provenance{p_end}
 
 

@@ -25,7 +25,8 @@ and restricted mean survival time.{p_end}
 {opt foot:note(string)} {opt font(string)} {opt fontsize(#)} {opt border:style(string)}
 {opt headers:hade} {opt headerc:olor(string)} {opt bold:p(#)} {opt zebra}
 {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
-{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt open}
+{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt latex(filename)} {opt texapp:end} {opt texdocument} {opt texopts(string)}
+{opt fra:me(name)} {opt open}
 {opt addr:ow(string asis)}]{p_end}
 
 {pstd}Data must be {helpb stset} before running {cmd:survtab}. Frequency weights
@@ -85,6 +86,10 @@ zebra striping, bold p-values, and custom colors — are supported.{p_end}
 {synopt:{opt csv(filename)}}export a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
+{synopt:{opt latex(filename)}}export as a LaTeX (booktabs) table{p_end}
+{synopt:{opt texapp:end}}append to an existing LaTeX file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}
 
@@ -157,7 +162,7 @@ frame.{p_end}
 {cmd:.csv}. The CSV mirrors the workbook with
 {opt title()} written as the first row and {opt footnote()} as the last row,
 both in the first column and the table body between them. {opt xlsx()},
-{opt csv()}, and {opt markdown()} must name different files; a collision is
+{opt csv()}, {opt markdown()}, and {opt latex()} must name different files; a collision is
 refused before anything is written.{p_end}
 
 {phang}
@@ -196,6 +201,27 @@ Excel, CSV, and frame exports{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt latex(filename)} export the rendered table as a LaTeX {cmd:table} float with {cmd:booktabs} rules; {it:filename} must end in
+{cmd:.tex}, and an existing file is replaced. The file needs {cmd:\usepackage}{c -(}{cmd:booktabs}{c )-} in the
+document preamble and nothing else. May be combined with Excel, CSV, Markdown, and frame exports. A table with many columns can run past the text width: set it in a smaller font or wrap it in {cmd:\resizebox}. A row with text in its first column only, such as a section heading or the log-rank line, spans the table width.{p_end}
+
+{phang}
+{opt texapp:end} append the LaTeX table to an existing file; requires {opt latex()}{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
 {opt med:ian} include median survival with a confidence interval at the
@@ -321,6 +347,8 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {synopt:{cmd:r(rmst_ub_{it:#})}}upper CI bound of RMST for group {it:#}{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 
 {pstd}{cmd:r(logrank_p)} and {cmd:r(logrank_chi2)} are missing when the analysis
 sample contains no failures, because the log-rank test is then not possible.{p_end}
@@ -333,6 +361,7 @@ sample contains no failures, because the log-rank test is then not possible.{p_e
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(beyond_support)}}times past each group's follow-up{p_end}

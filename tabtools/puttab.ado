@@ -1,4 +1,4 @@
-*! puttab Version 1.0.0  2026/10/20
+*! puttab Version 1.1.0  2026/10/31
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -45,6 +45,9 @@ program define puttab, rclass
     local _ret_markdown ""
     local _ret_markdown_rows .
     local _ret_markdown_cols .
+    local _ret_latex ""
+    local _ret_latex_rows .
+    local _ret_latex_cols .
     local _sink ""
     capture noisily {
 
@@ -83,7 +86,7 @@ program define puttab, rclass
                   DIGits(integer -1) NFormat(string) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
-                  CSV(string) MARKdown(string) MDAPPend open ///
+                  CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) open ///
                   PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ///
                   BLOCKheader ]
         }
@@ -97,7 +100,7 @@ program define puttab, rclass
                   DIGits(integer -1) NFormat(string) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
-                  CSV(string) MARKdown(string) MDAPPend open ///
+                  CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) open ///
                   PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ///
                   BLOCKheader ]
         }
@@ -157,12 +160,16 @@ program define puttab, rclass
 
         * ----- session destinations (tabtools set workbook/markdown/
         * headershade): an explicit option wins; a session target is echoed.
-        _tabtools_set_sinks resolve, xlsx(`"`using'"') markdown(`"`markdown'"') `mdappend'
+        _tabtools_set_sinks resolve, xlsx(`"`using'"') markdown(`"`markdown'"') `mdappend' ///
+            latex(`"`latex'"') `texappend'
         local using `"`_ss_xlsx'"'
         local markdown `"`_ss_md'"'
         local mdappend "`_ss_mdappend'"
         local _sess_xlsx = `_ss_xlsx_sess'
         local _sess_md = `_ss_md_sess'
+        local latex `"`_ss_tex'"'
+        local texappend "`_ss_texappend'"
+        local _sess_tex = `_ss_tex_sess'
         * noheadershade: no shading for this call, whatever the session says.
         * NOHEADERShade is declared before HEADERShade on purpose: declared
         * after it, syntax swallows "noheadershade" as the negation of
@@ -180,9 +187,28 @@ program define puttab, rclass
         * ----- output file validation -----
         local _has_using = `"`using'"' != ""
         local _has_markdown = `"`markdown'"' != ""
+        local _has_latex = `"`latex'"' != ""
+        * before the "specify a sink" refusal, so a lone mdappend or texappend (outtab
+        * passes it through to resolve the session file) names its own error
+        if "`mdappend'" != "" & !`_has_markdown' {
+            noisily display as error "mdappend requires markdown()"
+            exit 198
+        }
+        if "`texappend'" != "" & !`_has_latex' {
+            noisily display as error "texappend requires latex()"
+            exit 198
+        }
+        if "`texdocument'" != "" & !`_has_latex' {
+            noisily display as error "texdocument requires latex()"
+            exit 198
+        }
+        if `"`macval(texopts)'"' != "" & !`_has_latex' {
+            noisily display as error "texopts() requires latex()"
+            exit 198
+        }
         * csv() is a sink of its own, as it is for regtab and outtab
-        if !`_has_using' & !`_has_markdown' & `"`csv'"' == "" {
-            noisily display as error "specify using, csv(), or markdown()"
+        if !`_has_using' & !`_has_markdown' & !`_has_latex' & `"`csv'"' == "" {
+            noisily display as error "specify using, csv(), markdown(), or latex()"
             exit 198
         }
         if "`open'" != "" & !`_has_using' {
@@ -209,9 +235,12 @@ program define puttab, rclass
             }
             _tabtools_validate_path `"`csv'"' "csv()"
         }
-        if "`mdappend'" != "" & !`_has_markdown' {
-            noisily display as error "mdappend requires markdown()"
-            exit 198
+        if `_has_latex' {
+            if !strmatch(lower(`"`latex'"'), "*.tex") {
+                noisily display as error "latex() must specify a .tex file"
+                exit 198
+            }
+            _tabtools_validate_path `"`latex'"' "latex()"
         }
         if `_has_markdown' {
             _tabtools_validate_path `"`markdown'"' "markdown()"
@@ -225,7 +254,7 @@ program define puttab, rclass
             }
         }
         _tabtools_check_sinks, xlsx(`"`using'"') csv(`"`csv'"') ///
-            markdown(`"`markdown'"') xlsxname("using")
+            markdown(`"`markdown'"') latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)') xlsxname("using")
 
         * ----- digits -----
         if `digits' == -1 {
@@ -756,6 +785,61 @@ program define puttab, rclass
             noisily display as text "Markdown exported to `markdown'"
         }
 
+        * LaTeX: the real header rows, never the Markdown-flattened "Span,
+        * Column" row (the dataset was restored above). The header block is
+        * every observation from the span row (when spanheader()/blockheader
+        * built one) or the header row to the row before the data; spans()
+        * declares each span from the layout puttab itself built.
+        if `_has_latex' {
+            local _texdocument_opt ""
+            if "`texdocument'" != "" local _texdocument_opt "document"
+            local _tex_appendopt ""
+            if "`texappend'" != "" local _tex_appendopt "append"
+            local _tex_novarnames "strictheaders"
+            local _tex_hs = cond(`_span_rows', `_span_row', `_header_row')
+            local _tex_ds = `_data_start'
+            if "`noheader'" != "" {
+                local _tex_novarnames "novarnames"
+                local _tex_hs = `_data_start'
+            }
+            * noheader: no header block. A GFM table must have a header line,
+            * so Markdown promotes a leading panel row into it; LaTeX has no
+            * such need, so that row stays a bold body row like every other
+            * panel heading, and r(latex_rows) is then r(markdown_rows) + 1.
+            local _tex_bold ""
+            foreach _r in `_pt_hrows' `_pt_phrows' `_pt_ihrows' {
+                local _tex_bold "`_tex_bold' `=`_data_start' + `_r' - 1'"
+            }
+            foreach _r of local boldrows {
+                local _tex_bold "`_tex_bold' `=`_data_start' + `_r' - 1'"
+            }
+            local _tex_boldopt ""
+            if "`_tex_bold'" != "" local _tex_boldopt "boldrows(`_tex_bold')"
+            local _tex_spans ""
+            if `_span_rows' & "`noheader'" == "" {
+                forvalues _i = 1/`_nspan' {
+                    local _tex_spans "`_tex_spans' `_span_row' `_sp_c1`_i'' `_sp_c2`_i''"
+                }
+            }
+            local _tex_spanopt ""
+            if "`_tex_spans'" != "" local _tex_spanopt "spans(`_tex_spans')"
+            local _sink "latex"
+            capture noisily _tabtools_latex_write using `"`latex'"', ///
+                `_tex_appendopt' `_texdocument_opt' texopts(`macval(texopts)') headerstart(`_tex_hs') datastart(`_tex_ds') ///
+                dataend(`_last_data_row') keepblank `_tex_boldopt' `_tex_spanopt' ///
+                title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') `_tex_novarnames'
+            local _tex_rc = _rc
+            if `_tex_rc' {
+                noisily display as error "Failed to export LaTeX to `latex'"
+                exit `_tex_rc'
+            }
+            if `_sess_tex' _tabtools_set_sinks texdone
+            local _ret_latex `"`latex'"'
+            local _ret_latex_rows = r(n_rows)
+            local _ret_latex_cols = r(n_cols)
+            noisily display as text "LaTeX exported to `latex'"
+        }
+
         * ===== Excel sheet geometry (shared house style with regtab/table1_tc) =====
         * The CSV/Markdown mirrors above use the compact in-memory table as built.
         * The Excel sheet adds the shared layout: a thin spacer column A, the title
@@ -1063,6 +1147,11 @@ program define puttab, rclass
             return scalar markdown_rows = `_ret_markdown_rows'
             return scalar markdown_cols = `_ret_markdown_cols'
         }
+        if `"`_ret_latex'"' != "" {
+            return local latex `"`_ret_latex'"'
+            return scalar latex_rows = `_ret_latex_rows'
+            return scalar latex_cols = `_ret_latex_cols'
+        }
     }
     if `rc' {
         if inlist(`rc', 603, 608, 610, 16106) {
@@ -1073,6 +1162,9 @@ program define puttab, rclass
             }
             else if "`_sink'" == "markdown" {
                 noisily display as error "Hint: check that the Markdown file's directory exists and the file is writable"
+            }
+            else if "`_sink'" == "latex" {
+                noisily display as error "Hint: check that the LaTeX file's directory exists and the file is writable"
             }
             else if "`_sink'" == "csv" {
                 noisily display as error "Hint: check that the CSV file's directory exists and the file is not open in another application"

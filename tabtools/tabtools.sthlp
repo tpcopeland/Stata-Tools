@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  20oct2026}{...}
+{* *! version 1.1.0  31oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -28,7 +28,7 @@
 {title:Title}
 
 {p2colset 5 17 19 2}{...}
-{p2col:{cmd:tabtools} {hline 2}}Suite of table export commands for publication-ready Excel and Markdown output{p_end}
+{p2col:{cmd:tabtools} {hline 2}}Suite of table export commands for publication-ready Excel, Markdown, and LaTeX output{p_end}
 {p2colreset}{...}
 
 
@@ -37,7 +37,7 @@
 
 {pstd}
 {cmd:tabtools} is a suite of Stata commands for exporting tables to professionally
-formatted Excel and Markdown files. It covers descriptive statistics,
+formatted Excel, Markdown, and LaTeX files. It covers descriptive statistics,
 regression results, treatment effects, survival analysis, incidence rates, and
 composite manuscript tables.
 
@@ -60,7 +60,7 @@ step. For a numeric payload use {cmd:frame()}, the returned matrices such as
 {pstd}
 File outputs follow one contract in every command. {opt csv()} must name a
 {cmd:.csv} file, and the workbook ({opt xlsx()}, {opt excel()}, or
-{cmd:using}), {opt csv()}, and {opt markdown()} must name different files: paths
+{cmd:using}), {opt csv()}, {opt markdown()}, and {opt latex()} must name different files: paths
 are compared after resolving them against the working directory and
 ignoring case, and a collision is refused before anything is written. An
 existing {opt markdown()} file is replaced; {opt mdappend} appends to it
@@ -71,13 +71,131 @@ links, strikethrough, or code. Line breaks become {cmd:<br>} and first-column in
 becomes {cmd:&nbsp;}.
 
 {pstd}
+{opt latex()} must name a {cmd:.tex} file. It writes the table as a LaTeX
+{cmd:table} float with {cmd:booktabs} rules, for {cmd:\input} into a manuscript:
+the preamble needs {cmd:\usepackage{c -(}booktabs{c )-}} and nothing else.
+{opt title()}
+becomes the {cmd:\caption}, followed by {cmd:\label{c -(}tab:}{it:stem}{cmd:{c )-}}, where
+{it:stem} is the file name without its extension, each character other than a
+letter, digit, {cmd:_}, {cmd::}, {cmd:.}, or {cmd:-} replaced by {cmd:-}; with no {opt title()} there is
+neither. LaTeX numbers the table itself, so the caption drops one leading
+table number from the title: {cmd:title("Table 1. Baseline characteristics")}
+gives {cmd:\caption{c -(}Baseline characteristics{c )-}}. The number is {cmd:Table}
+followed by an identifier such as {cmd:1}, {cmd:S2}, or {cmd:2a} and then {cmd:.},
+{cmd::}, a dash, or an en or em dash; any other title, and the workbook, CSV,
+and Markdown titles, are unchanged. Multi-row headers keep their rows, and model or outcome groups that
+span columns in the workbook become {cmd:\multicolumn} headings with
+{cmd:\cmidrule} rules. A body row whose only text is in the first column, such as
+a section heading or a test line, spans the full width of the table, as its text
+overflows into the empty cells in the workbook. Notes follow the table in small type, one paragraph per
+{cmd:" \ "}-separated part. An existing file is replaced; {opt texappend} appends
+the table to it instead, and an appended table's label is
+{cmd:tab:}{it:stem}{cmd:-}{it:n}, {it:n} being its position in the file. LaTeX text is
+written literally: it is never macro-expanded, the LaTeX special characters
+({cmd:\ {c -(} {c )-} $ & # % _ ^ ~ < > |}) are escaped, and the symbols tabtools prints
+({cmd:±}, {cmd:×}, {cmd:²}, {cmd:–}, {cmd:≥}, {cmd:≤}) and Greek letters become
+LaTeX commands, so the file compiles under {cmd:pdflatex}. Other non-ASCII text
+is written as UTF-8: accented Latin letters compile under {cmd:pdflatex}, and
+other scripts need {cmd:xelatex} or {cmd:lualatex}. Body rows that are blank in
+every column become {cmd:\addlinespace}, and first-column indentation becomes
+{cmd:\hspace*}.
+
+{pstd}
+{opt texdocument} writes a complete document instead, one that compiles on its
+own: {cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}}, the table, {cmd:\end{c -(}document{c )-}}. With
+{opt texappend}, a file that has an {cmd:\end{c -(}document{c )-}} line receives
+the new table just before that line, with or without {opt texdocument}, so a
+report started with {opt texdocument} stays compilable as tables are added, and
+a table can be appended to your own document. {opt texappend} {opt texdocument}
+on an existing file that is not a complete document is an error and leaves the
+file unchanged. The default differs from Stata's {cmd:table}, {cmd:dtable}, and
+{cmd:etable}, which export a complete document unless {cmd:tableonly} is
+given, because a tabtools table is most often {cmd:\input} into a manuscript.
+
+{marker texopts}{...}
+{pstd}
+{bf:LaTeX layout: texopts()}
+
+{pstd}
+{opt texopts(string)} sets the layout of the LaTeX table. It takes any of these
+sub-options, separated by spaces:
+
+{phang2}{cmd:none} gives the default layout. It stands alone and lets one
+command set aside a session layout ({cmd:tabtools set texopts}).{p_end}
+
+{phang2}{cmd:captionleft} sets the caption flush left
+({cmd:\captionsetup{c -(}justification=raggedright,singlelinecheck=false{c )-}}); the
+document needs {cmd:\usepackage{c -(}caption{c )-}}.{p_end}
+
+{phang2}{cmd:captionbelow} puts the caption (and label) under the table, after
+any notes.{p_end}
+
+{phang2}{cmd:nocentering} sets the table flush left (no {cmd:\centering}).{p_end}
+
+{phang2}{cmd:placement(}{it:spec}{cmd:)} sets the float placement: letters from {cmd:h}, {cmd:t},
+{cmd:b}, {cmd:p}, with at most one {cmd:!} anywhere, or {cmd:H} alone (needs
+{cmd:\usepackage{c -(}float{c )-}}). The default is {cmd:htbp}.{p_end}
+
+{phang2}{cmd:size(}{it:name}{cmd:)} sets the type size of the table body: {cmd:tiny},
+{cmd:scriptsize}, {cmd:footnotesize}, {cmd:small}, {cmd:normalsize}, or {cmd:large}. The
+caption keeps the document's size.{p_end}
+
+{phang2}{cmd:fit} shrinks a table wider than the line to the line width
+({cmd:\resizebox}); a narrower table is left alone. Needs
+{cmd:\usepackage{c -(}graphicx{c )-}}.{p_end}
+
+{phang2}{cmd:landscape} places the table on its own rotated page (a {cmd:landscape}
+environment); needs {cmd:\usepackage{c -(}pdflscape{c )-}}.{p_end}
+
+{phang2}{cmd:label(}{it:key}{cmd:)} uses {it:key} as the {cmd:\label} instead of
+{cmd:tab:}{it:stem}. Only letters, digits, and {cmd:_ : . -} are allowed. Each
+table needs its own key: tabtools does not number a {cmd:label()} key, so two
+tables appended with the same key give LaTeX a multiply-defined label.{p_end}
+
+{phang2}{cmd:preamble(}{cmd:"}{it:line}{cmd:"} ...{cmd:)} adds extra preamble lines, each quoted
+string being one line written as given (not escaped), to the document {opt texdocument}
+creates. A {cmd:$} must be typed {cmd:\$} because Stata reads {cmd:$}{it:name} as a
+global macro, and a line cannot contain a double quote.{p_end}
+
+{phang2}{cmd:docclass(}{it:class} [{it:option} ...]{cmd:)} sets
+{cmd:\documentclass[}{it:option}{cmd:,...]{c -(}}{it:class}{cmd:{c )-}} for the document
+{opt texdocument} creates; the default is {cmd:article}.{p_end}
+
+{pstd}
+{cmd:captionleft}, {cmd:captionbelow}, and {cmd:label()} act on the caption, so
+they have an effect only when the command has a {opt title()}.
+
+{pstd}
+Packages. With {opt texdocument}, the packages the sub-options need are loaded in the
+document it writes. When a table is appended to an existing document (one with
+{cmd:\end{c -(}document{c )-}}), any missing {cmd:\usepackage} lines it needs are added
+before {cmd:\begin{c -(}document{c )-}}; a package is counted as loaded when a
+{cmd:\usepackage} or {cmd:\RequirePackage} line before it names it, outside a
+comment. For a table-only file, tabtools prints a note
+naming the packages your preamble must load. {cmd:preamble()} and {cmd:docclass()}
+matter only when {opt texdocument} creates the file.
+
+{pstd}
+Session default. {cmd:tabtools set texopts} {it:sub-options} applies them to every LaTeX
+export in the session until {cmd:tabtools set texopts clear} or
+{cmd:tabtools set clear}. A command's own {opt texopts()} replaces the session
+value entirely ({cmd:texopts(none)} sets it aside), and {cmd:label()} is not
+allowed in the session value. {cmd:tabtools query} returns {cmd:r(texopts)}.
+
+{pstd}
+Example:
+
+{phang2}{cmd:. regtab, latex(t2.tex) texopts(captionleft size(small) fit label(tab:models))}{p_end}
+
+{pstd}
 Output filenames may contain spaces and Unicode. Filename validation rejects
 either quote character, dollar signs, backticks, semicolons, ampersands, pipes,
 and angle brackets.
 
 {pstd}
 {opt title()}, {opt footnote()}, and {cmd:stacktab}'s {opt note()} text reaches
-the console, workbook, CSV, and Markdown output as typed: a quoted local-macro
+the console, workbook, CSV, Markdown, and LaTeX output as typed: a quoted local-macro
 reference, a {cmd:$}{it:name}, or a lone backtick inside it is kept as text and
 never expanded by the command. Stata itself expands macros on the command line
 before the command runs, so to pass such text, build it in a local macro and
@@ -91,7 +209,7 @@ with another character.
 {helpb table1_tc}, {helpb desctab}, and {helpb crosstab} accept
 {opt smallcells(#)} for strict disclosure control. They replace protected
 positive counts with {cmd:<#}, use {cmd:≥#} for complementary suppression, and
-withhold dependent results before console, Excel, CSV, Markdown, frame, or
+withhold dependent results before console, Excel, CSV, Markdown, LaTeX, frame, or
 stored-result output is built. See each command's help for its supported
 layouts and fail-closed limits. A deterministic final pass removes every
 individually redundant complementary marker; the retained set is irredundant
@@ -223,7 +341,10 @@ Display current formatting defaults
 Set or clear a session destination or masking default
 
 {p 8 17 2}
-{cmd:tabtools set} {c -(}{cmd:workbook}|{cmd:markdown}{c )-} {it:filename}
+{cmd:tabtools set} {c -(}{cmd:workbook}|{cmd:markdown}|{cmd:latex}{c )-} {it:filename}
+
+{p 8 17 2}
+{cmd:tabtools set texopts} {it:sub-options}
 
 {p 8 17 2}
 {cmd:tabtools set headershade} {c -(}{cmd:on}|{cmd:off}{c )-}
@@ -287,8 +408,10 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synoptset 22 tabbed}{...}
 {synopt:{cmd:workbook} {it:filename}}default {cmd:.xlsx} target for {helpb puttab}{p_end}
 {synopt:{cmd:markdown} {it:filename}}default Markdown target for {helpb puttab}{p_end}
+{synopt:{cmd:latex} {it:filename}}default LaTeX ({cmd:.tex}) target for {helpb puttab}{p_end}
 {synopt:{cmd:headershade} {it:on|off}}header shading default ({helpb puttab} only){p_end}
 {synopt:{cmd:smallcells} {it:#} [{cmd:primary}]}default small-cell masking{p_end}
+{synopt:{cmd:texopts} {it:sub-options}|{cmd:clear}}default {opt texopts()} for every LaTeX export{p_end}
 {synopt:{cmd:borderstyle} {it:name}|{cmd:clear}}border style of every command with {opt borderstyle()}{p_end}
 {synoptline}
 
@@ -297,9 +420,9 @@ Session keys live for the Stata session only; {opt permanent} is refused for
 them. An explicit option in a call always wins over a session key. Paths are stored
 absolute ({cmd:.} and {cmd:..} resolved; symbolic links and letter case are
 not), so a later {cmd:cd} does not move them. The first write to a session
-workbook or Markdown file replaces it, and later writes add sheets or append. A
+workbook, Markdown file, or LaTeX file replaces it, and later writes add sheets or append. A
 table any tabtools command writes to that file with an explicit {cmd:using},
-{opt xlsx()}, or {opt markdown()} counts as that first write. Setting a
+{opt xlsx()}, {opt markdown()}, or {opt latex()} counts as that first write. Setting a
 different file re-arms the replace; setting the current file again changes
 nothing; and a file already written as a session target in this Stata session
 is never replaced, even after {cmd:tabtools set clear}, so switching from A to B
@@ -307,7 +430,7 @@ and back to A keeps A's tables. Every command that
 uses a session key echoes the resolved value in the log. {helpb desctab},
 {helpb table1_tc}, {helpb crosstab}, {helpb regtab},
 {helpb effecttab}, {helpb comptab}, {helpb hrcomptab}, {helpb survtab}, and
-{helpb stratetab} use a session workbook or Markdown file only when {opt sheet()}
+{helpb stratetab} use a session workbook, Markdown file, or LaTeX file only when {opt sheet()}
 is given. When {opt sheet()} is given and there is neither {opt xlsx()} nor a
 session workbook, {cmd:desctab} and {cmd:table1_tc} exit with r(498), and the
 others print {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}. {helpb puttab}
@@ -462,7 +585,7 @@ characters, never as the global's contents.{p_end}
 
 {phang}
 3. It reaches every output unchanged: the console, Excel, CSV (quoted as CSV
-requires), Markdown (escaped so that it displays as typed), {opt frame()} with
+requires), Markdown and LaTeX (escaped so that it displays as typed), {opt frame()} with
 or without {cmd:flat}, and a stored cell ({cmd:tabcell}'s {cmd:r(cell)},
 {opt local()}, {opt global()}, and {opt generate()}). {helpb comptab} and
 {helpb hrcomptab} keep the separator their source frames hold, except where
@@ -586,12 +709,15 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {p2col 5 22 26 2: Macros}{p_end}
 {synopt:{cmd:r(workbook)}}session workbook, if set{p_end}
 {synopt:{cmd:r(markdown)}}session Markdown file, if set{p_end}
+{synopt:{cmd:r(latex)}}session LaTeX file, if set{p_end}
 {synopt:{cmd:r(headershade)}}session header shading, if set{p_end}
 {synopt:{cmd:r(smallcells)}}session small-cell threshold, if set{p_end}
 {synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary}, if set{p_end}
 {synopt:{cmd:r(borderstyle)}}session border style, if set{p_end}
+{synopt:{cmd:r(texopts)}}session LaTeX layout sub-options, if set{p_end}
 {synopt:{cmd:r(workbook_fresh)}}{cmd:1} if the next write replaces the workbook{p_end}
 {synopt:{cmd:r(markdown_fresh)}}{cmd:1} if the next write replaces the Markdown file{p_end}
+{synopt:{cmd:r(latex_fresh)}}{cmd:1} if the next write replaces the LaTeX file{p_end}
 
 {pstd}
 {cmd:tabtools fitcount} stores the following in {cmd:r()}:{p_end}
@@ -623,7 +749,7 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-20{p_end}
+{pstd}Version 1.1.0, 2026-10-31{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

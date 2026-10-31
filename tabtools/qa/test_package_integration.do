@@ -689,7 +689,7 @@ else {
     local ++fail_count
 }
 
-* --- F2.4: comptab markdown preserves the visible subheader row ---
+* --- F2.4: comptab markdown header shows statistic labels, not c# names ---
 local ++n_total
 capture erase "`output_dir'/test_f2_comptab.md"
 capture noisily {
@@ -716,11 +716,11 @@ local _test_rc = _rc
 capture frame drop _f2_cmp_a
 capture frame drop _f2_cmp_b
 if `_test_rc' == 0 {
-    display as result "  PASS: F2.4 — comptab markdown keeps visible subheader row"
+    display as result "  PASS: F2.4 — comptab markdown header shows statistic labels, not c# names"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: F2.4 — comptab markdown visible subheader (rc=`_test_rc')"
+    display as error "  FAIL: F2.4 — comptab markdown header labels (rc=`_test_rc')"
     local ++fail_count
 }
 

@@ -16,6 +16,9 @@
                                          (gitignored; not a README source)
       Markdown report:
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
+      LaTeX report:
+        4. demo_latex_report.tex      - complete LaTeX document (texdocument + texappend)
+                                         (needs \usepackage{booktabs})
       Per-command workbooks (16 xlsx files, 102 sheets total):
         demo_table1.xlsx    (16 sheets) - table1_tc + explicit styles + small cells
         demo_desctab.xlsx   (10 sheets) - descriptive tables + small cells
@@ -121,6 +124,8 @@ local xlsx_outtab    "`pkg_dir'/demo_outtab.xlsx"
 local xlsx_tabcell   "`pkg_dir'/demo_tabcell.xlsx"
 local markdown_report "`pkg_dir'/demo_markdown_report.md"
 local markdown_report_export "`pkg_ref'/demo_markdown_report.md"
+local latex_report "`pkg_dir'/demo_latex_report.tex"
+local latex_report_export "`pkg_ref'/demo_latex_report.tex"
 local console_log    "`pkg_dir'/console_output.log"
 local console_md     "`pkg_dir'/console_output.md"
 
@@ -133,6 +138,7 @@ if `do_main' {
     }
     capture erase "`pkg_dir'/demo_tabtools.xlsx"
     capture erase "`markdown_report'"
+    capture erase "`latex_report'"
     capture erase "`console_md'"
 }
 
@@ -720,6 +726,73 @@ assert `_has_table1' == 1
 assert `_has_crosstab' == 1
 assert `_has_puttab' == 1
 assert `_has_pipe_table' == 1
+
+**# Console: LaTeX export report
+use `analysis', clear
+capture erase "`latex_report'"
+quietly collect clear
+quietly collect: logistic treated index_age female
+quietly collect: logistic treated index_age female diabetes hypertension
+
+log on demo
+
+* # LaTeX report export
+noisily tabtools set texopts captionleft
+noisily table1_tc, by(treated) ///
+    vars(index_age contn %5.1f \ female bin \ diabetes bin \ hypertension bin) ///
+    title("Table 1. Baseline Characteristics") ///
+    latex("`latex_report_export'") texdocument
+
+noisily regtab, coef("OR") models("Demographics \ + Comorbidities") noint ///
+    title("Table 2. Propensity Score Models") ///
+    latex("`latex_report_export'") texappend
+
+noisily crosstab treated female, or label digits(2) ///
+    title("Table 3. Treatment by Sex") ///
+    latex("`latex_report_export'") texappend
+
+quietly tabtools set texopts clear
+noisily display as text "LaTeX report written to tabtools/demo/demo_latex_report.tex"
+noisily display as text "texdocument made it a complete document; each texappend table went in before \end{document}; the session texopts(captionleft) set every caption flush left."
+noisily type "`latex_report'"
+
+log off demo
+
+**# Verify LaTeX report content
+tempname _tex_fh
+file open `_tex_fh' using "`latex_report'", read text
+local _n_tables 0
+local _has_cap1 0
+local _has_lab3 0
+local _has_spanner 0
+local _has_rule 0
+local _first ""
+local _last ""
+local _n_capleft 0
+local _has_caption_pkg 0
+file read `_tex_fh' _tex_line
+while r(eof) == 0 {
+    if `"`_first'"' == "" local _first `"`macval(_tex_line)'"'
+    if strtrim(`"`macval(_tex_line)'"') != "" local _last `"`macval(_tex_line)'"'
+    if substr(`"`macval(_tex_line)'"', 1, 13) == "\begin{table}" local ++_n_tables
+    if `"`macval(_tex_line)'"' == "\captionsetup{justification=raggedright,singlelinecheck=false}" local ++_n_capleft
+    if `"`macval(_tex_line)'"' == "\usepackage{caption}" local _has_caption_pkg 1
+    if strpos(`"`macval(_tex_line)'"', "\caption{Baseline Characteristics}") local _has_cap1 1
+    if strpos(`"`macval(_tex_line)'"', "\label{tab:demo_latex_report-3}") local _has_lab3 1
+    if strpos(`"`macval(_tex_line)'"', "\multicolumn{3}{c}{Demographics}") local _has_spanner 1
+    if strpos(`"`macval(_tex_line)'"', "\cmidrule(lr){2-4}") local _has_rule 1
+    file read `_tex_fh' _tex_line
+}
+file close `_tex_fh'
+assert `_n_tables' == 3
+assert `_has_cap1' == 1
+assert `_has_lab3' == 1
+assert `_has_spanner' == 1
+assert `_has_rule' == 1
+assert `"`macval(_first)'"' == "\documentclass{article}"
+assert `"`macval(_last)'"' == "\end{document}"
+assert `_n_capleft' == 3
+assert `_has_caption_pkg' == 1
 
 log close demo
 capture drop phat_display

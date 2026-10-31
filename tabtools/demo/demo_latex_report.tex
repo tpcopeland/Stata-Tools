@@ -1,0 +1,67 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{caption}
+\begin{document}
+
+% tabtools LaTeX table; requires \usepackage{booktabs}
+% texopts() also requires \usepackage{caption}
+\begin{table}[htbp]
+\centering
+\captionsetup{justification=raggedright,singlelinecheck=false}
+\caption{Baseline Characteristics}
+\label{tab:demo_latex_report}
+\begin{tabular}{lccc}
+\toprule
+ & SSRI & SNRI & p-value \\
+No. (Column \%) or Mean\ensuremath{\pm}SD & N=8,929 & N=6,071 &  \\
+\midrule
+Age at cohort entry (years) & 55.9\ensuremath{\pm}13.4 & 62.0\ensuremath{\pm}12.4 & \textless{}0.001 \\
+Female sex & 5,530 (62) & 3,442 (57) & \textless{}0.001 \\
+Diabetes & 2,566 (29) & 4,359 (72) & \textless{}0.001 \\
+Hypertension & 2,765 (31) & 4,282 (71) & \textless{}0.001 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% tabtools LaTeX table; requires \usepackage{booktabs}
+% texopts() also requires \usepackage{caption}
+\begin{table}[htbp]
+\centering
+\captionsetup{justification=raggedright,singlelinecheck=false}
+\caption{Propensity Score Models}
+\label{tab:demo_latex_report-2}
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{3}{c}{Demographics} & \multicolumn{3}{c}{+ Comorbidities} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+ & OR & 95\% CI & p-value & OR & 95\% CI & p-value \\
+\midrule
+Age at cohort entry (years) & 1.04 & (1.03, 1.04) & \textless{}0.001 & 1.05 & (1.05, 1.05) & \textless{}0.001 \\
+Female sex & 0.80 & (0.75, 0.86) & \textless{}0.001 & 0.75 & (0.69, 0.81) & \textless{}0.001 \\
+Diabetes &  &  &  & 8.37 & (7.67, 9.12) & \textless{}0.001 \\
+Hypertension &  &  &  & 7.15 & (6.56, 7.79) & \textless{}0.001 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% tabtools LaTeX table; requires \usepackage{booktabs}
+% texopts() also requires \usepackage{caption}
+\begin{table}[htbp]
+\centering
+\captionsetup{justification=raggedright,singlelinecheck=false}
+\caption{Treatment by Sex}
+\label{tab:demo_latex_report-3}
+\begin{tabular}{lccc}
+\toprule
+Treatment group & Male & Female & Total \\
+\midrule
+SSRI & 3,399 (56.39\%) & 5,530 (61.64\%) & 8,929 \\
+SNRI & 2,629 (43.61\%) & 3,442 (38.36\%) & 6,071 \\
+Total & 6,028 & 8,972 & 15,000 \\
+\multicolumn{4}{l}{Pearson's chi-squared test: chi2 = 41.24, p \textless{} 0.001} \\
+\multicolumn{4}{l}{OR = 0.80 (95\% CI: 0.75, 0.86)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_deferred_styles Version 1.0.0  2026/10/20
+*! _tabtools_xlsx_deferred_styles Version 1.1.0  2026/10/31
 *! Apply queued cell style rules directly to a closed xlsx workbook's XML
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

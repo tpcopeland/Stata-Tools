@@ -1,4 +1,4 @@
-*! stacktab Version 1.0.0  2026/10/20
+*! stacktab Version 1.1.0  2026/10/31
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -13,7 +13,8 @@ Syntax:
     blocks(BLOCKSPEC) sheet("Sheet Name")
     [layout(vstack|hstack)] [title(STRING)] [note(STRING)|footnote(STRING)]
     [columnmerge(MERGESPEC)] [style(STYLESPEC)] [borders(BORDERSPEC)]
-    [frame(NAME[, replace])] [csv(FILE)] [append|sheetreplace]
+    [frame(NAME[, replace])] [csv(FILE)] [markdown(FILE) [mdappend]]
+    [latex(FILE) [texappend] [texdocument] [texopts(string asis)]] [append|sheetreplace]
 */
 
 program define stacktab, rclass
@@ -44,9 +45,12 @@ program define stacktab, rclass
     local _stage_book ""
     local _stage_csv ""
     local _stage_markdown ""
+    local _stage_latex ""
+    local _stage_latex_dir ""
     local _backup_book ""
     local _backup_csv ""
     local _backup_markdown ""
+    local _backup_latex ""
     tempname _stage_frame _backup_frame
     capture noisily {
 
@@ -64,6 +68,10 @@ program define stacktab, rclass
              CSV(string asis) ///
              MARKdown(string asis) ///
              MDAPPend ///
+             LATEX(string asis) ///
+             TEXAPPend ///
+             texdocument ///
+             texopts(string asis) ///
              FRAme(string asis) ///
              DISplay ///
              APPend ///
@@ -108,7 +116,7 @@ program define stacktab, rclass
         * (`"..."') or plain quotes. copy local and macval() keep the text
         * literal, so a title or note holding a local-macro reference or a
         * $word is never expanded.
-        foreach opt in title note csv markdown {
+        foreach opt in title note csv markdown latex {
             local _sq_v : copy local `opt'
             local _sq_n = strlen(`"`macval(_sq_v)'"')
             if `_sq_n' >= 4 & substr(`"`macval(_sq_v)'"', 1, 2) == char(96) + char(34) & ///
@@ -125,10 +133,13 @@ program define stacktab, rclass
         * the target sheet; an explicit using or markdown() wins. stacktab
         * reads the book it writes, so it records the write with xlsxdone
         * (below) and never takes the first-write erase.
-        _tabtools_set_sinks resolve, xlsx(`"`using'"') markdown(`"`markdown'"') `mdappend'
+        _tabtools_set_sinks resolve, xlsx(`"`using'"') markdown(`"`markdown'"') `mdappend' ///
+            latex(`"`latex'"') `texappend'
         local using `"`_ss_xlsx'"'
         local markdown `"`_ss_md'"'
         local mdappend "`_ss_mdappend'"
+        local latex `"`_ss_tex'"'
+        local texappend "`_ss_texappend'"
         if `"`using'"' == "" {
             display as error "using required, or set a session workbook with tabtools set workbook"
             exit 100
@@ -149,6 +160,25 @@ program define stacktab, rclass
             display as error "mdappend requires markdown()"
             exit 198
         }
+        if "`texappend'" != "" & `"`latex'"' == "" {
+            display as error "texappend requires latex()"
+            exit 198
+        }
+        if "`texdocument'" != "" & `"`latex'"' == "" {
+            display as error "texdocument requires latex()"
+            exit 198
+        }
+        if `"`macval(texopts)'"' != "" & `"`latex'"' == "" {
+            display as error "texopts() requires latex()"
+            exit 198
+        }
+        if `"`latex'"' != "" {
+            if !strmatch(lower(`"`latex'"'), "*.tex") {
+                display as error "latex() must specify a .tex file"
+                exit 198
+            }
+            _tabtools_validate_path `"`latex'"' "latex()"
+        }
         if `"`markdown'"' != "" {
             _tabtools_validate_path `"`markdown'"' "markdown()"
             local _md_lower = lower(`"`markdown'"')
@@ -161,7 +191,7 @@ program define stacktab, rclass
             }
         }
         _tabtools_check_sinks, xlsx(`"`using'"') csv(`"`csv'"') ///
-            markdown(`"`markdown'"') xlsxname("using")
+            markdown(`"`markdown'"') latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)') xlsxname("using")
 
         * ================================================================
         * PARSE BLOCKSPEC: split on \ and parse each block
@@ -708,6 +738,51 @@ program define stacktab, rclass
             local _ret_markdown_cols = r(n_cols)
         }
 
+        * LaTeX is staged like Markdown and copied over the target only with
+        * the workbook. The writer derives \label{tab:<stem>} (and the
+        * numbering of an appended table) from the path it is given, so the
+        * stage file carries the target's own basename inside a private
+        * directory next to a tempfile token. tempfile tracks only the token,
+        * so a program-scoped token reused by a later call may leave an orphan
+        * file and directory under the same name: remove both before staging.
+        local _ret_latex ""
+        local _ret_latex_rows .
+        local _ret_latex_cols .
+        local _latex_existed = 0
+        if `"`latex'"' != "" {
+            capture confirm file `"`latex'"'
+            local _latex_existed = (_rc == 0)
+            tempfile _stage_latex_token
+            mata: st_local("_tex_base", pathbasename(st_local("latex")))
+            local _stage_latex_dir `"`_stage_latex_token'_d"'
+            local _stage_latex `"`_stage_latex_dir'/`_tex_base'"'
+            capture confirm file `"`_stage_latex'"'
+            if !_rc erase `"`_stage_latex'"'
+            capture rmdir `"`_stage_latex_dir'"'
+            * stata-dev-ignore: capture-rc — a leftover directory holding another file makes mkdir fail harmlessly; the write below fails with its own message if the directory cannot be used
+            capture mkdir `"`_stage_latex_dir'"'
+            local _texdocument_opt ""
+            if "`texdocument'" != "" local _texdocument_opt "document"
+            local _texappend_opt ""
+            if "`texappend'" != "" {
+                local _texappend_opt "append"
+                if `_latex_existed' {
+                    quietly copy `"`latex'"' `"`_stage_latex'"', replace
+                }
+            }
+            capture noisily _tabtools_latex_write using `"`_stage_latex'"', ///
+                `_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') headerstart(1) datastart(2) ///
+                title(`"`macval(title)'"') footnote(`"`macval(note)'"') strictheaders
+            if _rc {
+                local _tex_rc = _rc
+                display as error "Failed to export LaTeX to `latex'"
+                exit `_tex_rc'
+            }
+            local _ret_latex `"`latex'"'
+            local _ret_latex_rows = r(n_rows)
+            local _ret_latex_cols = r(n_cols)
+        }
+
         quietly use `"`finaldata'"', clear
 
         _stacktab_xlsx_write using `"`_stage_book'"', sheet(`"`macval(sheet)'"') ///
@@ -781,6 +856,13 @@ program define stacktab, rclass
             quietly copy `"`markdown'"' `"`_backup_markdown'"', replace
         }
 
+        local _backup_latex ""
+        if `"`latex'"' != "" & `_latex_existed' {
+            tempfile _backup_latex_token
+            local _backup_latex `"`_backup_latex_token'.tex"'
+            quietly copy `"`latex'"' `"`_backup_latex'"', replace
+        }
+
         if `"`frame'"' != "" & `frame_exists' {
             frame copy `frame_name' `_backup_frame'
             local _backup_frame_created = 1
@@ -793,6 +875,9 @@ program define stacktab, rclass
             }
             if `"`markdown'"' != "" {
                 quietly copy `"`_stage_markdown'"' `"`markdown'"', replace
+            }
+            if `"`latex'"' != "" {
+                quietly copy `"`_stage_latex'"' `"`latex'"', replace
             }
             if `"`frame'"' != "" {
                 if `frame_exists' frame drop `frame_name'
@@ -863,12 +948,31 @@ program define stacktab, rclass
                     }
                 }
             }
+            if `"`latex'"' != "" {
+                if `_latex_existed' {
+                    capture quietly copy `"`_backup_latex'"' `"`latex'"', replace
+                    local _this_rollback_rc = _rc
+                    if `_this_rollback_rc' & !`_rollback_rc' {
+                        local _rollback_rc = `_this_rollback_rc'
+                    }
+                }
+                else {
+                    capture confirm file `"`latex'"'
+                    if !_rc {
+                        capture erase `"`latex'"'
+                        local _this_rollback_rc = _rc
+                        if `_this_rollback_rc' & !`_rollback_rc' {
+                            local _rollback_rc = `_this_rollback_rc'
+                        }
+                    }
+                }
+            }
             if `_rollback_rc' {
                 local _preserve_backups = 1
                 noisily display as error ///
                     "stacktab: commit failed with r(`_commit_rc'); rollback also failed with r(`_rollback_rc')"
                 foreach _recovery_path in `"`_backup_book'"' ///
-                    `"`_backup_csv'"' `"`_backup_markdown'"' {
+                    `"`_backup_csv'"' `"`_backup_markdown'"' `"`_backup_latex'"' {
                     if `"`_recovery_path'"' != "" {
                         noisily display as text ///
                             `"recovery copy retained at `_recovery_path'"'
@@ -885,6 +989,7 @@ program define stacktab, rclass
         * is a tabtools set session target, its first write has happened.
         _tabtools_set_sinks xlsxdone, path(`"`using'"')
         if `"`markdown'"' != "" _tabtools_set_sinks mddone, path(`"`markdown'"')
+        if `"`latex'"' != "" _tabtools_set_sinks texdone, path(`"`latex'"')
         if `_backup_frame_created' {
             frame drop `_backup_frame'
             local _backup_frame_created = 0
@@ -928,9 +1033,21 @@ program define stacktab, rclass
             }
         }
     }
+    if `"`_stage_latex'"' != "" {
+        capture confirm file `"`_stage_latex'"'
+        if !_rc {
+            capture erase `"`_stage_latex'"'
+            local _tmp_erase_rc = _rc
+            if `_tmp_erase_rc' & !`rc' {
+                noisily display as text ///
+                    `"note: stacktab could not remove temporary file `_stage_latex'"'
+            }
+        }
+        capture rmdir `"`_stage_latex_dir'"'
+    }
     if !`_preserve_backups' {
         foreach _tmp_path in `"`_backup_book'"' `"`_backup_csv'"' ///
-            `"`_backup_markdown'"' {
+            `"`_backup_markdown'"' `"`_backup_latex'"' {
             capture confirm file `"`_tmp_path'"'
             if !_rc {
                 capture erase `"`_tmp_path'"'
@@ -968,6 +1085,11 @@ program define stacktab, rclass
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
     }
 
     _tabtools_export_done using `"`using'"', sheet(`"`macval(_ret_sheet)'"')

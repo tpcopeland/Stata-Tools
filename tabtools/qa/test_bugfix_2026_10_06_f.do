@@ -87,7 +87,7 @@ capture noisily {
     * the checkers define that the package uses; a misspelt code fails here.
     * The marker is assembled from two pieces so this file does not itself
     * read as a reference to the development repository.
-    local known "ambient-fallback capture-rc capture_rc cf-one-directional"
+    local known "ambient-fallback capture-braced-block capture-rc capture_rc cf-one-directional"
     local known "`known' double-macro-transport hardcoded-tempname identity-fold"
     local known "`known' missing-passes-reldif omitted-coef-display"
     local known "`known' pinned-constant-no-derivation rc-only-test shape-dispatch"

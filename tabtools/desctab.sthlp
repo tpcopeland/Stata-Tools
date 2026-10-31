@@ -97,7 +97,7 @@ Stata weight syntax; see {help weight}.{p_end}
 {syntab:Excel Output}
 {synopt:{opt xlsx("filename")}}save table to Excel file{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name{p_end}
-{synopt:{opt title("string")}}title for the Excel table{p_end}
+{synopt:{opt title("string")}}table title (Excel, Markdown, LaTeX caption){p_end}
 {synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
 {synopt:{opt font(string)}}Excel font family; default Arial{p_end}
 {synopt:{opt fontsize(#)}}Excel font size in points; default 10{p_end}
@@ -114,6 +114,10 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt csv("filename")}}also export as CSV file{p_end}
 {synopt:{opt mark:down(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdapp:end}}append the Markdown table to an existing file{p_end}
+{synopt:{opt latex(filename)}}export as a LaTeX (booktabs) table{p_end}
+{synopt:{opt texapp:end}}append the LaTeX table to an existing file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 
 {syntab:Frame & Pipeline}
 {synopt:{opt fra:me(name[, replace])}}store output in a named Stata frame{p_end}
@@ -161,7 +165,7 @@ any other way.{p_end}
 
 {phang}
 {opt csv("filename")} also export as CSV file. {it:filename} must end in {cmd:.csv} and differ from the
-Excel and Markdown targets. The CSV mirrors the workbook
+Excel, Markdown, and LaTeX targets. The CSV mirrors the workbook
 with {opt title()} written as the first row and {opt footnote()} as the last
 row, both in the first column and the table body between them.{p_end}
 
@@ -219,6 +223,27 @@ space of a row label is written as {cmd:&nbsp;}, which survives Markdown cell tr
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt latex(filename)} export the rendered table as a LaTeX {cmd:table} float with {cmd:booktabs} rules; {it:filename} must end in
+{cmd:.tex}, and an existing file is replaced. The file needs {cmd:\usepackage}{c -(}{cmd:booktabs}{c )-} in the
+document preamble and nothing else. May be combined with Excel, CSV, Markdown, and frame exports. A table with many columns can run past the text width: set it in a smaller font or wrap it in {cmd:\resizebox}. Categorical level rows keep their indentation as {cmd:\hspace*}; the group labels and each group's N print as a two-row header block.{p_end}
+
+{phang}
+{opt texapp:end} append the LaTeX table to an existing file; requires {opt latex()}{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
 {opt mis:sing} treat missing values as another category for categorical variables. All
@@ -333,9 +358,9 @@ percentages.{p_end}
 
 {phang}
 {opt sheet("string")} Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/
-{opt excel()}. After {cmd:tabtools set workbook} (and {cmd:tabtools set markdown}), a call
-that gives {opt sheet()} but no {opt xlsx()}/{opt excel()} (or no {opt markdown()}) writes to the
-session workbook (and Markdown file) and says so in the log; a call without {opt sheet()}
+{opt excel()}. After {cmd:tabtools set workbook} (and {cmd:tabtools set markdown} or {cmd:tabtools set latex}), a call
+that gives {opt sheet()} but no {opt xlsx()}/{opt excel()} (or no {opt markdown()} or {opt latex()}) writes to the
+session workbook (and Markdown or LaTeX file) and says so in the log; a call without {opt sheet()}
 never uses them, so a console-, {opt frame()}- or {opt clear}-only table is not written. The
 first write to a session target replaces it and later writes add sheets or append; see
 {helpb puttab} and {helpb tabtools}.{p_end}
@@ -395,7 +420,7 @@ may not be combined with {opt smdthreshold()}.{p_end}
 {phang}
 
 {phang}
-{opt title("string")} title for the Excel table{p_end}
+{opt title("string")} table title: the first row of the Excel sheet, the Markdown heading, and the LaTeX {cmd:\caption}{p_end}
 
 {phang}
 {opt total(before|after)} include a total column before/after group columns{p_end}
@@ -566,6 +591,8 @@ frames with {helpb stacktab}; each block gets a bold heading and keeps its own N
 {p2col 5 32 36 2: Scalars}{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
 {synopt:{cmd:r(smallcells)}}active small-cell threshold{p_end}
 {synopt:{cmd:r(n_cellreplace)}}cells set by {opt cellreplace()}{p_end}
 {synopt:{cmd:r(N_primary_suppressed)}}primary display cells{p_end}
@@ -581,6 +608,7 @@ frames with {helpb stacktab}; each block gets a bold heading and keeps its own N
 {synopt:{cmd:r(sheet)}}Excel sheet name{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(smdtype)}}{cmd:pair}, {cmd:population}, or {cmd:maxpair} (with {opt smd}){p_end}
 {synopt:{cmd:r(smdnote)}}note naming what the SMD compares{p_end}
 

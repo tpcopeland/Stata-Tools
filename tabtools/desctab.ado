@@ -1,4 +1,4 @@
-*! desctab Version 1.0.0  2026/10/20 - Consolidated descriptive Table 1 engine
+*! desctab Version 1.1.0  2026/10/31 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -90,6 +90,10 @@ program define desctab, rclass
         [csv(string)]           /// Export data as CSV file
         [MARKdown(string)]      /// Export data as Markdown file
         [MDAPPend]              /// Append Markdown table
+        [LATEX(string)]         /// Export data as LaTeX (booktabs) file
+        [TEXAPPend]             /// Append LaTeX table
+        [texdocument]            /// Complete LaTeX document
+        [texopts(string asis)]   /// LaTeX layout sub-options
         [MISSINGSummary]        /// Add missing data summary row per variable
         [SMALLCells(string)]    /// Suppress counts below threshold and prevent reconstruction
         [NOSMALLCells]          /// Ignore a session smallcells default for this call
@@ -177,18 +181,24 @@ program define desctab, rclass
        never writes to the session workbook. An explicit option wins. */
     local _sess_xlsx 0
     local _sess_md 0
+    local _sess_tex 0
     if `"`macval(sheet)'"' != "" {
-        _tabtools_set_sinks resolve, xlsx(`"`excel'"') markdown(`"`markdown'"') `mdappend'
+        _tabtools_set_sinks resolve, xlsx(`"`excel'"') markdown(`"`markdown'"') `mdappend' ///
+            latex(`"`latex'"') `texappend'
         local excel `"`_ss_xlsx'"'
         local markdown `"`_ss_md'"'
         local mdappend "`_ss_mdappend'"
+        local latex `"`_ss_tex'"'
+        local texappend "`_ss_texappend'"
         local _sess_xlsx = `_ss_xlsx_sess'
         local _sess_md = `_ss_md_sess'
+        local _sess_tex = `_ss_tex_sess'
     }
 
     /* Check if Excel options are properly specified */
     local has_excel = `"`macval(excel)'"' != ""  // Boolean flag for Excel option
     local has_markdown = `"`markdown'"' != ""
+    local has_latex = `"`latex'"' != ""
     local has_sheet = `"`macval(sheet)'"' != ""  // Boolean flag for sheet option
     local has_title = `"`macval(title)'"' != ""  // Boolean flag for title option
     local has_open = "`open'" != ""    // Boolean flag for open option
@@ -212,8 +222,8 @@ program define desctab, rclass
         display as error "sheet() is only available when using excel()"
         exit 498
     }
-    if !`has_excel' & !`has_markdown' & `has_title' {
-        display as error "title() is only available when using excel() or markdown()"
+    if !`has_excel' & !`has_markdown' & !`has_latex' & `has_title' {
+        display as error "title() is only available when using excel(), markdown() or latex()"
         exit 498
     }
     if `has_open' & !`has_excel' {
@@ -233,6 +243,21 @@ program define desctab, rclass
         display as error "mdappend requires markdown()"
         exit 198
     }
+    if "`texappend'" != "" & !`has_latex' {
+        display as error "texappend requires latex()"
+        exit 198
+    }
+    if "`texdocument'" != "" & !`has_latex' {
+        display as error "texdocument requires latex()"
+        exit 198
+    }
+    if `"`macval(texopts)'"' != "" & !`has_latex' {
+        display as error "texopts() requires latex()"
+        exit 198
+    }
+    if `has_latex' {
+        _tabtools_validate_path `"`latex'"' "latex()"
+    }
     if `has_markdown' {
         _tabtools_validate_path `"`markdown'"' "markdown()"
         local _md_lower = lower(`"`markdown'"')
@@ -245,7 +270,7 @@ program define desctab, rclass
         }
     }
     _tabtools_check_sinks, xlsx(`"`excel'"') csv(`"`csv'"') ///
-        markdown(`"`markdown'"') xlsxname("excel()")
+        markdown(`"`markdown'"') latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)') xlsxname("excel()")
     * C2 (codex audit 2026-09-26): validate frame() before anything is
     * written. It was checked only when the frame was stored, after the CSV
     * and Markdown files, so an occupied or invalid frame returned an error
@@ -2493,6 +2518,45 @@ program define desctab, rclass
         if `_sess_md' _tabtools_set_sinks mddone
     }
 
+    * LaTeX export. Runs after the Markdown block, which restores its snapshot,
+    * so the writer sees the unflattened table: row 1 carries the group
+    * labels (and the stat-column headers), row 2 the descriptor and each
+    * group's N, the body starts at row 3. Both rows are real header rows
+    * (headerstart(1)), printed as a two-row header block. The workbook merges
+    * only vertically (rows 2-3 of its own numbering, in single columns), so
+    * no spans() are declared; strictheaders because row 1 already names the
+    * p-value/Test/SMD columns and a variable-label fallback would repeat them.
+    local _ret_latex ""
+    local _ret_latex_rows .
+    local _ret_latex_cols .
+    if `has_latex' {
+        local _texdocument_opt ""
+        if "`texdocument'" != "" local _texdocument_opt "document"
+        local _texappend_opt ""
+        if "`texappend'" != "" local _texappend_opt "append"
+        * labelvar(A) is the "A when it exists" hint the other writers take;
+        * the LaTeX writer refuses a labelvar() that names no variable (a
+        * missing one would shift every column), so pass it only when A is
+        * there. The exported columns are the same either way.
+        local _tex_labelopt ""
+        capture confirm variable A, exact
+        if !_rc local _tex_labelopt "labelvar(A)"
+        capture noisily _tabtools_latex_write using `"`latex'"', ///
+            `_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') `_tex_labelopt' headerstart(1) datastart(3) ///
+            title(`"`macval(_markdown_title)'"') footnote(`"`macval(footnote)'"') strictheaders
+        if _rc {
+            local _tex_rc = _rc
+            display as error "Failed to export LaTeX to `latex'"
+            restore
+            exit `_tex_rc'
+        }
+        local _ret_latex `"`latex'"'
+        local _ret_latex_rows = r(n_rows)
+        local _ret_latex_cols = r(n_cols)
+        display as text "LaTeX exported to `latex'"
+        if `_sess_tex' _tabtools_set_sinks texdone
+    }
+
 **#  Store output in frame if requested (I5)
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
@@ -2523,6 +2587,11 @@ program define desctab, rclass
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
     }
 
     /* Open file if requested (W3) */

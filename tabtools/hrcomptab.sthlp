@@ -61,6 +61,10 @@ and {cmd:regtab} frames
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
+{synopt:{opt latex(filename)}}export a booktabs LaTeX table (.tex){p_end}
+{synopt:{opt texapp:end}}append to an existing LaTeX file{p_end}
+{synopt:{opt texdocument}}write a complete LaTeX document{p_end}
+{synopt:{opt texopts(string)}}LaTeX layout sub-options{p_end}
 {synopt:{opt fra:me(name[, replace flat])}}save output in a named Stata frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready eplot frame{p_end}
 {synopt:{opt forest}}draw an eplot forest plot{p_end}
@@ -325,10 +329,34 @@ specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainb
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
-Excel, CSV, and frame exports{p_end}
+Excel, CSV, and frame exports. Markdown tables have one header row, so the outcome and statistic
+headers are joined as {it:outcome}{cmd::} {it:statistic}{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
+
+{phang}
+{opt latex(filename)} export the rendered table as a LaTeX {cmd:table} float; the file must end in
+{cmd:.tex} and needs {cmd:\usepackage{c -(}booktabs{c )-}} in the document preamble. Both header rows are
+kept: each outcome label is a column spanner over that outcome's columns, as the workbook merges
+them, above the statistic row. An existing file is replaced. May be combined with Excel, CSV,
+Markdown, and frame exports{p_end}
+
+{phang}
+{opt texappend} append the LaTeX table to an existing file; requires {opt latex()}{p_end}
+
+{phang}
+{opt texdocument} writes {opt latex()} as a complete LaTeX document
+({cmd:\documentclass{c -(}article{c )-}}, {cmd:\usepackage{c -(}booktabs{c )-}},
+{cmd:\begin{c -(}document{c )-}} ... {cmd:\end{c -(}document{c )-}}) that compiles on its own.
+By default the file holds only the table float, meant to be {cmd:\input} into a
+document. With {opt texappend}, a file that ends in {cmd:\end{c -(}document{c )-}} receives
+the new table just before that line, whether or not {opt texdocument} is given;
+{opt texappend} {opt texdocument} on an existing file that is not a complete
+document is an error.{p_end}
+
+{phang}
+{opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
 {opt open} open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
@@ -447,6 +475,8 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(ci_level)}}confidence level shared by all source frames{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown (if exported){p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown (if exported){p_end}
+{synopt:{cmd:r(latex_rows)}}body rows written to LaTeX (if exported){p_end}
+{synopt:{cmd:r(latex_cols)}}columns written to LaTeX (if exported){p_end}
 
 {p2col 5 22 28 2: Macros}{p_end}
 {synopt:{cmd:r(rateframe)}}source stratetab frame name{p_end}
@@ -455,6 +485,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(xlsx)}}Excel path, when exported{p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name, when exported{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
+{synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(frame)}}output frame name, when {cmd:frame()} specified{p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}

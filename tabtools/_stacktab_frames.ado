@@ -1,11 +1,11 @@
-*! _stacktab_frames Version 1.0.0  2026/10/20
+*! _stacktab_frames Version 1.1.0  2026/10/31
 *! stacktab, frames(): stack in-memory frames as labelled panels via puttab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
     stacktab [using BOOK.xlsx], frames(name ["Panel label"] [\ name ["label"] ...])
-        sheet("Sheet") [title() note()|footnote() csv() markdown() mdappend
+        sheet("Sheet") [title() note()|footnote() csv() markdown() mdappend latex() texappend texdocument texopts()
         headershade borderstyle() font() fontsize() zebra digits() open]
 
     Each frame is one panel. Its columns are taken in frame order and stacked
@@ -29,7 +29,7 @@ program define _stacktab_frames, rclass
     capture noisily {
         syntax [using/] , FRAMES(string asis) SHeet(string) ///
             [TItle(string) NOte(string) FOOTnote(string) ///
-             CSV(string) MARKdown(string) MDAPPend ///
+             CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) ///
              HEADERShade BORDERstyle(string) FONT(string) ///
              FONTSIZE(integer -1) ZEBra DIGits(integer -1) open]
 
@@ -199,19 +199,23 @@ program define _stacktab_frames, rclass
         }
 
         local _opts ""
-        foreach _o in csv markdown borderstyle font {
-            if `"``_o''"' != "" local _opts `"`_opts' `_o'(`"``_o''"')"'
+        foreach _o in csv markdown latex borderstyle font {
+            if `"``_o''"' != "" local _opts `"`macval(_opts)' `_o'(`"``_o''"')"'
         }
-        if `fontsize' != -1 local _opts `"`_opts' fontsize(`fontsize')"'
-        if `digits' != -1 local _opts `"`_opts' digits(`digits')"'
-        foreach _o in mdappend headershade zebra open {
-            if "``_o''" != "" local _opts `"`_opts' `_o'"'
+        if `fontsize' != -1 local _opts `"`macval(_opts)' fontsize(`fontsize')"'
+        if `digits' != -1 local _opts `"`macval(_opts)' digits(`digits')"'
+        foreach _o in mdappend texappend texdocument headershade zebra open {
+            if "``_o''" != "" local _opts `"`macval(_opts)' `_o'"'
+        }
+        * block form: "if ... local" expands its command a second time
+        if `"`macval(texopts)'"' != "" {
+            local _opts `"`macval(_opts)' texopts(`macval(texopts)')"'
         }
         local _using ""
         if `"`using'"' != "" local _using `"using `"`using'"'"'
         puttab _stk_c1-_stk_c`_K' `_using', panel(_stk_panel) varlabels ///
             noembedheader sheet(`"`macval(sheet)'"') title(`"`macval(title)'"') ///
-            footnote(`"`macval(note)'"') `_opts'
+            footnote(`"`macval(note)'"') `macval(_opts)'
         return add
         return scalar n_frames = `_nf'
         return local frames `"`frames'"'

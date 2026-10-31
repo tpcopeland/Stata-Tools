@@ -175,6 +175,8 @@ capture noisily {
     file open `_program_contract_fh' using "`_program_contract_status'", read text
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
+    * 124 programs since texopts() (2026-10-31) added _tabtools_texopts;
+    * 123 programs since LaTeX export (2026-10-31) added _tabtools_latex_write;
     * 122 programs since the 1.0.0 SSC pass added _tabtools_export_done (the
     * shared completion line);
     * 121 programs since corrtab was removed for the 1.0.0 release; before that,
@@ -196,7 +198,7 @@ capture noisily {
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=122 class_missing=0 wrapper_missing=0"
+        "PASS programs=124 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"
@@ -605,7 +607,7 @@ else {
 capture noisily {
     foreach helper in _tabtools_common.ado _tabtools_xlsx_write.ado ///
         _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
-        _tabtools_markdown_write.ado ///
+        _tabtools_markdown_write.ado _tabtools_latex_write.ado ///
         _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
         _tabtools_xlsx_compact_styles.ado ///
         _desctab_collect.ado _tabtools_visible_vars.ado ///
@@ -1147,7 +1149,7 @@ local public_commands tabtools table1_tc desctab regtab effecttab stratetab ///
     tabtools_tips
 local helper_files _tabtools_common.ado _tabtools_xlsx_write.ado ///
     _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
-    _tabtools_markdown_write.ado ///
+    _tabtools_markdown_write.ado _tabtools_latex_write.ado ///
     _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
     _tabtools_xlsx_compact_styles.ado _desctab_collect.ado
 

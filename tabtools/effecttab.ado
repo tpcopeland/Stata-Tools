@@ -1,4 +1,4 @@
-*! effecttab Version 1.0.0  2026/10/20
+*! effecttab Version 1.1.0  2026/10/31
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -86,7 +86,7 @@ program define effecttab, rclass
 	        models(string) title(string) clean TLABels(string asis) ///
 	        FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
 	        BORDERstyle(string) full FONT(string) FONTSIZE(integer -1) digits(integer -1) ///
-		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
+		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) EPLOTFrame(string asis) ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
 	        LABELWidth(integer 0) Level(real -1) REFcat(string) ///
 	        OMITLabel(string) EMPTYLabel(string) CFormat(string)]
@@ -108,14 +108,17 @@ program define effecttab, rclass
 
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-	* Session destinations (tabtools set workbook/markdown) apply only when
+	* Session destinations (tabtools set workbook/markdown/latex) apply only when
 	* sheet() asks for a sheet; an explicit option wins. Without this a
 	* sheet() call after tabtools set workbook wrote nothing, silently.
 	if `"`macval(sheet)'"' != "" {
-		_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+		_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend' ///
+			latex(`"`latex'"') `texappend'
 		local xlsx `"`_ss_xlsx'"'
 		local markdown `"`_ss_md'"'
 		local mdappend "`_ss_mdappend'"
+		local latex `"`_ss_tex'"'
+		local texappend "`_ss_texappend'"
 		if `"`xlsx'"' == "" display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
 	}
 		local _has_xlsx = "`xlsx'" != ""
@@ -382,6 +385,19 @@ quietly {
 		noisily display as error "mdappend requires markdown()"
 		exit 198
 	}
+	if "`texappend'" != "" & `"`latex'"' == "" {
+		noisily display as error "texappend requires latex()"
+		exit 198
+	}
+	if "`texdocument'" != "" & `"`latex'"' == "" {
+		noisily display as error "texdocument requires latex()"
+		exit 198
+	}
+	if `"`macval(texopts)'"' != "" & `"`latex'"' == "" {
+		noisily display as error "texopts() requires latex()"
+		exit 198
+	}
+	if `"`latex'"' != "" _tabtools_validate_path `"`latex'"' "latex()"
 	if `"`markdown'"' != "" {
 		_tabtools_validate_path `"`markdown'"' "markdown()"
 		local _md_lower = lower(`"`markdown'"')
@@ -394,7 +410,8 @@ quietly {
 		}
 	}
 	if `"`csv'"' != "" _tabtools_validate_path "`csv'" "csv()"
-	_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+	_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"') ///
+		latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)')
 
 	* Build format strings from digits, or take cformat() as given:
 	* strtrim(string(x, fmt)), unrounded (round(x, 0) is x).
@@ -1725,6 +1742,60 @@ quietly {
 	}
 	noisily _tabtools_console_display `n' `"`macval(title)'"', labelvar(A) headerstart(`_console_hdr')
 
+	* LaTeX export. It runs before the Markdown block below, so it sees the
+	* table as the workbook shows it, never the flattened "Model: statistic"
+	* row. Row 2 holds the model names (models()), row 3 the statistic labels,
+	* body from row 4. Each named model spans its estimate/CI/p triple, the
+	* range the workbook merges in row 2: visible column 1 is the label column
+	* A, so model m covers visible columns 3m-1 .. 3m+1. Without models() row 2
+	* is empty in every column (the workbook merges blank cells) and the table
+	* has the single statistic header row, as the console shows it.
+	local _ret_latex ""
+	local _ret_latex_rows .
+	local _ret_latex_cols .
+	if `"`latex'"' != "" {
+		local _texdocument_opt ""
+		if "`texdocument'" != "" local _texdocument_opt "document"
+		local _texappend_opt ""
+		if "`texappend'" != "" local _texappend_opt "append"
+		local _tex_hs 3
+		local _tex_spans ""
+		if _N >= 3 {
+			forvalues _texc = 1/`n' {
+				capture confirm variable c`_texc'
+				if !_rc {
+					if strtrim(c`_texc'[2]) != "" local _tex_hs 2
+				}
+			}
+		}
+		if `_tex_hs' == 2 {
+			forvalues _texb = 1/`=int(`n' / 3)' {
+				local _tex_first = (`_texb' - 1) * 3 + 1
+				capture confirm variable c`_tex_first'
+				if !_rc {
+					if strtrim(c`_tex_first'[2]) != "" {
+						local _tex_spans "`_tex_spans' 2 `=`_tex_first' + 1' `=`_tex_first' + 3'"
+					}
+				}
+			}
+		}
+		local _tex_spans_opt ""
+		if "`_tex_spans'" != "" local _tex_spans_opt "spans(`_tex_spans')"
+		capture noisily _tabtools_latex_write using `"`latex'"', ///
+			`_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') labelvar(A) title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
+			headerstart(`_tex_hs') datastart(4) strictheaders `_tex_spans_opt'
+		if _rc {
+			local _tex_rc = _rc
+			noisily display as error "Failed to export LaTeX to `latex'"
+			restore
+			exit `_tex_rc'
+		}
+		local _ret_latex `"`latex'"'
+		local _ret_latex_rows = r(n_rows)
+		local _ret_latex_cols = r(n_cols)
+		noisily display as text "LaTeX exported to `latex'"
+	}
+
 	* Markdown export
 	local _ret_markdown ""
 	local _ret_markdown_rows .
@@ -1822,6 +1893,11 @@ quietly {
 		return local markdown `"`_ret_markdown'"'
 		return scalar markdown_rows = `_ret_markdown_rows'
 		return scalar markdown_cols = `_ret_markdown_cols'
+	}
+		if `"`_ret_latex'"' != "" {
+		return local latex `"`_ret_latex'"'
+		return scalar latex_rows = `_ret_latex_rows'
+		return scalar latex_cols = `_ret_latex_cols'
 	}
 
 	if `_has_xlsx' {

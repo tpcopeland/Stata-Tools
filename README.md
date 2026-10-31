@@ -167,7 +167,7 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 | [diagtab](diagtab) | Sensitivity, specificity, predictive values, and likelihood ratios with CIs in one call, plus ROC AUC and the Youden-optimal cutoff, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.1.0-1a5f91?style=flat-square) |
 | [logdoc](logdoc) | Stata output as a shareable document: run a do-file or convert a log to HTML, Markdown, Quarto, Word, LaTeX, or PDF, keeping Stata's alignment and colors | ![version](https://img.shields.io/badge/version-1.2.2-1a5f91?style=flat-square) |
 | [simtab](simtab) | Simulation results to publication tables: bias, empirical SE, coverage, power, and MSE with their Monte Carlo SEs, flagging cells whose coverage misses nominal | ![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square) |
-| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more, with one set of output options and small-cell suppression | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [tabtools](tabtools) | Manuscript tables to Excel, Markdown, and LaTeX: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more, with one set of output options and small-cell suppression | ![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square) |
 
 ### Graphics
 

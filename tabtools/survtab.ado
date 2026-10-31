@@ -1,4 +1,4 @@
-*! survtab Version 1.0.0  2026/10/20
+*! survtab Version 1.1.0  2026/10/31
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -81,7 +81,7 @@ capture noisily {
         FOOTnote(string) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
-        csv(string) MARKdown(string) MDAPPend FRAme(string) open pdp(integer -1) highpdp(integer -1) ///
+        csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) open pdp(integer -1) highpdp(integer -1) ///
         ADDRow(string asis)]
 
     * Accept excel() as synonym for xlsx()
@@ -90,10 +90,13 @@ capture noisily {
     * sheet() asks for a sheet; an explicit option wins. Without this a
     * sheet() call after tabtools set workbook wrote nothing, silently.
     if `"`macval(sheet)'"' != "" {
-        _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+        _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend' ///
+            latex(`"`latex'"') `texappend'
         local xlsx `"`_ss_xlsx'"'
         local markdown `"`_ss_md'"'
         local mdappend "`_ss_mdappend'"
+        local latex `"`_ss_tex'"'
+        local texappend "`_ss_texappend'"
         if `"`xlsx'"' == "" display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
     }
     local _has_xlsx = "`xlsx'" != ""
@@ -207,6 +210,19 @@ capture noisily {
         noisily display as error "mdappend requires markdown()"
         exit 198
     }
+    if "`texappend'" != "" & `"`latex'"' == "" {
+        noisily display as error "texappend requires latex()"
+        exit 198
+    }
+    if "`texdocument'" != "" & `"`latex'"' == "" {
+        noisily display as error "texdocument requires latex()"
+        exit 198
+    }
+    if `"`macval(texopts)'"' != "" & `"`latex'"' == "" {
+        noisily display as error "texopts() requires latex()"
+        exit 198
+    }
+    if `"`latex'"' != "" _tabtools_validate_path `"`latex'"' "latex()"
     if `"`markdown'"' != "" {
         _tabtools_validate_path `"`markdown'"' "markdown()"
         local _md_lower = lower(`"`markdown'"')
@@ -218,7 +234,8 @@ capture noisily {
             exit 198
         }
     }
-    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"') ///
+        latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)')
     * C2 (codex audit 2026-09-26): validate frame() before anything is
     * written. It was checked only when the frame was stored, after the CSV
     * and Markdown files, so an occupied or invalid frame returned an error
@@ -975,26 +992,6 @@ capture noisily {
         noisily display as text "CSV exported to `csv'"
     }
 
-    local _ret_markdown ""
-    local _ret_markdown_rows .
-    local _ret_markdown_cols .
-    if `"`markdown'"' != "" {
-        local _mdappend_opt ""
-        if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
-        if _rc {
-            local _md_rc = _rc
-            noisily display as error "Failed to export Markdown to `markdown'"
-            restore
-            exit `_md_rc'
-        }
-        local _ret_markdown `"`markdown'"'
-        local _ret_markdown_rows = r(n_rows)
-        local _ret_markdown_cols = r(n_cols)
-        noisily display as text "Markdown exported to `markdown'"
-    }
-
 **# Frame Output
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
@@ -1080,6 +1077,55 @@ capture noisily {
     }
     local _methods `"`macval(_methods)' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."'
     return local methods `"`macval(_methods)'"'
+
+    * The Markdown and LaTeX writers run after the analytical payload is posted
+    * above, so a failed export still returns r(table), r(N_rows) and the
+    * estimates, as a failed workbook export does.
+    local _ret_markdown ""
+    local _ret_markdown_rows .
+    local _ret_markdown_cols .
+    if `"`markdown'"' != "" {
+        local _mdappend_opt ""
+        if "`mdappend'" != "" local _mdappend_opt "append"
+        capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+            `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
+        if _rc {
+            local _md_rc = _rc
+            noisily display as error "Failed to export Markdown to `markdown'"
+            restore
+            exit `_md_rc'
+        }
+        local _ret_markdown `"`markdown'"'
+        local _ret_markdown_rows = r(n_rows)
+        local _ret_markdown_cols = r(n_cols)
+        noisily display as text "Markdown exported to `markdown'"
+    }
+
+    * LaTeX export: one header row (row 2: group labels with N, Difference, p),
+    * body from row 3. The workbook merges nothing across the header and the
+    * section rows ("Survival probability", median/RMST) are ordinary body
+    * rows, so no spans() are declared.
+    local _ret_latex ""
+    local _ret_latex_rows .
+    local _ret_latex_cols .
+    if `"`latex'"' != "" {
+        local _texdocument_opt ""
+        if "`texdocument'" != "" local _texdocument_opt "document"
+        local _texappend_opt ""
+        if "`texappend'" != "" local _texappend_opt "append"
+        capture noisily _tabtools_latex_write using `"`latex'"', ///
+            `_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
+        if _rc {
+            local _tex_rc = _rc
+            noisily display as error "Failed to export LaTeX to `latex'"
+            restore
+            exit `_tex_rc'
+        }
+        local _ret_latex `"`latex'"'
+        local _ret_latex_rows = r(n_rows)
+        local _ret_latex_cols = r(n_cols)
+        noisily display as text "LaTeX exported to `latex'"
+    }
 
 **# Excel Export
     local num_cols = `ncols' + 1
@@ -1226,6 +1272,11 @@ capture noisily {
         return local markdown `"`_ret_markdown'"'
         return scalar markdown_rows = `_ret_markdown_rows'
         return scalar markdown_cols = `_ret_markdown_cols'
+    }
+    if `"`_ret_latex'"' != "" {
+        return local latex `"`_ret_latex'"'
+        return scalar latex_rows = `_ret_latex_rows'
+        return scalar latex_cols = `_ret_latex_cols'
     }
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 

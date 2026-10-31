@@ -1,4 +1,4 @@
-*! regtab Version 1.0.0  2026/10/20
+*! regtab Version 1.1.0  2026/10/31
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -92,7 +92,7 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string) models(string) c
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) FONT(string) FONTSIZE(integer -1) stars ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
-	FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) LABELMatch DIMNONsig FACTORLabel ///
+	LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) LABELMatch DIMNONsig FACTORLabel ///
 	REFcat(string) OMITLabel(string) EMPTYLabel(string) NOTESTLabel(string) ///
 	CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
 	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1) ///
@@ -103,16 +103,19 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string) models(string) c
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-* Session destinations (tabtools set workbook/markdown) apply only when
+* Session destinations (tabtools set workbook/markdown/latex) apply only when
 * sheet() asks for a sheet; an explicit option wins. The same rule as
 * crosstab, desctab, and puttab. The first write to the session workbook
 * erases it: _tabtools_xlsx_write runs _tabtools_set_sinks xlsxstart on its
 * target, and the Markdown writer clears its own flag.
 if `"`macval(sheet)'"' != "" {
-	_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+	_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend' ///
+		latex(`"`latex'"') `texappend'
 	local xlsx `"`_ss_xlsx'"'
 	local markdown `"`_ss_md'"'
 	local mdappend "`_ss_mdappend'"
+	local latex `"`_ss_tex'"'
+	local texappend "`_ss_texappend'"
 	if `"`xlsx'"' == "" {
 		display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
 	}
@@ -259,6 +262,19 @@ if "`mdappend'" != "" & `"`markdown'"' == "" {
 	noisily display as error "mdappend requires markdown()"
 	exit 198
 }
+if "`texappend'" != "" & `"`latex'"' == "" {
+	noisily display as error "texappend requires latex()"
+	exit 198
+}
+if "`texdocument'" != "" & `"`latex'"' == "" {
+	noisily display as error "texdocument requires latex()"
+	exit 198
+}
+if `"`macval(texopts)'"' != "" & `"`latex'"' == "" {
+	noisily display as error "texopts() requires latex()"
+	exit 198
+}
+if `"`latex'"' != "" _tabtools_validate_path `"`latex'"' "latex()"
 if `"`markdown'"' != "" {
 	_tabtools_validate_path `"`markdown'"' "markdown()"
 	local _md_lower = lower(`"`markdown'"')
@@ -417,7 +433,8 @@ quietly{
         exit 198
     }
     if `"`csv'"' != "" _tabtools_validate_path "`csv'" "csv()"
-    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"') ///
+        latex(`"`latex'"') `texappend' `texdocument' texopts(`macval(texopts)')
 
     * Create temporary file for intermediate processing
     * Pair provenance must distinguish repeated fits with identical metadata.
@@ -2673,6 +2690,61 @@ if "`csv'" != "" {
 * Console display
 noisily _tabtools_console_display `n' `"`macval(title)'"', labelvar(A)
 
+* LaTeX export. It runs before the Markdown block below, so it sees the table
+* as the workbook shows it, never the flattened "Model: statistic" row. LaTeX
+* keeps both header levels: row 2 (model names, or a transposed table's terms)
+* over row 3 (statistic labels), body from row 4. Each model's name spans its
+* own block of _cols_per_model columns, the range the workbook merges in row 2;
+* a one-column block (compact nopvalue, transpose) is a plain cell, as a
+* one-cell merge is in the workbook. Visible column 1 is the label column A,
+* so block m covers visible columns (m-1)*_cols_per_model+2 .. m*_cols_per_model+1.
+* A row 2 empty in every column drops to a single header row.
+local _ret_latex ""
+local _ret_latex_rows .
+local _ret_latex_cols .
+if `"`latex'"' != "" {
+	local _texdocument_opt ""
+	if "`texdocument'" != "" local _texdocument_opt "document"
+	local _texappend_opt ""
+	if "`texappend'" != "" local _texappend_opt "append"
+	local _tex_hs 3
+	local _tex_spans ""
+	if _N >= 3 {
+		forvalues _texc = 1/`n' {
+			capture confirm variable c`_texc'
+			if !_rc {
+				if strtrim(c`_texc'[2]) != "" local _tex_hs 2
+			}
+		}
+	}
+	if `_tex_hs' == 2 & `_cols_per_model' > 1 {
+		forvalues _texb = 1/`_n_blocks' {
+			local _tex_first = (`_texb' - 1) * `_cols_per_model' + 1
+			capture confirm variable c`_tex_first'
+			if !_rc {
+				if strtrim(c`_tex_first'[2]) != "" {
+					local _tex_spans "`_tex_spans' 2 `=`_tex_first' + 1' `=`_tex_first' + `_cols_per_model''"
+				}
+			}
+		}
+	}
+	local _tex_spans_opt ""
+	if "`_tex_spans'" != "" local _tex_spans_opt "spans(`_tex_spans')"
+	capture noisily _tabtools_latex_write using `"`latex'"', ///
+		`_texappend_opt' `_texdocument_opt' texopts(`macval(texopts)') labelvar(A) title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
+		headerstart(`_tex_hs') datastart(4) strictheaders `_tex_spans_opt'
+	if _rc {
+		local _tex_rc = _rc
+		noisily display as error "Failed to export LaTeX to `latex'"
+		restore
+		exit `_tex_rc'
+	}
+	local _ret_latex `"`latex'"'
+	local _ret_latex_rows = r(n_rows)
+	local _ret_latex_cols = r(n_cols)
+	noisily display as text "LaTeX exported to `latex'"
+}
+
 * Markdown export
 local _ret_markdown ""
 local _ret_markdown_rows .
@@ -2797,6 +2869,11 @@ if `"`markdown'"' != "" {
 	return local markdown `"`_ret_markdown'"'
 	return scalar markdown_rows = `_ret_markdown_rows'
 	return scalar markdown_cols = `_ret_markdown_cols'
+}
+	if `"`_ret_latex'"' != "" {
+	return local latex `"`_ret_latex'"'
+	return scalar latex_rows = `_ret_latex_rows'
+	return scalar latex_cols = `_ret_latex_cols'
 }
 
 clear

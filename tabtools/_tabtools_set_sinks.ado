@@ -1,13 +1,14 @@
-*! _tabtools_set_sinks Version 1.0.0  2026/10/20
-*! Resolve and track the session workbook/Markdown targets (tabtools set)
+*! _tabtools_set_sinks Version 1.1.0  2026/10/31
+*! Resolve and track the session workbook/Markdown/LaTeX targets (tabtools set)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 
 /*
     _tabtools_set_sinks resolve , [xlsx(path) markdown(path) mdappend
-                                   cmd(name) noxlsx]
+                                   latex(path) texappend cmd(name) noxlsx]
         Fills in a sink the caller left empty from the session settings of
-        -tabtools set workbook/markdown-. An explicit option always wins.
+        -tabtools set workbook/markdown/latex-. An explicit option always
+        wins.
         noxlsx: the caller has no workbook sink of its own to fill.
         Sets in the caller (every exit path assigns):
             _ss_xlsx       resolved workbook path ("" when none)
@@ -15,8 +16,11 @@
             _ss_mdappend   "mdappend" when the Markdown write must append
             _ss_xlsx_sess  1 when _ss_xlsx came from the session
             _ss_md_sess    1 when _ss_md came from the session
+            _ss_tex        resolved LaTeX path ("" when none)
+            _ss_texappend  "texappend" when the LaTeX write must append
+            _ss_tex_sess   1 when _ss_tex came from the session
         Prints "(tabtools: using session workbook "...")" and the Markdown
-        equivalent, so the hidden target is visible in the log.
+        and LaTeX equivalents, so the hidden target is visible in the log.
 
     _tabtools_set_sinks xlsxstart [, path(file)]
         Call immediately before writing the session workbook (with path():
@@ -35,6 +39,10 @@
         Call after the session Markdown file (or file) was written; clears
         its flag so later writes append. _tabtools_markdown_write does this
         for every command.
+
+    _tabtools_set_sinks texdone [, path(file)]
+        The same for the session LaTeX file; _tabtools_latex_write does this
+        for every command.
 */
 
 program define _tabtools_set_sinks, nclass
@@ -46,13 +54,19 @@ program define _tabtools_set_sinks, nclass
     local _a ""
     local _xs 0
     local _ms 0
+    local _t ""
+    local _ta ""
+    local _ts 0
     gettoken _action 0 : 0, parse(" ,")
     capture noisily {
         if "`_action'" == "resolve" {
-            syntax , [XLSX(string) MARKdown(string) MDAPPend CMD(string) NOXLSX]
+            syntax , [XLSX(string) MARKdown(string) MDAPPend LATEX(string) ///
+                TEXAPPend CMD(string) NOXLSX]
             local _x `"`xlsx'"'
             local _m `"`markdown'"'
             local _a "`mdappend'"
+            local _t `"`latex'"'
+            local _ta "`texappend'"
             if `"`_x'"' == "" & "`noxlsx'" == "" & `"$TABTOOLS_set_workbook"' != "" {
                 local _x `"$TABTOOLS_set_workbook"'
                 local _xs 1
@@ -69,6 +83,18 @@ program define _tabtools_set_sinks, nclass
                 if `_wr' local _a "mdappend"
                 local _how = cond("`_a'" == "mdappend", "append", "replace")
                 display as text `"(tabtools: using session Markdown "`_m'", `_how')"'
+            }
+            if `"`_t'"' == "" & `"$TABTOOLS_set_latex"' != "" {
+                local _t `"$TABTOOLS_set_latex"'
+                local _ts 1
+                * Same rule as Markdown: the first write since tabtools set
+                * latex replaces the file, every later one appends, and a
+                * file this session already wrote is never replaced.
+                if "$TABTOOLS_set_latex_fresh" != "1" local _ta "texappend"
+                mata: st_local("_wr", strofreal(_tt_ss_iswritten(st_local("_t"))))
+                if `_wr' local _ta "texappend"
+                local _how = cond("`_ta'" == "texappend", "append", "replace")
+                display as text `"(tabtools: using session LaTeX "`_t'", `_how')"'
             }
         }
         else if inlist("`_action'", "xlsxstart", "xlsxdone") {
@@ -113,6 +139,19 @@ program define _tabtools_set_sinks, nclass
                 if `_hit' mata: _tt_ss_mark(st_local("path"))
             }
         }
+        else if "`_action'" == "texdone" {
+            syntax [, PATH(string)]
+            if `"`path'"' == "" local path `"$TABTOOLS_set_latex"'
+            if `"`path'"' != "" {
+                local _hit = `"$TABTOOLS_set_latex"' != ""
+                if `_hit' {
+                    mata: st_local("_hit", strofreal(_tt_ss_abs(st_local("path")) == ///
+                        _tt_ss_abs(st_global("TABTOOLS_set_latex"))))
+                }
+                if `_hit' global TABTOOLS_set_latex_fresh 0
+                if `_hit' mata: _tt_ss_mark(st_local("path"))
+            }
+        }
         else if "`_action'" == "normalize" {
             * The absolute normalised spelling of path() in _ss_abs, and in
             * _ss_written whether this session already wrote that file.
@@ -137,6 +176,9 @@ program define _tabtools_set_sinks, nclass
         c_local _ss_mdappend "`_a'"
         c_local _ss_xlsx_sess `_xs'
         c_local _ss_md_sess `_ms'
+        c_local _ss_tex `"`_t'"'
+        c_local _ss_texappend "`_ta'"
+        c_local _ss_tex_sess `_ts'
     }
     if `rc' exit `rc'
 end
