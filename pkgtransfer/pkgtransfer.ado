@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.0  2026/10/28
+*! pkgtransfer Version 1.0.1  2026/11/02
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 * Writes an online reinstall script, or an offline bundle (do-file + ZIP),
@@ -554,6 +554,16 @@ quietly{
 				append using "`src_desc'"
 				save "`src_desc'", replace
 			}
+			* Files a read descriptor declares with an h record need g records
+			tempfile h_files
+			use "`src_desc'", clear
+			keep if substr(lower(v1),1,2) == "h "
+			gen file_base = regexr(subinstr(word(v1, 2), "\", "/", .), "^.*/", "")
+			keep package file_base
+			if _N > 0 duplicates drop
+			gen byte h_record = 1
+			save "`h_files'", replace
+
 			use "`src_desc'", clear
 			keep if substr(lower(v1),1,2) == "g "
 			gen file_base = cond(word(v1, 4) != "", word(v1, 4), word(v1, 3))
@@ -570,8 +580,19 @@ quietly{
 				if substr(v1,1,2) == "f "
 			merge m:1 package file_base using "`platform_files'", ///
 				keep(1 3) nogen
+			* A .plugin that a read descriptor lists only as a plain f record
+			* (gtools) ships for every OS and is bundled from PLUS like any
+			* file; unread descriptors and h records keep the platform route
+			merge m:1 package file_base using "`h_files'", keep(1 3) nogen
+			replace h_record = 0 if missing(h_record)
+			tempvar desc_ok
+			gen byte `desc_ok' = 0
+			foreach name of local _desc_read {
+				replace `desc_ok' = 1 if package == "`name'"
+			}
 			replace platform_route = 1 if substr(v1,1,2) == "f " & ///
-				regexm(file_base, "\.plugin$")
+				regexm(file_base, "\.plugin$") & (!`desc_ok' | h_record)
+			drop `desc_ok' h_record
 			replace platform_route = 0 if missing(platform_route)
 			sort `record_order'
 			drop file_base `record_order'
@@ -603,7 +624,7 @@ quietly{
 						_pkgtransfer_prepare_destination, ///
 							root("pkgtransfer_files") ///
 							relative(`"`destination'"') registry(`_bundle_registry') ///
-                            owner(`"`=package[`i']':`source'"')
+                            owner(`"local:`source'"')
 						capture copy `"`source'"' ///
 							`"pkgtransfer_files/`destination'"', replace
 					if _rc {

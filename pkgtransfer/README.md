@@ -2,9 +2,9 @@
 
 # pkgtransfer — Move your installed packages to another machine
 
-**Version 1.0.0** | 2026-10-28
+**Version 1.0.1** | 2026-11-02
 
-[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -176,7 +176,7 @@ pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(
 | `download(online)` or `download(local)` | The installer do-file plus `pkgtransfer_files.zip`, or the name supplied by `zipfile()`; the archive contains package descriptors, package files, and `stata.toc` |
 | `restore` | The current PLUS `stata.trk` is rewritten when backup URLs are present, after a copy is saved as `stata.trk.backup` (numbered `stata.trk.backup1`, ... if that name is taken) |
 
-Bundle creation rejects conflicting source identities at the same archive path, including reserved descriptors and `stata.toc`.
+Bundle creation rejects conflicting source identities at the same archive path, including reserved descriptors and `stata.toc`. With `download(local)`, a file that two packages both install (such as `reghdfe5.mata` in `reghdfe` and `ppmlhdfe`) is bundled once from the installed copy.
 
 An existing do-file or archive is not overwritten unless `replace` is specified (error 602 otherwise, before anything is written). Bundle creation stages its files in a unique temporary directory, so an existing `pkgtransfer_files` folder (the one an offline installer unpacks next to its archive) is never archived, deleted or in the way of a later bundle run. The staging directory is removed after success and after an error. The generated offline installer references the file name of the archive selected by `zipfile()` (without its directory), uses only local macros, restores the caller's working directory, and stops if a package cannot be installed.
 
@@ -232,6 +232,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.0.1** (2026-11-02): `download(local)` now bundles a `.plugin` that the source descriptor lists as a plain `f` record for every OS (as `gtools` does) instead of stopping with r(498) "has no platform record"; a plugin declared by an `h` record still needs its `g` records. `download(local)` also bundles a file that two packages both install (for example `reghdfe5.mata`, shipped by `reghdfe` and `ppmlhdfe`) once, from the installed copy, instead of stopping with r(459) "Conflicting bundle destination"; the destination then matches this machine. `download(online)` still refuses such collisions.
 - **1.0.0** (2026-10-28): Version number reset to 1.0.0 for the first SSC release. No change to command behaviour since 1.2.2; the entries below are the pre-SSC development history.
 - **1.2.2** (2026-10-13): The "Copying OS-specific plugins from online..." progress line is now printed only when the bundle has platform-specific files to fetch; a bundle without them (including every plain `download(local)` bundle) no longer claims to go online. Demo output is stable: the restore log shows `<PLUS>` instead of a random temporary path. Bundle creation now stages in a unique temporary directory instead of `./pkgtransfer_files`, so running the offline installer (which unpacks into `pkgtransfer_files`) no longer makes the next bundle run in the same directory fail with r(602); the README examples now run in order in one directory, with Worked Examples 2 to 4 writing to distinct file names (`online_bundle.*`, `local_setup.*`, `all_packages.do`) because a run refuses to overwrite `pkgtransfer.do` or `pkgtransfer_files.zip` without `replace`.
 - **1.2.1** (2026-10-12): `download(local)` on a machine set up from a bundle whose `pkgtransfer_files` folder has been removed now stops with error 601, naming the package and `pkgtransfer, restore`, instead of failing with a bare `file not found` (plugin packages) or shipping this machine's build of a `g`/`G` file under another `os()` (other platform files). An unreadable descriptor for a `.plugin` package names the package, the descriptor, and `skip()`. The help no longer suggests `download()` combined with `restore` for such a machine, and the `.pkg` description is accurate.

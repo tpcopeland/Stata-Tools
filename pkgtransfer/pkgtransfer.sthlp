@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  28oct2026}{...}
+{* *! version 1.0.1  02nov2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -75,7 +75,9 @@ files cannot be identified without the descriptor. For the second case, run
 read. By default, every OS variant is bundled; explicitly specifying
 {opt os()} limits platform files and descriptor records to that OS. A
 {cmd:g}-installed file with no record for the requested OS is an error
-(r(498)), as is a {cmd:.plugin} file with no platform record at all. Bundled
+(r(498)), as is a {cmd:.plugin} file declared by an {cmd:h} record with no
+platform record at all. A {cmd:.plugin} that the descriptor lists as a plain
+{cmd:f} record ships for every OS and is bundled from PLUS like any other file. Bundled
 descriptors keep {cmd:F} records, so data or other non-ado files that the source
 forced into the system directories are installed there on the
 destination; {opt download(local)} writes every tracked file as an {cmd:F} record,
@@ -295,7 +297,8 @@ so an older copy on the destination is upgraded.
 
 {pstd}
 Bundle creation refuses conflicting payload paths and paths reserved for package
-descriptors or stata.toc. The temporary staging directory is removed after
+descriptors or stata.toc. With {opt download(local)}, a file that two packages
+both install is not a conflict: the one installed copy is bundled once. The temporary staging directory is removed after
 bundling, whether it succeeds or fails. GitHub-origin entries need
 github on the destination; when github itself is selected, its generated command
 uses net install to bootstrap it.
@@ -305,7 +308,7 @@ uses net install to bootstrap it.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-28{p_end}
+{pstd}Version 1.0.1, 2026-11-02{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

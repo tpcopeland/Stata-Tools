@@ -226,13 +226,18 @@ capture noisily {
 
     _pkgtransfer_v111_fixture, work("`work'") plus("`plus'") ordinary
     cd "`work'"
-    foreach mode in local online {
-        capture noisily pkgtransfer, download(`mode') limited(alpha beta)
-        local rc = _rc
-        assert `rc' == 459
-        capture confirm file pkgtransfer_files.zip
-        assert _rc == 601
-    }
+    * 1.0.1: download(local) bundles the one installed copy both packages
+    * track (the destination then matches this machine); online still refuses
+    capture noisily pkgtransfer, download(local) limited(alpha beta)
+    assert _rc == 0
+    confirm file pkgtransfer_files.zip
+    erase pkgtransfer_files.zip
+    erase pkgtransfer.do
+    capture noisily pkgtransfer, download(online) limited(alpha beta)
+    local rc = _rc
+    assert `rc' == 459
+    capture confirm file pkgtransfer_files.zip
+    assert _rc == 601
 }
 local rc = _rc
 if `rc' == 0 local ++pass

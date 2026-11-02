@@ -135,7 +135,7 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 | [datefix](datefix) | Messy imported date strings to Stata dates in one step: infers day/month order, keeps the raw values if you want, and lists every value that won't convert | ![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square) |
 | [fvgen](fvgen) | Turn factor-variable terms like `i.a##c.b` into real, labeled variables, so interaction models export with readable row names and the same estimable design | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square) |
-| [pkgtransfer](pkgtransfer) | Rebuild your Stata package setup on another machine: a one-file reinstall do-file, or an offline ZIP for servers with no internet | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
+| [pkgtransfer](pkgtransfer) | Rebuild your Stata package setup on another machine: a one-file reinstall do-file, or an offline ZIP for servers with no internet | ![version](https://img.shields.io/badge/version-1.0.1-1a5f91?style=flat-square) |
 | [rangematch](rangematch) | Range joins without the `joinby` blowup: match points to intervals or intervals to overlapping intervals by binary search and plane sweep, from a file or frame | ![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) |
 
 ### Cohorts, registries, and time-varying data
