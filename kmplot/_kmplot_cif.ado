@@ -1,4 +1,4 @@
-*! _kmplot_cif Version 1.0.1  2026/10/30
+*! _kmplot_cif Version 1.0.2  2026/11/04
 *! Aalen-Johansen cumulative incidence with a competing event, for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

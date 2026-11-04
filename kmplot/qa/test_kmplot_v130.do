@@ -272,12 +272,14 @@ foreach sch in s2color s1mono s1color sj {
         local last_right = `last_x' + `r(w)' * `last_fs' / 2
         assert `last_right' < `width' - 3
 
-        * (7) each panel carries the other's labels invisibly: that is what
-        * makes the two label columns, and so the two time axes, the same
-        * width.  A style option leaking across the whole axis would blank
-        * the visible set.
+        * (7) the group labels are drawn once, visibly, in the risk panel,
+        * and the risk panel still reserves the main y labels invisibly.
+        * Through 1.0.1 the main panel also carried the group labels
+        * invisibly to equalise the label columns; 1.0.2 measures the panels
+        * and pads instead (alignment is asserted in (2) above).  A style
+        * option leaking across the whole axis would blank the visible set.
         assert `grp_vis' == 1
-        assert `grp_inv' == 1
+        assert `grp_inv' == 0
         assert `ylab_vis' == 1
         assert `ylab_inv' == 1
 

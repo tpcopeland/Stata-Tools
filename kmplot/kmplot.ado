@@ -1,4 +1,4 @@
-*! kmplot Version 1.0.1  2026/10/30
+*! kmplot Version 1.0.2  2026/11/04
 *! Publication-ready Kaplan-Meier survival, cumulative failure and cumulative incidence plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -54,7 +54,7 @@ program define kmplot, rclass
             TItle(string asis) SUBtitle(string asis) ///
             XTItle(string asis) YTItle(string asis) ///
             XLAbel(string asis) YLAbel(string asis) ///
-            LEGend(string asis) NOTE(string asis) ///
+            LEGend(string asis) LEGENDPos(string) NOTE(string asis) ///
             SCHeme(string) NAME(string asis) ASPectratio(string) ///
             EXPort(string asis) SAVing(string asis) RISKSAVing(string asis) ///
             COMPete(string asis) RISKWeight(string) RISKMASK(string asis) NORISKMASK ///
@@ -181,6 +181,15 @@ program define kmplot, rclass
         if `"`combineopts'"' != "" & "`risktable'" == "" {
             noisily display as error "combineopts() requires risktable"
             exit 198
+        }
+        * combineopts(nodraw) leaves the combined graph undrawn too
+        if `"`export'"' != "" & `"`macval(combineopts)'"' != "" {
+            _kmplot_nodraw `macval(combineopts)'
+            if `_km_nodraw' {
+                noisily display as error "export() cannot be combined with nodraw: graph export needs a drawn graph"
+                noisily display as error "omit nodraw, or run {bf:graph display} and {bf:graph export} afterwards"
+                exit 198
+            }
         }
 
         * Risk-table count basis and masking
@@ -482,7 +491,25 @@ program define kmplot, rclass
         if "`cistyle'" == "" local cistyle "band"
         if "`citransform'" == "" local citransform "loglog"
         if "`lwidth'" == "" local lwidth "medthick"
+        local _km_pvpos_given = ("`pvaluepos'" != "")
         if "`pvaluepos'" == "" local pvaluepos "bottomright"
+        * legendpos(): auto puts the legend where the curves are not --
+        * top right for survival curves (which start at the top left and
+        * fall), top left for failure and incidence curves (which start at
+        * the bottom left and rise).
+        * auto names no corner: only an explicit corner counts as given
+        local _km_legpos_given = !inlist(lower(strtrim("`legendpos'")), "", "auto")
+        local legendpos = lower(strtrim("`legendpos'"))
+        if "`legendpos'" == "" local legendpos "auto"
+        if !inlist("`legendpos'", "auto", "topleft", "topright", "bottomleft", "bottomright") {
+            noisily display as error "legendpos() must be {bf:auto}, {bf:topleft}, {bf:topright}, {bf:bottomleft}, or {bf:bottomright}"
+            exit 198
+        }
+        if "`legendpos'" == "auto" {
+            local legendpos = cond(`has_compete' | "`failure'" != "", "topleft", "topright")
+        }
+        local _km_legclock = cond("`legendpos'" == "topleft", 11, ///
+            cond("`legendpos'" == "topright", 1, cond("`legendpos'" == "bottomleft", 7, 5)))
         if "`pvaluepos'" != "" & ///
             !inlist("`pvaluepos'", "topleft", "topright", "bottomleft", "bottomright") {
             noisily display as error "pvaluepos() must be {bf:topleft}, {bf:topright}, {bf:bottomleft}, or {bf:bottomright}"
@@ -558,6 +585,14 @@ program define kmplot, rclass
             mata: st_local("_sub_" + st_local("_ttl"), st_local("_km_tx_opts"))
             local _size_`_ttl' "`_km_tx_size'"
             local _given_`_ttl' = `_km_tx_given'
+        }
+        * With a risk table kmplot sets the y title's margin to line the two
+        * panels up; a second margin() made Stata stop with r(198).
+        if "`risktable'" != "" & ///
+            ustrregexm(lower(`"`macval(_sub_ytitle)'"'), "(^|[^a-z_])m(a(r(g(in?)?)?)?)?[ ]*\(") {
+            noisily display as error "ytitle() sub-option margin() is not allowed with risktable;"
+            noisily display as error "kmplot sets the y title's margin to align the curve and risk-table panels"
+            exit 198
         }
         if !`_given_ytitle' {
             if `has_compete' {
@@ -743,12 +778,22 @@ program define kmplot, rclass
             local _bo_list "`r(numlist)'"
             local _bo_new ""
             foreach _bo of local _bo_list {
+                * An exact match wins; otherwise one level equal at float
+                * precision (a float by() variable typed in decimal).  Two such
+                * levels cannot be told apart, so that is an error, not a pick.
                 local _bo_hit = 0
+                local _bo_fhits ""
                 local g = 0
                 foreach lev of local bylevels {
                     local ++g
-                    if `lev' == `_bo' | float(`lev') == float(`_bo') local _bo_hit = `g'
+                    if `lev' == `_bo' local _bo_hit = `g'
+                    else if float(`lev') == float(`_bo') local _bo_fhits "`_bo_fhits' `g'"
                 }
+                if `_bo_hit' == 0 & `: word count `_bo_fhits'' > 1 {
+                    noisily display as error "byorder(): `_bo' matches more than one level of `by' at float precision; type the level in full"
+                    exit 198
+                }
+                if `_bo_hit' == 0 & "`_bo_fhits'" != "" local _bo_hit = `_bo_fhits'
                 if `_bo_hit' == 0 {
                     noisily display as error "byorder(): `_bo' is not a level of `by' in the analysis sample"
                     exit 198
@@ -1178,14 +1223,13 @@ program define kmplot, rclass
                 local rt_mask_opt `"mask(`riskmask_k') masktext(`riskmask_text')"'
             }
 
-            _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
-                colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
-                graphname(`_kmplot_risk_graph') ///
-                `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' ///
-                `rt_height_opt' `rt_flags' ///
-                compvar(`km_comp') riskweight(`riskweight') `rt_mask_opt' ///
-                regionopts(`macval(_km_region_only)') `rt_ylabhi_opt' ///
-                callerversion("1.0.1") toptimeaxis
+            * Kept for a second call: kmplot may redraw the risk panel with a
+            * wider title margin once it has measured both panels.  Rows added
+            * after this point (plot anchors, band rows) are not in the sample.
+            local _km_rt_args `"grpvar(`grpid') ngroups(`ngroups') colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' graphname(`_kmplot_risk_graph') `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' `rt_height_opt' `rt_flags' compvar(`km_comp') riskweight(`riskweight') `rt_mask_opt' regionopts(`macval(_km_region_only)') `rt_ylabhi_opt' callerversion("1.0.2") toptimeaxis"'
+            tempvar _km_rt_row
+            quietly gen byte `_km_rt_row' = 1
+            _kmplot_risktable, `macval(_km_rt_args)'
             matrix `risktable_mat' = r(risktable)
             matrix `risktable_w_mat' = r(risktable_w)
             matrix `risktable_f_mat' = r(risktable_flag)
@@ -1561,19 +1605,89 @@ program define kmplot, rclass
         }
 
         * --- Legend ---
+        local legend_items ""
+        forvalues g = 1/`ngroups' {
+            local elem = `legend_offset' + `g'
+            local legend_items `"`macval(legend_items)' `elem' `"`macval(_glbl`g')'"'"'
+        }
+        * The corner kmplot places the legend in; empty when there is none
+        * or when a legend() without legendpos() places it.
+        local _km_legcorner ""
         if `ngroups' == 1 & `"`legend'"' == "" {
             local legend_cmd "legend(off)"
         }
         else if `"`legend'"' != "" {
+            * A legend() that only places or styles the legend would otherwise
+            * show Stata's default keys, which here are the temporary variables'
+            * names.  Unless it names its own keys, lead with the group keys;
+            * legend() is merged-implicit, so the user's spec merges on top.
             local legend_cmd `"legend(`legend')"'
+            * Quoted text (titles, key labels) is not option syntax.
+            mata: st_local("_km_lg", ustrregexra(ustrregexra(strlower(st_local("legend")), char(96) + `"".*?""' + char(39), ""), `""[^"]*""', ""))
+            local _km_lg_raw `"`macval(_km_lg)'"'
+            * Only top-level options count: collapse every parenthesised
+            * argument, innermost first, so title("x", pos(6)) reads as
+            * title<> and cannot pass for the legend's own position().
+            local _km_lg_prev ""
+            while `"`macval(_km_lg)'"' != `"`macval(_km_lg_prev)'"' {
+                local _km_lg_prev `"`macval(_km_lg)'"'
+                local _km_lg = ustrregexra(`"`macval(_km_lg)'"', "\([^()]*\)", "<>")
+            }
+            if !ustrregexm(`"`macval(_km_lg)'"', "(^|[^a-z_])(order|label|lastlabel)[ ]*<>") {
+                local legend_cmd `"legend(order(`macval(legend_items)')) `macval(legend_cmd)'"'
+            }
+            * legendpos() with legend(): place it in that corner, inside the
+            * plot; the user's own position() or ring() still wins.
+            if `_km_legpos_given' & !ustrregexm(`"`macval(_km_lg)'"', "(^|[^a-z_])off($|[^a-z_])") {
+                local legend_cmd `"legend(position(`_km_legclock') ring(0) cols(1)) `macval(legend_cmd)'"'
+                * The legend stays in that corner unless the user's legend()
+                * moves it: its own position(), or a ring() other than 0
+                * (outside the plot).  ring(0) alone keeps the corner.
+                local _km_legcorner "`legendpos'"
+                if ustrregexm(`"`macval(_km_lg)'"', "(^|[^a-z_])pos(i(t(i(on?)?)?)?)?[ ]*<>") {
+                    local _km_legcorner ""
+                }
+                if ustrregexm(`"`macval(_km_lg)'"', "(^|[^a-z_])ring[ ]*<>") & ///
+                    !ustrregexm(`"`macval(_km_lg_raw)'"', "(^|[^a-z_])ring[ ]*\([ ]*0*[ ]*\)") {
+                    local _km_legcorner ""
+                }
+            }
         }
         else {
-            local legend_items ""
-            forvalues g = 1/`ngroups' {
-                local elem = `legend_offset' + `g'
-                local legend_items `"`macval(legend_items)' `elem' `"`macval(_glbl`g')'"'"'
+            local legend_cmd `"legend(order(`macval(legend_items)') cols(1) position(`_km_legclock') ring(0) size(vsmall) region(lcolor(none) fcolor(none)) symxsize(8) keygap(1))"'
+            local _km_legcorner "`legendpos'"
+        }
+        * The p-value text has a corner of its own (bottomright by default).
+        * Never share one with the legend: an explicit clash is an error, and
+        * whichever of the two kmplot placed moves to the next corner the
+        * curves leave empty -- top left, then bottom right, for rising
+        * failure and incidence curves; bottom left, then top right, for
+        * falling survival curves.
+        if "`pvalue'" != "" & `"`pvalueat'"' == "" & "`_km_legcorner'" == "`pvaluepos'" {
+            if `_km_pvpos_given' & `_km_legpos_given' {
+                noisily display as error "legendpos() and pvaluepos() may not name the same corner"
+                exit 198
             }
-            local legend_cmd `"legend(order(`macval(legend_items)') cols(1) position(1) ring(0) size(vsmall) region(lcolor(none) fcolor(none)) symxsize(8) keygap(1))"'
+            local _km_free "bottomleft topright topleft bottomright"
+            if `has_compete' | "`failure'" != "" local _km_free "topleft bottomright topright bottomleft"
+            local _km_taken "`pvaluepos'"
+            foreach _km_c of local _km_free {
+                if "`_km_c'" != "`_km_taken'" {
+                    local _km_next "`_km_c'"
+                    continue, break
+                }
+            }
+            if `_km_pvpos_given' {
+                * the legend's corner was automatic: move the legend
+                local legendpos "`_km_next'"
+                local _km_legclock = cond("`legendpos'" == "topleft", 11, ///
+                    cond("`legendpos'" == "topright", 1, cond("`legendpos'" == "bottomleft", 7, 5)))
+                local legend_cmd `"legend(order(`macval(legend_items)') cols(1) position(`_km_legclock') ring(0) size(vsmall) region(lcolor(none) fcolor(none)) symxsize(8) keygap(1))"'
+                local _km_legcorner "`legendpos'"
+            }
+            else {
+                local pvaluepos "`_km_next'"
+            }
         }
 
         * Graph's internal parser expands macros again. Encode macro delimiters
@@ -1597,11 +1711,12 @@ program define kmplot, rclass
         if `"`macval(subtitle)'"' != "" {
             local tw_opts `"`macval(tw_opts)' subtitle(`macval(_plot_subtitle)', size(`_tsz_subtitle') `macval(_sub_subtitle)')"'
         }
-        * With a risk table the y title carries the same right margin as the risk
-        * panel's, so the two label columns start at the same place.
+        * With a risk table the y title keeps the risk panel's minimum title
+        * gap (2, as in _kmplot_risktable), as through 1.0.1 with short group
+        * labels; kmplot pads its left margin below to align the panels.
         local ytitle_margin ""
         if "`risktable'" != "" {
-            local ytitle_margin "margin(r=`risk_title_gap')"
+            local ytitle_margin "margin(r=2)"
         }
         local tw_opts `"`macval(tw_opts)' xtitle(`macval(_plot_xtitle)', size(`_tsz_xtitle') `macval(_sub_xtitle)') ytitle(`macval(_plot_ytitle)', size(`_tsz_ytitle') `ytitle_margin' `macval(_sub_ytitle)')"'
 
@@ -1745,28 +1860,8 @@ program define kmplot, rclass
             else {
                 local rt_main_xlabel "xlabel(`risk_timepoints', labsize(small) noticks nogrid labcolor(none))"
             }
-            * The risk panel prints the group labels in its y-axis label column.
-            * Reserve exactly that width here with the same strings, drawn
-            * invisibly, so both panels' label columns -- and therefore both time
-            * axes -- come out identical without any tuned margin.  Positions are
-            * placed inside the main y range at values a user's ylabel() will not
-            * land on, since a collision would make ylabel(..., add) replace one
-            * of the visible labels.
-            local _gy_lo = `ylab_lo'
-            local _gy_hi = `ylab_hi'
-            if `_gy_hi' <= `_gy_lo' {
-                local _gy_lo = 0
-                local _gy_hi = `plot_scale'
-            }
-            local rt_grp_ylabels ""
-            forvalues g = 1/`ngroups' {
-                local _gy = `_gy_lo' + (0.37 + 0.0137 * `g') * (`_gy_hi' - `_gy_lo')
-                local rt_grp_ylabels `"`macval(rt_grp_ylabels)' `_gy' `"`macval(_glbl`g')'"'"'
-            }
-            local rt_grp_ylabel_cmd `"ylabel(`macval(rt_grp_ylabels)', add custom angle(0) labsize(small) labgap(`risk_row_labgap') labcolor(none) tlcolor(none) nogrid)"'
-
-            local rt_main_opts `"xtitle("") `rt_main_xlabel' `macval(rt_grp_ylabel_cmd)' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
-            twoway `macval(tw_layers)', `macval(tw_opts)' `macval(rt_main_opts)' ///
+            local rt_main_base `"xtitle("") `rt_main_xlabel' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
+            twoway `macval(tw_layers)', `macval(tw_opts)' `macval(rt_main_base)' ///
                 nodraw name(`_kmplot_main_graph', replace)
 
             local combine_note `"note("")"'
@@ -1776,8 +1871,8 @@ program define kmplot, rclass
             * xcommon rescales both panels to one x range, and Stata rounds
             * that range up to its default ticks: tmax(12) was drawn on a 0-15
             * axis with blank space after 12.  With tmax() both panels are
-            * built to span [0, tmax], and the invisible label columns give
-            * them the same width, so they align without xcommon.  Read the
+            * built to span [0, tmax], and the padding below gives their plot
+            * regions the same left edge, so they align without xcommon.  Read the
             * ranges the two panels were built with: when a passthrough option
             * such as xscale(range()) widened the main panel, they differ and
             * xcommon puts the risk table on the same range.
@@ -1798,6 +1893,123 @@ program define kmplot, rclass
                 }
                 if `_km_xsame' local _km_xcommon ""
             }
+            * The risk panel's y-axis column holds the group labels, the curve
+            * panel's the y labels and title, so the two plotting regions -- and
+            * time axes -- start at different places.  Through 1.0.1 the curve
+            * panel carried the group labels invisibly to equalise the columns,
+            * which stranded its title far from its labels and still drifted
+            * (graph combine sizes each column from its own text metrics: a
+            * large title, wide y labels or a very long group label broke the
+            * alignment).  Instead, lay both panels out in the very combine
+            * drawn below, with graphics off, read where Stata put each
+            * plotting region, and pad the y title's left margin (a signed
+            * value is an increment) of the panel that starts further left,
+            * until both start at the same x.  The title stays beside its
+            * labels; the padding is blank space to its left.  Device units
+            * convert to margin units through each panel's _gbeta *
+            * drawn_gmult; once the labels need more width than the panel
+            * has, Stata compresses the column and a margin unit moves it less,
+            * so each step's measured response replaces that rate (secant).
+            local _km_probe_opts `"cols(1) `_km_xcommon' imargin(0 0 0 0) scheme(`scheme') `macval(_km_region_opts)' `macval(combine_note)'"'
+            if `"`macval(combineopts)'"' != "" {
+                * A name() or saving() in combineopts must not act on the probe.
+                _kmplot_probeopts `macval(combineopts)'
+                local _km_probe_opts `"`macval(_km_probe_opts)' `s(opts)'"'
+            }
+            * An empty title ignores its margins; a blank one keeps them.
+            local _km_yt_text ""
+            if `"`macval(ytitle)'"' == "" local _km_yt_text `"" ""'
+            local _km_main_pad = 0
+            local _km_risk_pad = 0
+            tempname _km_probe_comb
+            local _km_graphics "`c(graphics)'"
+            quietly set graphics off
+            capture noisily {
+                local _km_new_main = 0
+                local _km_new_risk = 0
+                local _km_last ""
+                local _km_sm = .
+                local _km_sr = .
+                local _km_dx_prev = .
+                local _km_dpad = 0
+                local _km_squeezed = 0
+                local _km_unaligned = 0
+                forvalues _km_it = 1/8 {
+                    if `_km_new_main' {
+                        * = rather than a display format, which set dp comma
+                        * would turn into a decimal comma inside margin()
+                        local _km_l = round(`_km_main_pad', 1e-6)
+                        twoway `macval(tw_layers)', `macval(tw_opts)' `macval(rt_main_base)' ///
+                            ytitle(`_km_yt_text', margin(l=+`_km_l')) ///
+                            nodraw name(`_kmplot_main_graph', replace)
+                    }
+                    if `_km_new_risk' {
+                        _kmplot_rt_redraw `_km_rt_row' `_km_risk_pad' `macval(_km_rt_args)'
+                    }
+                    _kmplot_measure `_kmplot_main_graph' `_kmplot_risk_graph' `_km_probe_comb' `macval(_km_probe_opts)'
+                    local _km_dx = r(main_x0) - r(risk_x0)
+                    local _km_k = r(main_k)
+                    local _km_rk = r(risk_k)
+                    if missing(`_km_dx', `_km_k', `_km_rk') continue, break
+                    if missing(`_km_sm') local _km_sm = `_km_k'
+                    if missing(`_km_sr') local _km_sr = `_km_rk'
+                    if "`_km_last'" != "" & `_km_dpad' != 0 {
+                        local _km_obs = (`_km_dx' - `_km_dx_prev') / `_km_dpad'
+                        if "`_km_last'" == "risk" local _km_obs = -`_km_obs'
+                        local _km_ref = cond("`_km_last'" == "main", `_km_k', `_km_rk')
+                        if `_km_obs' > 0.05 * `_km_ref' {
+                            local _km_s`=substr("`_km_last'", 1, 1)' = min(`_km_obs', 2 * `_km_ref')
+                        }
+                        * Short of the full unit: the curve panel's plot cannot
+                        * narrow that far (its legend sets a minimum width), so
+                        * Stata squeezes the y-axis column and the title can
+                        * land on its labels.  The table is still aligned (the
+                        * note below says how to make room) unless even that
+                        * runs out of room, which a second note reports.
+                        if `_km_obs' < 0.9 * `_km_ref' & "`_km_last'" == "main" {
+                            local _km_squeezed = 1
+                        }
+                    }
+                    * A twentieth of a margin unit is well under a pixel.
+                    if abs(`_km_dx') < 0.05 * `_km_k' continue, break
+                    if `_km_it' == 8 {
+                        local _km_unaligned = 1
+                        continue, break
+                    }
+                    local _km_new_main = 0
+                    local _km_new_risk = 0
+                    local _km_dx_prev = `_km_dx'
+                    * Pad the curve panel, or take back its padding, before
+                    * redrawing the risk panel.
+                    if `_km_dx' < 0 | `_km_main_pad' > 0 {
+                        local _km_np = max(0, `_km_main_pad' - `_km_dx' / `_km_sm')
+                        local _km_dpad = `_km_np' - `_km_main_pad'
+                        local _km_main_pad = `_km_np'
+                        local _km_new_main = 1
+                        local _km_last "main"
+                    }
+                    else {
+                        local _km_dpad = `_km_dx' / `_km_sr'
+                        local _km_risk_pad = `_km_risk_pad' + `_km_dpad'
+                        local _km_new_risk = 1
+                        local _km_last "risk"
+                    }
+                }
+            }
+            local _km_probe_rc = _rc
+            quietly set graphics `_km_graphics'
+            * stata-dev-ignore: capture-rc, capture_rc — cleanup; the probe graph is absent if the first combine failed
+            capture graph drop `_km_probe_comb'
+            if `_km_probe_rc' exit `_km_probe_rc'
+            if `_km_unaligned' {
+                noisily display as text "note: the risk-table group labels leave the curve panel too little width to line the risk table up with the"
+                noisily display as text "      curves' time axis; shorten the group labels or widen the graph, e.g. combineopts(xsize(#))"
+            }
+            else if `_km_squeezed' {
+                noisily display as text "note: the risk-table group labels leave the curve panel too little width, so Stata squeezed its y axis and the"
+                noisily display as text "      y title may overlap its labels; shorten the group labels or widen the graph, e.g. combineopts(xsize(#))"
+            }
+
             * The user's region and size options also shape the combined
             * graph; combineopts() goes last, so it wins.
             graph combine `_kmplot_main_graph' `_kmplot_risk_graph', ///
@@ -2078,6 +2290,9 @@ program define kmplot, rclass
     if `"`risk_saved'"' != "" {
         return local risksaving `"`risk_saved'"'
     }
+    if "`_km_legcorner'" != "" {
+        return local legendpos "`_km_legcorner'"
+    }
     if "`pvalue'" != "" {
         return local pvalue_text `"`macval(pval_text)'"'
         return local pvalue_label `"`macval(pvalue_label)'"'
@@ -2349,3 +2564,45 @@ program define _kmplot_scrub
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
+
+* Lay out the curve and risk panels in the combine kmplot draws and return
+* where Stata put them, in device units: each plotting region's left edge and
+* each panel's device units per margin unit.
+* Graphics must be off.  Arguments: main graph, risk graph, probe name, then
+* the combine options.
+capture program drop _kmplot_measure
+program define _kmplot_measure, rclass
+    gettoken _main 0 : 0
+    gettoken _risk 0 : 0
+    gettoken _pname 0 : 0
+    graph combine `_main' `_risk', `macval(0)' name(`_pname', replace)
+    return scalar main_x0 = `.`_pname'.plotregion1.graph1.plotregion1.gdi_x0'
+    return scalar risk_x0 = `.`_pname'.plotregion1.graph2.plotregion1.gdi_x0'
+    return scalar main_k = `.`_pname'.plotregion1.graph1._gbeta' * `.`_pname'.plotregion1.graph1.drawn_gmult'
+    return scalar risk_k = `.`_pname'.plotregion1.graph2._gbeta' * `.`_pname'.plotregion1.graph2.drawn_gmult'
+end
+
+* Redraw the risk panel with a wider title margin, from the rows the first call
+* saw (kmplot has since added plot-only rows).  Its r() results are the first
+* call's and are not reread.  Arguments: row marker, title pad, helper options.
+capture program drop _kmplot_rt_redraw
+program define _kmplot_rt_redraw
+    gettoken _row 0 : 0
+    gettoken _pad 0 : 0
+    preserve
+    quietly keep if `_row' == 1
+    quietly _kmplot_risktable, `macval(0)' titlepad(`_pad')
+    restore
+end
+
+* combineopts() less the options that must not act on a layout probe.
+capture program drop _kmplot_probeopts
+program define _kmplot_probeopts, sclass
+    sreturn clear
+    local _all `"`macval(0)'"'
+    local 0 `", `macval(0)'"'
+    capture syntax [, SAVing(string asis) NAME(string asis) NODRAW *]
+    if _rc local options `"`macval(_all)'"'
+    sreturn local opts `"`macval(options)'"'
+end
+

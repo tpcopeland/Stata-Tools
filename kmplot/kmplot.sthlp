@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30oct2026}{...}
+{* *! version 1.0.2  04nov2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -91,6 +91,7 @@ failure, and competing-risk cumulative incidence plots{p_end}
 {synopt:{opt per:cent}}plot on the percent scale{p_end}
 {synopt:{opt tmax(#)}}stop curves, axis, and risk table at {it:#}{p_end}
 {synopt:{opt leg:end(string)}}custom legend specification{p_end}
+{synopt:{opt legendp:os(string)}}legend corner inside the plot; default {bf:auto}{p_end}
 {synopt:{opt note(string)}}graph note{p_end}
 
 {syntab:Output}
@@ -165,7 +166,10 @@ for example, {cmd:compete(cause == 2)} rather than {cmd:compete(death)} when
 {opt pvalue} (Gray's test is not implemented) or {opt median}. {it:exp} is a
 single expression: a comma outside parentheses and quotes is an error
 (r(198)). If {it:exp} is true on no record of the analysis sample, a note
-says so, and the curve then equals 1 minus the Kaplan-Meier estimate. See
+says so, and the curve then equals 1 minus the Kaplan-Meier estimate. Only
+the point estimates agree: {opt ci} bounds are transformed on the incidence
+scale, ln(-ln F) under {cmd:citransform(loglog)}, so they differ from the
+inverted survival bounds of {opt failure}. See
 {it:{help kmplot##methods:Method notes}}.{p_end}
 
 {phang}{opt byorder(numlist)} gives the order of the {opt by()} levels for
@@ -234,7 +238,15 @@ is, outside the plotting region, so the table's time origin coincides with
 the main plot's y axis and the two time axes align without inserting blank
 space inside either plotting region. Schemes that place the y axis on the
 right-hand side, such as {cmd:economist}, mirror that column and are not
-supported with {opt risktable}.{p_end}
+supported with {opt risktable}. {cmd:kmplot} lays both panels out before
+drawing, with graphics off, and widens the left margin of the y title of
+whichever panel starts further left until the two plotting regions start at
+the same place. When the group labels are so long that the main plot cannot
+narrow that far, Stata squeezes its y axis, so the y title may overlap its
+labels; {cmd:kmplot} keeps the table aligned and prints a note. Labels longer
+still can leave too little width to align the table at all, and a note says
+so. Either way, shorten the group labels or widen the graph, for example with
+{cmd:combineopts(xsize(10))}.{p_end}
 
 {phang}Under {cmd:stset} probability or importance weights the table counts
 people by default (see {opt riskweight()}), while the curve stays weighted. With
@@ -427,7 +439,10 @@ error (r(198)); give {opt timepoints()} as well. Positions beyond
 {phang}{opt ytitle(string)} sets the y-axis title. The default is "Survival
 probability", "Cumulative failure", or "Cumulative incidence", according to
 the plot type; with {opt percent}, "Survival (%)", "Cumulative failure (%)",
-or "Cumulative incidence (%)".{p_end}
+or "Cumulative incidence (%)". With {opt risktable}, the title sits beside
+the y-axis labels however long the group labels are, and {cmd:kmplot} sets its
+margin to line the two panels up (see {opt risktable}), so a {cmd:margin()}
+suboption is an error (r(198)).{p_end}
 
 {phang}{opt ylabel(string)} sets y-axis labels. Without it, survival plots
 use {cmd:0(0.25)1} ({cmd:0(25)100} with {opt percent}), and failure and
@@ -466,7 +481,25 @@ follows the same range.{p_end}
 
 {phang}{opt legend(string)} supplies a custom Stata legend
 specification. Without it, {cmd:kmplot} constructs a legend from the plotted
-groups.{p_end}
+groups. A specification that names no keys (no {cmd:order()}, {cmd:label()},
+or {cmd:lastlabel()}), such as {cmd:legend(position(11) ring(0))}, keeps the
+group keys and labels and changes only the legend's placement and look.{p_end}
+
+{phang}{opt legendpos(string)} places the legend in a corner inside the
+plot: {bf:topleft}, {bf:topright}, {bf:bottomleft}, {bf:bottomright}, or
+{bf:auto} (the default). {bf:auto} picks the corner the curves leave empty:
+{bf:topright} for survival curves, which start at the top left and fall, and
+{bf:topleft} for failure and {opt compete()} incidence curves, which start at
+the bottom left and rise. With {opt legend()}, {opt legendpos()} sets only the
+corner, and a {cmd:position()} inside {opt legend()}, or a {cmd:ring()} that
+puts the legend outside the plot, wins;
+without {opt legendpos()}, {opt legend()} is placed as Stata places it. The
+legend and the {opt pvalue} text never share a corner: naming the same corner
+in {opt legendpos()} and {opt pvaluepos()} is an error, and otherwise whichever
+of the two {cmd:kmplot} placed moves to the next empty corner ({bf:topleft},
+then {bf:bottomright}, for failure and incidence curves; {bf:bottomleft},
+then {bf:topright}, for survival curves). A plot of one group has no legend
+unless {opt legend()} asks for one.{p_end}
 
 {phang}{opt note(string)} adds a graph note. If {opt medianannotate} is also
 requested, the user-supplied note replaces the automatic median
@@ -737,6 +770,7 @@ table{p_end}
 {synopt:{cmd:r(pvalue_label)}}p-value label text{p_end}
 {synopt:{cmd:r(pvalue_format)}}p-value numeric format{p_end}
 {synopt:{cmd:r(pvalue_pos)}}p-value position keyword{p_end}
+{synopt:{cmd:r(legendpos)}}legend corner, when {cmd:kmplot} placed the legend{p_end}
 {synopt:{cmd:r(pvalue_at)}}explicit p-value coordinates, if specified{p_end}
 {synopt:{cmd:r(pvalue_placement)}}p-value text placement ({bf:c} with {opt pvalueat()}){p_end}
 
@@ -813,7 +847,7 @@ confidence interval, and the log-rank test.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-10-30{p_end}
+{pstd}Version 1.0.2, 2026-11-04{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

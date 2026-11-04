@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.0.1  2026/10/30
+*! _kmplot_risktable Version 1.0.2  2026/11/04
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -34,7 +34,7 @@ program define _kmplot_risktable, rclass
             XLAbel(string asis) YLAbel(string asis) ///
             EVents MONO TOPTimeaxis CALLERVersion(string) ///
             COMPvar(varname) RISKWeight(string) MASK(integer 0) MASKText(string) ///
-            REGIONopts(string asis) YLABHi(real -1)]
+            REGIONopts(string asis) YLABHi(real -1) TITLEPad(real 0)]
         if "`riskweight'" == "" local riskweight "stset"
         if !inlist("`riskweight'", "none", "stset") {
             noisily display as error "riskweight() must be none or stset"
@@ -419,8 +419,7 @@ program define _kmplot_risktable, rclass
         * Stata packs the vertical title hard against the y-axis label column and
         * sizes that column with a text metric narrower than what it then paints,
         * so a long row label runs over the title.  The shortfall grows with the
-        * label, so reserve a title margin that grows with it too.  kmplot applies
-        * the same margin to the main panel's title, keeping the panels aligned.
+        * label, so reserve a title margin that grows with it too.
         local rt_widest = 0
         forvalues g = 1/`ngroups' {
             if strlen(`"`macval(grplbl`g')'"') > `rt_widest' {
@@ -429,6 +428,14 @@ program define _kmplot_risktable, rclass
         }
         local rt_title_gap = ceil(0.1111 * `rt_widest') + 1
         if `rt_title_gap' < 2 local rt_title_gap = 2
+        * titlepad() widens the title's left margin (a signed value is an
+        * increment on the scheme's), moving this panel's plotting region right
+        * when kmplot measures the curve panel's to start further in.
+        local rt_title_pad ""
+        if `titlepad' > 0 {
+            local titlepad = round(`titlepad', 1e-6)
+            local rt_title_pad "l=+`titlepad'"
+        }
 
         * =====================================================================
         * DRAW RISK TABLE
@@ -490,17 +497,16 @@ program define _kmplot_risktable, rclass
         * The time-zero count is centred on the y axis, so half of it sits to the
         * left of the plotting region, in the row-label column.  Push the row
         * labels out by that much.  labgap widens the label column rather than
-        * the plotting region, so the main panel's time origin stays on its axis
-        * when kmplot applies the same gap there.  Same unit conversion as
-        * plot_margin_right above.
+        * the plotting region, so the time origin stays on the axis.  Same unit
+        * conversion as plot_margin_right above.
         local rt_row_labgap = ceil(`rt_first_width' / 1000 * 1.3889) + 1
         if `rt_row_labgap' < 2 local rt_row_labgap = 2
 
         * Row labels occupy the y-axis label column, clear of both the time-zero
         * counts (which sit inside the plotting region) and the vertical table
-        * title (which sits outside the label column).  kmplot adds the same
-        * strings invisibly to the main panel so the two label columns, and
-        * therefore the two time axes, come out the same width.
+        * title (which sits outside the label column).  kmplot measures both
+        * panels and pads the narrower one's title margin (titlepad() here) so
+        * the two time axes start at the same x.
         local grp_ylabels ""
         forvalues g = 1/`ngroups' {
             local _gy = (`ngroups' - `g' + 1 + `rt_row_offset') * `rt_yk'
@@ -555,7 +561,7 @@ program define _kmplot_risktable, rclass
             yscale(range(`ymin' `ymax') noline) ///
             `xscale_cmd' ///
             `macval(xtitle_cmd)' ///
-            ytitle("`ytitle_rt'", size(small) margin(r=`rt_title_gap')) ///
+            ytitle("`ytitle_rt'", size(small) margin(r=`rt_title_gap' `rt_title_pad')) ///
             `macval(time_title_cmd)' ///
             `separator_cmd' ///
             title("") subtitle("") ///
