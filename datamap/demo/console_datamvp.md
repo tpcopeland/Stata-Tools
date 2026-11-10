@@ -4,12 +4,6 @@ title: "console_datamvp"
 
 ## Missing-value pattern table
 
-<!-- * datamvp (dataprobe's patterns engine) tabulates which variables are jointly -->
-
-<!-- * missing. The biomarker dataset has nested missingness (x1 absent after obs 60, -->
-
-<!-- * x4 after obs 70), so a few patterns dominate. -->
-
 ```stata
 . use "`pkg_dir'/_demo_missing.dta", clear
 ```
@@ -60,10 +54,6 @@ Mean missing/obs:              0.97
 ```
 
 ## Monotone-missingness test
-
-<!-- * Monotone missingness is the key precondition for sequential multiple -->
-
-<!-- * imputation; datamvp tests for it directly. -->
 
 ```stata
 . noisily datamvp x1 x2 x3 x4, monotone

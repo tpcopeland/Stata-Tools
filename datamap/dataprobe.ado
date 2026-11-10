@@ -1,4 +1,4 @@
-*! dataprobe Version 1.10.6  2026/10/21
+*! dataprobe Version 2.0.0  2026/11/10
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -50,18 +50,19 @@ program define dataprobe, rclass
     local _cframe_made = 0
     local _vframe_made = 0
     local _sframe_made = 0
-    local _bframe_made = 0
     local _rframe_made = 0
     local _gframe_made = 0
+    local _wframe_made = 0
+    local _wframe      = ""
     local _pframe      = ""
     local _cframe      = ""
     local _vframe      = ""
     local _sframe      = ""
-    local _bframe      = ""
     local _rframe      = ""
     local _gframe      = ""
     local _exit9       = 0
     local _ledger_rc   = 0
+    local _outq        = 0
     // syntax reads an explicit nomaskrare as the absence of maskrare, so it
     // is detected here, where it can still override a session default.
     mata: st_local("_nomask_explicit", strofreal(_datamap_nomask_explicit(st_local("0"))))
@@ -90,8 +91,10 @@ program define dataprobe, rclass
             SMALLcells(string asis) ///
             BY(string) OVER(string) ///
             CHECKs(string) MAKESpec(string) VIOLations(string) ///
-            SAVing(string) CONFig(string) COMPare(string) ///
-            LEDGER(string asis) NAME(string) MINVERsion(string) SIGnature ]
+            SAVing(string) CONFig(string) COMPare(string asis) ///
+            SNAPshot(string) DIFF(string asis) TOL(numlist min=1 max=2 >=0) ///
+            LEDGER(string asis) NAME(string) MINVERsion(string) SIGnature ///
+            BRIEF SAFE ]
 
         // ---- ledger(filename [, run(string)]) ----
         local _ledfile ""
@@ -142,8 +145,10 @@ program define dataprobe, rclass
 
         // ---- session defaults (dataqa set): explicit > session > config ----
         local _sessnote = 0
+        local _safe = ("`safe'" != "")
         if `"$DATAMAP_DQ"' != "" {
             _datamap_dqdefaults
+            if r(safe) local _safe = 1
             if r(maskrare) {
                 if `_nomask_explicit' local _sessnote = 1
                 else if "`maskrare'" == "" local maskrare "maskrare"
@@ -203,6 +208,32 @@ program define dataprobe, rclass
             display as error "mincell() must be non-negative"
             exit 198
         }
+        // ---- safe (2.0.0, U2): the agent-safe preset ----
+        // maskrare with mincell(5) (a larger value wins), dates withheld,
+        // the likely identifiers excluded (_datamap_idnames, below), no
+        // level listing for text above maxcat() or holding a digit.  It
+        // covers what is printed and written; r() is not masked.
+        if `_safe' {
+            if `_nomask_explicit' {
+                display as error "safe cannot be combined with nomaskrare"
+                exit 198
+            }
+            local maskrare "maskrare"
+            if `mincell' > 0 & `mincell' < 5 display as text "note: safe raises mincell(`mincell') to 5"
+            if `mincell' < 5 local mincell = 5
+            if `"`makespec'"' != "" {
+                display as error "makespec() writes observed extremes and levels; it is not available under safe"
+                exit 198
+            }
+        }
+        if "`brief'" != "" {
+            foreach _o in gatesonly patterns byfreq {
+                if "``_o''" != "" {
+                    display as error "brief cannot be combined with `_o'"
+                    exit 198
+                }
+            }
+        }
 
         local _maskcell = `mincell'
         if "`maskrare'" != "" & `_maskcell' == 0 local _maskcell = `rare'
@@ -216,7 +247,7 @@ program define dataprobe, rclass
         local _gm = `_xmask'
         // Profile emphasis: red when output is on, but plain text under
         // quietly, because as-error text prints even inside quietly.
-        local _em = cond(c(noisily), "error", "text")
+        local _em = cond(c(noisily) & "`brief'" == "", "error", "text")
         local show = lower(trim(`"`show'"'))
         local showflagged = 0
         if "`onlyflagged'" != "" local showflagged = 1
@@ -250,6 +281,38 @@ program define dataprobe, rclass
             if `"`_ledext'"' == "" local _ledfile `"`_ledfile'.dta"'
         }
 
+        // ---- frame-or-file targets (2.0.0, U3): one rule, checked here ----
+        // so a target that cannot be read or written stops the call before
+        // any profile output (_dataprobe_target)
+        foreach _t in compare diff saving snapshot makespec {
+            local _tk_`_t' ""
+            if `"``_t''"' == "" continue
+            local _tm = cond(inlist("`_t'", "compare", "diff"), "read", ///
+                cond("`_t'" == "snapshot", "frame", cond("`_t'" == "makespec", "spec", "write")))
+            _dataprobe_target, spec(`"``_t''"') option(`_t') mode(`_tm')
+            local _tk_`_t' "`r(kind)'"
+            local _tt_`_t' `"`r(target)'"'
+            local _tr_`_t' = r(replace)
+        }
+        foreach _p in "saving snapshot" "saving makespec" "snapshot makespec" {
+            gettoken _a _b : _p
+            local _b = strtrim("`_b'")
+            if "`_tk_`_a''" == "frame" & "`_tk_`_b''" == "frame" & "`_tt_`_a''" == "`_tt_`_b''" {
+                display as error "`_a'() and `_b'() name the same frame `_tt_`_a''"
+                exit 198
+            }
+        }
+        local _tol = 1e-8
+        local _ctol = 0
+        if "`tol'" != "" {
+            if `"`diff'`compare'"' == "" {
+                display as error "tol() requires diff() or compare()"
+                exit 198
+            }
+            local _tol : word 1 of `tol'
+            if `: word count `tol'' == 2 local _ctol : word 2 of `tol'
+        }
+
         // ---- package version (r(version), minversion(), the ledger) ----
         if `"`minversion'"' != "" {
             _datamap_version dataprobe, atleast(`"`minversion'"')
@@ -280,7 +343,11 @@ program define dataprobe, rclass
             quietly use `"`single'"', clear
         }
 
-        if c(N) == 0 {
+        // empty data (2.0.0): diff(), compare() and snapshot() report it
+        // (N 74 -> 0); every other call stops, as before
+        local _empty = (c(N) == 0)
+        local _gsk = 0
+        if `_empty' & `"`diff'`compare'`snapshot'"' == "" {
             display as error "no observations"
             exit 2000
         }
@@ -306,7 +373,7 @@ program define dataprobe, rclass
             quietly datasignature
             local _dsig "`r(datasignature)'"
         }
-        else if `"`saving'"' != "" {
+        else if `"`saving'`snapshot'"' != "" {
             quietly capture datasignature
             if _rc == 0 local _dsig "`r(datasignature)'"
         }
@@ -662,9 +729,19 @@ program define dataprobe, rclass
         tempvar touse
         marksample touse, novarlist
         quietly count if `touse'
-        if r(N) == 0 {
+        if r(N) == 0 & `"`diff'`compare'`snapshot'"' == "" {
             display as error "no observations satisfy if/in"
             exit 2000
+        }
+        // nothing to profile: the gates and diff(), compare(), snapshot()
+        if r(N) == 0 {
+            display as text "note: no observations" cond(`_empty', "", " satisfy if/in") "; the profile is skipped"
+            local _gsk = ("`gatesonly'" == "")
+            local gatesonly "gatesonly"
+            local brief ""
+            local patterns ""
+            local byfreq ""
+            local showflagged = 0
         }
         local _callscope = strtrim(regexr(`"`if'"', "^if ", ""))
         if `"`in'"' != "" local _callscope = strtrim(`"`_callscope' `in'"')
@@ -675,6 +752,12 @@ program define dataprobe, rclass
             capture confirm variable `v', exact
             if _rc local req_missing "`req_missing' `v'"
         }
+        local req_missing : list uniq req_missing
+        // 2.0.0: a gate entry on a variable that require() names and the
+        // data lacks is not run; require() fails for it (rc 9), so a spec
+        // (makespec() .do or .dta) run on data missing a gated variable
+        // exits 9 rather than 111.  Without require() a typo stays rc 111.
+        local _skipgate ""
 
         quietly keep if `touse'
         // touse is now constant (all rows kept); drop it so it never reaches
@@ -804,6 +887,15 @@ program define dataprobe, rclass
 
         // ---- validate option varlists against the loaded data ----
         if "`exclude'"     != "" unab exclude     : `exclude'
+        // safe: the profile's likely identifiers are withheld as exclude()
+        // withholds them, by the rule datamap's exclude(auto) reads
+        local _safe_ex ""
+        if `_safe' {
+            _datamap_idnames `profilevars'
+            local _safe_ex "`r(names)'"
+            local exclude : list exclude | _safe_ex
+            if "`_safe_ex'" != "" display as text "note: safe excludes likely identifier(s): `_safe_ex'"
+        }
         if "`continuous'"  != "" unab continuous  : `continuous'
         if "`categorical'" != "" unab categorical : `categorical'
         if "`date'"        != "" unab date        : `date'
@@ -817,11 +909,21 @@ program define dataprobe, rclass
                 if "`part'" == "\" continue
                 local part = strtrim("`part'")
                 if "`part'" == "" continue
+                local _gone : list part & req_missing
+                if "`_gone'" != "" {
+                    local _skipgate : list _skipgate | _gone
+                    continue
+                }
                 unab part : `part'
                 local ++n_isid
                 local isid_key`n_isid' "`part'"
                 local isidvars : list isidvars | part
             }
+        }
+        foreach L in notmissing binary {
+            local _gone : list `L' & req_missing
+            local _skipgate : list _skipgate | _gone
+            local `L' : list `L' - req_missing
         }
         if "`notmissing'"  != "" unab notmissing  : `notmissing'
         if "`byvars'" != "" {
@@ -833,6 +935,26 @@ program define dataprobe, rclass
                     display as error "over() requires one variable"
                     exit 198
                 }
+            }
+        }
+        // safe: a by() group is labelled with its values, so an identifier,
+        // a date, or text holding a digit cannot be a by() variable
+        if `_safe' & "`byvars'" != "" {
+            _datamap_idnames `byvars'
+            local _bad "`r(names)'"
+            foreach v of local byvars {
+                local _vf : format `v'
+                capture confirm string variable `v'
+                if !_rc {
+                    quietly count if ustrregexm(`v', "\p{Nd}")
+                    if r(N) local _bad "`_bad' `v'"
+                }
+                else if regexm("`_vf'", "^%-?(t|d)") local _bad "`_bad' `v'"
+            }
+            local _bad : list uniq _bad
+            if "`_bad'" != "" {
+                display as error "safe: by() or over() would print the values of `_bad' (an identifier, a date, or text holding a digit) as group labels"
+                exit 198
             }
         }
         if "`binary'"      != "" {
@@ -1010,6 +1132,10 @@ program define dataprobe, rclass
                 forvalues j = 1/`=`nw' - 2' {
                     local vtoks "`vtoks' `: word `j' of `part''"
                 }
+                local _gone : list vtoks & req_missing
+                local _skipgate : list _skipgate | _gone
+                local vtoks : list vtoks - req_missing
+                if "`vtoks'" == "" continue
                 unab vtoks : `vtoks'
                 foreach iv of local vtoks {
                     local lo_open = (`"`lo'"' == ".")
@@ -1065,6 +1191,10 @@ program define dataprobe, rclass
                     display as error `"allowed() spec must be "var value [value ...]": `part'"'
                     exit 198
                 }
+                if `: list vv in req_missing' {
+                    local _skipgate : list _skipgate | vv
+                    continue
+                }
                 unab vv : `vv'
                 local ++n_allowed
                 local allowed_var`n_allowed' "`vv'"
@@ -1084,6 +1214,10 @@ program define dataprobe, rclass
                 if `"`vv'"' == "" | `"`vals'"' == "" {
                     display as error `"forbid() spec must be "var value [value ...]": `part'"'
                     exit 198
+                }
+                if `: list vv in req_missing' {
+                    local _skipgate : list _skipgate | vv
+                    continue
                 }
                 unab vv : `vv'
                 local ++n_forbid
@@ -1105,6 +1239,10 @@ program define dataprobe, rclass
                     display as error `"notvalues() spec must be "var value [value ...]": `part'"'
                     exit 198
                 }
+                if `: list vv in req_missing' {
+                    local _skipgate : list _skipgate | vv
+                    continue
+                }
                 unab vv : `vv'
                 local ++n_notvalues
                 local notvalues_var`n_notvalues' "`vv'"
@@ -1125,12 +1263,19 @@ program define dataprobe, rclass
                     display as error `"regex() spec must be "var pattern": `part'"'
                     exit 198
                 }
+                if `: list rv in req_missing' {
+                    local _skipgate : list _skipgate | rv
+                    continue
+                }
                 unab rv : `rv'
                 local ++n_regex
                 local regex_var`n_regex' "`rv'"
                 local regex_pat`n_regex' `"`rpat'"'
                 local value_gatevars "`value_gatevars' `rv'"
             }
+        }
+        if "`_skipgate'" != "" {
+            display as text "note: gates on `_skipgate' not run (require() reports the variable missing)"
         }
 
         // ---- parse events(): "eventvar [if exp]: varlist [, min(#)]" ----
@@ -1340,8 +1485,8 @@ program define dataprobe, rclass
             statvars rulevars eifvars evvars famvars {
             local gatevars : list gatevars | `L'
         }
-        local _fast = ("`gatesonly'" != "" & `"`compare'"' == "" & ///
-            `"`saving'"' == "" & `"`makespec'"' == "")
+        local _fast = ("`gatesonly'" != "" & `"`compare'`diff'"' == "" & ///
+            `"`saving'`snapshot'"' == "" & `"`makespec'"' == "")
         if `_fast' {
             local unionvars `gatevars'
             // with a varlist, nodups compares the same columns as the
@@ -1648,6 +1793,26 @@ program define dataprobe, rclass
         local n_missing_vars : word count `missing_vars'
         local n_outlier_vars : word count `outlier_vars'
         local n_rare_vars : word count `rare_vars'
+        // ---- safe: the level listings withheld (2.0.0, U2) ----
+        // text above maxcat() distinct values, text holding a digit (a date
+        // or a code; datamap's datesafe rule), and the values of a
+        // date-formatted variable are never listed; _sh<j> holds the reason
+        if `_safe' {
+            foreach v in `f_categorical' `f_string' {
+                local pj : list posof "`v'" in profilevars
+                local i : list posof "`v'" in pvars
+                local _sh`pj' ""
+                capture confirm string variable `v'
+                if !_rc {
+                    if `m_uc`i'' == 1 | `m_uv`i'' > `maxcat' local _sh`pj' "more than maxcat() distinct values"
+                    else {
+                        quietly count if ustrregexm(`v', "\p{Nd}")
+                        if r(N) local _sh`pj' "text holding a digit"
+                    }
+                }
+                else if regexm("`: format `v''", "^%-?(t|d)") local _sh`pj' "date values"
+            }
+        }
 
         // ---- groupwise profile summaries ----
         // Every group count below comes from one pass (_dataprobe_groupmiss):
@@ -1977,6 +2142,18 @@ program define dataprobe, rclass
         }
 
         // ===================== DISPLAY =====================
+        // brief (2.0.0, U1): the full profile runs with output off (set
+        // output error), so r() and the masked flag are the full profile's;
+        // the brief lines follow it.  Not a quietly block: Stata's block
+        // skipper (gatesonly) cannot see a macro-chosen block prefix.  Under
+        // brief no error-styled text prints in this pass (_em is text, and
+        // _dataprobe_freq prints nothing in maskonly).  Output was proc when
+        // c(noisily) is 1, so proc is what the cleanup puts back.
+        local _fqmo = cond("`brief'" != "", "maskonly", "")
+        if "`brief'" != "" & c(noisily) {
+            set output error
+            local _outq = 1
+        }
         local nv : word count `profilevars'
         if "`gatesonly'" == "" {
             _dataprobe_mshare `n_complete' `nobs' `_xmask'
@@ -2031,6 +2208,8 @@ program define dataprobe, rclass
                 local uq "`r(s)'"
                 if r(masked) local _pmasked = 1
                 local vshow = substr("`v'", 1, 21)
+                local _bmps`pj' "`mps'"
+                local _buq`pj' "`uq'"
                 display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
                     %-9s "`vt'" %11s "`mps'" ///
                     as result %9s "`uq'" "  " %-10s "`flg'"
@@ -2081,6 +2260,8 @@ program define dataprobe, rclass
                         scalar `_q`_st'' = `_cs`pj''[1, `_c']
                         _dataprobe_qshow `v', value(`_q`_st'') mask(`_xmask') stat(`_st') known(`: word `_c' of `_qsh'')
                         local _qs`_st' `"`r(s)'"'
+                        // safe: a date-formatted value is a date
+                        if `_safe' & regexm("`: format `v''", "^%-?(t|d)") local _qs`_st' "[withheld]"
                     }
                     _dataprobe_mshare `cN`pj'' `nobs' `_xmask'
                     local _cns "`r(cnt)'"
@@ -2144,7 +2325,8 @@ program define dataprobe, rclass
                         "`maxcat')" as text " — possible free-text/misclassification"
                 }
                 local _fqmask 0
-                _dataprobe_freq `v' `maxfreq' `rare' `_maskcell'
+                if `"`_sh`pj''"' != "" display as text "    levels withheld (safe: `_sh`pj'')"
+                else _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "" "" "" "`_fqmo'"
                 if "`_fqmask'" == "1" local _pmasked = 1
             }
         }
@@ -2198,6 +2380,11 @@ program define dataprobe, rclass
                     local _dp99 `"`r(s)'"'
                     local _dspan "[suppressed]"
                     if `_dok1' & r(shown) local _dspan = strtrim(string(`_dq99' - `_dq1', "%12.0g")) + " `span_unit'"
+                    // safe: no date is printed, only the span (datesafe)
+                    if `_safe' {
+                        local _dp1 "[withheld]"
+                        local _dp99 "[withheld]"
+                    }
                     _dataprobe_mshare `m_mn`i'' `nobs' `_xmask'
                     local _dms "`r(cnt)'"
                     if r(masked) local _pmasked = 1
@@ -2256,7 +2443,8 @@ program define dataprobe, rclass
                     as result "`uq'" as text "  blank=" as result "`_nbs'" ///
                     as text "  maxlen=" as result "`ml'"
                 local _fqmask 0
-                _dataprobe_freq `v' `maxfreq' `rare' `_maskcell'
+                if `"`_sh`pj''"' != "" display as text "    levels withheld (safe: `_sh`pj'')"
+                else _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "" "" "" "`_fqmo'"
                 if "`_fqmask'" == "1" local _pmasked = 1
             }
         }
@@ -2417,6 +2605,11 @@ program define dataprobe, rclass
             display as text "GROUPWISE FREQUENCIES"
             display as text "  by: " as result "`byvars'"
             foreach v in `f_categorical' `f_string' {
+                local _pjv : list posof "`v'" in profilevars
+                if `_safe' & `"`_sh`_pjv''"' != "" {
+                    display as text "  " as result "`v'" as text ": levels withheld (safe: `_sh`_pjv'')"
+                    continue
+                }
                 display as text "  " as result "`v'" as text ":"
                 // Pooled remainder, per level: the pooled table's count
                 // minus the shown groups' exact cells is the pooled-away
@@ -2450,11 +2643,58 @@ program define dataprobe, rclass
             }
         }
 
+        if `_outq' {
+            set output proc
+            local _outq = 0
+        }
+
+        // ---- BRIEF (2.0.0, U1): one line per variable, flagged first ----
+        // name, type, class, missing, distinct, flag; the top five levels of
+        // a categorical; "all distinct, maxlen #" for all-distinct text
+        if "`brief'" != "" {
+            display ""
+            display as text "dataprobe: " as result "`_nobs_s'" as text " obs, " ///
+                as result "`nv'" as text " variables profiled" ///
+                as text "  (complete cases: " as result "`_ccs'" ///
+                as text " = " as result "`_ccp'" as text ")"
+            display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
+                %11s "Miss%" %9s "Unique" "  " %-10s "Flag" "Levels"
+            local _bord ""
+            local _brest ""
+            local pj = 0
+            foreach v of local profilevars {
+                local ++pj
+                if "`flag`pj''" != "" local _bord "`_bord' `pj'"
+                else if !`showflagged' local _brest "`_brest' `pj'"
+            }
+            if "`_bord'`_brest'" == "" display as text "  no flagged variables"
+            foreach pj in `_bord' `_brest' {
+                local v : word `pj' of `profilevars'
+                local i : list posof "`v'" in pvars
+                local fc "`FC`pj''"
+                local _bl ""
+                if inlist("`fc'", "categorical", "string") {
+                    tempname _bls
+                    _dataprobe_brieflev `v', class(`fc') mask(`_xmask') into(`_bls') ///
+                        uv(`m_uv`i'') uc(`m_uc`i'') maxlen(`m_ml`i'') withheld(`"`_sh`pj''"')
+                    mata: st_local("_bl", _dataprobe_dshow(st_strscalar(st_local("_bls")), 0))
+                    scalar drop `_bls'
+                }
+                local vshow = substr("`v'", 1, 21)
+                display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
+                    %-9s "`m_type`i''" %11s "`_bmps`pj''" ///
+                    as result %9s "`_buq`pj''" "  " %-10s "`flag`pj''" as text `"`macval(_bl)'"'
+            }
+        }
+
         // ---- KEY STRUCTURE / UNIQUENESS ----
-        if `n_key' == 0 & `"`sugg_exclude'"' != "" {
+        // safe: the likely identifiers it excluded are still the inferred keys
+        local _kinf "`sugg_exclude'"
+        if `_safe' local _kinf : list _kinf | _safe_ex
+        if `n_key' == 0 & `"`_kinf'"' != "" {
             // default to inferred identifier-like keys, one per variable
             local id_inferred = 1
-            foreach v of local sugg_exclude {
+            foreach v of local _kinf {
                 local ++n_key
                 local key`n_key' "`v'"
             }
@@ -2547,6 +2787,8 @@ program define dataprobe, rclass
         local RF "`rframe'"
         local _ks_om = 0
         local _ks_ou = 0
+        local _ks_mt = 0
+        local _ks_mg ""
         local _rev_hdr = 0
 
         // require
@@ -2991,6 +3233,14 @@ program define dataprobe, rclass
                     local sshow "[excluded]"
                     local sshown = 0
                 }
+                // safe: a date's mean or percentile is a date, withheld as
+                // the DATE block's p1/p99 are; the verdict stays (2.0.0 U2)
+                else if `_safe' & `sdef' & ("`sst'" == "mean" | `isorder') & ///
+                    regexm("`: format `sv''", "^%-?(t|d)") {
+                    local sshow "[withheld]"
+                    local sshown = 0
+                    local _sxc = 1
+                }
                 local sname = cond("`sst'" == "p50", "median", "`sst'")
                 local slab "`sname' `sv'"
                 if "`sst'" == "ratio" local slab "ratio `sv'/`sden'"
@@ -3134,9 +3384,12 @@ program define dataprobe, rclass
         }
         forvalues k = 1/`nf_keyset' {
             _dataprobe_keyset, spec(`"`keyset_spec`k''"') rf(`RF') kind(invariant) ///
-                mask(`_gm') nscope(`nobs')
+                mask(`_gm') nscope(`nobs') datavars(`_datavars')
             local _ks_om = `_ks_om' + r(only_master)
             local _ks_ou = `_ks_ou' + r(only_using)
+            // W1 (2.0.0): the preflight's matched keys and merge type
+            local _ks_mt = `_ks_mt' + r(matched)
+            local _ks_mg "`_ks_mg' `=cond("`r(merge)'" == "", "conflict", "`r(merge)'")'"
         }
         forvalues k = 1/`nf_constant' {
             _dataprobe_constant, spec(`"`constant_spec`k''"') rf(`RF') kind(invariant) ///
@@ -3199,7 +3452,7 @@ program define dataprobe, rclass
             _dataprobe_groupstat, spec(`"`groupstat_spec`k''"') rf(`RF') nprint(`_nprint') ///
                 kind(`groupstat_kind`k'') mask(`_gm') nscope(`nobs') ///
                 cond(`groupstat_cond`k'') scope(`"`groupstat_if`k''"') ///
-                excluded(`exclude') `_gsopt'
+                excluded(`exclude') `_gsopt' `=cond(`_safe', "safe", "")'
             // a printed <m or [suppr.] cell is a masked count (r(masked))
             if r(masked) local _pmasked = 1
         }
@@ -3218,182 +3471,78 @@ program define dataprobe, rclass
         local compare_n_type_changed = 0
         local compare_n_class_changed = 0
         local compare_n_changed = 0
-	        if `"`compare'"' != "" {
-	            gettoken compfile comprest : compare, parse(" ,")
-	            local compfile = strtrim(`"`compfile'"')
-	            local compfile = subinstr(`"`compfile'"', char(34), "", .)
-	            local comprest = subinstr(`"`comprest'"', char(34), "", .)
-	            if trim(`"`comprest'"') != "" {
-	                display as error "compare() accepts one Stata dataset filename"
-	                exit 198
-	            }
-	            _dataprobe_pathok `"`compfile'"'
-	            capture confirm file `"`compfile'"'
-	            if _rc {
-	                capture confirm file `"`compfile'.dta"'
-	                if _rc {
-	                    display as error `"compare() file `compfile' not found"'
-	                    exit 601
-	                }
-	                local compfile `"`compfile'.dta"'
-	            }
-	            tempname bframe
-	            local _bframe "`bframe'"
-	            frame create `bframe'
-	            local _bframe_made = 1
-	            local basevars ""
-	            local base_N = .
-	            frame `bframe' {
-	                quietly use `"`compfile'"', clear
-	                capture confirm variable variable
-	                if _rc {
-	                    capture confirm variable varname
-	                    if !_rc rename varname variable
-	                }
-	                capture confirm variable variable
-	                if !_rc {
-	                    capture confirm variable storage_type
-	                    if _rc {
-	                        capture confirm variable vartype
-	                        if !_rc rename vartype storage_type
-	                    }
-	                    capture confirm variable storage_type
-	                    local has_storage = (_rc == 0)
-	                    capture confirm variable class
-	                    if _rc {
-	                        capture confirm variable classification
-	                        if !_rc rename classification class
-	                    }
-	                    capture confirm variable class
-	                    if _rc {
-	                        capture confirm variable dc_class
-	                        if !_rc rename dc_class class
-	                    }
-	                    capture confirm variable class
-	                    local has_class = (_rc == 0)
-	                    capture confirm variable N
-	                    local has_N = (_rc == 0)
-	                    quietly count
-	                    local B = r(N)
-	                    if `has_N' & `B' > 0 local base_N = N[1]
-	                    // `bt<k>'/`bc<k>' are keyed by position in `basevars'
-	                    // (name-keyed locals overflow the 31-char macro-name
-	                    // limit); duplicates are skipped on insert so positions
-	                    // stay aligned.
-	                    local nb = 0
-	                    forvalues bi = 1/`B' {
-	                        local bv = variable[`bi']
-	                        if "`bv'" == "" continue
-	                        if `: list bv in basevars' continue
-	                        local basevars "`basevars' `bv'"
-	                        local ++nb
-	                        if `has_storage' local bt`nb' = storage_type[`bi']
-	                        else local bt`nb' ""
-	                        if `has_class' local bc`nb' = class[`bi']
-	                        else local bc`nb' ""
-	                    }
-	                }
-	                else {
-	                    local base_N = _N
-	                    quietly ds
-	                    local basevars `r(varlist)'
-	                    local nb = 0
-	                    foreach bv of local basevars {
-	                        local ++nb
-	                        local _bt : type `bv'
-	                        local bt`nb' "`_bt'"
-	                        local bc`nb' ""
-	                    }
-	                }
-	            }
-	            local pj = 0
-	            foreach v of local profilevars {
-	                local ++pj
-	                local bx : list posof "`v'" in basevars
-	                if `bx' == 0 {
-	                    local compare_added "`compare_added' `v'"
-	                }
-	                else {
-	                    local i : list posof "`v'" in pvars
-	                    local cur_type "`m_type`i''"
-	                    local cur_class "`FC`pj''"
-	                    if "`bt`bx''" != "" & "`cur_type'" != "`bt`bx''" {
-	                        local compare_type_changed "`compare_type_changed' `v'"
-	                    }
-	                    if "`bc`bx''" != "" & "`cur_class'" != "`bc`bx''" {
-	                        local compare_class_changed "`compare_class_changed' `v'"
-	                    }
-	                }
-	            }
-	            // dropped: gone from the data, not merely outside the varlist
-	            // (dataprobe price mpg, compare() listed every other baseline
-	            // variable as dropped)
-	            foreach bv of local basevars {
-	                if !`: list bv in profilevars' & !`: list bv in _datavars' {
-	                    local compare_dropped "`compare_dropped' `bv'"
-	                }
-	            }
-	            local compare_added : list uniq compare_added
-	            local compare_dropped : list uniq compare_dropped
-	            local compare_type_changed : list uniq compare_type_changed
-	            local compare_class_changed : list uniq compare_class_changed
-	            local compare_n_added : word count `compare_added'
-	            local compare_n_dropped : word count `compare_dropped'
-	            local compare_n_type_changed : word count `compare_type_changed'
-	            local compare_n_class_changed : word count `compare_class_changed'
-	            local compare_n_changed = `compare_n_added' + `compare_n_dropped' + ///
-	                `compare_n_type_changed' + `compare_n_class_changed'
-	            local compare_n_delta = .
-	            if `base_N' < . local compare_n_delta = `nobs' - `base_N'
-	            if `base_N' < . & `compare_n_delta' != 0 local compare_n_changed = `compare_n_changed' + 1
-
-	            if "`gatesonly'" == "" {
-	                display ""
-	                display as text "SCHEMA COMPARE"
-	                display as text "  baseline: " as result `"`compfile'"'
-                if `base_N' < . {
-                    // the delta of two published counts can be a small cell
-                    // Any two of current N, baseline N and delta give the
-                    // third, so when one is a small cell only one other is
-                    // printed as a number.
-                    local _cds = `compare_n_delta'
-                    local _cns = `nobs'
-                    local _cbs = `base_N'
-                    if `_xmask' {
-                        local _sd = (abs(`compare_n_delta') >= 1 & abs(`compare_n_delta') < `_xmask')
-                        local _sc = (`nobs' >= 1 & `nobs' < `_xmask')
-                        local _sb = (`base_N' >= 1 & `base_N' < `_xmask')
-                        if `_sc' {
-                            local _cns "<`_xmask'"
-                            local _cds "[suppressed]"
-                        }
-                        if `_sb' {
-                            local _cbs "<`_xmask'"
-                            local _cds "[suppressed]"
-                        }
-                        if `_sd' {
-                            local _cds "<`_xmask' (masked)"
-                            if !`_sc' local _cbs "[suppressed]"
-                        }
-                        if `_sc' & !`_sb' & !`_sd' local _cbs "[suppressed]"
-                        if `_sc' | `_sb' | `_sd' local _pmasked = 1
-                    }
-                    display as text "  N: current " as result "`_cns'" ///
-                        as text ", baseline " as result "`_cbs'" ///
-                        as text ", delta " as result "`_cds'"
-                }
-	                if `compare_n_added' display as text "  added: " as result "`compare_added'"
-	                if `compare_n_dropped' display as text "  dropped: " as result "`compare_dropped'"
-	                if `compare_n_type_changed' display as text "  type changes: " as result "`compare_type_changed'"
-	                if `compare_n_class_changed' display as text "  class changes: " as result "`compare_class_changed'"
-	                if `compare_n_changed' == 0 display as text "  no schema drift detected"
-	            }
+        // ---- the profile as saving() rows: saving, snapshot, compare, diff ----
+        // (_datamap_post_metadata_rows, plain: the 27 saving() columns,
+        // stored by Mata).  Without saving() or snapshot() the quartiles are
+        // not computed (nopctiles): compare() and diff() never read them.
+        if `"`saving'`snapshot'`compare'`diff'"' != "" {
+            tempname wframe
+            local _wframe "`wframe'"
+            _datamap_post_metadata_rows, create plain frame(`wframe')
+            local _wframe_made = 1
+            local _dcsource "memory"
+            if `"`single'"' != "" local _dcsource `"`single'"'
+            local _npc ""
+            if `"`saving'`snapshot'"' == "" local _npc "nopctiles"
+            _datamap_post_metadata_rows, frame(`wframe') plain `_npc' ///
+                classifications(`"`proff'"') sourcecommand("dataprobe") ///
+                source(`"`_dcsource'"') output("") dsname("current") ///
+                nvars(`: word count `profilevars'') ///
+                varlist(`"`profilevars'"') datasignature(`"`_dsig'"')
+        }
+        // the key diff() and compare() report: id(), else isid()
+        local _dkey ""
+        if `n_key' > 0 local _dkey "`key1'"
+        else if `n_isid' > 0 local _dkey "`isid_key1'"
+        // compare(): a gate on schema drift; prints the same lines as diff()
+        // (2.0.0, U3: under gatesonly too)
+        if `"`compare'"' != "" {
+            _dataprobe_diff, base(`"`_tt_compare'"') kind(`_tk_compare') cur(`wframe') ///
+                header("SCHEMA COMPARE") nobs(`nobs') profilevars(`profilevars') ///
+                datavars(`_datavars') mask(`_xmask') tol(`_tol') ctol(`_ctol') key(`_dkey')
+            if r(masked) local _pmasked = 1
+            local compare_added "`r(added)'"
+            local compare_dropped "`r(dropped)'"
+            local compare_type_changed "`r(type_changed)'"
+            local compare_class_changed "`r(class_changed)'"
+            local compare_n_added : word count `compare_added'
+            local compare_n_dropped : word count `compare_dropped'
+            local compare_n_type_changed : word count `compare_type_changed'
+            local compare_n_class_changed : word count `compare_class_changed'
+            local compare_n_changed = `compare_n_added' + `compare_n_dropped' + ///
+                `compare_n_type_changed' + `compare_n_class_changed'
+            if r(base_N) < . & r(n_delta) != 0 local compare_n_changed = `compare_n_changed' + 1
             local _cok = (`compare_n_changed' == 0)
             local _cobs "added `compare_n_added'; dropped `compare_n_dropped'; type `compare_n_type_changed'; class `compare_n_class_changed'"
             local _cmsg = cond(`_cok', "compare: no schema drift", "compare: schema drift detected")
             frame post `RF' ("compare") ("invariant") (`_cok') ("") ("") ("") ///
                 ("`_cobs'") (`compare_n_changed') ("no schema drift") (`nobs') ("") ///
                 ("`_cmsg'") (.) (0)
+        }
+        // diff() (2.0.0, F6): the same lines, never a gate
+        if `"`diff'"' != "" {
+            _dataprobe_diff, base(`"`_tt_diff'"') kind(`_tk_diff') cur(`wframe') ///
+                header("DIFF") nobs(`nobs') profilevars(`profilevars') ///
+                datavars(`_datavars') mask(`_xmask') tol(`_tol') ctol(`_ctol') key(`_dkey')
+            if r(masked) local _pmasked = 1
+            foreach _r in added dropped type_changed class_changed missing_changed ///
+                unique_changed stat_changed changed key baseline {
+                local _df_`_r' `"`r(`_r')'"'
+            }
+            foreach _r in n_lines base_N n_delta key_before key_after key_surplus schema_only {
+                local _df_`_r' = r(`_r')
+            }
+        }
+        // snapshot() (2.0.0, F6): after diff(), so diff(b) snapshot(b, replace)
+        // compares with the previous snapshot and then replaces it
+        if `"`snapshot'"' != "" {
+            local _srep = cond(`_tr_snapshot', "replace", "")
+            _dataprobe_snapshot, cur(`wframe') name(`_tt_snapshot') nobs(`nobs') ///
+                `_srep' key(`_dkey')
+            local _snkey "`r(key)'"
+            local _snkt ""
+            if "`_snkey'" != "" local _snkt = cond(r(key_unique) == 1, ", key `_snkey'", ", key `_snkey' (not unique)")
+            display as text "snapshot: frame " as result "`_tt_snapshot'" as text "`_snkt'"
         }
 
         // ---- status of every record ----
@@ -3502,9 +3651,9 @@ program define dataprobe, rclass
 
         // ---- makespec(): starter reusable check spec from observed data ----
         if `"`makespec'"' != "" {
-            gettoken sdest srest : makespec, parse(" ,")
-            local sreplace = 0
-            if regexm(`"`srest'"', "replace") local sreplace = 1
+            // target checked before profiling (_dataprobe_target)
+            local sdest `"`_tt_makespec'"'
+            local sreplace = `_tr_makespec'
             tempname sframe
             local _sframe "`sframe'"
             frame create `sframe'
@@ -3630,29 +3779,20 @@ program define dataprobe, rclass
                 frame `sframe': quietly replace values = `"`macval(_levels)'"' in `srow'
                 frame `sframe': quietly replace note = "observed levels" in `srow'
             }
-            local _isfile = 0
-            if substr(`"`sdest'"', -4, 4) == ".dta" local _isfile = 1
-            else if strpos(`"`sdest'"', "/") | strpos(`"`sdest'"', "\") local _isfile = 1
-            if `_isfile' {
-                _dataprobe_pathok `"`sdest'"'
+            if "`_tk_makespec'" == "dofile" {
+                // I1 (2.0.0): the same gates as a dataprobe command
+                local _srep = cond(`sreplace', "replace", "")
+                _dataprobe_spec2do, frame(`sframe') file(`"`sdest'"') `_srep' ///
+                    dataset(`"`_dsname'"') scoped(`=(`"`if'`in'"' != "")')
+            }
+            else if "`_tk_makespec'" == "file" {
                 if `sreplace' frame `sframe': quietly save `"`sdest'"', replace
                 else          frame `sframe': quietly save `"`sdest'"'
             }
             else {
-                capture confirm name `sdest'
-                if _rc {
-                    display as error "makespec() frame name is invalid"
-                    exit 198
-                }
-                capture frame `sdest': describe
-                local _sexists = (_rc == 0)
-                if `_sexists' & !`sreplace' {
-                    display as error "makespec() frame `sdest' already exists; specify replace"
-                    exit 110
-                }
-                if `_sexists' {
+                if `sreplace' {
                     capture frame drop `sdest'
-                    if _rc {
+                    if !inlist(_rc, 0, 111) {
                         local _sdrc = _rc
                         display as error "makespec() could not replace frame `sdest'"
                         exit `_sdrc'
@@ -3679,6 +3819,7 @@ program define dataprobe, rclass
         return scalar onlyflagged    = (`showflagged')
         return scalar mincell        = `mincell'
         return scalar maskrare       = ("`maskrare'" != "")
+        return scalar safe           = `_safe'
         return scalar masked         = (`_anymasked' | `_pmasked')
         if `_pfon' return scalar linkaudit_capped = `_aud_cap'
         if !`_fast' {
@@ -3719,10 +3860,43 @@ program define dataprobe, rclass
         if `nf_keyset' > 0 {
             return scalar keyset_only_master = `_ks_om'
             return scalar keyset_only_using = `_ks_ou'
+            return scalar keyset_matched = `_ks_mt'
+            return local keyset_merge = strtrim("`_ks_mg'")
         }
         return local  violations     "`viol_names'"
         return local  failed_checks  "`failed_checks'"
         return local  checks_run     "`checks_run'"
+        if `"`diff'"' != "" {
+            // diff() (2.0.0, F6): unmasked, as every stored result.
+            // Spelled out, not looped, so each name is visible to doc scanners.
+            return scalar diff_n_lines = `_df_n_lines'
+            return scalar diff_base_N = `_df_base_N'
+            return scalar diff_n_delta = `_df_n_delta'
+            return scalar diff_key_before = `_df_key_before'
+            return scalar diff_key_after = `_df_key_after'
+            return scalar diff_key_surplus = `_df_key_surplus'
+            return scalar diff_schema_only = `_df_schema_only'
+            return scalar diff_added = `: word count `_df_added''
+            return scalar diff_dropped = `: word count `_df_dropped''
+            return scalar diff_type_changed = `: word count `_df_type_changed''
+            return scalar diff_changed = `: word count `_df_changed''
+            return scalar diff_tol = `_tol'
+            return scalar diff_ctol = `_ctol'
+            return local diff_added_vars "`_df_added'"
+            return local diff_dropped_vars "`_df_dropped'"
+            return local diff_type_changed_vars "`_df_type_changed'"
+            return local diff_class_changed_vars "`_df_class_changed'"
+            return local diff_missing_changed_vars "`_df_missing_changed'"
+            return local diff_unique_changed_vars "`_df_unique_changed'"
+            return local diff_stat_changed_vars "`_df_stat_changed'"
+            return local diff_changed_vars "`_df_changed'"
+            return local diff_key "`_df_key'"
+            return local diff_baseline `"`_df_baseline'"'
+        }
+        if `"`snapshot'"' != "" {
+            return local snapshot "`_tt_snapshot'"
+            return local snapshot_key "`_snkey'"
+        }
         return local  compare_added_vars "`compare_added'"
         return local  compare_dropped_vars "`compare_dropped'"
         return local  compare_type_changed_vars "`compare_type_changed'"
@@ -3732,110 +3906,43 @@ program define dataprobe, rclass
         if "`signature'" != "" return local signature "`_dsig'"
 
         // ---- optional saving() of the per-variable profile ----
-        // Non-fatal: a bad saving() path must not strand the console report or
-        // the gate verdict; warn and continue instead of aborting.
-	        if `"`saving'"' != "" {
-	            local sspec = subinstr(`"`macval(saving)'"', char(34), "", .)
-	            local scpos = strpos(`"`macval(sspec)'"', ",")
-	            if `scpos' > 0 {
-	                local sfile = strtrim(substr(`"`macval(sspec)'"', 1, `scpos' - 1))
-	                local srest = strtrim(substr(`"`macval(sspec)'"', `scpos' + 1, .))
-	            }
-	            else {
-	                local sfile = strtrim(`"`macval(sspec)'"')
-	                local srest ""
-	            }
-	            local sreplace = 0
-	            if regexm(lower(`"`macval(srest)'"'), "replace") local sreplace = 1
-            local _bad = 0
-            foreach _c in ";" "&" "|" ">" "<" "$" {
-                if strpos(`"`sfile'"', "`_c'") local _bad = 1
+        // The target was checked before profiling (_dataprobe_target).  A
+        // write that still fails is non-fatal: it must not strand the
+        // console report or the gate verdict, so it warns and continues.
+        if `"`saving'"' != "" {
+            local sfile `"`_tt_saving'"'
+            tempname dcsaveframe
+            local _dcs_made = 0
+            capture noisily {
+                if "`_tk_saving'" == "file" {
+                    frame copy `_wframe' `dcsaveframe'
+                    local _dcs_made = 1
+                    // safe: the written copy carries the printed masks
+                    if `_safe' _dataprobe_safesave, frame(`dcsaveframe') mask(`_xmask')
+                    frame `dcsaveframe' {
+                        quietly generate str32 varname = variable
+                        quietly generate str20 dc_class = class
+                        if `_tr_saving' quietly save `"`sfile'"', replace
+                        else            quietly save `"`sfile'"'
+                    }
+                }
+                else {
+                    if `_tr_saving' {
+                        capture frame drop `sfile'
+                        if !inlist(_rc, 0, 111) exit _rc
+                    }
+                    frame copy `_wframe' `sfile'
+                    if `_safe' _dataprobe_safesave, frame(`sfile') mask(`_xmask')
+                    frame `sfile' {
+                        quietly generate str32 varname = variable
+                        quietly generate str20 dc_class = class
+                    }
+                }
             }
-            if strpos(`"`sfile'"', char(96)) | strpos(`"`sfile'"', char(34)) local _bad = 1
-            if `_bad' {
-                display as text "  " as error "saving: illegal characters in path — skipped"
-	            }
-	            else {
-	                tempfile dcmeta_tmp
-	                tempname dcmeta_post
-	                quietly postfile `dcmeta_post' ///
-	                    str16 source_command str2045 source str2045 output ///
-	                    str2045 dataset str2045 dataset_label str32 variable ///
-	                    str20 storage_type str32 display_format str32 value_label ///
-	                    str20 class double N long nvars long missing ///
-	                    double missing_pct long unique str2045 variable_label ///
-	                    str2045 notes str2045 characteristics double mean double sd ///
-	                    double p50 double p25 double p75 double min double max ///
-	                    str2045 datasignature byte unique_capped ///
-	                    using `"`dcmeta_tmp'"', replace
-	                local _dcsource "memory"
-	                if `"`single'"' != "" local _dcsource `"`single'"'
-	                local _dclabel : data label
-	                local _dcdsig `"`_dsig'"'
-	                _datamap_post_metadata_rows, postname(`dcmeta_post') ///
-	                    classifications(`"`proff'"') sourcecommand("dataprobe") ///
-	                    source(`"`_dcsource'"') output("") dsname("current") ///
-						nvars(`: word count `profilevars'') ///
-	                    varlist(`"`profilevars'"') datasignature(`"`_dcdsig'"')
-	                postclose `dcmeta_post'
-	                local _isfile = 0
-	                if substr(`"`sfile'"', -4, 4) == ".dta" local _isfile = 1
-	                else if strpos(`"`sfile'"', "/") | strpos(`"`sfile'"', "\") local _isfile = 1
-	                if `_isfile' {
-	                    tempname dcsaveframe
-	                    frame create `dcsaveframe'
-	                    capture noisily {
-	                        frame `dcsaveframe' {
-	                            quietly use `"`dcmeta_tmp'"', clear
-	                            quietly generate str32 varname = variable
-	                            quietly generate str20 dc_class = class
-	                            if `sreplace' quietly save `"`sfile'"', replace
-	                            else          quietly save `"`sfile'"'
-	                        }
-	                    }
-	                    local _dcsave_rc = _rc
-		                    capture frame drop `dcsaveframe'
-		                    local _dcsave_drop_rc = _rc
-		                    if !inlist(`_dcsave_drop_rc', 0, 111) & !`_dcsave_rc' {
-		                        local _dcsave_rc = `_dcsave_drop_rc'
-		                    }
-		                    if `_dcsave_rc' {
-		                        display as text "  " as error "saving: could not write `sfile' — skipped"
-		                    }
-	                }
-	                else {
-	                    capture frame `sfile': describe
-	                    local _sframe_exists = (_rc == 0)
-	                    if `_sframe_exists' & !`sreplace' {
-	                        display as text "  " as error ///
-	                            "saving: frame `sfile' already exists; specify replace — skipped"
-	                    }
-	                    else {
-	                        local _sframe_rc = 0
-	                        if `sreplace' {
-	                            capture frame drop `sfile'
-	                            local _sframe_drop_rc = _rc
-	                            if !inlist(`_sframe_drop_rc', 0, 111) local _sframe_rc = `_sframe_drop_rc'
-	                        }
-	                        if !`_sframe_rc' {
-	                            capture frame create `sfile'
-	                            local _sframe_rc = _rc
-	                        }
-	                        if !`_sframe_rc' {
-	                            capture noisily {
-	                                frame `sfile' {
-	                                    quietly use `"`dcmeta_tmp'"', clear
-	                                    quietly generate str32 varname = variable
-	                                    quietly generate str20 dc_class = class
-	                                }
-	                            }
-	                            local _sframe_rc = _rc
-	                        }
-	                        if `_sframe_rc' {
-	                            display as text "  " as error "saving: could not write `sfile' — skipped"
-	                        }
-	                    }
-	                }
+            local _dcsave_rc = _rc
+            if `_dcs_made' capture frame drop `dcsaveframe'
+            if `_dcsave_rc' {
+                display as text "  " as error "saving: could not write `sfile' — skipped"
             }
         }
 
@@ -3875,7 +3982,7 @@ program define dataprobe, rclass
                 as text " gate(s) (" as result "`checks_run'" as text "), N = " ///
                 as result "`_Ns'" as text ", 0 violations`_masktag'"
         }
-        else if `n_checks' == 0 & `n_rev' == 0 & "`gatesonly'" != "" {
+        else if `n_checks' == 0 & `n_rev' == 0 & "`gatesonly'" != "" & !`_gsk' {
             display as text "dataprobe: gatesonly with no gates declared; nothing was checked"
         }
         if `n_warn' > 0 {
@@ -3907,8 +4014,14 @@ program define dataprobe, rclass
     }
     local rc = _rc
     local cleanup_rc = 0
+    // brief's output-off pass, if an error left it on
+    if `_outq' set output proc
     if `_gframe_made' {
         capture frame drop `_gframe'
+        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+    }
+    if `_wframe_made' {
+        capture frame drop `_wframe'
         if _rc & !`cleanup_rc' local cleanup_rc = _rc
     }
     if `_rframe_made' {
@@ -3921,10 +4034,6 @@ program define dataprobe, rclass
     }
     if `_vframe_made' {
         capture frame drop `_vframe'
-        if _rc & !`cleanup_rc' local cleanup_rc = _rc
-    }
-    if `_bframe_made' {
-        capture frame drop `_bframe'
         if _rc & !`cleanup_rc' local cleanup_rc = _rc
     }
     if `_cframe_made' {
@@ -4391,13 +4500,24 @@ program define _dataprobe_freq, nclass
         // variable, constant within a level, marking cells withheld by the
         // caller (byfreq's pooled-remainder test).  The caller's local
         // _fqmask is set to 1 when a cell printed as [suppressed].
-        args v maxfreq rare maskcell cond ind force src
+        args v maxfreq rare maskcell cond ind force src mo
         if "`maskcell'" == "" local maskcell = 0
         if `"`ind'"' == "" local ind "    "
         // Display-only: under quietly, as-error segments would still print.
-        if !`_display' {
-            set varabbrev `_orig_varabbrev'
-            exit
+        // mo = maskonly (brief, 2.0.0): the suppression is worked out and
+        // _fqmask set, with nothing printed, so r(masked) is the full
+        // profile's
+        // Under quietly (2.0.0) the table runs as maskonly whenever a cell
+        // can be withheld, so r(masked) does not depend on quietly; it
+        // exits early only when nothing can be withheld (no mask, no
+        // force), and for a byfreq group table whose rows
+        // _dataprobe_freqprep did not build.
+        if !`_display' & "`mo'" == "" {
+            if (`maskcell' <= 0 & "`force'" == "") | (`"`src'"' != "" & "`force'" == "") {
+                set varabbrev `_orig_varabbrev'
+                exit
+            }
+            local mo "maskonly"
         }
         tempvar freq sup grp rk
         if `"`src'"' != "" {
@@ -4427,6 +4547,14 @@ program define _dataprobe_freq, nclass
             if "`force'" != "" quietly generate byte `sup' = (`force' == 1)
             else quietly generate byte `sup' = 0
             _dataprobe_freqsup `grp' `freq' `sup' `rk' `maxfreq' `maskcell'
+            if "`mo'" != "" {
+                if `show' > 0 {
+                    quietly count if `sup' in 1/`show'
+                    if r(N) local _anysup = 1
+                }
+                local show = 0
+                local nlev = 0
+            }
             forvalues r = 1/`show' {
                 local lv = `v'[`r']
                 local ct = `freq'[`r']
@@ -4482,11 +4610,12 @@ program define _dataprobe_freqprep
     // byfreq: the (level, group[, force]) frequencies of v in one contract,
     // sorted by group, count (descending) and level, into frame fr.  The
     // caller's locals _bfqf (the count variable) and _bfl<g>/_bfh<g> (the
-    // first and last row of group g) address each group's table.  Display
-    // only: nothing is built under quietly, where _dataprobe_freq exits.
+    // first and last row of group g) address each group's table.  Under
+    // quietly the rows are built only when a cell can be withheld (force
+    // given), for _dataprobe_freq's maskonly pass (2.0.0).
     version 16.0
     args v grp fr force
-    if !c(noisily) exit
+    if !c(noisily) & "`force'" == "" exit
     local f "_dpfreq"
     if "`v'" == "`f'" local f "_dpfreq2"
     frame put `v' `grp' `force', into(`fr')
@@ -5403,7 +5532,7 @@ real scalar _dpa_try(struct _dpa_st scalar S, real matrix MV, real scalar a,
 // stay), and an incomplete count moved with its bounds
 real scalar _dpa_wit(struct _dpa_st scalar S, real scalar qs, real scalar a, real scalar mode)
 {
-	real scalar ji, j, b, b2, c1, c2, c3, L, w, d1, d2, io, isI, dj, i1, i2, i3, lastv
+	real scalar ji, j, b, b2, c1, c2, c3, L, w, d1, d2, io, isI, dj, i1, i2, i3, lastv, nr
 	real rowvector js, ws
 	real colvector mp, mw
 	real matrix TCo, TCw, D1, D2
@@ -5423,6 +5552,35 @@ real scalar _dpa_wit(struct _dpa_st scalar S, real scalar qs, real scalar a, rea
 		// visit only the codes their own conditions can accept, in the
 		// same order, so the tries and their count are unchanged)
 		NZ = J(S.G, 1, NULL)
+		// rectangles first (2026-11-10): a moves c1 -> c2 and a group b
+		// that holds c2 moves it back, over the codes b holds. This is
+		// the usual twin of a level's zero or singleton cell; the search
+		// below reaches it only after scanning every code of every group
+		// before b, about L tries per count and L^2 per table. Under a
+		// pooled group of fewer than m rows every level of a byfreq table
+		// is such a count (its complement is the group size), so a
+		// 3,000-level identifier ran for minutes (dataprobe, maskrare
+		// byfreq by()). At most 256 rectangles per variable are tried
+		// here, so a count with no rectangle twin loses little budget;
+		// the search below is unchanged.
+		nr = 0
+		for (c1 = 1; c1 <= L & nr < 256; c1++) {
+			if (TCo[a, c1] < 1) continue
+			for (b = 1; b <= S.G & nr < 256; b++) {
+				if (b == a) continue
+				if (mode == 1 & S.ispool[b]) continue
+				if (NZ[b] == NULL) NZ[b] = &(selectindex(TCo[b, .] :>= 1))
+				for (i3 = 1; i3 <= length(*NZ[b]) & nr < 256; i3++) {
+					c2 = (*NZ[b])[i3]
+					if (c2 == c1 | mp[c1] == mp[c2]) continue
+					for (io = (isI ? -1 : 0); io <= (isI ? 1 : 0); io++) {
+						if (S.used > S.budget) return(0)
+						nr++
+						if (_dpa_try(S, ((a, j, c1, c2) \ (b, j, c2, c1)), a, qs, io, mode)) return(1)
+					}
+				}
+			}
+		}
 		for (c1 = 1; c1 <= L; c1++) {
 			if (TCo[a, c1] < 1) continue
 			for (c2 = 1; c2 <= L; c2++) {

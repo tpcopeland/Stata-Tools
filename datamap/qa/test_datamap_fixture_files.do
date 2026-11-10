@@ -1,5 +1,11 @@
 *! test_datamap_fixture_files.do -- actual output bytes and owned-tree mutation policy
 *! Author: Timothy P Copeland, Karolinska Institutet
+* 2026-11-10 (datamap 2.0.0): format(json) and datadict are removed.  The
+* datamap path tests run on the Markdown writer (the hostile path still stops
+* with 198 and leaves the tree byte-identical; the no-extension path still
+* writes exactly one new file, "name"); the datadict twins are ported to the
+* same writer with a continuous(x) call and r(output) asserted, and read the
+* document through _qa_md.do instead of a Python substring.
 version 16.0
 clear all
 set more off
@@ -10,6 +16,7 @@ capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
 discard
 do _qa_fx_a7.do
+do _qa_md.do
 do _qa_state.do
 local tests 0
 local pass 0
@@ -27,7 +34,7 @@ capture noisily {
     python: _dm_tree_before={str(p.relative_to(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")))):p.read_bytes() for p in __import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")).rglob("*") if p.is_file()}
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(dm_files)
-    capture noisily datamap, output(`"`macval(output)'"') format(json)
+    capture noisily datamap, output(`"`macval(output)'"')
     local original_rc=_rc
     assert `original_rc'==198
     qa_state_compare, tag(dm_files)
@@ -57,10 +64,18 @@ capture noisily {
     python: _dm_tree_before={str(p.relative_to(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")))):p.read_bytes() for p in __import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")).rglob("*") if p.is_file()}
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(dm_files)
-    quietly datamap, output(`"`macval(output)'"') format(json)
+    quietly datamap, output(`"`macval(output)'"')
     assert r(nobs)==40 & r(nvars)==10 & r(nfiles)==1
     qa_state_compare, tag(dm_files)
-    python: from pathlib import Path; from sfi import Macro; _dm_tree_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; import json; _j=json.loads(Path(Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _j["variable_metadata"]}; assert _j["observations"]==40 and _j["variables"]==10 and _v["x"]["missing_n"]==0 and _v["all_missing"]["missing_n"]==40; assert set(_dm_tree_before)==set(_dm_tree_after); assert [k for k in _dm_tree_before if _dm_tree_before[k]!=_dm_tree_after[k]]==["name"]
+    python: from pathlib import Path; from sfi import Macro; _dm_tree_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; assert set(_dm_tree_before)==set(_dm_tree_after); assert [k for k in _dm_tree_before if _dm_tree_before[k]!=_dm_tree_after[k]]==["name"]
+    qa_md_contains using `"`macval(output)'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_rows using `"`macval(output)'"'
+    assert r(n)==10
+    qa_md_rows using `"`macval(output)'"', var(x) miss("0 (0.0%)")
+    assert r(n)==1
+    qa_md_rows using `"`macval(output)'"', var(all_missing) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
 }
 local outcome=_rc
 capture restore
@@ -74,7 +89,7 @@ else {
     display as result "PASS: datamap path_noext"
 }
 
-**# datadict path_hostile
+**# datamap Markdown path_hostile
 local ++tests
 local root ""
 capture noisily {
@@ -86,7 +101,7 @@ capture noisily {
     python: _dm_tree_before={str(p.relative_to(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")))):p.read_bytes() for p in __import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")).rglob("*") if p.is_file()}
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(dm_files)
-    capture noisily datadict, output(`"`macval(output)'"') stats continuous(x)
+    capture noisily datamap, output(`"`macval(output)'"') continuous(x)
     local original_rc=_rc
     assert `original_rc'==198
     qa_state_compare, tag(dm_files)
@@ -97,14 +112,14 @@ capture restore
 if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
 if `outcome' {
     local ++fail
-    display as error "FAIL: datadict path_hostile rc=" `outcome'
+    display as error "FAIL: datamap Markdown path_hostile rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datadict path_hostile"
+    display as result "PASS: datamap Markdown path_hostile"
 }
 
-**# datadict path_noext
+**# datamap Markdown path_noext
 local ++tests
 local root ""
 capture noisily {
@@ -116,22 +131,27 @@ capture noisily {
     python: _dm_tree_before={str(p.relative_to(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")))):p.read_bytes() for p in __import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")).rglob("*") if p.is_file()}
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(dm_files)
-    quietly datadict, output(`"`macval(output)'"') stats continuous(x)
-    assert r(nobs_total)==40 & r(nvars_total)==10 & r(nfiles)==1
+    quietly datamap, output(`"`macval(output)'"') continuous(x)
+    assert r(nobs)==40 & r(nvars)==10 & r(nfiles)==1
     assert `"`r(output)'"'==`"`macval(output)'"'
     qa_state_compare, tag(dm_files)
-    python: from pathlib import Path; from sfi import Macro; _dm_tree_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; _txt=Path(Macro.getLocal("output")).read_text(); assert "Mean=20.50 (SD=11.69)" in _txt and "| `all_missing` |  | Numeric | All missing |" in _txt; assert set(_dm_tree_before)==set(_dm_tree_after); assert [k for k in _dm_tree_before if _dm_tree_before[k]!=_dm_tree_after[k]]==["name"]
+    python: from pathlib import Path; from sfi import Macro; _dm_tree_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; assert set(_dm_tree_before)==set(_dm_tree_after); assert [k for k in _dm_tree_before if _dm_tree_before[k]!=_dm_tree_after[k]]==["name"]
+    qa_md_contains using `"`macval(output)'"', needle("mean=20.50; SD=11.69;")
+    assert !missing(r(n))
+    assert r(n)>=1
+    qa_md_rows using `"`macval(output)'"', var(all_missing) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
 }
 local outcome=_rc
 capture restore
 if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
 if `outcome' {
     local ++fail
-    display as error "FAIL: datadict path_noext rc=" `outcome'
+    display as error "FAIL: datamap Markdown path_noext rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datadict path_noext"
+    display as result "PASS: datamap Markdown path_noext"
 }
 
 **# dataprobe path_hostile

@@ -15,6 +15,11 @@ set linesize 255
 * F6 datamap DESCRIPTION compares %th and %ty dates within their own family
 * F7 dataqa assert baseline() with a dataset name holding a space
 * F8 datamap detect(binary) obeys nofreq
+* 2026-11-10 (datamap 2.0.0): the text layout is gone.  F3 reads the Missingness
+* bullets ("- Complete rows: ..." and the pattern list), F6 the date cell's
+* "range a to b", F8 the Binary structure line and the level cell (a frequency
+* block no longer exists; nofreq leaves "<n> distinct").  F1, F2, F4, F5, F7 do
+* not read datamap documents.
 * Oracles: hand-computed counts and shares, exact decimal literals, the
 * masked/unmasked pair of each privacy case (the small count must not appear
 * masked and must appear unmasked).
@@ -26,6 +31,8 @@ capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
 discard
 macro drop DATAMAP_DQ
+do "`qa_dir'/_qa_md.do"
+local bt = char(96)
 
 global TC 0
 global PASS 0
@@ -47,20 +54,13 @@ end
 local W "`c(tmpdir)'/v193"
 capture mkdir "`W'"
 
-* count lines of a text file holding a needle
+* count lines of a document holding a needle (Mata reader: a datamap line may
+* end in a backtick, which a macro line reader stops on)
 capture program drop _v3_count
 program define _v3_count, rclass
     args file needle
-    tempname fh
-    local n = 0
-    file open `fh' using `"`file'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`needle'"') local ++n
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar n = `n'
+    qa_md_contains using `"`file'"', needle(`"`needle'"')
+    return scalar n = r(n)
 end
 
 * the cell text of one group row in a logged GROUPSTAT table: the line that
@@ -211,30 +211,30 @@ clear
 quietly set obs 72
 generate x = cond(inrange(_n, 21, 22), ., 1)
 generate y = cond(_n >= 23, ., 1)
-local P1 "`W'/pat1.txt"
+local P1 "`W'/pat1.md"
 capture erase "`P1'"
 quietly datamap, output("`P1'") missing(pattern)
-_v3_count "`P1'" "Observations with complete data: 20"
+_v3_count "`P1'" "Complete rows: 20"
 local nraw = r(n)
-_v3_count "`P1'" "Observations with complete data: suppressed (complementary)"
+_v3_count "`P1'" "- Complete rows: suppressed (complementary)"
 local nsup = r(n)
-_v3_count "`P1'" "++: suppressed (complementary)"
+qa_md_contains using "`P1'", needle("  - `bt'++`bt': suppressed (complementary)")
 _cv `=!(`nraw' == 0 & `nsup' == 1 & r(n) == 1)' ///
     "F3 the complete-data count is withheld when its pattern is complementary"
-local P2 "`W'/pat2.txt"
+local P2 "`W'/pat2.md"
 capture erase "`P2'"
 quietly datamap, output("`P2'") missing(pattern) mincell(0)
-_v3_count "`P2'" "Observations with complete data: 20 (27.8%)"
+_v3_count "`P2'" "- Complete rows: 20 (27.8%)"
 _cv `=!(r(n) == 1)' "F3 positive control: mincell(0) prints the complete-data count 20"
 * a shown all-observed pattern leaves the line shown
 clear
 quietly set obs 72
 generate x = cond(inrange(_n, 21, 30), ., 1)
 generate y = cond(_n >= 31, ., 1)
-local P3 "`W'/pat3.txt"
+local P3 "`W'/pat3.md"
 capture erase "`P3'"
 quietly datamap, output("`P3'") missing(pattern)
-_v3_count "`P3'" "Observations with complete data: 20 (27.8%)"
+_v3_count "`P3'" "- Complete rows: 20 (27.8%)"
 _cv `=!(r(n) == 1)' "F3 positive control: an unmasked pattern table keeps the count"
 
 * layouts with more than ten patterns: pattern k of the list (from 0) has v_b
@@ -261,12 +261,12 @@ end
 * (a) the all-observed pattern (20) ranks beyond the printed ten, beside a
 * hidden pattern of 2: N 277 - shown 255 - complete 20 would give the 2 back
 _v3_patdata 20 30 29 28 27 26 25 24 23 22 21 2
-local P4 "`W'/pat4.txt"
+local P4 "`W'/pat4.md"
 capture erase "`P4'"
 quietly datamap, output("`P4'") missing(pattern) mincell(5)
-_v3_count "`P4'" "Observations with complete data: 20"
+_v3_count "`P4'" "Complete rows: 20"
 local nraw = r(n)
-_v3_count "`P4'" "Observations with complete data: suppressed (complementary)"
+_v3_count "`P4'" "- Complete rows: suppressed (complementary)"
 local nsup = r(n)
 _v3_count "`P4'" "2 more pattern(s) not shown"
 _cv `=!(`nraw' == 0 & `nsup' == 1 & r(n) == 1)' ///
@@ -274,23 +274,23 @@ _cv `=!(`nraw' == 0 & `nsup' == 1 & r(n) == 1)' ///
 * (b) the all-observed pattern (20) is the smallest of the ten shown and the
 * one hidden pattern has 2 rows
 _v3_patdata 20 30 29 28 27 26 25 24 23 22 2
-local P5 "`W'/pat5.txt"
+local P5 "`W'/pat5.md"
 capture erase "`P5'"
 quietly datamap, output("`P5'") missing(pattern) mincell(5)
-_v3_count "`P5'" "Observations with complete data: 20"
+_v3_count "`P5'" "Complete rows: 20"
 local nraw = r(n)
-_v3_count "`P5'" "Observations with complete data: suppressed (complementary)"
+_v3_count "`P5'" "- Complete rows: suppressed (complementary)"
 local nsup = r(n)
-_v3_count "`P5'" "++++: suppressed (complementary)"
+qa_md_contains using "`P5'", needle("  - `bt'++++`bt': suppressed (complementary)")
 _cv `=!(`nraw' == 0 & `nsup' == 1 & r(n) == 1)' ///
     "F3 a shown all-observed pattern withheld as the complement of a small hidden one"
 * positive control: a large all-observed pattern prints; the smallest other
 * shown pattern (22) is the complement, so N - shown - complete is 24, not 2
 _v3_patdata 100 30 29 28 27 26 25 24 23 22 2
-local P6 "`W'/pat6.txt"
+local P6 "`W'/pat6.md"
 capture erase "`P6'"
 quietly datamap, output("`P6'") missing(pattern) mincell(5)
-_v3_count "`P6'" "Observations with complete data: 100 ("
+_v3_count "`P6'" "- Complete rows: 100 ("
 local nraw = r(n)
 _v3_count "`P6'" ": 22 ("
 _cv `=!(`nraw' == 1 & r(n) == 0)' ///
@@ -337,10 +337,10 @@ generate h = th(2000h2) + _n - 1
 format h %th
 generate y = 1990 + _n
 format y %ty
-local P6 "`W'/span.txt"
+local P6 "`W'/span.md"
 capture erase "`P6'"
 quietly datamap, output("`P6'")
-_v3_count "`P6'" "The data spans from 2000h2 to 2010h1."
+_v3_count "`P6'" "N=20; range 2000h2 to 2010h1 |"
 local ok6 = r(n)
 _v3_count "`P6'" "2965"
 _cv `=!(`ok6' == 1 & r(n) == 0)' "F6 %th and %ty are not mixed in the date span"
@@ -369,18 +369,19 @@ _cv `=!(`rc7b' == 9)' "F7 positive control: dataset 'b c' absent from the run fa
 
 **# F8 detect(binary) obeys nofreq
 sysuse auto, clear
-local P8 "`W'/bin1.txt"
+local P8 "`W'/bin1.md"
 capture erase "`P8'"
 quietly datamap, output("`P8'") detect(binary) nofreq
-_v3_count "`P8'" "Binary Variables"
+qa_md_contains using "`P8'", needle("- Binary (two distinct values): `bt'foreign`bt'") exact
 local nsec = r(n)
-_v3_count "`P8'" "  Frequency:"
-_cv `=!(`nsec' == 1 & r(n) == 0)' "F8 nofreq drops the binary frequency block"
-local P8b "`W'/bin2.txt"
+* nofreq: the binary variable's cell is its distinct count, no level list
+qa_md_rows using "`P8'", var(foreign) cell("2 distinct")
+_cv `=!(`nsec' == 1 & r(n) == 1)' "F8 nofreq drops the binary variable's level list (the Binary line stays)"
+local P8b "`W'/bin2.md"
 capture erase "`P8b'"
 quietly datamap, output("`P8b'") detect(binary)
-_v3_count "`P8b'" "  Frequency:"
-_cv `=!(r(n) >= 1)' "F8 positive control: without nofreq the binary frequency block prints"
+qa_md_rows using "`P8b'", var(foreign) cell("0 Domestic: 52 (70.3%)<br>1 Foreign: 22 (29.7%)")
+_cv `=!(r(n) == 1)' "F8 positive control: without nofreq the binary variable's levels print"
 
 * tidy
 local files : dir "`W'" files "*"

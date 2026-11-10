@@ -1,5 +1,12 @@
 *! test_datamap_v171.do Version 1.0.0  2026/09/29
 *! Known-answer regressions for review F01-F08 and M01
+*! 2026-11-10 (datamap 2.0.0): datadict, the text layout and format(json) are
+*! removed.  F01: the "Earliest:"/"Latest:" console sinks are the Markdown range
+*! cell (with a positive control, so the regex cannot be blind); F02/F03: the
+*! datadict calls are datamap calls (cells "<value>: n (p%)", preflight sentinel
+*! cohort_map.md, default suffix _map); fingerprint tests: the datadict pair
+*! runs datamap with document options, the JSON test runs datamap with notes()
+*! and docdate() (JSON is removed).
 *! Author: Timothy P Copeland, Karolinska Institutet
 version 16.0
 clear all
@@ -22,6 +29,7 @@ discard
 do "`c(pwd)'/_qa_state.do"
 do "`c(pwd)'/_qa_hostile.do"
 do "`c(pwd)'/_qa_parity.do"
+do "`c(pwd)'/_qa_md.do"
 local tests = 0
 local pass = 0
 local fail = 0
@@ -36,7 +44,7 @@ format dob %td
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 
-datamap,  datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap,  datesafe continuous(age) output("`work'/private.md") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
@@ -45,9 +53,25 @@ assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
 quietly summarize min if variable == "dob"
+* 2026-11-10 (datamap 2.0.0): the text map's "Earliest:" / "Latest:" lines are
+* gone; the date surface of the Markdown document is "range <yyyy/mm/dd> to
+* <yyyy/mm/dd>" (shown without datesafe) or "span n days (exact dates
+* withheld)".  The sinks read the first date of the range and the second.
 qa_surface_parity, expect(withheld) result(r(min)) ///
-    log("`work'/private.txt") logregex("Earliest:")
-qa_surface_parity, expect(withheld) log("`work'/private.txt") logregex("Latest:")
+    log("`work'/private.md") logregex("range ([0-9]{4}/[0-9]{2}/[0-9]{2}) to")
+qa_surface_parity, expect(withheld) log("`work'/private.md") logregex("to ([0-9]{4}/[0-9]{2}/[0-9]{2})")
+* the withholding is real and the regex is not blind: the document says so, and
+* the same data without datesafe prints the range the regexes look for
+qa_md_contains using "`work'/private.md", needle("(exact dates withheld)")
+assert r(n) == 1
+qa_md_contains using "`work'/private.md", needle("range 20")
+assert r(n) == 0
+clear
+datamap, single("`work'/source.dta") continuous(age) output("`work'/open.md")
+qa_md_contains using "`work'/open.md", needle("range 20")
+assert r(n) == 1
+qa_md_contains using "`work'/open.md", needle("withheld")
+assert r(n) == 0
 }
 local rc = _rc
 capture file close _all
@@ -73,7 +97,7 @@ format dob %tc
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 
-datamap,  datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap,  datesafe continuous(age) output("`work'/private.md") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
@@ -82,9 +106,25 @@ assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
 quietly summarize min if variable == "dob"
+* 2026-11-10 (datamap 2.0.0): the text map's "Earliest:" / "Latest:" lines are
+* gone; the date surface of the Markdown document is "range <yyyy/mm/dd> to
+* <yyyy/mm/dd>" (shown without datesafe) or "span n days (exact dates
+* withheld)".  The sinks read the first date of the range and the second.
 qa_surface_parity, expect(withheld) result(r(min)) ///
-    log("`work'/private.txt") logregex("Earliest:")
-qa_surface_parity, expect(withheld) log("`work'/private.txt") logregex("Latest:")
+    log("`work'/private.md") logregex("range ([0-9]{4}/[0-9]{2}/[0-9]{2}) to")
+qa_surface_parity, expect(withheld) log("`work'/private.md") logregex("to ([0-9]{4}/[0-9]{2}/[0-9]{2})")
+* the withholding is real and the regex is not blind: the document says so, and
+* the same data without datesafe prints the range the regexes look for
+qa_md_contains using "`work'/private.md", needle("(exact dates withheld)")
+assert r(n) == 1
+qa_md_contains using "`work'/private.md", needle("range 20")
+assert r(n) == 0
+clear
+datamap, single("`work'/source.dta") continuous(age) output("`work'/open.md")
+qa_md_contains using "`work'/open.md", needle("range 20")
+assert r(n) == 1
+qa_md_contains using "`work'/open.md", needle("withheld")
+assert r(n) == 0
 }
 local rc = _rc
 capture file close _all
@@ -110,7 +150,7 @@ format dob %td
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 clear
-datamap, single("`work'/source.dta") datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap, single("`work'/source.dta") datesafe continuous(age) output("`work'/private.md") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
@@ -119,9 +159,25 @@ assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
 quietly summarize min if variable == "dob"
+* 2026-11-10 (datamap 2.0.0): the text map's "Earliest:" / "Latest:" lines are
+* gone; the date surface of the Markdown document is "range <yyyy/mm/dd> to
+* <yyyy/mm/dd>" (shown without datesafe) or "span n days (exact dates
+* withheld)".  The sinks read the first date of the range and the second.
 qa_surface_parity, expect(withheld) result(r(min)) ///
-    log("`work'/private.txt") logregex("Earliest:")
-qa_surface_parity, expect(withheld) log("`work'/private.txt") logregex("Latest:")
+    log("`work'/private.md") logregex("range ([0-9]{4}/[0-9]{2}/[0-9]{2}) to")
+qa_surface_parity, expect(withheld) log("`work'/private.md") logregex("to ([0-9]{4}/[0-9]{2}/[0-9]{2})")
+* the withholding is real and the regex is not blind: the document says so, and
+* the same data without datesafe prints the range the regexes look for
+qa_md_contains using "`work'/private.md", needle("(exact dates withheld)")
+assert r(n) == 1
+qa_md_contains using "`work'/private.md", needle("range 20")
+assert r(n) == 0
+clear
+datamap, single("`work'/source.dta") continuous(age) output("`work'/open.md")
+qa_md_contains using "`work'/open.md", needle("range 20")
+assert r(n) == 1
+qa_md_contains using "`work'/open.md", needle("withheld")
+assert r(n) == 0
 }
 local rc = _rc
 capture file close _all
@@ -147,7 +203,7 @@ format dob %tc
 gen double age = 40 + _n
 save "`work'/source.dta", replace
 clear
-datamap, single("`work'/source.dta") datesafe continuous(age) output("`work'/private.txt") saving("`work'/meta.dta", replace)
+datamap, single("`work'/source.dta") datesafe continuous(age) output("`work'/private.md") saving("`work'/meta.dta", replace)
 use "`work'/meta.dta", clear
 assert class == "date" if variable == "dob"
 assert missing(mean, sd, p50, p25, p75, min, max) if variable == "dob"
@@ -156,9 +212,25 @@ assert min == 41 & max == 46 if variable == "age"
 quietly count if variable == "dob"
 assert r(N) == 1
 quietly summarize min if variable == "dob"
+* 2026-11-10 (datamap 2.0.0): the text map's "Earliest:" / "Latest:" lines are
+* gone; the date surface of the Markdown document is "range <yyyy/mm/dd> to
+* <yyyy/mm/dd>" (shown without datesafe) or "span n days (exact dates
+* withheld)".  The sinks read the first date of the range and the second.
 qa_surface_parity, expect(withheld) result(r(min)) ///
-    log("`work'/private.txt") logregex("Earliest:")
-qa_surface_parity, expect(withheld) log("`work'/private.txt") logregex("Latest:")
+    log("`work'/private.md") logregex("range ([0-9]{4}/[0-9]{2}/[0-9]{2}) to")
+qa_surface_parity, expect(withheld) log("`work'/private.md") logregex("to ([0-9]{4}/[0-9]{2}/[0-9]{2})")
+* the withholding is real and the regex is not blind: the document says so, and
+* the same data without datesafe prints the range the regexes look for
+qa_md_contains using "`work'/private.md", needle("(exact dates withheld)")
+assert r(n) == 1
+qa_md_contains using "`work'/private.md", needle("range 20")
+assert r(n) == 0
+clear
+datamap, single("`work'/source.dta") continuous(age) output("`work'/open.md")
+qa_md_contains using "`work'/open.md", needle("range 20")
+assert r(n) == 1
+qa_md_contains using "`work'/open.md", needle("withheld")
+assert r(n) == 0
 }
 local rc = _rc
 capture file close _all
@@ -184,21 +256,17 @@ local down "`r(down)'"
 gen double x = cond(_n <= 6, `down', .54321098765432109)
 format x %21.17g
 
-datadict, categorical(x) mincell(0) stats output("`work'/double.md")
-file open rd using "`work'/double.md", read text
-local matches = 0
-file read rd line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "Unique=2") {
-        local matches = 1
-        assert strpos(`"`macval(line)'"', "(0;") == 0
-        local both = subinstr(`"`macval(line)'"', "(6; 50.0%)", "", .)
-        assert strlen(`"`macval(line)'"') - strlen(`"`macval(both)'"') == 20
-    }
-    file read rd line
-}
-file close rd
-assert `matches' == 1
+datamap, categorical(x) mincell(0) output("`work'/double.md")
+* two exact double categories, six rows each, and no empty level: the cell is the
+* two 17-digit values (the display format) in ascending order
+local lo = strtrim(string(`down', "%21.17g"))
+local hi = strtrim(string(.54321098765432109, "%21.17g"))
+assert "`lo'" != "`hi'"
+assert `down' < .54321098765432109
+qa_md_rows using "`work'/double.md", var(x) cell("`lo': 6 (50.0%)<br>`hi': 6 (50.0%)")
+assert r(n) == 1
+qa_md_contains using "`work'/double.md", needle(": 0 (0.0%)")
+assert r(n) == 0
 }
 local rc = _rc
 capture file close _all
@@ -225,21 +293,17 @@ gen double x = cond(_n <= 6, `down', .54321098765432109)
 format x %21.17g
 label define cats 1 "unused"
 label values x cats
-datadict, categorical(x) mincell(0) stats output("`work'/double.md")
-file open rd using "`work'/double.md", read text
-local matches = 0
-file read rd line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "Unique=2") {
-        local matches = 1
-        assert strpos(`"`macval(line)'"', "(0;") == 0
-        local both = subinstr(`"`macval(line)'"', "(6; 50.0%)", "", .)
-        assert strlen(`"`macval(line)'"') - strlen(`"`macval(both)'"') == 20
-    }
-    file read rd line
-}
-file close rd
-assert `matches' == 1
+datamap, categorical(x) mincell(0) output("`work'/double.md")
+* two exact double categories, six rows each, and no empty level: the cell is the
+* two 17-digit values (the display format) in ascending order
+local lo = strtrim(string(`down', "%21.17g"))
+local hi = strtrim(string(.54321098765432109, "%21.17g"))
+assert "`lo'" != "`hi'"
+assert `down' < .54321098765432109
+qa_md_rows using "`work'/double.md", var(x) cell("`lo': 6 (50.0%)<br>`hi': 6 (50.0%)")
+assert r(n) == 1
+qa_md_contains using "`work'/double.md", needle(": 0 (0.0%)")
+assert r(n) == 0
 }
 local rc = _rc
 capture file close _all
@@ -267,13 +331,13 @@ capture mkdir "`work'/out"
 save "`work'/a/cohort.dta", replace
 rename x other
 save "`work'/b/cohort.dta", replace
-file open sentinel using "`work'/out/cohort_dictionary.md", write text replace
+file open sentinel using "`work'/out/cohort_map.md", write text replace
 file write sentinel "existing sentinel" _n
 file close sentinel
-capture noisily datadict, filelist("`work'/a/cohort.dta `work'/b/cohort.dta") separate outdir("`work'/out")
+capture noisily datamap, filelist("`work'/a/cohort.dta `work'/b/cohort.dta") separate outdir("`work'/out")
 local rc = _rc
 assert `rc' == 198
-file open rd using "`work'/out/cohort_dictionary.md", read text
+file open rd using "`work'/out/cohort_map.md", read text
 file read rd line
 file close rd
 assert `"`macval(line)'"' == "existing sentinel"
@@ -305,13 +369,13 @@ capture mkdir "`work'/out"
 save "`work'/a/cohort.dta", replace
 rename x other
 save "`work'/b/cohort.dta", replace
-file open sentinel using "`work'/out/cohort_dictionary.md", write text replace
+file open sentinel using "`work'/out/cohort_map.md", write text replace
 file write sentinel "existing sentinel" _n
 file close sentinel
-capture noisily datadict, directory("`work'") recursive separate outdir("`work'/out")
+capture noisily datamap, directory("`work'") recursive separate outdir("`work'/out")
 local rc = _rc
 assert `rc' == 198
-file open rd using "`work'/out/cohort_dictionary.md", read text
+file open rd using "`work'/out/cohort_map.md", read text
 file read rd line
 file close rd
 assert `"`macval(line)'"' == "existing sentinel"
@@ -664,7 +728,7 @@ capture noisily {
     char _dta[user] "untouched"
     set varabbrev on
     qa_state_snapshot, tag(state) rreturn
-    datamap , output("`work'/state.txt") saving("`work'/state.dta", replace)
+    datamap , output("`work'/state.md") saving("`work'/state.dta", replace)
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
@@ -704,7 +768,7 @@ else {
     display as result "PASS: datamap fingerprint error"
 }
 
-**## Caller fingerprint datadict success
+**## Caller fingerprint datamap document options success
 local ++tests
 capture noisily {
     clear
@@ -717,20 +781,20 @@ capture noisily {
     char _dta[user] "untouched"
     set varabbrev on
     qa_state_snapshot, tag(state) rreturn
-    datadict , output("`work'/state.md")
+    datamap , output("`work'/state.md") title("T") notes("n") docdate("2026-01-01")
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
 if `rc' {
     local ++fail
-    display as error "FAIL: datadict fingerprint success (rc=`rc')"
+    display as error "FAIL: datamap document-options fingerprint success (rc=`rc')"
 }
 else {
     local ++pass
-    display as result "PASS: datadict fingerprint success"
+    display as result "PASS: datamap document-options fingerprint success"
 }
 
-**## Caller fingerprint datadict error
+**## Caller fingerprint datamap document options error
 local ++tests
 capture noisily {
     clear
@@ -743,18 +807,18 @@ capture noisily {
     char _dta[user] "untouched"
     set varabbrev on
     qa_state_snapshot, tag(state) rreturn
-    capture datadict, unknownoption
+    capture datamap, title("T") unknownoption
     assert _rc == 198
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
 if `rc' {
     local ++fail
-    display as error "FAIL: datadict fingerprint error (rc=`rc')"
+    display as error "FAIL: datamap document-options fingerprint error (rc=`rc')"
 }
 else {
     local ++pass
-    display as result "PASS: datadict fingerprint error"
+    display as result "PASS: datamap document-options fingerprint error"
 }
 
 **## Caller fingerprint dataprobe success
@@ -863,7 +927,7 @@ else {
     display as result "PASS: datamvp fingerprint error"
 }
 
-**## Caller fingerprint datamap JSON
+**## Caller fingerprint datamap notes/docdate/saving (was JSON)
 local ++tests
 capture noisily {
     clear
@@ -877,17 +941,17 @@ capture noisily {
     set varabbrev on
     save "`work'/state-input.dta", replace
     qa_state_snapshot, tag(state) rreturn
-    datamap, format(json) output("`work'/state.json")
+    datamap, output("`work'/state.md") notes("n") docdate("2026-01-01") saving("`work'/state2.dta", replace)
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
 if `rc' {
     local ++fail
-    display as error "FAIL: datamap fingerprint JSON (rc=`rc')"
+    display as error "FAIL: datamap notes/docdate/saving fingerprint (rc=`rc')"
 }
 else {
     local ++pass
-    display as result "PASS: datamap fingerprint JSON"
+    display as result "PASS: datamap notes/docdate/saving fingerprint"
 }
 
 **## Caller fingerprint datamap separate
@@ -904,8 +968,8 @@ capture noisily {
     set varabbrev on
     local caller_cwd "`c(pwd)'"
     cd "`work'"
-    capture erase "memory_map.txt"
-    file open seed using "memory_map.txt", write text replace
+    capture erase "memory_map.md"
+    file open seed using "memory_map.md", write text replace
     file close seed
     save "`work'/state-input.dta", replace
     qa_state_snapshot, tag(state) rreturn
@@ -938,7 +1002,7 @@ capture noisily {
     set varabbrev on
     save "`work'/state-input.dta", replace
     qa_state_snapshot, tag(state) rreturn
-    datamap, single("`work'/state-input.dta") output("`work'/single.txt")
+    datamap, single("`work'/state-input.dta") output("`work'/single.md")
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
@@ -951,7 +1015,7 @@ else {
     display as result "PASS: datamap fingerprint single"
 }
 
-**## Caller fingerprint datamap dict_single
+**## Caller fingerprint datamap single with document options
 local ++tests
 capture noisily {
     clear
@@ -965,17 +1029,17 @@ capture noisily {
     set varabbrev on
     save "`work'/state-input.dta", replace
     qa_state_snapshot, tag(state) rreturn
-    datadict, single("`work'/state-input.dta") output("`work'/single.md")
+    datamap, single("`work'/state-input.dta") output("`work'/single_doc.md") title("T") author("A")
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
 if `rc' {
     local ++fail
-    display as error "FAIL: datamap fingerprint dict_single (rc=`rc')"
+    display as error "FAIL: datamap fingerprint single with document options (rc=`rc')"
 }
 else {
     local ++pass
-    display as result "PASS: datamap fingerprint dict_single"
+    display as result "PASS: datamap fingerprint single with document options"
 }
 
 

@@ -5,11 +5,36 @@ version 16.0
 * test_datamap_privacy.do - Regression tests for the exclude() privacy contract
 * Generated: 2026-06-16 (datamap 1.1.1)
 * Guards the v1.1.1 fix: excluded variables must never leak their values,
-* cardinality, max length, or value-label coding in ANY output surface
-* (Binary section, QUICK REFERENCE, JSON, or VALUE LABEL DEFINITIONS).
-* Also includes a structural JSON-validity check, and the 1.8.0 maskrare
-* contract: no printed count from 1 to m-1 in gate messages, violations(),
-* the profile blocks, the patterns table, or the ledger.
+* cardinality, max length, or value-label coding in ANY output surface.
+* Also includes the 1.8.0 maskrare contract: no printed count from 1 to m-1 in
+* gate messages, violations(), the profile blocks, the patterns table, or the
+* ledger.
+*
+* 2026-11-10 (datamap 2.0.0): datamap writes one Markdown document and the
+* saving() table; the text layout, the JSON writer and the separate Binary,
+* QUICK REFERENCE and VALUE LABEL DEFINITIONS sections are gone.  Every privacy
+* assertion is kept and re-pointed at the surfaces that remain:
+*   Test 1 (Binary section leak)        -> the Markdown document, with
+*          detect(binary): the excluded coding "Negative"/"Positive" appears
+*          nowhere; the kept binary variable is still documented; the Binary
+*          structure line names no excluded variable.
+*   Test 2 (JSON null cardinality)      -> saving(): excluded rows carry
+*          missing unique, no summary statistics, empty value label, and the
+*          Markdown row shows "excluded (structure only)" with no level.
+*          REMOVED FEATURE: the JSON keys unique_values / max_length /
+*          classification no longer exist (format(json) is deleted).
+*   Test 3 (VALUE LABEL DEFINITIONS)    -> the section no longer exists; labels
+*          are inline beside each level.  The privacy content (a label used
+*          only by excluded variables never appears; a label shared with a
+*          kept variable is shown for the kept variable only) is asserted on
+*          the document and on saving()'s value_label column.
+*   Test 4 (stored results)             -> unchanged.
+*   Test 5 (JSON structural validity)   -> REMOVED FEATURE (no JSON output; the
+*          _priv_json_ok helper is deleted).  Replaced by the Markdown
+*          structural check on the same inputs (plain, privacy-rich and
+*          all-missing): every variable table row has the header's column
+*          count, and the all-missing case documents "All missing".
+* The Markdown reader is Mata (_qa_md.do): a datamap line may end in a backtick.
 
 local test_count = 0
 local pass_count = 0
@@ -22,56 +47,71 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
 
-* Helper: does a file contain a needle anywhere?
+do "`qa_dir'/_qa_md.do"
+
+* Helper: does a file contain a needle anywhere? (r(found); Mata reader)
 capture program drop _priv_file_contains
 program define _priv_file_contains, rclass
     version 16.0
     syntax using/ , NEEDLE(string)
-    tempname fh
-    local found 0
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`needle'"') > 0 local found 1
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar found = `found'
+    qa_md_contains using `"`using'"', needle(`"`needle'"')
+    return scalar found = r(found)
 end
 
-* Helper: structural JSON validity (balanced braces/brackets, no trailing commas)
-capture program drop _priv_json_ok
-program define _priv_json_ok, rclass
+* Helper: structural Markdown check: every table row of the Variables table has
+* as many unescaped cells as the header (r(ok)), and r(nrows) such rows
+capture program drop _priv_md_table_ok
+program define _priv_md_table_ok, rclass
     version 16.0
     syntax using/
-    tempname fh
-    local nopen 0
-    local nclose 0
-    local nbopen 0
-    local nbclose 0
-    local trailing 0
-    local blob ""
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        local t = strtrim(`"`macval(line)'"')
-        local nopen   = `nopen'   + length(`"`t'"') - length(subinstr(`"`t'"', "{", "", .))
-        local nclose  = `nclose'  + length(`"`t'"') - length(subinstr(`"`t'"', "}", "", .))
-        local nbopen  = `nbopen'  + length(`"`t'"') - length(subinstr(`"`t'"', "[", "", .))
-        local nbclose = `nbclose' + length(`"`t'"') - length(subinstr(`"`t'"', "]", "", .))
-        local blob `"`blob'`t'"'
-        file read `fh' line
+    mata: _priv_tbl(st_local("using"))
+    return scalar ok = scalar(__priv_ok)
+    return scalar nrows = scalar(__priv_nrows)
+    scalar drop __priv_ok __priv_nrows
+end
+mata:
+real scalar _priv_ncells(string scalar r)
+{
+    real scalar i, n
+    n = 0
+    for (i = 1; i <= strlen(r); i++) {
+        if (substr(r, i, 1) == "|" & (i == 1 | substr(r, i - 1, 1) != char(92))) n++
     }
-    file close `fh'
-    if strpos(`"`blob'"', ",}") > 0 local trailing 1
-    if strpos(`"`blob'"', ",]") > 0 local trailing 1
-    return scalar braces_ok   = (`nopen' == `nclose')
-    return scalar brackets_ok = (`nbopen' == `nbclose')
-    return scalar trailing    = `trailing'
+    return(n)
+}
+void _priv_tbl(string scalar f)
+{
+    string colvector L
+    real scalar i, hdr, ok, nrows, intbl
+    L = cat(f)
+    ok = 1
+    nrows = 0
+    hdr = 0
+    intbl = 0
+    for (i = 1; i <= rows(L); i++) {
+        if (L[i] == "### Variables") {
+            intbl = 1
+            continue
+        }
+        if (intbl & substr(L[i], 1, 12) == "| Variable |") {
+            hdr = _priv_ncells(L[i])
+            continue
+        }
+        if (intbl & substr(L[i], 1, 3) == "|--") continue
+        if (intbl & substr(L[i], 1, 1) == "|") {
+            nrows++
+            if (_priv_ncells(L[i]) != hdr) ok = 0
+        }
+        else if (intbl & hdr > 0 & L[i] == "") intbl = 0
+    }
+    if (hdr == 0) ok = 0
+    st_numscalar("__priv_ok", ok)
+    st_numscalar("__priv_nrows", nrows)
+}
 end
 
 * === Adversarial fixture: sensitive vars the user excludes for privacy ===
-tempfile pbase ptxt pjson ptxt2
+tempfile pbase ptxt pmd pmeta ptxt2
 local pdta "`pbase'.dta"
 clear
 set obs 50
@@ -94,29 +134,43 @@ label variable hiv_status "HIV status (sensitive)"
 save "`pdta'", replace
 
 * ============================================================
-* Test 1: excluded binary variable does NOT leak via the Binary section
+* Test 1: excluded binary variable does NOT leak its coding in the document
 *         (frequencies print value labels, so the labels must be absent)
 * ============================================================
 local ++test_count
-capture {
+capture noisily {
     datamap, single("`pdta'") output("`ptxt'") exclude(hiv_status patient_id mrn) detect(binary)
     * The sensitive coding "Negative"/"Positive" belongs only to the excluded
-    * hiv_status; it must not appear anywhere (binary freqs or value labels).
+    * hiv_status; it must not appear anywhere (levels, structure, labels).
     _priv_file_contains using "`ptxt'", needle("Negative")
     assert r(found) == 0
     _priv_file_contains using "`ptxt'", needle("Positive")
     assert r(found) == 0
-    * The kept binary var (sex) is still documented.
+    * The kept binary var (sex) is still documented, and the Binary structure
+    * line (detect(binary)) names it and none of the excluded variables.
     _priv_file_contains using "`ptxt'", needle("Female")
     assert r(found) == 1
-    * The excluded var's STRUCTURE is still documented (name + excluded marker).
-    _priv_file_contains using "`ptxt'", needle("VARIABLE: hiv_status")
+    * (the kept binaries of the fixture are sex, arm and study_arm; arm is not excluded here)
+    qa_md_contains using "`ptxt'", needle("- Binary (two distinct values): `=char(96)'sex`=char(96)', `=char(96)'arm`=char(96)', `=char(96)'study_arm`=char(96)'") exact
+    assert r(n) == 1
+    * The excluded var's STRUCTURE is still documented: its row, marked excluded
+    * (no level, no count, no cardinality), and the disclosure line names it.
+    qa_md_rows using "`ptxt'", var(hiv_status) cell("excluded (structure only)")
+    assert r(n) == 1
+    qa_md_rows using "`ptxt'", var(patient_id) cell("excluded (structure only)")
+    assert r(n) == 1
+    qa_md_rows using "`ptxt'", var(mrn) cell("excluded (structure only)")
+    assert r(n) == 1
+    _priv_file_contains using "`ptxt'", needle("3 excluded")
     assert r(found) == 1
-    _priv_file_contains using "`ptxt'", needle("excluded (privacy)")
-    assert r(found) == 1
+    * no MRN value, no patient id level list
+    _priv_file_contains using "`ptxt'", needle("MRN0")
+    assert r(found) == 0
+    _priv_file_contains using "`ptxt'", needle("MRN1")
+    assert r(found) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: excluded binary variable does not leak values in Binary section"
+    display as result "  PASS: excluded binary variable does not leak values in the document"
     local ++pass_count
 }
 else {
@@ -125,67 +179,103 @@ else {
 }
 
 * ============================================================
-* Test 2: excluded variable's cardinality/max-length not exposed in returns/JSON
+* Test 2: excluded variable's cardinality/max-length/statistics not exposed
+*         in saving() or the document (was: JSON null cardinality; the JSON
+*         keys unique_values/max_length/classification no longer exist)
 * ============================================================
 local ++test_count
-capture {
-    * (detect() is text-only; since 1.6.9 format(json) refuses it with r(198))
-    datamap, single("`pdta'") output("`pjson'") format(json) ///
+capture noisily {
+    datamap, single("`pdta'") output("`pmd'") saving("`pmeta'", replace) ///
         exclude(hiv_status patient_id mrn)
-    * Excluded vars carry null cardinality and null max length in JSON.
-    _priv_file_contains using "`pjson'", needle(`""unique_values": null"')
-    assert r(found) == 1
-    _priv_file_contains using "`pjson'", needle(`""max_length": null"')
-    assert r(found) == 1
-    * No leak of the sensitive coding in JSON either.
-    _priv_file_contains using "`pjson'", needle("Negative")
+    * No leak of the sensitive coding in the document.
+    _priv_file_contains using "`pmd'", needle("Negative")
     assert r(found) == 0
-    * Excluded classification is still recorded (structure documented).
-    _priv_file_contains using "`pjson'", needle(`""classification": "excluded""')
-    assert r(found) == 1
+    * saving(): excluded rows are structure only (class "excluded", no
+    * cardinality, no statistic, no value label), kept rows are not.
+    preserve
+    quietly use "`pmeta'", clear
+    assert _N == 6
+    foreach v in hiv_status patient_id mrn {
+        quietly count if variable == "`v'" & class == "excluded" & missing(unique) ///
+            & missing(mean) & missing(sd) & missing(p50) & missing(min) & missing(max) ///
+            & value_label == ""
+        assert r(N) == 1
+    }
+    quietly count if variable == "sex" & class != "excluded" & !missing(unique) & value_label == "sexl"
+    assert r(N) == 1
+    * the excluded string's maximum length never reaches a column
+    capture confirm variable max_length
+    assert _rc != 0
+    restore
 }
 if _rc == 0 {
-    display as result "  PASS: excluded variable cardinality/max-length suppressed in JSON"
+    display as result "  PASS: excluded variable cardinality/statistics suppressed in saving() and document"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: excluded variable cardinality/max-length leaked in JSON (error `=_rc')"
+    display as error "  FAIL: excluded variable cardinality/statistics leaked (error `=_rc')"
     local ++fail_count
 }
+capture restore
 
 * ============================================================
-* Test 3: VALUE LABEL DEFINITIONS - excluded-only labels dropped,
-*         shared labels preserved and attributed to the kept variable
+* Test 3: value labels - excluded-only labels dropped, shared labels preserved
+*         and shown for the kept variable only (was: VALUE LABEL DEFINITIONS,
+*         a section that no longer exists; labels are inline beside each level)
 * ============================================================
 local ++test_count
-capture {
+capture noisily {
     * Exclude arm (shares arml with kept study_arm) and hiv_status (yn only on it).
-    datamap, single("`pdta'") output("`ptxt2'") exclude(arm hiv_status patient_id mrn)
-    * Label used only by an excluded var disappears entirely.
-    _priv_file_contains using "`ptxt2'", needle("yn (used by:")
+    datamap, single("`pdta'") output("`ptxt2'") saving("`pmeta'", replace) ///
+        exclude(arm hiv_status patient_id mrn) ///
+        columns(variable label type vallabel missing values)
+    * The label NAMES are visible with columns(vallabel).  A label used only by
+    * an excluded var disappears entirely (no cell, no name), the shared one is
+    * named once, on the kept variable's row.
+    _priv_file_contains using "`ptxt2'", needle(" | yn | ")
     assert r(found) == 0
-    * Shared label still printed, attributed to the kept var only.
-    _priv_file_contains using "`ptxt2'", needle("arml (used by: study_arm)")
-    assert r(found) == 1
-    _priv_file_contains using "`ptxt2'", needle("Control")
-    assert r(found) == 1
-    _priv_file_contains using "`ptxt2'", needle("Treated")
-    assert r(found) == 1
+    _priv_file_contains using "`ptxt2'", needle("Negative")
+    assert r(found) == 0
+    qa_md_contains using "`ptxt2'", needle(" | arml | ")
+    assert r(n) == 1
+    * Shared label still shown, on the kept var only: study_arm's row carries
+    * both levels with the label text, arm's row carries no level at all.
+    qa_md_rows using "`ptxt2'", var(study_arm) cell("0 Control: 25 (50.0%)<br>1 Treated: 25 (50.0%)")
+    assert r(n) == 1
+    qa_md_rows using "`ptxt2'", var(arm) cell("excluded (structure only)")
+    assert r(n) == 1
+    qa_md_contains using "`ptxt2'", needle("Control")
+    assert r(n) == 1
+    qa_md_contains using "`ptxt2'", needle("Treated")
+    assert r(n) == 1
+    * saving(): the shared label name is attributed to study_arm only
+    preserve
+    quietly use "`pmeta'", clear
+    quietly count if value_label == "arml"
+    assert r(N) == 1
+    quietly count if variable == "study_arm" & value_label == "arml"
+    assert r(N) == 1
+    quietly count if variable == "arm" & value_label == ""
+    assert r(N) == 1
+    quietly count if value_label == "yn"
+    assert r(N) == 0
+    restore
 }
 if _rc == 0 {
-    display as result "  PASS: value-label definitions drop excluded-only labels, keep shared"
+    display as result "  PASS: value labels drop excluded-only labels, keep shared (kept variable only)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: value-label definitions privacy contract incorrect (error `=_rc')"
+    display as error "  FAIL: value-label privacy contract incorrect (error `=_rc')"
     local ++fail_count
 }
+capture restore
 
 * ============================================================
 * Test 4: stored results unaffected - excluded count and names still correct
 * ============================================================
 local ++test_count
-capture {
+capture noisily {
     datamap, single("`pdta'") output("`ptxt'") exclude(hiv_status arm)
     assert r(n_excluded) == 2
     assert strpos("`r(excluded_vars)'", "hiv_status") > 0
@@ -201,36 +291,50 @@ else {
 }
 
 * ============================================================
-* Test 5: JSON output is structurally valid (balanced, no trailing commas)
-*         across plain, privacy, and all-missing inputs
+* Test 5: the Markdown document is structurally valid across plain, privacy
+*         and all-missing inputs (was: JSON balanced braces, no trailing
+*         commas; the JSON writer is removed, so this is the Markdown
+*         counterpart: a header row, and every row the header's cell count)
 * ============================================================
 local ++test_count
-capture {
-    * (a) privacy-rich JSON from above
-    _priv_json_ok using "`pjson'"
-    assert r(braces_ok) == 1
-    assert r(brackets_ok) == 1
-    assert r(trailing) == 0
+capture noisily {
+    * (a) privacy-rich document from above
+    _priv_md_table_ok using "`pmd'"
+    assert r(ok) == 1
+    assert r(nrows) == 6
     * (b) all-missing edge case
-    tempfile emiss ejson
+    tempfile emiss emd
     clear
     set obs 10
     gen double allmiss = .
     gen byte g = mod(_n, 2)
     gen str5 s = ""
     save "`emiss'.dta", replace
-    datamap, single("`emiss'") output("`ejson'") format(json)
-    _priv_json_ok using "`ejson'"
-    assert r(braces_ok) == 1
-    assert r(brackets_ok) == 1
-    assert r(trailing) == 0
+    datamap, single("`emiss'") output("`emd'")
+    _priv_md_table_ok using "`emd'"
+    assert r(ok) == 1
+    assert r(nrows) == 3
+    qa_md_rows using "`emd'", var(allmiss) cell("All missing") miss("10 (100.0%)")
+    assert r(n) == 1
+    * (c) a hostile label and level text cannot add a cell
+    clear
+    set obs 6
+    gen byte g = mod(_n, 2)
+    label variable g "pipe | and <b>tag</b>"
+    label define gl 0 "a | b" 1 "c"
+    label values g gl
+    tempfile hmd
+    datamap, output("`hmd'") mincell(0)
+    _priv_md_table_ok using "`hmd'"
+    assert r(ok) == 1
+    assert r(nrows) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: JSON output is structurally valid (balanced, no trailing commas)"
+    display as result "  PASS: Markdown document is structurally valid (cell counts, all-missing, hostile text)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: JSON output malformed (error `=_rc')"
+    display as error "  FAIL: Markdown document malformed (error `=_rc')"
     local ++fail_count
 }
 

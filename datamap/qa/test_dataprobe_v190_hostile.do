@@ -5,6 +5,13 @@
 *! backtick-apostrophe, dollar-x, SMCL, parenthesis, backslash, leading dash,
 *! the reported q="a(b)`, a quote-apostrophe pair, a 244-character value and an
 *! embedded line feed.
+*! 2026-11-10 (datamap 2.0.0): the text layout, format(json) and datadict are
+*! removed.  H13 (datamap text and JSON) and H14 (datadict) read datamap's
+*! Markdown row instead: each hostile level is asserted as the cell text the
+*! writer documents (backtick -> &#96;, dollar -> &#36;, backslash doubled, the
+*! quote-apostrophe pair's apostrophe -> &#39;, a line feed -> a space), with the
+*! count and the share of the 91 rows.  The JSON escapes (\u0060 ...) tested a
+*! feature that no longer exists (REMOVED FEATURE) and are not asserted.
 *! Author: Timothy P Copeland, Karolinska Institutet
 version 16.0
 clear all
@@ -53,7 +60,7 @@ capture mata: mata drop _hl_lines()
 capture mata: mata drop _hl_find()
 capture mata: mata drop _hl_leak()
 capture mata: mata drop _hl_count()
-foreach f in _hl_fillb _hl_fill _hl_chk_all _hl_chk_groups _hl_chk_present _hl_counts _hl_chk_dmtext {
+foreach f in _hl_fillb _hl_fill _hl_chk_all _hl_chk_groups _hl_chk_present _hl_counts _hl_chk_dmtext _hl_esc _hl_chk_mdrow {
     capture mata: mata drop `f'()
 }
 mata:
@@ -206,6 +213,36 @@ string colvector _hl_counts(string colvector L)
     return(o)
 }
 // datamap text: "level": count (pct%) for each hostile level
+// the text each hostile level prints as in the Markdown cell (the writer's escapes)
+string colvector _hl_esc()
+{
+    return(char(34) \ "&#96;" \ "&#96;'" \ "&#36;x" \ "{bf:x}" \ "(" \ (char(92) + char(92)) \ ///
+        "-lead" \ ("q=" + char(34) + "a(b)&#96;") \ (invtokens(J(1, 243, "a"), "") + "Z") \ ///
+        "line1 line2" \ ("a" + char(34) + "&#39;b") \ "a)b(c")
+}
+// the Variables-table row of variable v (prefix "| `v` |") holds every level as
+// "<escaped level quoted>: k (share%)", level k occurring k times of 91 rows,
+// and exactly 13 entries (12 separators)
+real scalar _hl_chk_mdrow(string colvector T, string scalar v)
+{
+    string colvector ee
+    string scalar row, tok, pre
+    real scalar k, ok, i
+    ee = _hl_esc()
+    pre = "| " + char(96) + v + char(96) + " |"
+    row = ""
+    for (i = 1; i <= rows(T); i++) if (substr(T[i], 1, strlen(pre)) == pre) row = T[i]
+    ok = (row != "")
+    for (k = 1; k <= rows(ee); k++) {
+        tok = char(34) + ee[k] + char(34) + ": " + strofreal(k) + " (" + strtrim(strofreal(100 * k / 91, "%9.1f")) + "%)"
+        if (strpos(row, tok) == 0) {
+            ok = 0
+            printf("datamap Markdown level %f of %s\n", k, v)
+        }
+    }
+    ok = ok & ((strlen(row) - strlen(subinstr(row, "<br>", "", .))) / 4 == 12)
+    return(ok)
+}
 real scalar _hl_chk_dmtext(string colvector T)
 {
     string colvector vv
@@ -476,52 +513,46 @@ capture noisily {
 local rc = _rc
 _u_tally `rc' "H12 maskrare: hostile output has the same masked and shown counts as benign levels"
 
-**# H13 datamap text and JSON: hostile levels, labels and data label
+**# H13 datamap Markdown: hostile levels, labels and data label
 capture noisily {
     _h_fix
     mata: st_varlabel("id", "end" + char(96))
     mata: stata("label data " + char(34) + "ds" + char(96) + char(34))
-    tempfile dmt dmj
-    datamap, output("`dmt'.txt") categorical(q sl g) mincell(0) maxfreq(30) exclude(id)
-    datamap, output("`dmj'.json") format(json) categorical(q sl g) mincell(0) maxfreq(30) exclude(id)
-    mata: T = cat(st_local("dmt") + ".txt"); J = cat(st_local("dmj") + ".json")
-    * text: "level": count (pct%), a line feed shown as a space
-    mata: ok = _hl_chk_dmtext(T)
-    mata: st_local("ok", strofreal(ok))
+    tempfile dmt
+    datamap, output("`dmt'.md") categorical(q sl g) mincell(0) maxfreq(30) exclude(id)
+    mata: T = cat(st_local("dmt") + ".md")
+    * "level": count (share%), a line feed shown as a space, in the q and the strL row
+    mata: st_local("ok", strofreal(_hl_chk_mdrow(T, "q")))
     assert `ok' == 1
-    * the variable label and the value labels
-    mata: st_local("a", strofreal(any(T :== ("    Label: end" + char(96)))))
+    mata: st_local("ok", strofreal(_hl_chk_mdrow(T, "sl")))
+    assert `ok' == 1
+    * the variable label (of the excluded id), the value labels and the data label
+    mata: st_local("a", strofreal(sum(strpos(T, "| " + char(96) + "id" + char(96) + " | end&#96; |") :> 0)))
     assert `a' == 1
-    mata: st_local("a", strofreal(any(T :== ("  2 = " + char(96)))))
+    mata: st_local("a", strofreal(sum(strpos(T, "2 &#96;: 31 (34.1%)") :> 0)))
     assert `a' == 1
-    * JSON: the backtick is the escape `, the quote-apostrophe pair stays apart
-    mata: st_local("a", strofreal(sum(strpos(J, char(34) + "value" + char(34) + ": " + char(34) + char(92) + "u0060" + char(34) + ",") :> 0)))
-    assert `a' == 2
-    mata: st_local("a", strofreal(sum(strpos(J, "a" + char(92) + char(34) + char(92) + "u0027" + "b") :> 0)))
-    assert `a' == 2
-    mata: st_local("a", strofreal(sum(strpos(J, "q=" + char(92) + char(34) + "a(b)" + char(92) + "u0060") :> 0)))
-    assert `a' == 2
-    mata: st_local("a", strofreal(sum(strpos(J, char(34) + "label" + char(34) + ": " + char(34) + "end" + char(92) + "u0060" + char(34)) :> 0)))
+    mata: st_local("a", strofreal(sum(strpos(T, "3 {bf:x}(" + char(92) + char(92) + ": 30 (33.0%)") :> 0)))
     assert `a' == 1
-    mata: st_local("a", strofreal(sum(strpos(J, char(34) + "label" + char(34) + ": " + char(34) + "ds" + char(92) + "u0060" + char(34)) :> 0)))
+    mata: st_local("a", strofreal(any(T :== "- Label: ds&#96;")))
     assert `a' == 1
+    * no raw backtick-apostrophe or dollar-x reaches a level or label cell
+    mata: st_local("a", strofreal(sum(strpos(T, char(36) + "x") :> 0)))
+    assert `a' == 0
 }
 local rc = _rc
-_u_tally `rc' "H13 datamap text and JSON: hostile levels, variable, value and data labels write literally"
+_u_tally `rc' "H13 datamap Markdown: hostile levels, variable, value and data labels write literally"
 
-**# H14 datadict markdown: hostile levels with oracle counts
+**# H14 datamap document mode: hostile levels with oracle counts in the Markdown row
 capture noisily {
     _h_fix
     tempfile ddm
-    datadict, output("`ddm'.md") categorical(q sl g) mincell(0) detail stats
+    datamap, output("`ddm'.md") categorical(q sl g) mincell(0) title("T") notes("n")
     mata: M = cat(st_local("ddm") + ".md")
-    * markdown writes a backtick and a dollar sign as entities, a line feed as a space
-    mata: row = M[selectindex(strpos(M, "| `q` |") :> 0)]
-    mata: st_local("hit", strofreal(strpos(row, "&#96; (2; ") > 0 & strpos(row, "&#36;x (4; ") > 0 & strpos(row, "{bf:x} (5; ") > 0 & strpos(row, "( (6; ") > 0 & strpos(row, "-lead (8; ") > 0 & strpos(row, "a" + char(34) + "&#39;b (12; ") > 0))
+    mata: st_local("hit", strofreal(_hl_chk_mdrow(M, "q")))
     assert `hit' == 1
 }
 local rc = _rc
-_u_tally `rc' "H14 datadict: hostile levels counted exactly in the markdown row"
+_u_tally `rc' "H14 datamap document mode: hostile levels counted exactly in the markdown row"
 
 **# H15 datamap saving() and dataprobe saving(): metadata rows keep a hostile label verbatim
 capture noisily {

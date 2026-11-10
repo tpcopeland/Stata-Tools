@@ -17,6 +17,12 @@ version 16.0
 *   6. cap(0) disables censoring -- panel unit counts must stay exact
 *   7. missing-value contract preserved (. and .a-.z uncounted; "" per countempty)
 *   8. the slack boundary: cardinality just above the cap is still flagged
+*
+* 2026-11-10 (datamap 2.0.0): datadict and format(json) are removed.  Section 11
+* and 13 (datadict) run datamap in document mode (title()), the options `stats`
+* and `missing` are gone; the JSON "unique_values_capped" flag is REMOVED
+* FEATURE and is re-pointed at its successors, saving()'s unique_capped column
+* and the Unique column's ">1000" (columns(unique)).
 
 local test_count = 0
 local pass_count = 0
@@ -28,6 +34,7 @@ local tmp_dir "`qa_dir'/data"
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") replace
 discard
+do "`qa_dir'/_qa_md.do"
 
 capture program drop _v160_record
 program define _v160_record
@@ -95,26 +102,20 @@ local pass_count = `pass_count' + `ok'
 
 **# 3b. the rendered report says ">1000", and never the bare bound "1001"
 tempfile rpt
-quietly datamap, output("`rpt'.txt")
-local ok = 0
-local sawbound = 0
-tempname fh
-file open `fh' using "`rpt'.txt", read text
-file read `fh' line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "Unique Values: >1000") > 0 local ok = 1
-    if strpos(`"`macval(line)'"', "Unique Values: 1001") > 0  local sawbound = 1
-    file read `fh' line
-}
-file close `fh'
+* (2.0.0: the "Unique Values:" line is the Unique column, columns(unique))
+quietly datamap, output("`rpt'.md") columns(variable unique)
+qa_md_contains using "`rpt'.md", needle("| >1000 |")
+local ok = r(n)
+qa_md_contains using "`rpt'.md", needle("| 1001 |")
+local sawbound = r(n)
 local ++test_count
-local ok2 = (`ok' == 1 & `sawbound' == 0)
+local ok2 = (`ok' >= 1 & `sawbound' == 0)
 _v160_record `ok2' "report renders '>1000' and never the bare bound '1001'"
 local pass_count = `pass_count' + `ok2'
 
 **# 4. censoring does not change classification
 * vcont/vid are censored yet must still be continuous; vbin/vcat categorical.
-quietly datamap, output("`rpt'2.txt")
+quietly datamap, output("`rpt'2.md")
 local ++test_count
 local ok = ("`r(continuous_vars)'" != "")
 local c_ok = (strpos(" `r(continuous_vars)' ", " vcont ") > 0)
@@ -168,19 +169,12 @@ gen long pid = ceil(_n / 4)          // 5000 units x 4 obs -- units > cap(1000)
 gen byte  wave = mod(_n - 1, 4) + 1
 gen double yv = rnormal()
 tempfile prpt
-quietly datamap, output("`prpt'.txt") detect(panel) panelid(pid)
+quietly datamap, output("`prpt'.md") detect(panel) panelid(pid)
 
-local sawunits = 0
-local sawcap = 0
-tempname pfh
-file open `pfh' using "`prpt'.txt", read text
-file read `pfh' line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "Unique Units: 5000") > 0 local sawunits = 1
-    if strpos(`"`macval(line)'"', "Unique Units: 1001") > 0 local sawcap = 1
-    file read `pfh' line
-}
-file close `pfh'
+qa_md_contains using "`prpt'.md", needle("; 5000 units; 20000 rows")
+local sawunits = r(n)
+qa_md_contains using "`prpt'.md", needle("; 1001 units")
+local sawcap = r(n)
 local ++test_count
 local ok = (`sawunits' == 1 & `sawcap' == 0)
 _v160_record `ok' "panel unit count stays exact: 5000 units, not the cap bound 1001"
@@ -276,53 +270,32 @@ gen byte vbin = runiformint(0, 1)
 tempfile ucr
 
 * default: censored at 1000
-quietly datamap, output("`ucr'_d.txt")
-local sawcap = 0
-tempname f1
-file open `f1' using "`ucr'_d.txt", read text
-file read `f1' line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "Unique Values: >1000") > 0 local sawcap = 1
-    file read `f1' line
-}
-file close `f1'
+quietly datamap, output("`ucr'_d.md") columns(variable unique)
+qa_md_contains using "`ucr'_d.md", needle("| `=char(96)'vid`=char(96)' | >1000 |") exact
+local sawcap = r(n)
 local ++test_count
 _v160_record `sawcap' "uniqcap default(1000): vid renders '>1000'"
 local pass_count = `pass_count' + `sawcap'
 
 * uniqcap(0): exact count restored
-quietly datamap, output("`ucr'_0.txt") uniqcap(0)
-local sawexact = 0
-tempname f2
-file open `f2' using "`ucr'_0.txt", read text
-file read `f2' line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "Unique Values: 20000") > 0 local sawexact = 1
-    file read `f2' line
-}
-file close `f2'
+quietly datamap, output("`ucr'_0.md") uniqcap(0) columns(variable unique)
+qa_md_contains using "`ucr'_0.md", needle("| `=char(96)'vid`=char(96)' | 20000 |") exact
+local sawexact = r(n)
 local ++test_count
 _v160_record `sawexact' "uniqcap(0): vid renders exact 20000"
 local pass_count = `pass_count' + `sawexact'
 
 * uniqcap(5000): raised cap -> still exact for 20000? no: 20000 > 5000 -> '>5000'
-quietly datamap, output("`ucr'_5.txt") uniqcap(5000)
-local saw5 = 0
-tempname f3
-file open `f3' using "`ucr'_5.txt", read text
-file read `f3' line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "Unique Values: >5000") > 0 local saw5 = 1
-    file read `f3' line
-}
-file close `f3'
+quietly datamap, output("`ucr'_5.md") uniqcap(5000) columns(variable unique)
+qa_md_contains using "`ucr'_5.md", needle("| `=char(96)'vid`=char(96)' | >5000 |") exact
+local saw5 = r(n)
 local ++test_count
 _v160_record `saw5' "uniqcap(5000): vid renders '>5000'"
 local pass_count = `pass_count' + `saw5'
 
 * negative uniqcap rejected
 local ++test_count
-capture datamap, output("`ucr'_bad.txt") uniqcap(-1)
+capture datamap, output("`ucr'_bad.md") uniqcap(-1)
 local ok = (_rc == 198)
 _v160_record `ok' "uniqcap(-1) rejected with rc=198 (got rc=`=_rc')"
 local pass_count = `pass_count' + `ok'
@@ -347,7 +320,7 @@ local k_before = c(k)
 local sort_before "`: sortedby'"
 
 tempfile fr
-quietly datamap, output("`fr'.txt") detect(panel binary) panelid(id) quality samples(3)
+quietly datamap, output("`fr'.md") detect(panel binary) panelid(id) quality samples(3)
 
 quietly datasignature
 local ds_after "`r(datasignature)'"
@@ -368,27 +341,27 @@ local ok = (_rc != 0)
 _v160_record `ok' "no stray tempvar left in the dataset"
 local pass_count = `pass_count' + `ok'
 
-* the JSON capped flag is emitted
-tempfile js
-quietly datamap, format(json) output("`js'.json")
-local sawflag = 0
-local sawtrue = 0
-local q = char(34)
-tempname fj
-file open `fj' using "`js'.json", read text
-file read `fj' line
-while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "unique_values_capped") > 0 local sawflag = 1
-    if strpos(`"`macval(line)'"', `"unique_values_capped`q': true"') > 0 local sawtrue = 1
-    file read `fj' line
-}
-file close `fj'
+* the capped flag is emitted: saving()'s unique_capped (and the Unique column's
+* ">1000"), 1 for the censored string var and 0 for the exact one
+tempfile js jsm
+quietly datamap, output("`js'.md") saving("`jsm'", replace) columns(variable type unique)
+qa_md_contains using "`js'.md", needle("| `=char(96)'s`=char(96)' | str6 | >1000 |") exact
+local sawflag = r(n)
+qa_md_contains using "`js'.md", needle("| `=char(96)'grp`=char(96)' | byte | 4 |") exact
+local sawtrue = r(n)
+preserve
+quietly use "`jsm'", clear
+quietly count if variable == "s" & unique_capped == 1 & unique == 1001
+local sawflag = `sawflag' + r(N)
+quietly count if variable == "grp" & unique_capped == 0 & unique == 4
+local sawtrue = `sawtrue' + r(N)
+restore
 local ++test_count
-local ok = (`sawflag' == 1 & `sawtrue' == 1)
-_v160_record `ok' "JSON emits unique_values_capped, true for the censored string var"
+local ok = (`sawflag' == 2 & `sawtrue' == 2)
+_v160_record `ok' "unique_capped / >1000 flag: true for the censored string var, false for the exact one"
 local pass_count = `pass_count' + `ok'
 
-**# 11. datadict shares the fast counter and the censoring contract
+**# 11. document mode shares the fast counter and the censoring contract (was datadict)
 * datadict counted distinct values with -egen tag()-, which sorts the whole
 * dataset once per variable: 347s vs datamap's 54s on the same 3M x 60 file.
 * It now calls _datamap_nuniq like everything else, so it must honour the same
@@ -404,7 +377,7 @@ tempfile dd
 * `unique' column travels with a `unique_capped' flag, so a downstream consumer
 * cannot read a censored lower bound as an exact cardinality.
 tempfile ddmeta
-quietly datadict, output("`dd'_d.md") saving("`ddmeta'", replace)
+quietly datamap, output("`dd'_d.md") saving("`ddmeta'", replace) title("T")
 preserve
 quietly use "`ddmeta'", clear
 quietly summarize unique if variable == "vid"
@@ -418,11 +391,11 @@ local c_bin = r(mean)
 restore
 local ++test_count
 local ok = (`u_vid' == 1001 & `c_vid' == 1 & `u_bin' == 2 & `c_bin' == 0)
-_v160_record `ok' "datadict saving(): vid censored (1001, capped=1), vbin exact (2, capped=0)"
+_v160_record `ok' "document mode saving(): vid censored (1001, capped=1), vbin exact (2, capped=0)"
 local pass_count = `pass_count' + `ok'
 
 tempfile ddmeta0
-quietly datadict, output("`dd'_0.md") uniqcap(0) saving("`ddmeta0'", replace)
+quietly datamap, output("`dd'_0.md") uniqcap(0) saving("`ddmeta0'", replace) title("T")
 preserve
 quietly use "`ddmeta0'", clear
 quietly summarize unique if variable == "vid"
@@ -432,23 +405,23 @@ local c0 = r(mean)
 restore
 local ++test_count
 local ok = (`u0' == 20000 & `c0' == 0)
-_v160_record `ok' "datadict uniqcap(0): vid exact 20000, capped=0 (got `u0', `c0')"
+_v160_record `ok' "document mode uniqcap(0): vid exact 20000, capped=0 (got `u0', `c0')"
 local pass_count = `pass_count' + `ok'
 
 local ++test_count
-capture datadict, output("`dd'_bad.md") uniqcap(-1)
+capture datamap, output("`dd'_bad.md") uniqcap(-1) title("T")
 local ok = (_rc == 198)
-_v160_record `ok' "datadict uniqcap(-1) rejected with rc=198 (got rc=`=_rc')"
+_v160_record `ok' "document mode uniqcap(-1) rejected with rc=198 (got rc=`=_rc')"
 local pass_count = `pass_count' + `ok'
 
 * datadict must not disturb the data either
 quietly datasignature
 local ds_b "`r(datasignature)'"
-quietly datadict, output("`dd'_s.md") stats missing
+quietly datamap, output("`dd'_s.md") title("T")
 quietly datasignature
 local ++test_count
 local ok = ("`ds_b'" == "`r(datasignature)'")
-_v160_record `ok' "datadict leaves the data in memory bit-identical"
+_v160_record `ok' "document mode leaves the data in memory bit-identical"
 local pass_count = `pass_count' + `ok'
 
 **# 12. the in-memory path takes no -preserve-, so nothing may replace the data
@@ -478,7 +451,7 @@ local sb0 "`: sortedby'"
 local lab0 : data label
 
 tempfile np
-quietly datamap, output("`np'1.txt")
+quietly datamap, output("`np'1.md")
 quietly datasignature
 local ++test_count
 local ok = ("`ds0'" == "`r(datasignature)'" & "`sb0'" == "`: sortedby'")
@@ -487,7 +460,7 @@ local pass_count = `pass_count' + `ok'
 
 * saving() is the dangerous one: it used to leave the metadata table in memory
 tempfile npmeta
-quietly datamap, output("`np'2.txt") saving("`npmeta'", replace)
+quietly datamap, output("`np'2.md") saving("`npmeta'", replace)
 quietly datasignature
 local lab1 : data label
 local ++test_count
@@ -507,14 +480,13 @@ local ok = (`mrows' == 4 & `mok')
 _v160_record `ok' "saving() still writes the metadata file (4 rows, unique_capped present)"
 local pass_count = `pass_count' + `ok'
 
-* detectors + samples (text-only sections) and json must not disturb it either
-* (since 1.6.9 format(json) refuses the text-only sections with r(198))
-quietly datamap, output("`np'3.txt") detect(panel binary) panelid(id) quality samples(3)
-quietly datamap, format(json) output("`np'3.json")
+* detectors + samples and document mode must not disturb it either
+quietly datamap, output("`np'3.md") detect(panel binary) panelid(id) quality samples(3)
+quietly datamap, output("`np'3b.md") title("T") notes("n")
 quietly datasignature
 local ++test_count
 local ok = ("`ds0'" == "`r(datasignature)'")
-_v160_record `ok' "text detect + quality + samples and json leave data bit-identical"
+_v160_record `ok' "detect + quality + samples and document mode leave data bit-identical"
 local pass_count = `pass_count' + `ok'
 
 * single() STILL preserves: it -use-s a file, so restoring is a correctness
@@ -527,14 +499,14 @@ frame _v160mk {
     quietly save "`tmp_dir'/_v160_other.dta", replace
 }
 frame drop _v160mk
-quietly datamap, single("`tmp_dir'/_v160_other.dta") output("`np'5.txt")
+quietly datamap, single("`tmp_dir'/_v160_other.dta") output("`np'5.md")
 quietly datasignature
 local ++test_count
 local ok = ("`ds0'" == "`r(datasignature)'")
 _v160_record `ok' "single() still restores the caller's data (preserve retained on file paths)"
 local pass_count = `pass_count' + `ok'
 
-**# 13. datadict took the same treatment -- same contract
+**# 13. document mode took the same treatment (was datadict) -- same contract
 * Its in-memory path reloads a tempfile copy of the data, so the round-trip must
 * preserve everything a datasignature does NOT cover: labels, notes, chars, sort.
 label variable y "outcome"
@@ -548,28 +520,28 @@ local dvlab : variable label y
 local dchar : char id[role]
 local dnote : char _dta[note1]
 
-quietly datadict, output("`np'_dd1.md")
+quietly datamap, output("`np'_dd1.md") title("T")
 quietly datasignature
 local ++test_count
 local ok = ("`dds'" == "`r(datasignature)'" & "`dsb'" == "`: sortedby'" ///
     & `"`dlab'"' == `"`: data label'"' & `"`dvlab'"' == `"`: variable label y'"' ///
     & `"`dchar'"' == `"`: char id[role]'"' & `"`dnote'"' == `"`: char _dta[note1]'"')
-_v160_record `ok' "datadict in-memory run preserves sig, sort, labels, notes, chars"
+_v160_record `ok' "document mode in-memory run preserves sig, sort, labels, notes, chars"
 local pass_count = `pass_count' + `ok'
 
 tempfile ddm2
-quietly datadict, output("`np'_dd2.md") saving("`ddm2'", replace) stats missing
+quietly datamap, output("`np'_dd2.md") saving("`ddm2'", replace) title("T")
 quietly datasignature
 local ++test_count
 local ok = ("`dds'" == "`r(datasignature)'" & `"`dlab'"' == `"`: data label'"')
-_v160_record `ok' "datadict saving() does not leave the metadata table in memory"
+_v160_record `ok' "document mode saving() does not leave the metadata table in memory"
 local pass_count = `pass_count' + `ok'
 
-quietly datadict, single("`tmp_dir'/_v160_other.dta") output("`np'_dd3.md")
+quietly datamap, single("`tmp_dir'/_v160_other.dta") output("`np'_dd3.md") title("T")
 quietly datasignature
 local ++test_count
 local ok = ("`dds'" == "`r(datasignature)'")
-_v160_record `ok' "datadict single() still restores the caller's data"
+_v160_record `ok' "document mode single() still restores the caller's data"
 local pass_count = `pass_count' + `ok'
 
 capture erase "`tmp_dir'/_v160_other.dta"

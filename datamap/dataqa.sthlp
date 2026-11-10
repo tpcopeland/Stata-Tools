@@ -22,7 +22,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:dataqa set} [{it:options} | {cmd:clear}]
+{cmd:dataqa set} [{opt agent}] [{it:options} | {cmd:clear}]
 
 {p 8 17 2}
 {cmd:dataqa report} [{cmd:using} {it:ledger}] [{cmd:,} {opt run(string)} {opt mark:down(filename)} {opt replace} {opt bands}]
@@ -41,6 +41,7 @@
 {synoptset 24 tabbed}{...}
 {synopthdr:set options}
 {synoptline}
+{synopt:{opt agent}}the agent-safe preset for the session{p_end}
 {synopt:{opt mask:rare}}mask small cells in {cmd:dataprobe} and {cmd:datamvp}{p_end}
 {synopt:{opt min:cell(#)}}the mask threshold{p_end}
 {synopt:{opt led:ger(filename)}}ledger every gate call appends to{p_end}
@@ -85,12 +86,25 @@ status is not one of {bf:pass}, {bf:fail}, {bf:warn}, {bf:review}, or
 
 {pstd}
 {cmd:dataqa set} {it:options} stores session defaults in the global
-{cmd:DATAMAP_DQ}, read by {cmd:dataprobe} and {cmd:datamvp}. The options may be
+{cmd:DATAMAP_DQ}, read by {cmd:dataprobe} and {cmd:datamvp} (and by {cmd:datamap},
+which reads only the {cmd:agent} setting). The options may be
 written with or without a leading comma, so a do-file can carry
 {cmd:dataqa set maskrare mincell($mincell) ledger("$working/qa_ledger.dta") run($dt) $qa_calib}
 with {cmd:global qa_calib bandwarn} under the synthetic switch. Each
 {cmd:dataqa set} replaces the previous defaults. {cmd:dataqa set} alone lists
 them and {cmd:dataqa set clear} removes them.
+
+{pstd}
+{cmd:dataqa set agent} is the agent-safe preset for the session: until
+{cmd:dataqa set clear}, {cmd:datamap}, {cmd:dataprobe}, and {cmd:datamvp} run as
+if {opt safe} were typed (see each command's {opt safe}), and {cmd:nomaskrare}
+cannot turn it off. Other options may follow it, as in
+{cmd:dataqa set agent mincell(10) ledger("qa.dta") run(r1)}. The preset is
+{opt safe}, with the limits stated under {help datamap##safe:datamap's Safe output}: it
+covers printed output and written files only; stored results ({cmd:r()}), a
+{cmd:dataprobe} {opt snapshot()} frame, and differencing across outputs are not
+masked, identifiers are recognized by variable name only, and an integer date
+with no date format prints as a number.
 
 {pstd}
 The ledger only ever appends, so a rerun under the same {opt run()} label
@@ -199,7 +213,9 @@ still works, alone or together with {opt baseline()}. Calls
 without a dataset name cannot be matched and are not checked. With no
 baseline, from the call or the session, {opt optional()} is ignored with a
 note, so a do-file may carry it before the first baseline run exists; {opt baseledger()}
-without a baseline is r(198). A dataset name with a space goes in compound quotes in {opt expect()} and {opt optional()}, as in {cmd:optional(}{cmd:`"}{it:b c}{cmd:"'} {it:d}{cmd:)}.
+without a baseline is r(198). A dataset name with a space goes in compound quotes in
+{opt expect()} and {opt optional()}, as in {cmd:optional(}{cmd:`"}{it:b c}{cmd:"'}
+{it:d}{cmd:)}.
 
 {dlgtab:dataqa export}
 
@@ -214,9 +230,9 @@ or more digits, which may be an identifier written in a hurry. The same test
 blanks the {cmd:expected}, {cmd:label}, and {cmd:message} text of the gates
 written as data values ({opt rule()}, {opt review()}, {opt byrule()},
 {opt forbid()}, {opt notvalues()}, {opt allowed()}, {opt regex()},
-{opt sets()}); the message, which repeats the expectation, goes with it.
-Bounds gates ({opt inrange()}, {opt stat()}, and the like) keep their numbers.
-A {cmd:signature} whose leading N (the dataset's row count) is between 1 and
+{opt sets()}); the message, which repeats the expectation, goes with it. Bounds
+gates ({opt inrange()}, {opt stat()}, and the like) keep their numbers. A
+{cmd:signature} whose leading N (the dataset's row count) is between 1 and
 {opt threshold()}-1 is blanked. The working
 ledger stays on the server; only the exported copy leaves it, so the copy is
 a different file: {opt saving()} naming the ledger being read, or the
@@ -260,6 +276,13 @@ run on an extract.
 {title:Options}
 
 {dlgtab:Options for dataqa set}
+
+{phang}
+{opt agent} sets the agent-safe preset for the session: {cmd:datamap},
+{cmd:dataprobe}, and {cmd:datamvp} run as if {opt safe} were typed until
+{cmd:dataqa set clear}, and {cmd:nomaskrare} cannot turn it off. It may be
+followed by other options. The limits of {opt safe} are stated under
+{help dataqa##subcommands:dataqa set} and in {help datamap##safe:datamap}.
 
 {phang}
 {opt mask:rare} turns on {opt maskrare} in every later {cmd:dataprobe} and
@@ -425,6 +448,8 @@ propose widening an invariant.
 
 {pstd}In a do-file rerun under the same run label, start the run afresh and name the release copy apart from the ledger:{p_end}
 {phang2}{cmd:. dataqa set maskrare mincell(5) ledger("$working/qa_ledger_$dt.dta") run($dt) replace}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(make) name(auto_cars)}{p_end}
 {phang2}{cmd:. dataqa export, saving("$output/qa_ledger_release_$dt.dta") replace}{p_end}
 
 {pstd}A whole pipeline, in the form a study do-file takes. An earlier run stands

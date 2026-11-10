@@ -1,47 +1,37 @@
-/*  demo_datamap.do - Demo output for datamap
+/*  demo_datamap.do - Demo output for datamap 2.0.0
 
     Produces:
-      1. Console output (privacy + capped counts)  -> .log -> .md via logdoc
-      2. Console output (privacy-safe text map)    -> .log -> .md via logdoc
-      3. Console output (JSON + compact output)    -> .log -> .md via logdoc
-      4. Console output (Markdown dictionary)      -> .log -> .md via logdoc
-      5. Console output (dataprobe QC + gates)     -> .log -> .md via logdoc
-      6. Console output (datamvp missing patterns) -> .log -> .md via logdoc
-      7. In-memory datasignature checks            -> console output
-      8. Text maps                                 -> .txt
-      9. JSON map                                  -> .json
-     10. Markdown dictionaries                     -> .md
-     11. Missingness bar graph (datamvp)           -> .png
+      1. Console output (Markdown map, privacy controls)  -> .log -> .md via logdoc
+      2. Console output (compact map, missing(pattern))   -> .log -> .md via logdoc
+      3. Console output (safe preset, saving(), agent)    -> .log -> .md via logdoc
+      4. Console output (dataprobe QC, gates, brief)      -> .log -> .md via logdoc
+      5. Console output (dataprobe snapshot, diff, keys)  -> .log -> .md via logdoc
+      6. Console output (datamvp missing patterns)        -> .log -> .md via logdoc
+      7. Markdown maps written by datamap (incl. auto)    -> .md
+      8. Missingness bar graph (datamvp)                  -> .png
 */
 
 version 16.0
 set varabbrev off
-set linesize 120
+set linesize 255
 
 **# Paths
 local pkg_dir "datamap/demo"
 capture mkdir "`pkg_dir'"
 
-foreach f in datamap_auto.txt datamap_clinical.txt datamap_missing.txt ///
-    datamap_warning.txt datamap_compact.txt datamap_metadata.json ///
-    datadict_auto.md datadict_clinical.md missingness_bar.png ///
-    _demo_auto.dta _demo_cohort.dta _demo_missing.dta ///
-    console_datamap_privacy.log console_datamap_privacy.md ///
-    console_datamap_json.log console_datamap_json.md ///
+foreach f in datamap_clinical.md datamap_compact.md datamap_missing.md ///
+    datamap_auto.md datamap_safe.md datamap_agent.md datamap_vars.csv missingness_bar.png ///
+    _demo_auto.dta _demo_cohort.dta _demo_missing.dta _demo_labs.dta ///
+    console_datamap_map.log console_datamap_map.md ///
     console_datamap_compact.log console_datamap_compact.md ///
-    console_datamap_missing.log console_datamap_missing.md ///
-    console_datadict.log console_datadict.md ///
+    console_datamap_safe.log console_datamap_safe.md ///
     console_dataprobe.log console_dataprobe.md ///
+    console_dataprobe_diff.log console_dataprobe_diff.md ///
     console_datamvp.log console_datamvp.md {
     capture erase "`pkg_dir'/`f'"
 }
 
-**# Install package from local source
-capture ado uninstall datamap
-quietly net install datamap, from("`c(pwd)'/datamap") replace
-discard
-
-**# Graph scheme (local checkout first, public release fallback)
+**# Graph scheme: resolve it before the isolated install below
 capture ado uninstall tc_schemes
 capture confirm file "`c(pwd)'/tc_schemes/stata.toc"
 if _rc {
@@ -51,25 +41,62 @@ if _rc {
 else {
     quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
 }
-set scheme plotplainblind
+set scheme white_tableau
+
+**# Install package from local source
+* On a machine that already has datamap 1.x, run "ado uninstall datamap" first:
+* net install over 1.x leaves a stale datadict.ado behind.
+capture ado uninstall datamap
+quietly net install datamap, from("`c(pwd)'/datamap") replace
+discard
 
 **# Demo helper programs
+* The Markdown output holds backticks, which a Stata "if" expression would try
+* to expand, so the line matching runs in Mata.
+mata:
+void _demo_scan(string scalar path, string scalar needle, real scalar maxn)
+{
+    real scalar fh, found, shown
+    string scalar ln
+
+    fh = fopen(path, "r")
+    found = 0
+    shown = 0
+    while ((ln = fget(fh)) != J(0, 0, "")) {
+        if (strpos(ln, needle) > 0) {
+            found++
+            if (maxn > 0 & shown < maxn) {
+                shown++
+                printf("%s\n", ln)
+            }
+        }
+    }
+    fclose(fh)
+    st_local("found", strofreal(found))
+}
+
+void _demo_head(string scalar path, real scalar maxn)
+{
+    real scalar fh, n
+    string scalar ln
+
+    fh = fopen(path, "r")
+    n = 0
+    while ((ln = fget(fh)) != J(0, 0, "") & n < maxn) {
+        n++
+        printf("%s\n", ln)
+    }
+    if (n == maxn & fget(fh) != J(0, 0, "")) printf("... [output truncated]\n")
+    fclose(fh)
+}
+end
+
 capture program drop _demo_type_head
 program define _demo_type_head
     version 16.0
     syntax using/ [, Lines(integer 60)]
 
-    tempname fh
-    local n 0
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 & `n' < `lines' {
-        local ++n
-        display as text `"`macval(line)'"'
-        file read `fh' line
-    }
-    if r(eof) == 0 display as text "... [output truncated]"
-    file close `fh'
+    mata: _demo_head(st_local("using"), `lines')
 end
 
 capture program drop _demo_type_matches
@@ -77,19 +104,8 @@ program define _demo_type_matches
     version 16.0
     syntax using/ , Text(string) [Lines(integer 12)]
 
-    tempname fh
-    local n 0
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 & `n' < `lines' {
-        if strpos(`"`macval(line)'"', `"`macval(text)'"') > 0 {
-            local ++n
-            display as text `"`macval(line)'"'
-        }
-        file read `fh' line
-    }
-    if `n' == 0 display as text "(no matching lines)"
-    file close `fh'
+    mata: _demo_scan(st_local("using"), st_local("text"), `lines')
+    if `found' == 0 display as text "(no matching lines)"
 end
 
 capture program drop _demo_assert_contains
@@ -97,40 +113,11 @@ program define _demo_assert_contains
     version 16.0
     syntax using/ , Text(string)
 
-    tempname fh
-    local found 0
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`macval(text)'"') > 0 local found 1
-        file read `fh' line
-    }
-    file close `fh'
-
-    if !`found' {
+    mata: _demo_scan(st_local("using"), st_local("text"), 0)
+    if `found' == 0 {
         display as error `"expected text not found in `using': `text'"'
         exit 459
     }
-end
-
-capture program drop _demo_strip_trailing_spaces
-program define _demo_strip_trailing_spaces
-    version 16.0
-    syntax using/
-
-    tempname in out
-    tempfile trimmed
-    file open `in' using `"`using'"', read text
-    file open `out' using "`trimmed'", write text replace
-    file read `in' line
-    while r(eof) == 0 {
-        local clean = ustrregexra(`"`macval(line)'"', "[ \t]+$", "")
-        file write `out' `"`macval(clean)'"' _n
-        file read `in' line
-    }
-    file close `in'
-    file close `out'
-    copy "`trimmed'" `"`using'"', replace
 end
 
 **# Build synthetic clinical cohort
@@ -243,164 +230,134 @@ quietly {
     save "`pkg_dir'/_demo_missing.dta", replace
 }
 
-**# Build auto output artifacts
+
+**# Quick Start artifact: the auto data through single()
 sysuse auto, clear
 quietly save "`pkg_dir'/_demo_auto.dta", replace
+quietly datamap, single("`pkg_dir'/_demo_auto.dta") output("`pkg_dir'/datamap_auto.md")
+_demo_assert_contains using "`pkg_dir'/datamap_auto.md", text("| `make` |")
+capture erase "`pkg_dir'/_demo_auto.dta"
 
-quietly datamap, single("`pkg_dir'/_demo_auto.dta") ///
-    output("`pkg_dir'/datamap_auto.txt") ///
-    exclude(make)
-quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_auto.txt"
+**# Build a small lab file for the keyset() preflight
+quietly {
+    clear
+    set seed 20260228
+    set obs 900
+    gen double patient_id = 100000 + ceil(runiform() * 1200)
+    duplicates drop patient_id, force
+    gen double lab_value = round(rnormal(5, 1), 0.1)
+    label variable patient_id "Patient identifier"
+    label variable lab_value "Laboratory value"
+    save "`pkg_dir'/_demo_labs.dta", replace
+}
 
-quietly datadict, single("`pkg_dir'/_demo_auto.dta") ///
-    output("`pkg_dir'/datadict_auto.md") ///
-    missing stats
-
-**# Privacy controls and identifier warnings
+**# Markdown map with privacy controls and document options
 capture log close _all
-log using "`pkg_dir'/console_datamap_privacy.log", replace text name(privacy) nomsg
+log using "`pkg_dir'/console_datamap_map.log", replace text name(map) nomsg
 
-* # Likely identifier warning
-
-quietly datamap, single("`pkg_dir'/_demo_cohort.dta") ///
-    output("`pkg_dir'/datamap_warning.txt") ///
-    mincell(5) noguidance compact
-quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_warning.txt"
-
-noisily display as text "Disclosure-risk summary excerpt:"
-noisily _demo_type_head using "`pkg_dir'/datamap_warning.txt", lines(32)
-noisily display as text "Capped unique-count excerpt:"
-noisily _demo_type_matches using "`pkg_dir'/datamap_warning.txt", ///
-    text(">1000") lines(6)
-
-* # Privacy-safe text map
+* # Markdown map with document options
 
 use "`pkg_dir'/_demo_cohort.dta", clear
 quietly datasignature
 local map_signature "`r(datasignature)'"
 tempfile map_integrity
-
-quietly datamap, ///
-    output("`map_integrity'.txt") ///
-    exclude(patient_id subject_id patient_name) ///
+quietly datamap, output("`map_integrity'.md") exclude(patient_id subject_id patient_name) ///
     datesafe mincell(5) autodetect quality samples(3) missing(detail)
 quietly datasignature
 assert "`map_signature'" == "`r(datasignature)'"
-noisily display as result ///
-    "In-memory integrity check: datamap left the datasignature unchanged"
+noisily display as result "In-memory integrity check: datamap left the datasignature unchanged"
 
 noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
-    output("`pkg_dir'/datamap_clinical.txt") ///
+    output("`pkg_dir'/datamap_clinical.md") ///
+    title("SYNTH-01 Clinical Trial Map") ///
+    subtitle("Synthetic cohort for demonstration purposes") ///
+    version("1.1") docdate("10 Nov 2026") author("Timothy P Copeland, Karolinska Institutet") ///
     exclude(patient_id subject_id patient_name) ///
     datesafe mincell(5) autodetect quality samples(3) missing(detail)
-quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_clinical.txt"
 
-noisily display as text "Privacy-safe map excerpt:"
-noisily _demo_type_head using "`pkg_dir'/datamap_clinical.txt", lines(72)
+noisily display as text "Map excerpt:"
+noisily _demo_type_head using "`pkg_dir'/datamap_clinical.md", lines(90)
 noisily display as text "Suppressed frequency cells:"
-noisily _demo_type_matches using "`pkg_dir'/datamap_clinical.txt", ///
-    text("suppressed (<5)") lines(8)
-noisily display as text "Date-safe sample rows:"
-noisily _demo_type_matches using "`pkg_dir'/datamap_clinical.txt", ///
-    text("[DATE SUPPRESSED]") lines(6)
+noisily _demo_type_matches using "`pkg_dir'/datamap_clinical.md", ///
+    text("suppressed (") lines(8)
 
-log close privacy
+log close map
 
-**# JSON metadata output
-capture log close _all
-log using "`pkg_dir'/console_datamap_json.log", replace text name(json) nomsg
-
-* # JSON output for metadata pipelines
-
-noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
-    output("`pkg_dir'/datamap_metadata.json") ///
-    format(json) exclude(patient_id subject_id patient_name) ///
-    datesafe mincell(5) uniqcap(100)
-
-noisily _demo_type_head using "`pkg_dir'/datamap_metadata.json", lines(70)
-noisily display as text "Censored unique-count flags:"
-noisily _demo_type_matches using "`pkg_dir'/datamap_metadata.json", ///
-    text("unique_values_capped") lines(8)
-noisily display as text "Suppressed JSON cells:"
-noisily _demo_type_matches using "`pkg_dir'/datamap_metadata.json", ///
-    text("suppressed") lines(8)
-
-log close json
-
-**# Compact map output
+**# Compact map and missing-data patterns
 capture log close _all
 log using "`pkg_dir'/console_datamap_compact.log", replace text name(compact) nomsg
 
-* # Compact text map
+* # Compact map
 
 noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
-    output("`pkg_dir'/datamap_compact.txt") ///
+    output("`pkg_dir'/datamap_compact.md") ///
     compact exclude(patient_id subject_id patient_name) datesafe mincell(5)
-quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_compact.txt"
+noisily _demo_type_head using "`pkg_dir'/datamap_compact.md", lines(60)
 
-noisily _demo_type_head using "`pkg_dir'/datamap_compact.txt", lines(56)
+* # Missing-data patterns
+
+noisily datamap, single("`pkg_dir'/_demo_missing.dta") ///
+    output("`pkg_dir'/datamap_missing.md") ///
+    exclude(id) missing(pattern) quality mincell(5)
+noisily _demo_type_head using "`pkg_dir'/datamap_missing.md", lines(80)
 
 log close compact
 
-**# Missing-data pattern output
+**# Safe preset, saving() and the agent default
 capture log close _all
-log using "`pkg_dir'/console_datamap_missing.log", replace text name(missing) nomsg
+log using "`pkg_dir'/console_datamap_safe.log", replace text name(safe) nomsg
 
-* # Missing-data pattern output
+* # datamap, safe
 
-noisily datamap, single("`pkg_dir'/_demo_missing.dta") ///
-    output("`pkg_dir'/datamap_missing.txt") ///
-    exclude(id) missing(pattern) quality mincell(5) noguidance
-quietly _demo_strip_trailing_spaces using "`pkg_dir'/datamap_missing.txt"
+* safe = mincell(5) or more, datesafe, exclude(auto), no sample rows and no listed
+* values of text. It limits printed output and written files; stored results are
+* not masked.
 
-noisily _demo_type_head using "`pkg_dir'/datamap_missing.txt", lines(80)
+noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
+    output("`pkg_dir'/datamap_safe.md") safe
+noisily display as text "Excluded as likely identifiers: `r(excluded_vars)'"
+noisily display as text "safe stored as r(safe) = `r(safe)'"
+noisily _demo_type_head using "`pkg_dir'/datamap_safe.md", lines(36)
 
-log close missing
+* # safe refuses sample rows
 
-**# Markdown dictionary with shared classification
-capture log close _all
-log using "`pkg_dir'/console_datadict.log", replace text name(datadict) nomsg
+capture noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
+    output("`pkg_dir'/datamap_safe.md") safe samples(3)
+noisily display as text "return code: " _rc
 
-* # Markdown dictionary with shared classification
+* # saving(): one row per variable as a table
+
+noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
+    output("`pkg_dir'/datamap_safe.md") safe ///
+    saving("`pkg_dir'/datamap_vars", replace csv)
+noisily display as text "CSV written: `r(metadata_csv)'"
+preserve
+quietly import delimited using "`pkg_dir'/datamap_vars.csv", clear varnames(1) stringcols(_all)
+noisily display as text "Columns in the metadata table: " c(k)
+noisily list variable class storage_type missing missing_pct in 1/6, noobs abbreviate(14)
+restore
+capture erase "`pkg_dir'/datamap_vars.dta"
+
+* # dataqa set agent
+
+* dataqa set agent makes safe the session default for datamap and dataprobe.
 
 use "`pkg_dir'/_demo_cohort.dta", clear
-quietly datasignature
-local dict_signature "`r(datasignature)'"
-tempfile dict_integrity
+noisily dataqa set agent
+noisily datamap, output("`pkg_dir'/datamap_agent.md")
+noisily display as text "Session default applied: r(safe) = `r(safe)'"
+noisily dataqa set clear
 
-quietly datadict, ///
-    output("`dict_integrity'.md") ///
-    missing stats dateformat(%tdDD/NN/CCYY)
-quietly datasignature
-assert "`dict_signature'" == "`r(datasignature)'"
-noisily display as result ///
-    "In-memory integrity check: datadict left the datasignature unchanged"
+log close safe
 
-noisily datadict, single("`pkg_dir'/_demo_cohort.dta") ///
-    output("`pkg_dir'/datadict_clinical.md") ///
-    title("SYNTH-01 Clinical Trial Data Dictionary") ///
-    subtitle("Synthetic cohort for demonstration purposes") ///
-    version("1.1") ///
-    author("Timothy P Copeland, Karolinska Institutet") ///
-    missing stats dateformat(%tdDD/NN/CCYY)
-
-noisily _demo_type_head using "`pkg_dir'/datadict_clinical.md", lines(76)
-noisily display as text "Capped dictionary rows:"
-noisily _demo_type_matches using "`pkg_dir'/datadict_clinical.md", ///
-    text(">1000") lines(6)
-
-log close datadict
-
-**# dataprobe: console QC profile and expectation gates
+**# dataprobe: console QC profile, expectation gates and brief
 capture log close _all
 log using "`pkg_dir'/console_dataprobe.log", replace text name(dataprobe) nomsg
 
 * # Console QC profile
 
-* dataprobe profiles the data in memory: per-class distributions, missingness,
-* key structure, and quality flags. The cohort carries a deliberate age = -3
-* outlier, a 115% adherence value, a rare "Satellite clinic" site, and missing
-* biomarkers. Its 1,200 distinct IDs also exercise v1.6.0's capped count display.
+* The cohort carries a deliberate age = -3 outlier, a 115% adherence value, a
+* rare "Satellite clinic" site, and missing biomarkers.
 
 use "`pkg_dir'/_demo_cohort.dta", clear
 noisily dataprobe patient_id age sex smoking bmi pct_adherence site, ///
@@ -408,13 +365,49 @@ noisily dataprobe patient_id age sex smoking bmi pct_adherence site, ///
 
 * # Expectation gate (warn mode)
 
-* The same expectations run as a gate. With warn, violations are reported and
-* execution continues; drop warn to halt the do-file with r(9) instead.
+* With warn, violations are reported and execution continues; drop warn to halt
+* the do-file with r(9) instead.
 
 noisily dataprobe age pct_adherence, expectn(1200) isid(patient_id) ///
     notmissing(age sex) inrange(age 18 110 \ pct_adherence 0 100) warn
 
+* # brief: one line per variable
+
+noisily dataprobe, brief
+
 log close dataprobe
+
+**# dataprobe: snapshot, diff and keyset preflight
+capture log close _all
+log using "`pkg_dir'/console_dataprobe_diff.log", replace text name(diff) nomsg
+
+* # Snapshot before a data step
+
+use "`pkg_dir'/_demo_cohort.dta", clear
+capture frame drop baseline
+noisily dataprobe, snapshot(baseline) gatesonly
+noisily display as text "Snapshot frame: `r(snapshot)'; key: `r(snapshot_key)'"
+
+* # A data step that goes wrong
+
+quietly {
+    drop bmi
+    replace creatinine = . if mod(_n, 5) == 0
+    generate double bmi_group = floor(sbp / 20)
+    expand 2 in 1/10
+}
+
+* # Diff against the snapshot
+
+noisily dataprobe, diff(baseline) gatesonly
+
+* # keyset() preflight before a merge
+
+use "`pkg_dir'/_demo_cohort.dta", clear
+noisily dataprobe, gatesonly keyset(patient_id using "`pkg_dir'/_demo_labs.dta") warn
+
+capture frame drop baseline
+log close diff
 
 **# datamvp: missing-value pattern analysis
 capture log close _all
@@ -422,17 +415,10 @@ log using "`pkg_dir'/console_datamvp.log", replace text name(datamvp) nomsg
 
 * # Missing-value pattern table
 
-* datamvp (dataprobe's patterns engine) tabulates which variables are jointly
-* missing. The biomarker dataset has nested missingness (x1 absent after obs 60,
-* x4 after obs 70), so a few patterns dominate.
-
 use "`pkg_dir'/_demo_missing.dta", clear
 noisily datamvp x1 x2 x3 x4, percent sort
 
 * # Monotone-missingness test
-
-* Monotone missingness is the key precondition for sequential multiple
-* imputation; datamvp tests for it directly.
 
 noisily datamvp x1 x2 x3 x4, monotone
 
@@ -447,42 +433,14 @@ graph export "`pkg_dir'/missingness_bar.png", as(png) width(1400) replace
 capture graph close _all
 
 **# Verify generated artifact content
-_demo_assert_contains using "`pkg_dir'/datamap_warning.txt", ///
-    text("Likely identifiers not excluded")
-_demo_assert_contains using "`pkg_dir'/datamap_warning.txt", ///
-    text(">1000")
-_demo_assert_contains using "`pkg_dir'/datamap_clinical.txt", ///
-    text("suppressed (<5)")
-_demo_assert_contains using "`pkg_dir'/datamap_clinical.txt", ///
-    text("[DATE SUPPRESSED]")
-_demo_assert_contains using "`pkg_dir'/datamap_metadata.json", ///
-    text("suppressed")
-_demo_assert_contains using "`pkg_dir'/datamap_metadata.json", ///
-    text("mincell")
-_demo_assert_contains using "`pkg_dir'/datamap_metadata.json", ///
-    text(`""unique_values_capped": true"')
-_demo_assert_contains using "`pkg_dir'/datamap_compact.txt", ///
-    text("QUICK REFERENCE")
-_demo_assert_contains using "`pkg_dir'/datamap_missing.txt", ///
-    text("Missing Data Summary")
-_demo_assert_contains using "`pkg_dir'/datadict_clinical.md", ///
-    text("| Variable | Label | Type | Missing | Statistics/Values |")
-_demo_assert_contains using "`pkg_dir'/datadict_clinical.md", ///
-    text(">1000")
-_demo_assert_contains using "`pkg_dir'/console_dataprobe.log", ///
-    text("QUICK REFERENCE")
-_demo_assert_contains using "`pkg_dir'/console_dataprobe.log", ///
-    text(">1000")
-_demo_assert_contains using "`pkg_dir'/console_dataprobe.log", ///
-    text("WARNINGS (2)")
-_demo_assert_contains using "`pkg_dir'/console_datamap_privacy.log", ///
+_demo_assert_contains using "`pkg_dir'/datamap_clinical.md", text("suppressed")
+_demo_assert_contains using "`pkg_dir'/datamap_clinical.md", text("SYNTH-01 Clinical Trial Map")
+_demo_assert_contains using "`pkg_dir'/datamap_safe.md", text("withheld")
+_demo_assert_contains using "`pkg_dir'/datamap_compact.md", text("patient")
+_demo_assert_contains using "`pkg_dir'/console_datamap_map.log", ///
     text("In-memory integrity check: datamap left the datasignature unchanged")
-_demo_assert_contains using "`pkg_dir'/console_datadict.log", ///
-    text("In-memory integrity check: datadict left the datasignature unchanged")
-_demo_assert_contains using "`pkg_dir'/console_datamvp.log", ///
-    text("Missing value patterns")
-_demo_assert_contains using "`pkg_dir'/console_datamvp.log", ///
-    text("Monotone missingness test")
+_demo_assert_contains using "`pkg_dir'/console_dataprobe_diff.log", text("DIFF")
+_demo_assert_contains using "`pkg_dir'/console_datamvp.log", text("Missing value patterns")
 
 **# Convert console logs to markdown via logdoc
 capture ado uninstall logdoc
@@ -495,17 +453,14 @@ else {
     quietly net install logdoc, from("`c(pwd)'/logdoc") replace
 }
 
-foreach section in datamap_privacy datamap_json datamap_compact datamap_missing ///
-    datadict dataprobe datamvp {
+foreach section in datamap_map datamap_compact datamap_safe dataprobe ///
+    dataprobe_diff datamvp {
     logdoc using "`pkg_dir'/console_`section'.log", ///
         output("`pkg_dir'/console_`section'.md") ///
         format(md) replace quiet
     capture erase "`pkg_dir'/console_`section'.log"
 }
 
-**# Cleanup: erase only the trivially reproducible auto copy. Keep the synthetic
-**# cohort and missing-data fixtures as shipped demo assets — the README demo
-**# transcripts reference demo/_demo_cohort.dta and demo/_demo_missing.dta, so
-**# those paths must resolve for a reader re-running the documented commands.
-capture erase "`pkg_dir'/_demo_auto.dta"
+**# Cleanup: keep the synthetic fixtures as shipped demo assets; the README
+**# transcripts reference demo/_demo_cohort.dta and demo/_demo_missing.dta.
 clear

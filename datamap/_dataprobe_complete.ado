@@ -1,4 +1,4 @@
-*! _dataprobe_complete Version 1.10.6  2026/10/21
+*! _dataprobe_complete Version 2.0.0  2026/11/10
 *! dataprobe complete(): complete cases over a varlist
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

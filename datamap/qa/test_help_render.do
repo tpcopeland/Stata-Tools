@@ -83,7 +83,10 @@ capture noisily {
         local paths "`paths' `pkg_dir'/`sthlp'"
     }
     local n_sthlp : word count `sthlps'
-    assert `n_sthlp' == 5
+    * 2.0.0 (2026-11-10): datadict.sthlp is removed with datadict; four
+    * commands ship four help files
+    assert `n_sthlp' == 4
+    assert !`: list posof "datadict.sthlp" in sthlps'
     _datamap_sthlp_render `paths'
     assert r(nbad) == 0
 }

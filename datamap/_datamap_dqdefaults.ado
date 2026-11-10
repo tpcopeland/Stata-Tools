@@ -1,4 +1,4 @@
-*! _datamap_dqdefaults Version 1.10.6  2026/10/21
+*! _datamap_dqdefaults Version 2.0.0  2026/11/10
 *! Parse the dataqa session defaults held in the global DATAMAP_DQ
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,13 +20,15 @@ program define _datamap_dqdefaults, rclass
     local collect ""
     local baseline ""
     local baseledger ""
+    local safe ""
     capture noisily {
         local spec `"$DATAMAP_DQ"'
         local spec = strtrim(`"`macval(spec)'"')
         if `"`macval(spec)'"' != "" {
             local 0 `", `macval(spec)'"'
             capture syntax [, MASKrare MINcell(integer -1) LEDger(string) ///
-                RUN(string) BANDWARN SIGnature COLLect BASEline(string) BASELEDger(string)]
+                RUN(string) BANDWARN SIGnature COLLect BASEline(string) BASELEDger(string) ///
+                SAFE]
             if _rc {
                 display as error "global DATAMAP_DQ is not a valid dataqa set option list; run dataqa set clear"
                 exit 198
@@ -45,6 +47,9 @@ program define _datamap_dqdefaults, rclass
     return scalar bandwarn = ("`bandwarn'" != "")
     return scalar signature = ("`signature'" != "")
     return scalar collect = ("`collect'" != "")
+    // safe (2.0.0, U2): written by dataqa set agent; datamap, dataprobe and
+    // datamvp run under their safe preset while it is set
+    return scalar safe = ("`safe'" != "")
     return local ledger `"`ledger'"'
     return local run `"`run'"'
     return local baseline `"`baseline'"'

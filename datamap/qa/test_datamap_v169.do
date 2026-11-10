@@ -2,6 +2,23 @@
 *! Regression coverage for the 1.6.9 fixes: date-format classification,
 *! exclude() privacy in detectors, JSON escaping, caller-state safety,
 *! float-precision gates, hostile string levels, and exact strL counts
+*! 2026-11-10 (datamap 2.0.0): the text layout, format(json) and datadict are
+*! removed.  Every needle that read the text map or the JSON file now reads the
+*! Markdown document (the byte-exact Mata probes below are kept).  Per test:
+*!   T1  the datadict "| `d1` |  | Date |" row is datamap's row with Type
+*!       "double %-td" and the date range cell
+*!   T2  REMOVED FEATURE: JSON escaping of control bytes (no JSON writer).
+*!       Replaced by the Markdown fact: a label with a tab or a control byte
+*!       keeps its row on ONE line (no extra rows).  Raw control bytes reach the
+*!       .md; reported as an issue, not pinned.
+*!   T3  the JSON route is removed; the text/Markdown and binary routes remain
+*!   T4-T9, T15, T19, T20  text-map lines -> the Markdown cells and Structure
+*!       lines (mean=0.003 for "Mean: .003", "Survival time variables" lines,
+*!       "Panel: identifier ...; 5 units; 30 rows (10 with a missing identifier)")
+*!   T11 datadict "(15; 50.0%)" cells -> "<value>: 15 (50.0%)"
+*!   T18 REMOVED FEATURE: "format(json) refuses text-only sections".  Replaced
+*!       by its mirror: every one of those options is accepted in the one
+*!       Markdown document, and format() itself is refused (rc 198)
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 clear all
@@ -23,6 +40,7 @@ capture mkdir "`tmp_dir'"
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") replace
 discard
+do "`qa_dir'/_qa_md.do"
 
 capture program drop _v169_record
 program define _v169_record
@@ -94,27 +112,36 @@ capture noisily {
     format d1 %-td
     gen double tc1 = clock("01jan2020 10:00", "DMY hm") + _n * 1000
     format tc1 %-tc
-    datamap, output("`tmp_dir'/t1.txt")
+    datamap, output("`tmp_dir'/t1.md")
     local dv "`r(date_vars)'"
     assert `: list posof "d1" in dv' > 0
     assert `: list posof "tc1" in dv' > 0
     assert r(n_categorical) == 0
-    * an exact date must never appear as a frequency cell
-    global V169_NEEDLE "21916 = 21916"
-    _v169_has "`tmp_dir'/t1.txt"
+    * an exact date must never appear as a level cell (21916 is td(02jan2020))
+    global V169_NEEDLE "21916"
+    _v169_has "`tmp_dir'/t1.md"
     assert r(found) == 0
     dataprobe d1 tc1
     local dv "`r(date_vars)'"
     assert `: list posof "d1" in dv' > 0 & `: list posof "tc1" in dv' > 0
-    datadict, output("`tmp_dir'/t1.md")
-    mata: st_global("V169_NEEDLE", "| " + char(96) + "d1" + char(96) + " |  | Date |")
-    _v169_has "`tmp_dir'/t1.md"
-    assert r(found) == 1
+    * (was datadict) the Markdown row: a date row with the date range cell
+    qa_md_rows using "`tmp_dir'/t1.md", var(d1) cell("N=10; range 2020/01/02 to 2020/01/11")
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/t1.md", var(tc1) cell("N=10; range 2020/01/01 to 2020/01/01")
+    assert r(n) == 1
 }
 local test_rc = _rc
-_v169_record `test_rc' `pass_count' `fail_count' "%-td/%-tc classify as date in datamap, dataprobe, datadict"
+_v169_record `test_rc' `pass_count' `fail_count' "%-td/%-tc classify as date in datamap (and Markdown rows), dataprobe"
 
-**# T2: JSON output stays valid with tab and other control bytes in labels
+**# T2: control bytes in labels cannot break the document's table rows
+* 2026-11-10 (datamap 2.0.0): was "JSON output stays valid with tab and other
+* control bytes in labels".  The JSON writer and its escaper are removed.  The
+* Markdown counterpart of "the output is not broken by the bytes": each label's
+* row stays on one line, so the Variables table keeps exactly its two rows and
+* the surrounding text is intact.  2026-11-10 (Phase 2 repair): the label
+* escape now writes every control byte (1-31, 127) as a space; the tab and
+* CHR(1) were written raw.  The needle was the raw tab; it is now the space,
+* and neither raw byte may remain.
 local ++test_count
 capture noisily {
     clear
@@ -123,20 +150,30 @@ capture noisily {
     label variable x "tab`=char(9)'here"
     gen y = mod(_n, 3)
     label variable y "bell`=char(1)'char"
-    datamap, output("`tmp_dir'/t2.json") format(json)
-    mata: st_numscalar("__v169_ctrl", _v169_ctrl("`tmp_dir'/t2.json"))
-    assert scalar(__v169_ctrl) == 0
-    mata: st_global("V169_NEEDLE", "tab" + char(92) + "there")
-    _v169_has "`tmp_dir'/t2.json"
+    datamap, output("`tmp_dir'/t2.md")
+    qa_md_rows using "`tmp_dir'/t2.md"
+    assert r(n) == 2
+    qa_md_rows using "`tmp_dir'/t2.md", var(x) cell("0: 10 (50.0%)<br>1: 10 (50.0%)")
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/t2.md", var(y) cell("0: 6 (30.0%)<br>1: 7 (35.0%)<br>2: 7 (35.0%)")
+    assert r(n) == 1
+    mata: st_global("V169_NEEDLE", "| tab here |")
+    _v169_has "`tmp_dir'/t2.md"
     assert r(found) == 1
-    mata: st_global("V169_NEEDLE", "bell" + char(92) + "u0001char")
-    _v169_has "`tmp_dir'/t2.json"
+    mata: st_global("V169_NEEDLE", "| bell char |")
+    _v169_has "`tmp_dir'/t2.md"
     assert r(found) == 1
+    mata: st_global("V169_NEEDLE", char(9))
+    _v169_has "`tmp_dir'/t2.md"
+    assert r(found) == 0
+    mata: st_global("V169_NEEDLE", char(1))
+    _v169_has "`tmp_dir'/t2.md"
+    assert r(found) == 0
 }
 local test_rc = _rc
-_v169_record `test_rc' `pass_count' `fail_count' "JSON escapes raw control characters"
+_v169_record `test_rc' `pass_count' `fail_count' "tab and control bytes in labels keep the table rows intact"
 
-**# T3: caller matrices named vals/freqs survive text, JSON and binary routes
+**# T3: caller matrices named vals/freqs survive the Markdown and binary routes
 local ++test_count
 capture noisily {
     clear
@@ -145,8 +182,10 @@ capture noisily {
     gen flag = mod(_n, 2)
     matrix vals = (99)
     matrix freqs = (77)
-    datamap, output("`tmp_dir'/t3.txt") detect(binary)
-    datamap, output("`tmp_dir'/t3.json") format(json)
+    datamap, output("`tmp_dir'/t3.md") detect(binary)
+    * (2026-11-10: the JSON route is removed; the Markdown route runs twice,
+    * with and without the binary detector)
+    datamap, output("`tmp_dir'/t3b.md")
     assert rowsof(vals) == 1 & vals[1,1] == 99
     assert rowsof(freqs) == 1 & freqs[1,1] == 77
 }
@@ -159,23 +198,27 @@ capture noisily {
     clear
     set obs 5
     gen double conc = _n / 1000
-    datamap, output("`tmp_dir'/t4.txt") continuous(conc)
-    global V169_NEEDLE "Mean: .003"
-    _v169_has "`tmp_dir'/t4.txt"
+    datamap, output("`tmp_dir'/t4.md") continuous(conc)
+    global V169_NEEDLE "mean=0.003"
+    _v169_has "`tmp_dir'/t4.md"
     assert r(found) == 1
-    global V169_NEEDLE "Range: .001 to .005"
-    _v169_has "`tmp_dir'/t4.txt"
+    global V169_NEEDLE "range=0.001-0.005"
+    _v169_has "`tmp_dir'/t4.md"
     assert r(found) == 1
-    mata: st_global("V169_NEEDLE", "Mean: 0" + char(10))
-    _v169_has "`tmp_dir'/t4.txt"
+    * never rounded to zero
+    global V169_NEEDLE "mean=0;"
+    _v169_has "`tmp_dir'/t4.md"
+    assert r(found) == 0
+    global V169_NEEDLE "mean=0.00;"
+    _v169_has "`tmp_dir'/t4.md"
     assert r(found) == 0
     * values >= 1 keep the historical 0.01 rounding
     clear
     set obs 4
     gen double w = _n + 0.123456
-    datamap, output("`tmp_dir'/t4b.txt") continuous(w)
-    global V169_NEEDLE "Mean: 2.62"
-    _v169_has "`tmp_dir'/t4b.txt"
+    datamap, output("`tmp_dir'/t4b.md") continuous(w)
+    global V169_NEEDLE "mean=2.62"
+    _v169_has "`tmp_dir'/t4b.md"
     assert r(found) == 1
 }
 local test_rc = _rc
@@ -190,12 +233,12 @@ capture noisily {
     gen strL notes = "n" + string(mod(_n, 7))
     _datamap_nuniq notes, countempty cap(0)
     assert r(n) == 7 & r(capped) == 0
-    datamap, output("`tmp_dir'/t5.txt") uniqcap(0) panelid(pid)
-    global V169_NEEDLE "Unique Units: 20"
-    _v169_has "`tmp_dir'/t5.txt"
+    datamap, output("`tmp_dir'/t5.md") uniqcap(0) panelid(pid) columns(variable type unique)
+    mata: st_global("V169_NEEDLE", "- Panel: identifier " + char(96) + "pid" + char(96) + "; 20 units; 40 rows")
+    _v169_has "`tmp_dir'/t5.md"
     assert r(found) == 1
-    global V169_NEEDLE "Unique Values: 7"
-    _v169_has "`tmp_dir'/t5.txt"
+    mata: st_global("V169_NEEDLE", "| " + char(96) + "notes" + char(96) + " | strL | 7 |")
+    _v169_has "`tmp_dir'/t5.md"
     assert r(found) == 1
 }
 local test_rc = _rc
@@ -214,35 +257,46 @@ capture noisily {
     gen double weight_s = 1 + _n / 10
     gen double stratum = mod(_n, 4)
     gen double patient_id = ceil(_n / 3)
-    datamap, output("`tmp_dir'/t6.txt") ///
+    datamap, output("`tmp_dir'/t6.md") ///
         exclude(dob followup_time weight_s stratum patient_id) ///
         detect(survival survey panel)
     * DESCRIPTION range comes from visit only
-    global V169_NEEDLE "spans from 2020/01/02 to 2020/01/31"
-    _v169_has "`tmp_dir'/t6.txt"
+    * the only date range in the document is visit's
+    global V169_NEEDLE "range 2020/01/02 to 2020/01/31"
+    _v169_has "`tmp_dir'/t6.md"
     assert r(found) == 1
     global V169_NEEDLE "1951/"
-    _v169_has "`tmp_dir'/t6.txt"
+    _v169_has "`tmp_dir'/t6.md"
     assert r(found) == 0
-    global V169_NEEDLE "followup_time range"
-    _v169_has "`tmp_dir'/t6.txt"
+    global V169_NEEDLE "followup_time` range"
+    _v169_has "`tmp_dir'/t6.md"
     assert r(found) == 0
-    global V169_NEEDLE "range: 1.1 to 4"
-    _v169_has "`tmp_dir'/t6.txt"
+    global V169_NEEDLE "range 1.1 to 4"
+    _v169_has "`tmp_dir'/t6.md"
     assert r(found) == 0
-    global V169_NEEDLE "(4 strata)"
-    _v169_has "`tmp_dir'/t6.txt"
+    global V169_NEEDLE "4 strata"
+    _v169_has "`tmp_dir'/t6.md"
     assert r(found) == 0
-    global V169_NEEDLE "Unique Units"
-    _v169_has "`tmp_dir'/t6.txt"
+    * the excluded weight and strata are named but their numbers withheld
+    global V169_NEEDLE "excluded; statistics withheld"
+    _v169_has "`tmp_dir'/t6.md"
+    assert r(found) == 1
+    global V169_NEEDLE "excluded; count withheld"
+    _v169_has "`tmp_dir'/t6.md"
+    assert r(found) == 1
+    global V169_NEEDLE "- Panel"
+    _v169_has "`tmp_dir'/t6.md"
     assert r(found) == 0
     * an explicit panelid() that is excluded withholds its unit count
-    datamap, output("`tmp_dir'/t6b.txt") exclude(patient_id) panelid(patient_id)
-    global V169_NEEDLE "units observed"
-    _v169_has "`tmp_dir'/t6b.txt"
+    datamap, output("`tmp_dir'/t6b.md") exclude(patient_id) panelid(patient_id)
+    global V169_NEEDLE "excluded; unit counts withheld"
+    _v169_has "`tmp_dir'/t6b.md"
+    assert r(found) == 1
+    global V169_NEEDLE "10 units"
+    _v169_has "`tmp_dir'/t6b.md"
     assert r(found) == 0
-    global V169_NEEDLE "Unique Units"
-    _v169_has "`tmp_dir'/t6b.txt"
+    global V169_NEEDLE "rows per unit"
+    _v169_has "`tmp_dir'/t6b.md"
     assert r(found) == 0
 }
 local test_rc = _rc
@@ -255,14 +309,14 @@ capture noisily {
     set obs 30
     gen byte died = 1 + (_n > 20)
     gen double survtime = _n
-    datamap, output("`tmp_dir'/t7.txt") detect(survival)
+    datamap, output("`tmp_dir'/t7.md") detect(survival)
     global V169_NEEDLE "rate:"
-    _v169_has "`tmp_dir'/t7.txt"
+    _v169_has "`tmp_dir'/t7.md"
     assert r(found) == 0
     replace died = died - 1
-    datamap, output("`tmp_dir'/t7b.txt") detect(survival)
-    global V169_NEEDLE "died rate: 33.3%"
-    _v169_has "`tmp_dir'/t7b.txt"
+    datamap, output("`tmp_dir'/t7b.md") detect(survival)
+    mata: st_global("V169_NEEDLE", "  - " + char(96) + "died" + char(96) + " rate: 33.3%")
+    _v169_has "`tmp_dir'/t7b.md"
     assert r(found) == 1
 }
 local test_rc = _rc
@@ -276,15 +330,16 @@ capture noisily {
     gen double fu_days = 10 + _n
     gen byte dead = (_n > 20)
     gen double followup_time = _n * 3.3
-    datamap, output("`tmp_dir'/t8.txt") survivalvars(fu_days dead)
-    global V169_NEEDLE "fu_days range: 11 to 40"
-    _v169_has "`tmp_dir'/t8.txt"
+    datamap, output("`tmp_dir'/t8.md") survivalvars(fu_days dead)
+    mata: st_global("V169_NEEDLE", char(96) + "fu_days" + char(96) + " range: 11 to 40")
+    _v169_has "`tmp_dir'/t8.md"
     assert r(found) == 1
-    global V169_NEEDLE "Likely event indicators: dead"
-    _v169_has "`tmp_dir'/t8.txt"
+    mata: st_global("V169_NEEDLE", "- Survival event indicators: " + char(96) + "dead" + char(96))
+    _v169_has "`tmp_dir'/t8.md"
     assert r(found) == 1
-    global V169_NEEDLE "Likely time variables: followup_time"
-    _v169_has "`tmp_dir'/t8.txt"
+    * the auto-detected time variable (followup_time) is NOT the survival time variable
+    mata: st_global("V169_NEEDLE", "- Survival time variables: " + char(96) + "followup_time" + char(96))
+    _v169_has "`tmp_dir'/t8.md"
     assert r(found) == 0
 }
 local test_rc = _rc
@@ -296,21 +351,15 @@ capture noisily {
     clear
     set obs 30
     gen double pat_id = cond(_n <= 10, ., _n)
-    datamap, output("`tmp_dir'/t9.txt") detect(panel)
-    global V169_NEEDLE "Panel Structure Detected"
-    _v169_has "`tmp_dir'/t9.txt"
+    datamap, output("`tmp_dir'/t9.md") detect(panel)
+    global V169_NEEDLE "- Panel"
+    _v169_has "`tmp_dir'/t9.md"
     assert r(found) == 0
     * genuine panel plus missing IDs: average over identified rows
     replace pat_id = ceil((_n - 10) / 4) if _n > 10
-    datamap, output("`tmp_dir'/t9b.txt") detect(panel)
-    global V169_NEEDLE "Unique Units: 5"
-    _v169_has "`tmp_dir'/t9b.txt"
-    assert r(found) == 1
-    global V169_NEEDLE "Observations with missing ID: 10"
-    _v169_has "`tmp_dir'/t9b.txt"
-    assert r(found) == 1
-    global V169_NEEDLE "Average Obs per Unit: 4"
-    _v169_has "`tmp_dir'/t9b.txt"
+    datamap, output("`tmp_dir'/t9b.md") detect(panel)
+    mata: st_global("V169_NEEDLE", "- Panel: identifier " + char(96) + "pat_id" + char(96) + "; 5 units; 30 rows (10 with a missing identifier); 4.0 rows per unit")
+    _v169_has "`tmp_dir'/t9b.md"
     assert r(found) == 1
 }
 local test_rc = _rc
@@ -322,9 +371,9 @@ capture noisily {
     clear
     set obs 3000
     gen long code = mod(_n, 1500)
-    datamap, output("`tmp_dir'/t10.txt") maxcat(1500) uniqcap(2000) ///
+    datamap, output("`tmp_dir'/t10.md") maxcat(1500) uniqcap(2000) ///
         saving("`tmp_dir'/t10.dta", replace)
-    datamap, output("`tmp_dir'/t10b.txt") uniqcap(0) ///
+    datamap, output("`tmp_dir'/t10b.md") uniqcap(0) ///
         saving("`tmp_dir'/t10b.dta", replace)
     use "`tmp_dir'/t10b.dta", clear
     assert unique[1] == 1500 & unique_capped[1] == 0
@@ -334,26 +383,26 @@ capture noisily {
 local test_rc = _rc
 _v169_record `test_rc' `pass_count' `fail_count' "saving() honors maxcat()/uniqcap()"
 
-**# T11: datadict string levels with quotes and backticks
+**# T11: string levels with quotes and backticks are counted exactly
 local ++test_count
 capture noisily {
     clear
     set obs 30
     gen str20 q = cond(mod(_n, 2), `"say "hi""', "plain")
     gen str20 r = cond(mod(_n, 3) == 0, "a" + char(96) + "b", "c" + char(36) + "d")
-    datadict, output("`tmp_dir'/t11.md") mincell(0) categorical(q r) stats
-    global V169_NEEDLE `"say "hi" (15; 50.0%)"'
+    datamap, output("`tmp_dir'/t11.md") mincell(0) categorical(q r)
+    global V169_NEEDLE `""say "hi"": 15 (50.0%)"'
     _v169_has "`tmp_dir'/t11.md"
     assert r(found) == 1
-    global V169_NEEDLE "a&#96;b (10; 33.3%)"
+    global V169_NEEDLE `""a&#96;b": 10 (33.3%)"'
     _v169_has "`tmp_dir'/t11.md"
     assert r(found) == 1
-    global V169_NEEDLE "c&#36;d (20; 66.7%)"
+    global V169_NEEDLE `""c&#36;d": 20 (66.7%)"'
     _v169_has "`tmp_dir'/t11.md"
     assert r(found) == 1
 }
 local test_rc = _rc
-_v169_record `test_rc' `pass_count' `fail_count' "datadict counts hostile string levels exactly"
+_v169_record `test_rc' `pass_count' `fail_count' "datamap counts hostile string levels exactly"
 
 **# T12: dataprobe value/range gates compare floats at float precision
 local ++test_count
@@ -443,15 +492,13 @@ capture noisily {
     clear
     set obs 30
     gen float tenth = mod(_n, 3) / 10
-    datamap, output("`tmp_dir'/t15.txt") mincell(0)
-    global V169_NEEDLE ".1 = .1: 10 (33.3%)"
-    _v169_has "`tmp_dir'/t15.txt"
+    datamap, output("`tmp_dir'/t15.md") mincell(0)
+    global V169_NEEDLE "<br>.1: 10 (33.3%)<br>"
+    _v169_has "`tmp_dir'/t15.md"
     assert r(found) == 1
-    datamap, output("`tmp_dir'/t15.json") format(json) mincell(0)
+    * (the JSON half is removed with format(json)): no IEEE noise in the document
     global V169_NEEDLE ".1000000014901161"
-    _v169_has "`tmp_dir'/t15.txt"
-    assert r(found) == 0
-    _v169_has "`tmp_dir'/t15.json"
+    _v169_has "`tmp_dir'/t15.md"
     assert r(found) == 0
 }
 local test_rc = _rc
@@ -526,7 +573,12 @@ local test_rc = _rc
 capture log close _v169probe
 _v169_record `test_rc' `pass_count' `fail_count' "dataprobe exclude() stays out of missing/flagged lists"
 
-**# T18: format(json) refuses text-only sections
+**# T18: every former text-only section is available in the Markdown document
+* 2026-11-10 (datamap 2.0.0): was "format(json) refuses text-only sections"
+* (detect, panelid, survivalvars, samples, quality, missing(detail) with
+* format(json) -> rc 198).  JSON is removed, so there is no refusal to test:
+* the mirror is that each option is ACCEPTED in the one Markdown document, and
+* format() itself stops with rc 198 for every spelling.
 local ++test_count
 capture noisily {
     clear
@@ -535,13 +587,15 @@ capture noisily {
     gen double x = _n
     foreach o in "detect(panel)" "autodetect" "panelid(id)" "survivalvars(x)" ///
         "samples(2)" "quality" "quality2(strict)" "missing(detail)" {
-        capture datamap, format(json) output("`tmp_dir'/t18.json") `o'
+        datamap, output("`tmp_dir'/t18.md") `o'
+        assert r(nfiles) == 1
+        capture datamap, format(json) output("`tmp_dir'/t18.md") `o'
         assert _rc == 198
     }
-    datamap, format(json) output("`tmp_dir'/t18.json")
+    datamap, output("`tmp_dir'/t18.md")
 }
 local test_rc = _rc
-_v169_record `test_rc' `pass_count' `fail_count' "format(json) refuses detect/samples/quality/missing"
+_v169_record `test_rc' `pass_count' `fail_count' "former text-only options work in Markdown; format() refused"
 
 **# T19: missing(pattern) writes the joint missingness patterns
 local ++test_count
@@ -552,26 +606,23 @@ capture noisily {
     gen b = cond(_n >= 27, ., _n)
     gen c = cond(_n <= 10, ., 1)
     gen double k = _n
-    datamap, output("`tmp_dir'/t19a.txt") missing(detail)
-    datamap, output("`tmp_dir'/t19b.txt") missing(pattern)
-    global V169_NEEDLE "Distinct patterns"
-    _v169_has "`tmp_dir'/t19a.txt"
+    datamap, output("`tmp_dir'/t19a.md") missing(detail)
+    datamap, output("`tmp_dir'/t19b.md") missing(pattern)
+    global V169_NEEDLE "Missing-value patterns"
+    _v169_has "`tmp_dir'/t19a.md"
     assert r(found) == 0
-    global V169_NEEDLE "Pattern variables, in order: a b c"
-    _v169_has "`tmp_dir'/t19b.txt"
-    assert r(found) == 1
-    global V169_NEEDLE "Distinct patterns: 4"
-    _v169_has "`tmp_dir'/t19b.txt"
+    mata: st_global("V169_NEEDLE", "- Missing-value patterns (+ observed, . missing) over " + char(96) + "a" + char(96) + ", " + char(96) + "b" + char(96) + ", " + char(96) + "c" + char(96) + ": 4 distinct")
+    _v169_has "`tmp_dir'/t19b.md"
     assert r(found) == 1
     * hand counts: +++ 16, ++. 6 (rows 5-10), +.+ 4, .+. 4
-    global V169_NEEDLE "+++: 16 (53.3%)"
-    _v169_has "`tmp_dir'/t19b.txt"
+    mata: st_global("V169_NEEDLE", "  - " + char(96) + "+++" + char(96) + ": 16 (53.3%)")
+    _v169_has "`tmp_dir'/t19b.md"
     assert r(found) == 1
-    global V169_NEEDLE "++.: 6 (20%)"
-    _v169_has "`tmp_dir'/t19b.txt"
+    mata: st_global("V169_NEEDLE", "  - " + char(96) + "++." + char(96) + ": 6 (20.0%)")
+    _v169_has "`tmp_dir'/t19b.md"
     assert r(found) == 1
-    global V169_NEEDLE ".+.: suppressed (<5)"
-    _v169_has "`tmp_dir'/t19b.txt"
+    mata: st_global("V169_NEEDLE", "  - " + char(96) + ".+." + char(96) + ": suppressed (<5)")
+    _v169_has "`tmp_dir'/t19b.md"
     assert r(found) == 1
     * the caller's data and sort order are untouched
     assert k[1] == 1 & k[30] == 30
@@ -587,31 +638,26 @@ capture noisily {
     gen str12 s = cond(mod(_n, 3) == 0, "a" + char(96) + "b", ///
         cond(mod(_n, 3) == 1, `"say "hi""', "z" + char(36) + "x"))
     replace s = "" in 1
-    datamap, output("`tmp_dir'/t20.txt") categorical(s) mincell(0)
+    datamap, output("`tmp_dir'/t20.md") categorical(s) mincell(0)
     global V169_NEEDLE "(frequency table unavailable)"
-    _v169_has "`tmp_dir'/t20.txt"
+    _v169_has "`tmp_dir'/t20.md"
     assert r(found) == 0
-    mata: st_global("V169_NEEDLE", char(34) + "a" + char(96) + "b" + char(34) + ": 10 (33.3%)")
-    _v169_has "`tmp_dir'/t20.txt"
+    mata: st_global("V169_NEEDLE", char(34) + "a&#96;b" + char(34) + ": 10 (33.3%)")
+    _v169_has "`tmp_dir'/t20.md"
     assert r(found) == 1
     global V169_NEEDLE `""say "hi"": 9 (30.0%)"'
-    _v169_has "`tmp_dir'/t20.txt"
+    _v169_has "`tmp_dir'/t20.md"
     assert r(found) == 1
-    mata: st_global("V169_NEEDLE", char(34) + "z" + char(36) + "x" + char(34) + ": 10 (33.3%)")
-    _v169_has "`tmp_dir'/t20.txt"
+    mata: st_global("V169_NEEDLE", char(34) + "z&#36;x" + char(34) + ": 10 (33.3%)")
+    _v169_has "`tmp_dir'/t20.md"
     assert r(found) == 1
-    datamap, output("`tmp_dir'/t20.json") format(json) categorical(s) mincell(5)
-    mata: st_numscalar("__v169_ctrl", _v169_ctrl("`tmp_dir'/t20.json"))
-    assert scalar(__v169_ctrl) == 0
-    mata: st_global("V169_NEEDLE", char(34) + "value" + char(34) + ": " + char(34) + "say " + char(92) + char(34) + "hi" + char(92) + char(34) + char(34))
-    _v169_has "`tmp_dir'/t20.json"
-    assert r(found) == 1
-    global V169_NEEDLE `""count": 9,"'
-    _v169_has "`tmp_dir'/t20.json"
-    assert r(found) == 1
+    * (2026-11-10: the JSON half, with its escaped value and "count": 9, is removed
+    * with format(json); the missing blank is counted in the Missing cell)
+    qa_md_rows using "`tmp_dir'/t20.md", var(s) miss("1 (3.3%)")
+    assert r(n) == 1
 }
 local test_rc = _rc
-_v169_record `test_rc' `pass_count' `fail_count' "string categorical frequency tables (text and JSON)"
+_v169_record `test_rc' `pass_count' `fail_count' "string categorical frequency tables (Markdown)"
 
 macro drop V169_NEEDLE
 display "RESULT: test_datamap_v169 tests=`test_count' pass=`pass_count' fail=`fail_count'"

@@ -20,6 +20,7 @@ capture mkdir "`tmp_dir'"
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") replace
 discard
+do "`qa_dir'/_qa_md.do"
 
 * Reports the verdict; the caller owns the tally.  `ok' arrives as a single
 * 0/1 token so -args- does not split a parenthesized expression.
@@ -31,7 +32,14 @@ program define _v152_say
     else    display as error  "FAIL: `label'"
 end
 
-**# Test 1: negative sub-unit values in format(json)
+**# Test 1: negative sub-unit values in the statistics cells
+
+* 2026-11-10 (datamap 2.0.0): this was "negative sub-unit values in format(json)"
+* (_datamap_json_number dropped the "=" and errored r(198)).  format(json) and
+* its number writer are removed (REMOVED FEATURE: the legal-JSON round trip has
+* no successor).  The same numbers now print in the Markdown statistics cell,
+* where the equivalent defect would be "-.09" for "-0.090" (or ".09" for 0.09);
+* the oracle is the sign and the digits of the data.
 
 clear
 set obs 500
@@ -41,56 +49,58 @@ gen double negsmall = -abs(rnormal(0, 0.1)) - 0.01
 gen double posmall  =  abs(rnormal(0, 0.1)) + 0.01
 gen byte grp = mod(_n, 3)
 save "`tmp_dir'/_v152_neg.dta", replace
+quietly summarize negsmall, detail
+local nm = strtrim(string(r(mean), "%9.3f"))
+local nmin = strtrim(string(r(min), "%9.3f"))
+quietly summarize posmall, detail
+local pm = strtrim(string(r(mean), "%9.3f"))
 
 local ++test_count
-capture datamap, single("`tmp_dir'/_v152_neg.dta") format(json) ///
-    output("`tmp_dir'/_v152_neg.json")
+capture datamap, single("`tmp_dir'/_v152_neg.dta") output("`tmp_dir'/_v152_neg.md")
 local jrc = _rc
 local ok = (`jrc' == 0)
 local pass_count = `pass_count' + `ok'
-_v152_say `ok' "format(json) with negative sub-unit values (rc=`jrc')"
+_v152_say `ok' "datamap with negative sub-unit values (rc=`jrc')"
 
-* Scan the emitted JSON once for leading-dot numbers in either sign.
-tempname fh
-local badneg = 0
-local badpos = 0
+local badneg = 1
+local badpos = 1
 local sawneg = 0
-capture file open `fh' using "`tmp_dir'/_v152_neg.json", read text
+capture confirm file "`tmp_dir'/_v152_neg.md"
 if _rc == 0 {
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', `": *-\.[0-9]"')  local badneg = 1
-        if regexm(`"`macval(line)'"', `": *\.[0-9]"')   local badpos = 1
-        if regexm(`"`macval(line)'"', `": *-0\.[0-9]"') local sawneg = 1
-        file read `fh' line
-    }
-    file close `fh'
+    * a leading-dot number in either sign inside a statistics cell
+    qa_md_regex using "`tmp_dir'/_v152_neg.md", re("(=|to |; )-[.][0-9]|(=|to )[.][0-9]")
+    local badneg = r(n)
+    local badpos = r(n)
+    qa_md_contains using "`tmp_dir'/_v152_neg.md", needle("mean=`nm'; ")
+    local sawneg = r(n)
+    qa_md_contains using "`tmp_dir'/_v152_neg.md", needle("range=`nmin' to ")
+    local sawneg = `sawneg' + r(n)
 }
 
 local ++test_count
-local ok = (`badneg' == 0 & `sawneg' == 1)
+local ok = (`badneg' == 0 & `sawneg' == 2)
 local pass_count = `pass_count' + `ok'
-_v152_say `ok' "negative numbers emitted as -0.x, not -.x"
+_v152_say `ok' "negative numbers written as -0.x, not -.x (mean `nm', min `nmin')"
 
 local ++test_count
 local ok = (`badpos' == 0)
-local pass_count = `pass_count' + `ok'
-_v152_say `ok' "positive numbers emitted as 0.x, not .x"
-
-local ++test_count
-local ok = 0
-capture confirm file "`tmp_dir'/_v152_neg.json"
-if _rc == 0 {
-    * Round-trip through Python to prove the payload is legal JSON
-    tempfile pyout
-    shell python3 -c "import json,sys; json.load(open('`tmp_dir'/_v152_neg.json')); print('OK')" > "`pyout'" 2>&1
-    file open `fh' using "`pyout'", read text
-    file read `fh' line
-    if strpos(`"`macval(line)'"', "OK") > 0 local ok = 1
-    file close `fh'
+if `ok' {
+    qa_md_contains using "`tmp_dir'/_v152_neg.md", needle("mean=`pm'; ")
+    local ok = (r(n) == 1)
 }
 local pass_count = `pass_count' + `ok'
-_v152_say `ok' "emitted JSON parses as valid JSON"
+_v152_say `ok' "positive numbers written as 0.x, not .x (mean `pm')"
+
+local ++test_count
+* the old third check (the JSON parses) becomes: the table is well formed
+local ok = 0
+capture confirm file "`tmp_dir'/_v152_neg.md"
+if _rc == 0 {
+    qa_md_rows using "`tmp_dir'/_v152_neg.md"
+    local ok = (r(n) == 3)
+}
+local pass_count = `pass_count' + `ok'
+_v152_say `ok' "document table has one row per variable (JSON round trip removed with format(json))"
 
 **# Test 2: distinct-value counts match -tabulate- semantics
 
@@ -250,13 +260,13 @@ local ok = `excl_ok'
 local pass_count = `pass_count' + `ok'
 _v152_say `ok' "excluded variable leaks no unique_vals"
 
-* datadict consumes the same classifier without error
+* document mode consumes the same classifier without error (was: datadict)
 local ++test_count
-capture datadict, single("`tmp_dir'/_v152_neg.dta") output("`tmp_dir'/_v152_dict.md")
+capture datamap, single("`tmp_dir'/_v152_neg.dta") output("`tmp_dir'/_v152_dict.md") title("T")
 local dd_rc = _rc
 local ok = (`dd_rc' == 0)
 local pass_count = `pass_count' + `ok'
-_v152_say `ok' "datadict still runs on shared classifier (rc=`dd_rc')"
+_v152_say `ok' "datamap document mode runs on the shared classifier (rc=`dd_rc')"
 
 **# Test 3: _datamap_nuniq helper contract
 
@@ -293,7 +303,7 @@ _v152_say `ok' "_datamap_nuniq countempty counts empty string (got `n_empty')"
 
 * _datamap_ndistinct is a private sub-program of datamap.ado, so it is only
 * reachable through a datamap run.  Exercise it via panel detection, whose
-* "Unique Units" line is exactly its return value.
+* The Panel line's unit count is exactly its return value.
 preserve
 clear
 set obs 600
@@ -301,7 +311,7 @@ gen long pid = ceil(_n/3)
 gen double yv = rnormal()
 save "`tmp_dir'/_v152_panel.dta", replace
 capture datamap, single("`tmp_dir'/_v152_panel.dta") detect(panel) panelid(pid) ///
-    output("`tmp_dir'/_v152_panel.txt")
+    output("`tmp_dir'/_v152_panel.md")
 local pnl_rc = _rc
 restore
 
@@ -311,16 +321,11 @@ local pass_count = `pass_count' + `ok'
 _v152_say `ok' "detect(panel) runs through _datamap_ndistinct (rc=`pnl_rc')"
 
 local ++test_count
-tempname pfh
 local units_ok = 0
-capture file open `pfh' using "`tmp_dir'/_v152_panel.txt", read text
+capture confirm file "`tmp_dir'/_v152_panel.md"
 if _rc == 0 {
-    file read `pfh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Unique Units: 200") > 0 local units_ok = 1
-        file read `pfh' line
-    }
-    file close `pfh'
+    qa_md_contains using "`tmp_dir'/_v152_panel.md", needle("; 200 units; 600 rows;")
+    local units_ok = r(found)
 }
 local ok = `units_ok'
 local pass_count = `pass_count' + `ok'

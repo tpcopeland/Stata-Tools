@@ -3,12 +3,19 @@ set more off
 version 16.0
 set linesize 255
 
-* test_datamap_v1101.do - regression for the 1.10.1 datadict heading fix.
+* test_datamap_v1101.do - regression for the 1.10.1 dataset-heading fix.
 * A dataset file named with a leading underscore (_demo_cohort.dta) printed
 * the heading "## 1.  Demo Cohort" (two spaces) and the TOC entry
 * "1. [ Demo Cohort](#1--demo-cohort)".
 *   T1 single(): heading, TOC entry and anchor carry no stray space or hyphen
 *   T2 a name without a leading underscore is unchanged (guard)
+* 2026-11-10 (datamap 2.0.0): ported from datadict to datamap's single
+* Markdown writer.  The writer no longer title-cases the file name (1.x
+* printed "Under Cohort"): the heading is "## 1. <file name as written>" and
+* the anchor keeps the underscore (GitHub's rule: lower case, spaces to
+* hyphens, underscores and hyphens kept).  The table of contents is a
+* document feature, so a title() makes it appear.  The intent is unchanged:
+* no doubled space, no stray hyphen from the leading underscore.
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
@@ -28,29 +35,23 @@ quietly keep make price mpg
 quietly save "`W'/_under_cohort.dta", replace
 quietly save "`W'/plain_cohort.dta", replace
 
-* number of lines in a text file that equal a string exactly
+* number of lines in a datamap document that equal a string exactly
+* (Mata reader: the Source line ends in a backtick, which breaks a macro reader)
+do "`qa_dir'/_qa_md.do"
 capture program drop _v1101_has
 program define _v1101_has, rclass
     args file needle
-    tempname fh
-    local n 0
-    file open `fh' using `"`file'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if `"`macval(line)'"' == `"`needle'"' local ++n
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar n = `n'
+    qa_md_contains using `"`file'"', needle(`"`needle'"') exact
+    return scalar n = r(n)
 end
 
 local ++test_count
 capture noisily {
     capture erase "`W'/u.md"
-    quietly datadict, single("`W'/_under_cohort.dta") output("`W'/u.md")
-    _v1101_has "`W'/u.md" "## 1. Under Cohort"
+    quietly datamap, single("`W'/_under_cohort.dta") output("`W'/u.md") title("T")
+    _v1101_has "`W'/u.md" "## 1. _under_cohort"
     assert r(n) == 1
-    _v1101_has "`W'/u.md" "1. [Under Cohort](#1-under-cohort)"
+    _v1101_has "`W'/u.md" "1. [_under_cohort](#1-_under_cohort)"
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -66,10 +67,10 @@ else {
 local ++test_count
 capture noisily {
     capture erase "`W'/p.md"
-    quietly datadict, single("`W'/plain_cohort.dta") output("`W'/p.md")
-    _v1101_has "`W'/p.md" "## 1. Plain Cohort"
+    quietly datamap, single("`W'/plain_cohort.dta") output("`W'/p.md") title("T")
+    _v1101_has "`W'/p.md" "## 1. plain_cohort"
     assert r(n) == 1
-    _v1101_has "`W'/p.md" "1. [Plain Cohort](#1-plain-cohort)"
+    _v1101_has "`W'/p.md" "1. [plain_cohort](#1-plain_cohort)"
     assert r(n) == 1
 }
 if _rc == 0 {

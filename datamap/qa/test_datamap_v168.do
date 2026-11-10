@@ -1,5 +1,11 @@
 *! test_datamap_v168.do Version 1.0.0  2026/08/30
 *! Regression coverage for hostile text payloads, state restoration, and help widths
+*! 2026-11-10 (datamap 2.0.0): datadict is removed.  T1-T4 run on datamap's
+*! Markdown writer (the detail and stats options are gone: the label column and
+*! the statistics are always there); T8 pinned the internal helper
+*! _datadict_FileListMacro, which was deleted with datadict, and now asserts the
+*! same promise (varabbrev restored on every path) at datamap's public surface;
+*! T9 no longer lists datadict.sthlp.
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 clear all
@@ -19,6 +25,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") replace
 discard
+do "`qa_dir'/_qa_md.do"
 
 capture program drop _v168_record
 program define _v168_record
@@ -86,7 +93,7 @@ local metadata_hostile = "Cost " + char(34) + "quoted" + char(34) + ///
 local metadata_escaped = "Cost " + char(34) + "quoted" + char(34) + ///
     " &#36;UNSET &#96;tick " + char(92) + "| &lt;angle&gt;"
 
-**# T1: datadict preserves and Markdown-escapes hostile variable labels
+**# T1: datamap preserves and Markdown-escapes hostile variable labels
 local ++test_count
 capture noisily {
     clear
@@ -94,19 +101,11 @@ capture noisily {
     generate byte x = _n
     mata: st_varlabel(1, st_local("hostile"))
     tempfile varlabel_out varlabel_meta
-    datadict, output("`varlabel_out'.md") detail stats mincell(0) ///
+    datamap, output("`varlabel_out'.md") mincell(0) ///
         saving("`varlabel_meta'", replace)
 
-    local found 0
-    tempname fh
-    file open `fh' using "`varlabel_out'.md", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`macval(escaped)'"') local found 1
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found' == 1
+    qa_md_contains using "`varlabel_out'.md", needle(`"`macval(escaped)'"')
+    assert r(n) == 1
 
     preserve
     quietly use "`varlabel_meta'", clear
@@ -118,9 +117,9 @@ capture noisily {
     restore
 }
 local test_rc = _rc
-_v168_record `test_rc' `pass_count' `fail_count' "datadict hostile variable label round-trip"
+_v168_record `test_rc' `pass_count' `fail_count' "datamap hostile variable label round-trip"
 
-**# T2: datadict preserves and Markdown-escapes hostile dataset labels
+**# T2: datamap preserves and Markdown-escapes hostile dataset labels
 local ++test_count
 capture noisily {
     clear
@@ -128,19 +127,11 @@ capture noisily {
     generate byte x = _n
     label data `"`macval(hostile)'"'
     tempfile dslabel_out dslabel_meta
-    datadict, output("`dslabel_out'.md") detail ///
+    datamap, output("`dslabel_out'.md") ///
         saving("`dslabel_meta'", replace)
 
-    local found 0
-    tempname fh
-    file open `fh' using "`dslabel_out'.md", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`macval(escaped)'"') local found 1
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found' == 1
+    qa_md_contains using "`dslabel_out'.md", needle(`"- Label: `macval(escaped)'"') exact
+    assert r(n) == 1
 
     preserve
     quietly use "`dslabel_meta'", clear
@@ -152,24 +143,14 @@ capture noisily {
 
     label data "__DATAMAP_68F73A__D literal"
     tempfile marker_out
-    datadict, output("`marker_out'.md") detail
-    local marker_found 0
-    tempname marker_fh
-    file open `marker_fh' using "`marker_out'.md", read text
-    file read `marker_fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "__DATAMAP_68F73A__D literal") {
-            local marker_found 1
-        }
-        file read `marker_fh' line
-    }
-    file close `marker_fh'
-    assert `marker_found' == 1
+    datamap, output("`marker_out'.md")
+    qa_md_contains using "`marker_out'.md", needle("- Label: __DATAMAP_68F73A__D literal") exact
+    assert r(n) == 1
 }
 local test_rc = _rc
-_v168_record `test_rc' `pass_count' `fail_count' "datadict hostile dataset label round-trip"
+_v168_record `test_rc' `pass_count' `fail_count' "datamap hostile dataset label round-trip"
 
-**# T3: datadict preserves and Markdown-escapes hostile value labels
+**# T3: datamap preserves and Markdown-escapes hostile value labels
 local ++test_count
 capture noisily {
     clear
@@ -178,48 +159,34 @@ capture noisily {
     label define hostile_vl 1 `"`macval(hostile)'"' 2 "Normal" 3 "Normal 3"
     label values x hostile_vl
     tempfile vallabel_out
-    datadict, output("`vallabel_out'.md") detail stats mincell(0)
+    datamap, output("`vallabel_out'.md") mincell(0)
 
-    local found 0
-    tempname fh
-    file open `fh' using "`vallabel_out'.md", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`macval(escaped)'"') local found 1
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found' == 1
+    qa_md_contains using "`vallabel_out'.md", needle(`"1 `macval(escaped)': 2 (33.3%)"')
+    assert r(n) == 1
 }
 local test_rc = _rc
-_v168_record `test_rc' `pass_count' `fail_count' "datadict hostile value label round-trip"
+_v168_record `test_rc' `pass_count' `fail_count' "datamap hostile value label round-trip"
 
-**# T4: datadict accepts hostile title/subtitle/author prose
+**# T4: datamap accepts hostile title/subtitle/author prose
 local ++test_count
 capture noisily {
     clear
     set obs 3
     generate byte x = _n
     tempfile metadata_out
-    datadict, output("`metadata_out'.md") title(`"`macval(metadata_hostile)'"') ///
+    datamap, output("`metadata_out'.md") title(`"`macval(metadata_hostile)'"') ///
         subtitle(`"`macval(metadata_hostile)'"') ///
         author(`"`macval(metadata_hostile)'"') ///
         notes(`"`macval(metadata_hostile)'"') ///
         changelog(`"`macval(metadata_hostile)'"')
 
-    local hits 0
-    tempname fh
-    file open `fh' using "`metadata_out'.md", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`macval(metadata_escaped)'"') local ++hits
-        file read `fh' line
-    }
-    file close `fh'
-    assert `hits' >= 5
+    * the escaped text appears in the title, subtitle, author, notes and change log
+    qa_md_contains using "`metadata_out'.md", needle(`"`macval(metadata_escaped)'"')
+    assert !missing(r(n))
+    assert r(n) >= 5
 }
 local test_rc = _rc
-_v168_record `test_rc' `pass_count' `fail_count' "datadict hostile document metadata round-trip"
+_v168_record `test_rc' `pass_count' `fail_count' "datamap hostile document metadata round-trip"
 
 **# T5: datamvp accepts hostile variable labels and returns exact counts
 local ++test_count
@@ -319,26 +286,37 @@ capture noisily {
 local test_rc = _rc
 _v168_record `test_rc' `pass_count' `fail_count' "datamvp hostile grouped graph labels"
 
-**# T8: _datadict_FileListMacro restores varabbrev on its early-return branch
+**# T8: varabbrev is restored on datamap's memory and filelist branches
+* (was _datadict_FileListMacro's early-return branch; the helper is deleted)
 local ++test_count
 capture noisily {
     clear
     set obs 1
     generate byte x = 1
-    capture program drop datadict
-    run "`pkg_dir'/datadict.ado"
+    tempfile fl_dta
+    quietly save "`fl_dta'.dta", replace
     set varabbrev on
-    _datadict_FileListMacro, filelist("unused") memory(1)
-    assert "`r(files)'" == "memory"
+    datamap, output("`fl_dta'_m.md")
+    assert "`r(mode)'" == "memory"
     assert "`c(varabbrev)'" == "on"
+    datamap, filelist("`fl_dta'") output("`fl_dta'_f.md")
+    assert "`r(mode)'" == "filelist"
+    assert "`c(varabbrev)'" == "on"
+    capture datamap, filelist("`fl_dta'_nope") output("`fl_dta'_g.md")
+    assert _rc != 0
+    assert "`c(varabbrev)'" == "on"
+    set varabbrev off
+    datamap, output("`fl_dta'_m2.md")
+    assert "`c(varabbrev)'" == "off"
 }
 local test_rc = _rc
-_v168_record `test_rc' `pass_count' `fail_count' "FileListMacro memory branch restores varabbrev"
+set varabbrev off
+_v168_record `test_rc' `pass_count' `fail_count' "datamap memory/filelist branches restore varabbrev"
 
 **# T9: every synopt description fits its active Viewer column
 local ++test_count
 capture noisily {
-    local help_files datamap.sthlp datadict.sthlp dataprobe.sthlp datamvp.sthlp dataqa.sthlp
+    local help_files datamap.sthlp dataprobe.sthlp datamvp.sthlp dataqa.sthlp
     local nbad 0
     foreach help_file of local help_files {
         local synopt_width 0

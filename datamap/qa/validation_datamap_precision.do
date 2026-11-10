@@ -1,6 +1,8 @@
 *! validation_datamap_precision.do -- precise numerical payload, independent input arithmetic
 *! Author: Timothy P Copeland, Karolinska Institutet
 * Phase2 S1 probe; no session-hygiene or cosmetic contract claim.
+* 2026-11-10 (datamap 2.0.0): JSON and datadict are removed; see the dated
+* notes on tests 1 and 3.
 version 16.0
 clear all
 set more off
@@ -14,14 +16,15 @@ local tests 0
 local pass 0
 local fail 0
 do _qa_fx_a7.do
-python:
-import json, math
-from pathlib import Path
-from sfi import Macro
-_dm_precision_truth={'x': {'mean': 0.8672839178397961, 'sd': 1.0814689812015226, 'min': 1.2345678912345e-12, 'max': 2.3456789012345}, 'tiny': {'mean': 6.339197505864e-12, 'sd': 5.608159281661742e-12, 'min': 1.2345678912345e-12, 'max': 1.2345678912345e-11}, 'nearone': {'mean': 0.996913580202775, 'sd': 0.006172838810102508, 'min': 0.98765432198765, 'max': 1.0000000187}, 'big': {'mean': 1234567891240.25, 'sd': 7.325042661991806, 'min': 1234567891234.5, 'max': 1234567891250.625}}
-end
-
-**# JSON full stored double numerical summaries
+**# Markdown statistics cells show tiny and large doubles at their scale
+* 2026-11-10 (datamap 2.0.0): this was "JSON full stored double numerical
+* summaries" (unrounded 17-digit JSON summaries checked in Python).  format(json)
+* is removed; the unrounded values are asserted through saving() below.  What
+* the Markdown cell owes is scale: a 1e-12 variable must not read 0 and a
+* 1.2e12 mean must keep its integer digits.  Oracles: the values written into
+* the fixture (mean of the four tiny values 6.339e-12, SD 5.608e-12; big mean
+* 1234567891240.25, SD 7.325), rounded to the three significant digits the
+* cell carries.
 local ++tests
 capture noisily {
     qa_fx_a7_labelled, clear seed(37)
@@ -47,19 +50,29 @@ capture noisily {
     replace big=1234567891240.125 in 3
     replace big=1234567891250.625 in 4
     tempfile output
-    quietly datamap, output("`output'") format(json) continuous(x tiny nearone big) mincell(0)
+    quietly datamap, output("`output'") continuous(x tiny nearone big) mincell(0)
     assert r(nfiles)==1 & r(nobs)==4 & r(nvars)==5
-    python: _metadata=json.loads(Path(Macro.getLocal('output')).read_text())['datasets'][0]['variable_metadata']; _found={v['name']:v['summary'] for v in _metadata}; print('UNROUNDED_JSON_DIAGNOSTIC',[(v,field,float(_found[v][field]).hex(),target.hex()) for v,fields in _dm_precision_truth.items() for field,target in fields.items()]); assert all(abs(_found[v][field]-target)<=max(1e-25,32*math.ulp(target)) for v,fields in _dm_precision_truth.items() for field,target in fields.items())
+    do "`c(pwd)'/_qa_md.do"
+    qa_md_contains using "`output'", needle("N=4; mean=6.34e-12; SD=5.61e-12;")
+    assert r(n)==1
+    qa_md_contains using "`output'", needle("range=1.23e-12 to 1.23e-11")
+    assert r(n)==1
+    qa_md_contains using "`output'", needle("N=4; mean=1,234,567,891,240; SD=7.33;")
+    assert r(n)==1
+    qa_md_contains using "`output'", needle("N=4; mean=0.867; SD=1.08;")
+    assert r(n)==1
+    qa_md_contains using "`output'", needle("range=1.23e-12 to 2.35")
+    assert r(n)==1
     erase "`output'"
 
 }
 if _rc {
     local ++fail
-    display as error "FAIL: JSON full stored double numerical summaries; rc=" _rc
+    display as error "FAIL: Markdown statistics cells show tiny and large doubles at their scale; rc=" _rc
 }
 else {
     local ++pass
-    display as result "PASS: JSON full stored double numerical summaries"
+    display as result "PASS: Markdown statistics cells show tiny and large doubles at their scale"
 }
 
 **# datamap exact numeric metadata double cells
@@ -88,7 +101,7 @@ capture noisily {
     replace big=1234567891240.125 in 3
     replace big=1234567891250.625 in 4
     tempfile output metadata
-    quietly datamap, output("`output'") saving("`metadata'", replace) continuous(x tiny nearone big) mincell(0) format(json)
+    quietly datamap, output("`output'") saving("`metadata'", replace) continuous(x tiny nearone big) mincell(0)
     use "`metadata'", clear
     format mean sd min max %21x
     noisily list variable mean sd min max, noobs
@@ -130,7 +143,11 @@ else {
     display as result "PASS: datamap exact numeric metadata double cells"
 }
 
-**# datadict exact numeric metadata double cells
+**# datamap exact numeric metadata double cells, compact document with a title
+* 2026-11-10 (datamap 2.0.0): was the datadict twin of the test above (datadict
+* is removed).  The same exact-value assertions now run through the document
+* mode (title() and compact), so a second render path must write the same
+* unrounded saving() table.
 local ++tests
 capture noisily {
     qa_fx_a7_labelled, clear seed(37)
@@ -156,7 +173,7 @@ capture noisily {
     replace big=1234567891240.125 in 3
     replace big=1234567891250.625 in 4
     tempfile output metadata
-    quietly datadict, output("`output'") saving("`metadata'", replace) continuous(x tiny nearone big) mincell(0) stats
+    quietly datamap, output("`output'") saving("`metadata'", replace) continuous(x tiny nearone big) mincell(0) compact title("Precision")
     use "`metadata'", clear
     format mean sd min max %21x
     noisily list variable mean sd min max, noobs
@@ -191,11 +208,11 @@ capture noisily {
 }
 if _rc {
     local ++fail
-    display as error "FAIL: datadict exact numeric metadata double cells; rc=" _rc
+    display as error "FAIL: datamap exact numeric metadata double cells, compact document; rc=" _rc
 }
 else {
     local ++pass
-    display as result "PASS: datadict exact numeric metadata double cells"
+    display as result "PASS: datamap exact numeric metadata double cells, compact document"
 }
 
 **# dataprobe dataqa valid masked numeric ledger transport

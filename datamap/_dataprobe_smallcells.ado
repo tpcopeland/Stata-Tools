@@ -1,4 +1,4 @@
-*! _dataprobe_smallcells Version 1.10.6  2026/10/21
+*! _dataprobe_smallcells Version 2.0.0  2026/11/10
 *! dataprobe smallcells(): no released count of 1 to m-1 in a results dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

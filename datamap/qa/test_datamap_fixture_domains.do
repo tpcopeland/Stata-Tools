@@ -15,10 +15,37 @@ do _qa_state.do
 local tests 0
 local pass 0
 local fail 0
-capture program drop _dm_domain_json
-program define _dm_domain_json
+* 2026-11-10 (datamap 2.0.0): format(json), format(text) and datadict are
+* removed.  _dm_domain_json (a JSON parse in Python) is now _dm_domain_md,
+* the same facts read from the Markdown document (40 observations, ten
+* variable rows, all_missing and extended 100% missing, x complete), and the
+* three datadict tests run on datamap's saving() table (_dd_domain_metadata
+* keeps its name and asserts).  Each declared-domain cell (inside / outside
+* values of maxcat, maxfreq, uniqcap, samples) is unchanged.
+do _qa_md.do
+capture program drop _dm_domain_md
+program define _dm_domain_md
     args output
-    python: _j=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _j["variable_metadata"]}; assert _j["observations"]==40 and _j["variables"]==10 and _v["all_missing"]["missing_n"]==40 and _v["extended"]["missing_n"]==40 and _v["x"]["missing_n"]==0
+    qa_md_contains using `"`output'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_contains using `"`output'"', needle("- Variables: 10") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==10
+    qa_md_rows using `"`output'"', var(all_missing) miss("40 (100.0%)")
+    assert r(n)==1
+    * 2026-11-10 (2.0.0 Phase 3, F3): the Missing cell lists extended's codes;
+    * the fixture holds .a-.z in rows 1-26 and . in the other 14 rows, and at
+    * the default mincell(5) each one-row code is withheld (the pin read
+    * miss("40 (100.0%)") before)
+    local _ext "40 (100.0%): . 14"
+    foreach _l in a b c d e f g h i j k l m n o p q r s t u v w x y z {
+        local _ext "`_ext', .`_l' suppressed (<5)"
+    }
+    qa_md_rows using `"`output'"', var(extended) miss("`_ext'")
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(x) miss("0 (0.0%)")
+    assert r(n)==1
 end
 capture program drop _dd_domain_metadata
 program define _dd_domain_metadata
@@ -37,7 +64,7 @@ capture noisily {
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datamap, output(`"`output'"') format(json) maxcat(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dm_domain_json `"`output'"')
+    qa_option_domain, command(datamap, output(`"`output'"') maxcat(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dm_domain_md `"`output'"')
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -59,7 +86,7 @@ capture noisily {
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datamap, output(`"`output'"') format(json) maxfreq(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dm_domain_json `"`output'"')
+    qa_option_domain, command(datamap, output(`"`output'"') maxfreq(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dm_domain_md `"`output'"')
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -81,7 +108,7 @@ capture noisily {
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datamap, output(`"`output'"') format(text) samples(@v@)) inside(0 1 100) outside(-1 . 1.5) check(assert r(nobs)==40 & r(nvars)==10 & r(nfiles)==1)
+    qa_option_domain, command(datamap, output(`"`output'"') samples(@v@)) inside(0 1 100) outside(-1 . 1.5) check(assert r(nobs)==40 & r(nvars)==10 & r(nfiles)==1)
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -103,7 +130,7 @@ capture noisily {
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datamap, output(`"`output'"') format(json) uniqcap(@v@)) inside(0 1 100) outside(-1 . 1.5) check(_dm_domain_json `"`output'"')
+    qa_option_domain, command(datamap, output(`"`output'"') uniqcap(@v@)) inside(0 1 100) outside(-1 . 1.5) check(_dm_domain_md `"`output'"')
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -118,14 +145,14 @@ else {
     display as result "PASS: datamap uniqcap"
 }
 
-**# datadict maxcat lower domain
+**# datamap saving() maxcat lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datadict, output(`"`output'"') saving(`"`metadata'"', replace) stats maxcat(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dd_domain_metadata `"`metadata'"')
+    qa_option_domain, command(datamap, output(`"`output'"') saving(`"`metadata'"', replace) maxcat(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dd_domain_metadata `"`metadata'"')
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -133,21 +160,21 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datadict maxcat rc=" `outcome'
+    display as error "FAIL: datamap saving() maxcat rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datadict maxcat"
+    display as result "PASS: datamap saving() maxcat"
 }
 
-**# datadict maxfreq lower domain
+**# datamap saving() maxfreq lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datadict, output(`"`output'"') saving(`"`metadata'"', replace) stats maxfreq(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dd_domain_metadata `"`metadata'"')
+    qa_option_domain, command(datamap, output(`"`output'"') saving(`"`metadata'"', replace) maxfreq(@v@)) inside(1 2 100) outside(0 . 1.5) check(_dd_domain_metadata `"`metadata'"')
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -155,21 +182,21 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datadict maxfreq rc=" `outcome'
+    display as error "FAIL: datamap saving() maxfreq rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datadict maxfreq"
+    display as result "PASS: datamap saving() maxfreq"
 }
 
-**# datadict uniqcap lower domain
+**# datamap saving() uniqcap lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datadict, output(`"`output'"') saving(`"`metadata'"', replace) stats uniqcap(@v@)) inside(0 1 100) outside(-1 . 1.5) check(_dd_domain_metadata `"`metadata'"')
+    qa_option_domain, command(datamap, output(`"`output'"') saving(`"`metadata'"', replace) uniqcap(@v@)) inside(0 1 100) outside(-1 . 1.5) check(_dd_domain_metadata `"`metadata'"')
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -177,11 +204,11 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datadict uniqcap rc=" `outcome'
+    display as error "FAIL: datamap saving() uniqcap rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datadict uniqcap"
+    display as result "PASS: datamap saving() uniqcap"
 }
 
 **# dataprobe maxcat lower domain

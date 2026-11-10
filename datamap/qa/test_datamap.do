@@ -1,5 +1,23 @@
 *! test_datamap.do Version 1.0.0  2026/08/11
-*! Functional tests for datamap and datadict
+*! Functional tests for datamap (and, until 2.0.0, datadict)
+*
+* 2026-11-10 (datamap 2.0.0): datadict is removed and datamap writes one
+* Markdown document, so the "datadict:" sections are ported to datamap's
+* Markdown writer under the same test names.  Port rules, test by test:
+*   r(nvars_total)/r(nobs_total) -> r(nvars)/r(nobs) (single and memory runs
+*     only; directory, filelist and manifest runs have no successor, so those
+*     tests count the Variables-table rows and the "- Observations:" lines of
+*     the document instead)
+*   date(2026-01-01) -> docdate(2026-01-01)
+*   the "missing" and "stats" options -> the default table (the Missing column
+*     and the statistics are always there); those two tests assert the cells
+*   the "datasignature" option -> always printed ("- Data signature:")
+*   separate default suffix _dictionary -> _map
+*   the default "All date variables are displayed" note -> none (a Notes
+*     section exists only with notes()), asserted absent
+* The datamap tests no longer use the .txt extension: the file is Markdown.
+* Documents are read through _qa_md.do (Mata): a line ending in a backtick
+* breaks a Stata-macro line reader.
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 clear all
@@ -29,6 +47,7 @@ capture ado uninstall datamap
 
 * Install from local directory
 quietly net install datamap, from("`pkg_dir'") force
+do "`qa_dir'/_qa_md.do"
 
 * ============================================================
 * Create Test Datasets
@@ -103,11 +122,11 @@ save "`tmp_dir'/test_single.dta", replace
 * Test: datamap single dataset
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out.txt")
-    confirm file "`tmp_dir'/_out.txt"
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out.md")
+    confirm file "`tmp_dir'/_out.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - single dataset"
@@ -121,11 +140,11 @@ else {
 * Test: datamap with .dta extension
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_cohort.dta") output("`tmp_dir'/_out2.txt")
-    confirm file "`tmp_dir'/_out2.txt"
+    datamap, single("`tmp_dir'/test_cohort.dta") output("`tmp_dir'/_out2.md")
+    confirm file "`tmp_dir'/_out2.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out2.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out2.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - .dta extension"
@@ -139,13 +158,17 @@ else {
 * Test: datamap return values
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_rv.txt")
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_rv.md")
     assert r(nfiles) == 1
-    assert "`r(format)'" == "text"
-    assert regexm("`r(output)'", "_out_rv\.txt")
+    * r(format) was removed with the text layout (2.0.0): it must be unset
+    assert "`r(format)'" == ""
+    assert regexm("`r(output)'", "_out_rv\.md")
+    assert "`r(mode)'" == "single"
+    assert strpos("`r(files)'", "test_cohort") > 0
+    assert "`r(outputs)'" != ""
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - return values r(nfiles) r(format) r(output)"
+    display as result "  PASS: datamap - return values r(nfiles) r(mode) r(files) r(outputs) r(output), r(format) gone"
     local ++pass_count
 }
 else {
@@ -156,11 +179,11 @@ else {
 * Test: datamap custom output filename
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_custom_name.txt")
-    confirm file "`tmp_dir'/_custom_name.txt"
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_custom_name.md")
+    confirm file "`tmp_dir'/_custom_name.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_custom_name.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_custom_name.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - custom output filename"
@@ -179,11 +202,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") exclude(id name) ///
-        output("`tmp_dir'/_out_excl.txt")
-    confirm file "`tmp_dir'/_out_excl.txt"
+        output("`tmp_dir'/_out_excl.md")
+    confirm file "`tmp_dir'/_out_excl.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_excl.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_excl.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - exclude(id name)"
@@ -198,11 +221,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") datesafe ///
-        output("`tmp_dir'/_out_ds.txt")
-    confirm file "`tmp_dir'/_out_ds.txt"
+        output("`tmp_dir'/_out_ds.md")
+    confirm file "`tmp_dir'/_out_ds.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_ds.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_ds.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - datesafe"
@@ -217,11 +240,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") exclude(id name) datesafe ///
-        output("`tmp_dir'/_out_priv.txt")
-    confirm file "`tmp_dir'/_out_priv.txt"
+        output("`tmp_dir'/_out_priv.md")
+    confirm file "`tmp_dir'/_out_priv.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_priv.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_priv.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - combined privacy (exclude + datesafe)"
@@ -240,11 +263,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nostats ///
-        output("`tmp_dir'/_out_ns.txt")
-    confirm file "`tmp_dir'/_out_ns.txt"
+        output("`tmp_dir'/_out_ns.md")
+    confirm file "`tmp_dir'/_out_ns.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_ns.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_ns.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - nostats"
@@ -259,11 +282,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nofreq ///
-        output("`tmp_dir'/_out_nf.txt")
-    confirm file "`tmp_dir'/_out_nf.txt"
+        output("`tmp_dir'/_out_nf.md")
+    confirm file "`tmp_dir'/_out_nf.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_nf.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_nf.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - nofreq"
@@ -278,11 +301,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nolabels ///
-        output("`tmp_dir'/_out_nl.txt")
-    confirm file "`tmp_dir'/_out_nl.txt"
+        output("`tmp_dir'/_out_nl.md")
+    confirm file "`tmp_dir'/_out_nl.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_nl.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_nl.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - nolabels"
@@ -297,11 +320,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nostats nofreq nolabels ///
-        output("`tmp_dir'/_out_allsup.txt")
-    confirm file "`tmp_dir'/_out_allsup.txt"
+        output("`tmp_dir'/_out_allsup.md")
+    confirm file "`tmp_dir'/_out_allsup.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_allsup.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_allsup.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - all content suppression combined"
@@ -316,11 +339,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") maxcat(10) ///
-        output("`tmp_dir'/_out_mc.txt")
-    confirm file "`tmp_dir'/_out_mc.txt"
+        output("`tmp_dir'/_out_mc.md")
+    confirm file "`tmp_dir'/_out_mc.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_mc.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_mc.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - maxcat(10)"
@@ -335,11 +358,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") maxfreq(5) ///
-        output("`tmp_dir'/_out_mf.txt")
-    confirm file "`tmp_dir'/_out_mf.txt"
+        output("`tmp_dir'/_out_mf.md")
+    confirm file "`tmp_dir'/_out_mf.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_mf.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_mf.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - maxfreq(5)"
@@ -358,11 +381,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") autodetect ///
-        output("`tmp_dir'/_out_ad.txt")
-    confirm file "`tmp_dir'/_out_ad.txt"
+        output("`tmp_dir'/_out_ad.md")
+    confirm file "`tmp_dir'/_out_ad.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_ad.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_ad.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - autodetect"
@@ -377,11 +400,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_panel") detect(panel) panelid(patient_id) ///
-        output("`tmp_dir'/_out_panel.txt")
-    confirm file "`tmp_dir'/_out_panel.txt"
+        output("`tmp_dir'/_out_panel.md")
+    confirm file "`tmp_dir'/_out_panel.md"
     assert !missing(r(nvars))
     assert r(nvars) == 4
-    assert strlen(fileread("`tmp_dir'/_out_panel.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_panel.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(panel) + panelid"
@@ -396,11 +419,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") detect(binary) ///
-        output("`tmp_dir'/_out_bin.txt")
-    confirm file "`tmp_dir'/_out_bin.txt"
+        output("`tmp_dir'/_out_bin.md")
+    confirm file "`tmp_dir'/_out_bin.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_bin.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_bin.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(binary)"
@@ -415,11 +438,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") detect(survival) ///
-        output("`tmp_dir'/_out_surv.txt")
-    confirm file "`tmp_dir'/_out_surv.txt"
+        output("`tmp_dir'/_out_surv.md")
+    confirm file "`tmp_dir'/_out_surv.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_surv.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_surv.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(survival)"
@@ -434,11 +457,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") detect(common) ///
-        output("`tmp_dir'/_out_com.txt")
-    confirm file "`tmp_dir'/_out_com.txt"
+        output("`tmp_dir'/_out_com.md")
+    confirm file "`tmp_dir'/_out_com.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_com.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_com.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(common)"
@@ -453,11 +476,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") survivalvars(entry_date exit_date) ///
-        output("`tmp_dir'/_out_sv.txt")
-    confirm file "`tmp_dir'/_out_sv.txt"
+        output("`tmp_dir'/_out_sv.md")
+    confirm file "`tmp_dir'/_out_sv.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_sv.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_sv.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - survivalvars()"
@@ -476,11 +499,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") quality ///
-        output("`tmp_dir'/_out_q.txt")
-    confirm file "`tmp_dir'/_out_q.txt"
+        output("`tmp_dir'/_out_q.md")
+    confirm file "`tmp_dir'/_out_q.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_q.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_q.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - quality"
@@ -495,11 +518,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") quality2(strict) ///
-        output("`tmp_dir'/_out_q2.txt")
-    confirm file "`tmp_dir'/_out_q2.txt"
+        output("`tmp_dir'/_out_q2.md")
+    confirm file "`tmp_dir'/_out_q2.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_q2.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_q2.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - quality2(strict)"
@@ -514,11 +537,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort_miss") missing(detail) ///
-        output("`tmp_dir'/_out_md.txt")
-    confirm file "`tmp_dir'/_out_md.txt"
+        output("`tmp_dir'/_out_md.md")
+    confirm file "`tmp_dir'/_out_md.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_md.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_md.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - missing(detail)"
@@ -533,11 +556,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort_miss") missing(pattern) ///
-        output("`tmp_dir'/_out_mp.txt")
-    confirm file "`tmp_dir'/_out_mp.txt"
+        output("`tmp_dir'/_out_mp.md")
+    confirm file "`tmp_dir'/_out_mp.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_mp.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_mp.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - missing(pattern)"
@@ -552,11 +575,11 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") samples(5) ///
-        output("`tmp_dir'/_out_samp.txt")
-    confirm file "`tmp_dir'/_out_samp.txt"
+        output("`tmp_dir'/_out_samp.md")
+    confirm file "`tmp_dir'/_out_samp.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_samp.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_samp.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - samples(5)"
@@ -575,8 +598,8 @@ else {
 local ++test_count
 capture noisily {
     datamap, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
-        output("`tmp_dir'/_out_fl.txt")
-    confirm file "`tmp_dir'/_out_fl.txt"
+        output("`tmp_dir'/_out_fl.md")
+    confirm file "`tmp_dir'/_out_fl.md"
     assert r(nfiles) == 2
 }
 if _rc == 0 {
@@ -591,8 +614,8 @@ else {
 * Test: directory mode
 local ++test_count
 capture noisily {
-    datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_dir.txt")
-    confirm file "`tmp_dir'/_out_dir.txt"
+    datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_dir.md")
+    confirm file "`tmp_dir'/_out_dir.md"
     * Exactly 5 top-level .dta files exist in tmp_dir at this point: cohort,
     * cohort_miss, panel, small, single (no subdirectory yet).
     assert !missing(r(nfiles))
@@ -614,14 +637,14 @@ capture noisily {
     use "`tmp_dir'/test_small.dta", clear
     save "`tmp_dir'/_subdir/_sub.dta", replace
 
-    datamap, directory("`tmp_dir'") recursive output("`tmp_dir'/_out_rec.txt")
-    confirm file "`tmp_dir'/_out_rec.txt"
+    datamap, directory("`tmp_dir'") recursive output("`tmp_dir'/_out_rec.md")
+    confirm file "`tmp_dir'/_out_rec.md"
     * Directory mode never returns r(nvars)/r(nobs) (datamap.ado only sets
     * those for single() mode) -- r(nfiles) is the mode-appropriate oracle.
     * recursive must find the nested file too: 5 top-level + 1 in _subdir.
     assert !missing(r(nfiles))
     assert r(nfiles) == 6
-    assert strlen(fileread("`tmp_dir'/_out_rec.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_rec.md")) > 0
 
     capture erase "`tmp_dir'/_subdir/_sub.dta"
     capture rmdir "`tmp_dir'/_subdir"
@@ -641,12 +664,12 @@ else {
 local ++test_count
 capture noisily {
     datamap, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
-        output("`tmp_dir'/_out_sep.txt") separate
-    * separate creates <basename>_map.txt files
-    confirm file "`tmp_dir'/test_cohort_map.txt"
-    assert strlen(fileread("`tmp_dir'/test_cohort_map.txt")) > 0
-    confirm file "`tmp_dir'/test_small_map.txt"
-    assert strlen(fileread("`tmp_dir'/test_small_map.txt")) > 0
+        output("`tmp_dir'/_out_sep.md") separate
+    * separate creates <basename>_map.md files
+    confirm file "`tmp_dir'/test_cohort_map.md"
+    assert strlen(fileread("`tmp_dir'/test_cohort_map.md")) > 0
+    confirm file "`tmp_dir'/test_small_map.md"
+    assert strlen(fileread("`tmp_dir'/test_small_map.md")) > 0
     assert !missing(r(nfiles))
     assert r(nfiles) == 2
 }
@@ -662,12 +685,12 @@ else {
 * Test: append mode
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_app.txt")
-    datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_app.txt") append
-    confirm file "`tmp_dir'/_out_app.txt"
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_app.md")
+    datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_app.md") append
+    confirm file "`tmp_dir'/_out_app.md"
     assert !missing(r(nvars))
     assert r(nvars) == 2
-    assert strlen(fileread("`tmp_dir'/_out_app.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_app.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - append mode"
@@ -686,13 +709,13 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort_miss") ///
-        output("`tmp_dir'/_out_full.txt") ///
+        output("`tmp_dir'/_out_full.md") ///
         exclude(id) datesafe quality missing(detail) ///
         samples(3) autodetect maxcat(15) maxfreq(20)
-    confirm file "`tmp_dir'/_out_full.txt"
+    confirm file "`tmp_dir'/_out_full.md"
     assert !missing(r(nvars))
     assert r(nvars) == 8
-    assert strlen(fileread("`tmp_dir'/_out_full.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_full.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - full comprehensive analysis"
@@ -710,11 +733,11 @@ else {
 * Test: single observation dataset
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_single") output("`tmp_dir'/_out_1obs.txt")
-    confirm file "`tmp_dir'/_out_1obs.txt"
+    datamap, single("`tmp_dir'/test_single") output("`tmp_dir'/_out_1obs.md")
+    confirm file "`tmp_dir'/_out_1obs.md"
     assert !missing(r(nvars))
     assert r(nvars) == 1
-    assert strlen(fileread("`tmp_dir'/_out_1obs.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_1obs.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - single observation dataset"
@@ -728,11 +751,11 @@ else {
 * Test: small dataset (5 obs)
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_5obs.txt")
-    confirm file "`tmp_dir'/_out_5obs.txt"
+    datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_5obs.md")
+    confirm file "`tmp_dir'/_out_5obs.md"
     assert !missing(r(nvars))
     assert r(nvars) == 2
-    assert strlen(fileread("`tmp_dir'/_out_5obs.txt")) > 0
+    assert strlen(fileread("`tmp_dir'/_out_5obs.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - small dataset (5 obs)"
@@ -756,7 +779,7 @@ capture noisily {
     datasignature
     local sig_before "`r(datasignature)'"
 
-    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_pres.txt")
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_pres.md")
 
     assert _N == `N_before'
     assert c(k) == `k_before'
@@ -780,8 +803,8 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    datamap, output("`tmp_dir'/_mem.txt")
-    confirm file "`tmp_dir'/_mem.txt"
+    datamap, output("`tmp_dir'/_mem.md")
+    confirm file "`tmp_dir'/_mem.md"
     assert "`r(input_source)'" == "memory"
 }
 if _rc == 0 {
@@ -792,13 +815,13 @@ else {
     display as error "  FAIL: datamap - in-memory data (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_mem.txt"
+capture erase "`tmp_dir'/_mem.md"
 
 * Test: no input with no data in memory (should error)
 local ++test_count
 capture noisily {
     clear
-    capture datamap, output("`tmp_dir'/_err.txt")
+    capture datamap, output("`tmp_dir'/_err.md")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -871,339 +894,411 @@ else {
 }
 
 * ============================================================
-* datadict: Basic Functionality
+* datamap Markdown: Basic Functionality
 * ============================================================
 
-* Test: datadict single dataset
+* Test: datamap single dataset
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_out.md")
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_out.md")
     confirm file "`tmp_dir'/_dd_out.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_out.md")) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - single dataset"
+    display as result "  PASS: datamap Markdown - single dataset"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - single dataset (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - single dataset (error `=_rc')"
     local ++fail_count
 }
 
-* Test: datadict return values
+* Test: datamap return values
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_rv.md")
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_rv.md")
     assert r(nfiles) == 1
     assert regexm("`r(output)'", "_dd_rv\.md")
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - return values r(nfiles) r(output)"
+    display as result "  PASS: datamap Markdown - return values r(nfiles) r(output)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - return values (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - return values (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* datadict: Metadata Options
+* datamap Markdown: Metadata Options
 * ============================================================
 
 * Test: title
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_title.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_title.md") ///
         title("Custom Title")
     confirm file "`tmp_dir'/_dd_title.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_title.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_title.md", needle("# Custom Title") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - title()"
+    display as result "  PASS: datamap Markdown - title()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - title() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - title() (error `=_rc')"
     local ++fail_count
 }
 
 * Test: subtitle
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_sub.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_sub.md") ///
         title("Test") subtitle("A subtitle")
     confirm file "`tmp_dir'/_dd_sub.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_sub.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_sub.md", needle("# Test") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_sub.md", needle("A subtitle") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - subtitle()"
+    display as result "  PASS: datamap Markdown - subtitle()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - subtitle() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - subtitle() (error `=_rc')"
     local ++fail_count
 }
 
 * Test: version
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_ver.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_ver.md") ///
         version("1.0")
     confirm file "`tmp_dir'/_dd_ver.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_ver.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_ver.md", needle("Version 1.0") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_ver.md", needle("**Document Version:** 1.0") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - version()"
+    display as result "  PASS: datamap Markdown - version()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - version() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - version() (error `=_rc')"
     local ++fail_count
 }
 
 * Test: author
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_auth.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_auth.md") ///
         author("Test Author")
     confirm file "`tmp_dir'/_dd_auth.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_auth.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_auth.md", needle("**Author:** Test Author") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - author()"
+    display as result "  PASS: datamap Markdown - author()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - author() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - author() (error `=_rc')"
     local ++fail_count
 }
 
 * Test: date
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_date.md") ///
-        date("2026-01-01")
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_date.md") ///
+        docdate("2026-01-01")
     confirm file "`tmp_dir'/_dd_date.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_date.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_date.md", needle("**Last Updated:** 2026-01-01") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - date()"
+    display as result "  PASS: datamap Markdown - date()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - date() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - date() (error `=_rc')"
     local ++fail_count
 }
 
 * Test: notes
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_notes.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_notes.md") ///
         notes("Test notes for the data dictionary.")
     confirm file "`tmp_dir'/_dd_notes.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_notes.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_notes.md", needle("## Notes") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_notes.md", needle("Test notes for the data dictionary.") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - notes()"
+    display as result "  PASS: datamap Markdown - notes()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - notes() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - notes() (error `=_rc')"
     local ++fail_count
 }
 
 * Test: changelog
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_cl.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_cl.md") ///
         changelog("v1.0: Initial release")
     confirm file "`tmp_dir'/_dd_cl.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_cl.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_cl.md", needle("## Change Log") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_cl.md", needle("v1.0: Initial release") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - changelog()"
+    display as result "  PASS: datamap Markdown - changelog()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - changelog() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - changelog() (error `=_rc')"
     local ++fail_count
 }
 
 * Test: full metadata combination
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_fullmeta.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_fullmeta.md") ///
         title("MS Cohort") subtitle("Data Dictionary") ///
-        version("2.0") author("Test Author") date("2026-01-01") ///
+        version("2.0") author("Test Author") docdate("2026-01-01") ///
         notes("Comprehensive dataset.") changelog("v2.0: Added outcomes")
     confirm file "`tmp_dir'/_dd_fullmeta.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_fullmeta.md")) > 0
+    qa_md_contains using "`tmp_dir'/_dd_fullmeta.md", needle("# MS Cohort") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_fullmeta.md", needle("Data Dictionary") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_fullmeta.md", needle("Version 2.0") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_fullmeta.md", needle("**Author:** Test Author") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_fullmeta.md", needle("**Last Updated:** 2026-01-01") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_fullmeta.md", needle("Comprehensive dataset.") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_fullmeta.md", needle("v2.0: Added outcomes") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - full metadata combination"
+    display as result "  PASS: datamap Markdown - full metadata combination"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - full metadata (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - full metadata (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* datadict: Content Options
+* datamap Markdown: Content Options
 * ============================================================
 
 * Test: missing column
+* 2026-11-10: datadict's "missing" option is the default Missing column of
+* datamap's table (the option itself is removed: rc 198, test_datamap_v200_removed).
+* Oracle: count if missing(var) on the fixture.
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_miss.md") ///
-        missing
+    datamap, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_miss.md")
     confirm file "`tmp_dir'/_dd_miss.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
-    assert strlen(fileread("`tmp_dir'/_dd_miss.md")) > 0
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    preserve
+    quietly use "`tmp_dir'/test_cohort_miss.dta", clear
+    foreach v in id age bmi region {
+        quietly count if missing(`v')
+        local nm_`v' = r(N)
+        local pm_`v' = string(100 * r(N) / _N, "%4.1f")
+    }
+    restore
+    foreach v in id age bmi region {
+        qa_md_rows using "`tmp_dir'/_dd_miss.md", var(`v') miss("`nm_`v'' (`pm_`v''%)")
+        assert r(n) == 1
+    }
+    assert `nm_age' == 10 & `nm_bmi' == 11 & `nm_region' == 6 & `nm_id' == 0
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - missing"
+    display as result "  PASS: datamap Markdown - missing"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - missing (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - missing (error `=_rc')"
     local ++fail_count
 }
 
 * Test: stats column
+* 2026-11-10: datadict's "stats" option is the default Values/Statistics cell.
+* Oracle: -summarize- on the fixture.
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_stats.md") ///
-        stats
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_stats.md")
     confirm file "`tmp_dir'/_dd_stats.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
-    assert strlen(fileread("`tmp_dir'/_dd_stats.md")) > 0
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    preserve
+    quietly use "`tmp_dir'/test_cohort.dta", clear
+    quietly summarize bmi, detail
+    local bm = string(r(mean), "%9.2f")
+    local bs = string(r(sd), "%9.2f")
+    local bmed = string(r(p50), "%9.2f")
+    restore
+    qa_md_rows using "`tmp_dir'/_dd_stats.md", var(bmi)
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_stats.md", needle("`=char(96)'bmi`=char(96)' | Body mass index | double | 0 (0.0%) | N=100; mean=`bm'; SD=`bs'; median=`bmed';")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - stats"
+    display as result "  PASS: datamap Markdown - stats"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - stats (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - stats (error `=_rc')"
     local ++fail_count
 }
 
 * Test: missing + stats combined
+* 2026-11-10: both are always on; the statistics are over the NONMISSING values
+* (age: 90 of 100) while the Missing cell counts the 10 missing.
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_both.md") ///
-        missing stats
+    datamap, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_both.md")
     confirm file "`tmp_dir'/_dd_both.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
-    assert strlen(fileread("`tmp_dir'/_dd_both.md")) > 0
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    preserve
+    quietly use "`tmp_dir'/test_cohort_miss.dta", clear
+    quietly summarize age
+    assert r(N) == 90
+    local am = string(r(mean), "%9.2f")
+    local asd = string(r(sd), "%9.2f")
+    restore
+    qa_md_contains using "`tmp_dir'/_dd_both.md", needle("`=char(96)'age`=char(96)' | Age in years | double | 10 (10.0%) | N=90; mean=`am'; SD=`asd';")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - missing + stats combined"
+    display as result "  PASS: datamap Markdown - missing + stats combined"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - missing + stats (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - missing + stats (error `=_rc')"
     local ++fail_count
 }
 
 * Test: custom maxcat
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mc.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mc.md") ///
         maxcat(10)
     confirm file "`tmp_dir'/_dd_mc.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_mc.md")) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - maxcat(10)"
+    display as result "  PASS: datamap Markdown - maxcat(10)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - maxcat(10) (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - maxcat(10) (error `=_rc')"
     local ++fail_count
 }
 
 * Test: custom maxfreq
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mf.md") ///
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mf.md") ///
         maxfreq(5)
     confirm file "`tmp_dir'/_dd_mf.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_mf.md")) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - maxfreq(5)"
+    display as result "  PASS: datamap Markdown - maxfreq(5)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - maxfreq(5) (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - maxfreq(5) (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* datadict: Multi-file and Directory Modes
+* datamap Markdown: Multi-file and Directory Modes
 * ============================================================
 
 * Test: filelist mode
 local ++test_count
 capture noisily {
-    datadict, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
+    datamap, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
         output("`tmp_dir'/_dd_fl.md")
     confirm file "`tmp_dir'/_dd_fl.md"
     assert r(nfiles) == 2
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - filelist mode (2 files)"
+    display as result "  PASS: datamap Markdown - filelist mode (2 files)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - filelist mode (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - filelist mode (error `=_rc')"
     local ++fail_count
 }
 
 * Test: directory mode
 local ++test_count
 capture noisily {
-    datadict, directory("`tmp_dir'") output("`tmp_dir'/_dd_dir.md")
+    datamap, directory("`tmp_dir'") output("`tmp_dir'/_dd_dir.md")
     confirm file "`tmp_dir'/_dd_dir.md"
     * 5 top-level .dta files exist at this point: cohort(8v), cohort_miss(8v),
     * panel(4v), small(2v), single(1v) -- no subdirectory yet.
     assert !missing(r(nfiles))
     assert r(nfiles) == 5
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 23
+    * r(nvars) is set for single()/memory runs only (2.0.0, as datamap 1.x):
+    * the 23 variables of the five files are the Variables-table rows
+    qa_md_rows using "`tmp_dir'/_dd_dir.md"
+    assert r(n) == 23
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - directory mode"
+    display as result "  PASS: datamap Markdown - directory mode"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - directory mode (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - directory mode (error `=_rc')"
     local ++fail_count
 }
 
@@ -1214,29 +1309,28 @@ capture noisily {
     use "`tmp_dir'/test_small.dta", clear
     save "`tmp_dir'/_subdir2/_sub.dta", replace
 
-    datadict, directory("`tmp_dir'") recursive output("`tmp_dir'/_dd_rec.md")
+    datamap, directory("`tmp_dir'") recursive output("`tmp_dir'/_dd_rec.md")
     confirm file "`tmp_dir'/_dd_rec.md"
     * recursive must find the nested file too: 6 .dta files total by this
     * point (cohort=8, cohort_miss=8, panel=4, small=2, single=1, plus the
     * nested _subdir2/_sub.dta copy of small=2 vars) -> nvars_total sums
-    * each file's own var count (datadict.ado accumulates per-file r(nvars)
-    * across the whole scan, unlike datamap.ado which only posts it for
-    * single() mode).
+    * each file's own var count; r(nvars) exists only for single()/memory runs,
+    * so the total is the number of Variables-table rows in the document.
     assert !missing(r(nfiles))
     assert r(nfiles) == 6
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 25
+    qa_md_rows using "`tmp_dir'/_dd_rec.md"
+    assert r(n) == 25
     assert strlen(fileread("`tmp_dir'/_dd_rec.md")) > 0
 
     capture erase "`tmp_dir'/_subdir2/_sub.dta"
     capture rmdir "`tmp_dir'/_subdir2"
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - directory + recursive"
+    display as result "  PASS: datamap Markdown - directory + recursive"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - directory + recursive (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - directory + recursive (error `=_rc')"
     local ++fail_count
     capture erase "`tmp_dir'/_subdir2/_sub.dta"
     capture rmdir "`tmp_dir'/_subdir2"
@@ -1245,30 +1339,36 @@ else {
 * Test: separate output files
 local ++test_count
 capture noisily {
-    datadict, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
+    datamap, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
         output("`tmp_dir'/_dd_sep.md") separate
-    * separate creates <basename>_dictionary.md in same directory as source dataset
-    confirm file "`tmp_dir'/test_cohort_dictionary.md"
-    assert strlen(fileread("`tmp_dir'/test_cohort_dictionary.md")) > 0
-    confirm file "`tmp_dir'/test_small_dictionary.md"
-    assert strlen(fileread("`tmp_dir'/test_small_dictionary.md")) > 0
-    assert !missing(r(nfiles))
-    assert r(nfiles) == 2
+    local nf = r(nfiles)
+    * separate creates <basename>_map.md in same directory as source dataset
+    * (2.0.0: the default suffix is _map; datadict's was _dictionary)
+    confirm file "`tmp_dir'/test_cohort_map.md"
+    assert strlen(fileread("`tmp_dir'/test_cohort_map.md")) > 0
+    confirm file "`tmp_dir'/test_small_map.md"
+    assert strlen(fileread("`tmp_dir'/test_small_map.md")) > 0
+    qa_md_rows using "`tmp_dir'/test_cohort_map.md"
+    assert r(n) == 8
+    qa_md_rows using "`tmp_dir'/test_small_map.md"
+    assert r(n) == 2
+    assert !missing(`nf')
+    assert `nf' == 2
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - separate output files"
+    display as result "  PASS: datamap Markdown - separate output files"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - separate output (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - separate output (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* datadict: Data Preservation
+* datamap Markdown: Data Preservation
 * ============================================================
 
-* Test: user data preserved after datadict
+* Test: user data preserved after datamap
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -1277,7 +1377,7 @@ capture noisily {
     datasignature
     local sig_before "`r(datasignature)'"
 
-    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_pres.md")
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_pres.md")
 
     assert _N == `N_before'
     assert c(k) == `k_before'
@@ -1285,36 +1385,36 @@ capture noisily {
     assert "`r(datasignature)'" == "`sig_before'"
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - data preservation (N, k, signature)"
+    display as result "  PASS: datamap Markdown - data preservation (N, k, signature)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - data preservation (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - data preservation (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* datadict: Error Handling
+* datamap Markdown: Error Handling
 * ============================================================
 
 * Test: no input with data in memory (should succeed — documents in-memory data)
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    datadict, output("`tmp_dir'/_dd_mem.md")
+    datamap, output("`tmp_dir'/_dd_mem.md")
     confirm file "`tmp_dir'/_dd_mem.md"
     * `sysuse auto' carries 12 variables, not the 8 of the synthetic
     * test_cohort fixture used elsewhere in this file.
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 12
+    assert !missing(r(nvars))
+    assert r(nvars) == 12
     assert strlen(fileread("`tmp_dir'/_dd_mem.md")) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - in-memory data (no input)"
+    display as result "  PASS: datamap Markdown - in-memory data (no input)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - in-memory data (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - in-memory data (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_dd_mem.md"
@@ -1323,103 +1423,120 @@ capture erase "`tmp_dir'/_dd_mem.md"
 local ++test_count
 capture noisily {
     clear
-    capture datadict, output("`tmp_dir'/_err.md")
+    capture datamap, output("`tmp_dir'/_err.md")
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - error on no input, no data (rc 198)"
+    display as result "  PASS: datamap Markdown - error on no input, no data (rc 198)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - error on no input, no data (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - error on no input, no data (error `=_rc')"
     local ++fail_count
 }
 
 * Test: multiple input options
 local ++test_count
 capture noisily {
-    capture datadict, single("`tmp_dir'/test_cohort") directory("`tmp_dir'")
+    capture datamap, single("`tmp_dir'/test_cohort") directory("`tmp_dir'")
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - error on multiple inputs (rc 198)"
+    display as result "  PASS: datamap Markdown - error on multiple inputs (rc 198)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - error on multiple inputs (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - error on multiple inputs (error `=_rc')"
     local ++fail_count
 }
 
 * Test: invalid maxcat (zero)
 local ++test_count
 capture noisily {
-    capture datadict, single("`tmp_dir'/test_cohort") maxcat(0)
+    capture datamap, single("`tmp_dir'/test_cohort") maxcat(0)
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - error on maxcat(0)"
+    display as result "  PASS: datamap Markdown - error on maxcat(0)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - error on maxcat(0) (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - error on maxcat(0) (error `=_rc')"
     local ++fail_count
 }
 
 * Test: nonexistent file
 local ++test_count
 capture noisily {
-    capture datadict, single("`tmp_dir'/nonexistent_file")
+    capture datamap, single("`tmp_dir'/nonexistent_file")
     assert _rc == 601
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - error on nonexistent file"
+    display as result "  PASS: datamap Markdown - error on nonexistent file"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - error on nonexistent file (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - error on nonexistent file (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* datadict: Full Comprehensive
+* datamap Markdown: Full Comprehensive
 * ============================================================
 
-* Test: datadict with all options
+* Test: datamap with all options
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/test_cohort_miss") ///
+    datamap, single("`tmp_dir'/test_cohort_miss") ///
         output("`tmp_dir'/_dd_complete.md") ///
         title("Complete Test") subtitle("All Options") ///
-        version("1.0") author("Test") date("2026-01-01") ///
+        version("1.0") author("Test") docdate("2026-01-01") ///
         notes("Full test.") changelog("v1.0: Init") ///
-        missing stats maxcat(15) maxfreq(20)
+        maxcat(15) maxfreq(20)
     confirm file "`tmp_dir'/_dd_complete.md"
-    assert !missing(r(nvars_total))
-    assert r(nvars_total) == 8
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
     assert strlen(fileread("`tmp_dir'/_dd_complete.md")) > 0
+    * every document part is present once
+    foreach t in "# Complete Test" "Version 1.0" "**Author:** Test" "**Last Updated:** 2026-01-01" ///
+        "## Notes" "Full test." "## Change Log" "v1.0: Init" {
+        qa_md_contains using "`tmp_dir'/_dd_complete.md", needle("`t'")
+        assert !missing(r(n))
+        assert r(n) >= 1
+    }
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - full comprehensive"
+    display as result "  PASS: datamap Markdown - full comprehensive"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - full comprehensive (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - full comprehensive (error `=_rc')"
     local ++fail_count
 }
 
-* Test: datadict selected variables, custom columns, metadata saving, datasignature
+* Test: datamap selected variables, custom columns, metadata saving, datasignature
 local ++test_count
 capture noisily {
-    datadict age bmi, single("`tmp_dir'/test_cohort") ///
+    datamap age bmi, single("`tmp_dir'/test_cohort") ///
         output("`tmp_dir'/_dd_subset.md") ///
         columns(variable label type stats) ///
-        saving("`tmp_dir'/_dd_subset_meta.dta", replace) datasignature
+        saving("`tmp_dir'/_dd_subset_meta.dta", replace)
+    * (2.0.0: the data signature is always printed; the datasignature option is gone)
     assert r(nfiles) == 1
-    assert r(nvars_total) == 2
-    assert r(nobs_total) == 100
+    * r(nvars) counts the variables of the FILE (8); the document says "8 (2 documented)"
+    assert r(nvars) == 8
+    assert r(nobs) == 100
     assert "`r(mode)'" == "single"
     assert strpos("`r(metadata)'", "_dd_subset_meta.dta") > 0
     confirm file "`tmp_dir'/_dd_subset.md"
+    qa_md_contains using "`tmp_dir'/_dd_subset.md", needle("- Data signature: ")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_subset.md", needle("| Variable | Label | Type | Values/Statistics |") exact
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_dd_subset.md"
+    assert r(n) == 2
+    qa_md_contains using "`tmp_dir'/_dd_subset.md", needle("- Variables: 8 (2 documented)") exact
+    assert r(n) == 1
     confirm file "`tmp_dir'/_dd_subset_meta.dta"
     preserve
     use "`tmp_dir'/_dd_subset_meta.dta", clear
@@ -1430,11 +1547,11 @@ capture noisily {
     restore
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - varlist columns() saving() datasignature and totals"
+    display as result "  PASS: datamap Markdown - varlist columns() saving() datasignature and totals"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - v1.4 metadata export (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - v1.4 metadata export (error `=_rc')"
     local ++fail_count
 }
 * Clean up this test's own artifact AFTER the verdict is recorded: it is a .dta
@@ -1443,7 +1560,7 @@ else {
 * turn every failure of this test into a silent pass.
 capture erase "`tmp_dir'/_dd_subset_meta.dta"
 
-* Test: datadict manifest with separate outdir and custom suffix
+* Test: datamap manifest with separate outdir and custom suffix
 local ++test_count
 capture noisily {
     file open ddmf using "`tmp_dir'/_dd_manifest.txt", write text replace
@@ -1451,27 +1568,36 @@ capture noisily {
     file write ddmf "`tmp_dir'/test_small.dta" _n
     file close ddmf
 
-    datadict, manifest("`tmp_dir'/_dd_manifest.txt") separate ///
+    datamap, manifest("`tmp_dir'/_dd_manifest.txt") separate ///
         outdir("`tmp_dir'") suffix("_dict")
+    * r(nvars)/r(nobs) are single()/memory-run returns in 2.0.0 (datadict's
+    * r(nvars_total)=10 and r(nobs_total)=105 have no successor): the same
+    * totals are asserted from the two output documents.
     assert r(nfiles) == 2
-    assert r(nvars_total) == 10
-    assert r(nobs_total) == 105
     assert "`r(mode)'" == "manifest"
     assert strpos("`r(files)'", "test_cohort.dta") > 0
     assert strpos("`r(outputs)'", "test_cohort_dict.md") > 0
     confirm file "`tmp_dir'/test_cohort_dict.md"
     confirm file "`tmp_dir'/test_small_dict.md"
+    qa_md_rows using "`tmp_dir'/test_cohort_dict.md"
+    assert r(n) == 8
+    qa_md_rows using "`tmp_dir'/test_small_dict.md"
+    assert r(n) == 2
+    qa_md_contains using "`tmp_dir'/test_cohort_dict.md", needle("- Observations: 100") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/test_small_dict.md", needle("- Observations: 5") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - manifest separate outdir() suffix()"
+    display as result "  PASS: datamap Markdown - manifest separate outdir() suffix()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - manifest/outdir/suffix (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - manifest/outdir/suffix (error `=_rc')"
     local ++fail_count
 }
 
-* Test: datadict config file defaults
+* Test: datamap config file defaults
 local ++test_count
 capture noisily {
     file open ddcfg using "`tmp_dir'/_dd_config.conf", write text replace
@@ -1480,33 +1606,26 @@ capture noisily {
     file write ddcfg "datasignature = yes" _n
     file close ddcfg
 
-    datadict, single("`tmp_dir'/test_small") config("`tmp_dir'/_dd_config.conf") ///
+    datamap, single("`tmp_dir'/test_small") config("`tmp_dir'/_dd_config.conf") ///
         output("`tmp_dir'/_dd_config.md")
     confirm file "`tmp_dir'/_dd_config.md"
     assert "`r(mode)'" == "single"
 
-    local saw_title = 0
-    local saw_header = 0
-    local saw_signature = 0
-    file open ddcfgout using "`tmp_dir'/_dd_config.md", read text
-    file read ddcfgout line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "# Configured Dictionary") > 0 local saw_title = 1
-        if strpos(`"`macval(line)'"', "| Variable | Label | Type |") > 0 local saw_header = 1
-        if strpos(`"`macval(line)'"', "**Data signature:**") > 0 local saw_signature = 1
-        file read ddcfgout line
-    }
-    file close ddcfgout
-    assert `saw_title' == 1
-    assert `saw_header' == 1
-    assert `saw_signature' == 1
+    * (2.0.0: the data signature is always printed, so the datasignature key is
+    * ignored and the line is "- Data signature:" rather than "**Data signature:**")
+    qa_md_contains using "`tmp_dir'/_dd_config.md", needle("# Configured Dictionary") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_config.md", needle("| Variable | Label | Type |") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_config.md", needle("- Data signature: ")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - config() defaults"
+    display as result "  PASS: datamap Markdown - config() defaults"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - config() defaults (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - config() defaults (error `=_rc')"
     local ++fail_count
 }
 
@@ -1517,7 +1636,7 @@ else {
 **## Richer r() results — nobs, nvars, input_source (single-file mode)
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_rr.txt")
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_rr.md")
     assert !missing(r(nobs))
     assert r(nobs) == 100
     assert !missing(r(nvars))
@@ -1525,53 +1644,53 @@ capture noisily {
     assert "`r(input_source)'" == "single"
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - r(nobs), r(nvars), r(input_source) in single mode"
+    display as result "  PASS: datamap Markdown - r(nobs), r(nvars), r(input_source) in single mode"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - richer r() results (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - richer r() results (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_out_rr.txt"
+capture erase "`tmp_dir'/_out_rr.md"
 
 **## r(input_source) for directory mode
 local ++test_count
 capture noisily {
-    datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_rdir.txt")
+    datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_rdir.md")
     assert "`r(input_source)'" == "directory"
     * Both earlier recursive-mode tests clean up their own subdirectory, and
-    * the datadict saving() test below erases its own _dd_subset_meta.dta, so
+    * the datamap saving() test below erases its own _dd_subset_meta.dta, so
     * exactly the same 5 top-level .dta fixtures remain: cohort, cohort_miss,
     * panel, small, single.
     assert !missing(r(nfiles))
     assert r(nfiles) == 5
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - r(input_source) = directory"
+    display as result "  PASS: datamap Markdown - r(input_source) = directory"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - r(input_source) directory (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - r(input_source) directory (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_out_rdir.txt"
+capture erase "`tmp_dir'/_out_rdir.md"
 
 **## r(input_source) for filelist mode
 local ++test_count
 capture noisily {
-    datamap, filelist("`tmp_dir'/test_cohort `tmp_dir'/test_small") output("`tmp_dir'/_out_rfl.txt")
+    datamap, filelist("`tmp_dir'/test_cohort `tmp_dir'/test_small") output("`tmp_dir'/_out_rfl.md")
     assert "`r(input_source)'" == "filelist"
     assert r(nfiles) == 2
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - r(input_source) = filelist"
+    display as result "  PASS: datamap Markdown - r(input_source) = filelist"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - r(input_source) filelist (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - r(input_source) filelist (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_out_rfl.txt"
+capture erase "`tmp_dir'/_out_rfl.md"
 
 **## In-memory mode: data preservation
 local ++test_count
@@ -1582,7 +1701,7 @@ capture noisily {
     datasignature
     local sig_before "`r(datasignature)'"
 
-    datamap, output("`tmp_dir'/_mem_pres.txt")
+    datamap, output("`tmp_dir'/_mem_pres.md")
 
     assert _N == `N_before'
     assert c(k) == `k_before'
@@ -1590,14 +1709,14 @@ capture noisily {
     assert "`r(datasignature)'" == "`sig_before'"
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - in-memory data preservation (N, k, signature)"
+    display as result "  PASS: datamap Markdown - in-memory data preservation (N, k, signature)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - in-memory data preservation (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - in-memory data preservation (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_mem_pres.txt"
+capture erase "`tmp_dir'/_mem_pres.md"
 
 **## In-memory mode: r(nobs) and r(nvars) match data
 local ++test_count
@@ -1605,84 +1724,84 @@ capture noisily {
     sysuse auto, clear
     local expected_N = _N
     local expected_k = c(k)
-    datamap, output("`tmp_dir'/_mem_rv.txt")
+    datamap, output("`tmp_dir'/_mem_rv.md")
     assert r(nobs) == `expected_N'
     assert r(nvars) == `expected_k'
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - in-memory r(nobs)=74 r(nvars)=12"
+    display as result "  PASS: datamap Markdown - in-memory r(nobs)=74 r(nvars)=12"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - in-memory r(nobs)/r(nvars) (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - in-memory r(nobs)/r(nvars) (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_mem_rv.txt"
+capture erase "`tmp_dir'/_mem_rv.md"
 
 **## In-memory mode: exclude option works
+* 2026-11-10: was "Classification: excluded" in the text layout; the excluded
+* variable is a structure-only row in the Markdown table
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    datamap, output("`tmp_dir'/_mem_exc.txt") exclude(make)
-    confirm file "`tmp_dir'/_mem_exc.txt"
-    tempname fh
-    file open `fh' using "`tmp_dir'/_mem_exc.txt", read text
-    local found_excluded 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "Classification: excluded") {
-            local found_excluded 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_excluded' == 1
+    datamap, output("`tmp_dir'/_mem_exc.md") exclude(make)
+    confirm file "`tmp_dir'/_mem_exc.md"
+    qa_md_rows using "`tmp_dir'/_mem_exc.md", var(make) cell("excluded (structure only)")
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_mem_exc.md"
+    assert r(n) == 12
+    * the excluded string's values (make names) appear nowhere
+    qa_md_contains using "`tmp_dir'/_mem_exc.md", needle("Buick")
+    assert r(n) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - in-memory with exclude()"
+    display as result "  PASS: datamap Markdown - in-memory with exclude()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - in-memory with exclude() (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - in-memory with exclude() (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_mem_exc.txt"
+capture erase "`tmp_dir'/_mem_exc.md"
 
-**## Compact QUICK REFERENCE table in output
+**## Compact variable table in output
+* 2026-11-10 (datamap 2.0.0): the QUICK REFERENCE block (Variable/Type/Class/
+* Miss/Unique) was the text layout's compact table and is removed (plan O2: the
+* per-variable block repeated it).  Its successor is the one Variables table
+* with the default columns Variable | Label | Type | Missing | Values/Statistics
+* (Class and Unique are columns() choices, not defaults), one row per variable.
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    datamap, output("`tmp_dir'/_out_qr.txt")
-    confirm file "`tmp_dir'/_out_qr.txt"
-    tempname fh
-    file open `fh' using "`tmp_dir'/_out_qr.txt", read text
-    local found_qr 0
-    local found_header 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "QUICK REFERENCE") {
-            local found_qr 1
-        }
-        if regexm(`"`macval(line)'"', "Variable.*Type.*Class.*Miss.*Unique") {
-            local found_header 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_qr' == 1
-    assert `found_header' == 1
+    datamap, output("`tmp_dir'/_out_qr.md")
+    confirm file "`tmp_dir'/_out_qr.md"
+    qa_md_contains using "`tmp_dir'/_out_qr.md", needle("| Variable | Label | Type | Missing | Values/Statistics |") exact
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_out_qr.md"
+    assert r(n) == 12
+    * the removed block's heading must be gone
+    qa_md_contains using "`tmp_dir'/_out_qr.md", needle("QUICK REFERENCE")
+    assert r(n) == 0
+    * columns() reaches the removed block's two columns
+    datamap, output("`tmp_dir'/_out_qr2.md") columns(variable type class missing unique)
+    qa_md_contains using "`tmp_dir'/_out_qr2.md", needle("| Variable | Type | Class | Missing | Unique |") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - QUICK REFERENCE table present"
+    display as result "  PASS: datamap Markdown - variable table present (QUICK REFERENCE successor)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - QUICK REFERENCE table (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - variable table (error `=_rc')"
     local ++fail_count
 }
-capture erase "`tmp_dir'/_out_qr.txt"
+capture erase "`tmp_dir'/_out_qr.md"
+capture erase "`tmp_dir'/_out_qr2.md"
 
 **## strL variable handling
+* 2026-11-10 (datamap 2.0.0): the strL note and the "Long string ... strL"
+* guidance sentence are removed with the guidance prose (O2).  The strL fact
+* is the Type column: "strL", and the string summary cell.
 local ++test_count
 capture noisily {
     clear
@@ -1690,142 +1809,112 @@ capture noisily {
     gen strL longtext = "This is a test string for strL variable handling " + string(_n)
     gen x = _n
     quietly save "`tmp_dir'/_test_strl.dta", replace
-
-    datamap, single("`tmp_dir'/_test_strl") output("`tmp_dir'/_out_strl.txt")
-    confirm file "`tmp_dir'/_out_strl.txt"
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_out_strl.txt", read text
-    local found_strl_note 0
-    local found_strl_guidance 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "strL.*long string") {
-            local found_strl_note 1
-        }
-        if regexm(`"`macval(line)'"', "Long string.*strL") {
-            local found_strl_guidance 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_strl_note' == 1
-    assert `found_strl_guidance' == 1
+    datamap, single("`tmp_dir'/_test_strl") output("`tmp_dir'/_out_strl.md")
+    confirm file "`tmp_dir'/_out_strl.md"
+    qa_md_rows using "`tmp_dir'/_out_strl.md", var(longtext) cell("N=10; 10 distinct; max length 51") miss("0 (0.0%)")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_out_strl.md", needle("| `=char(96)'longtext`=char(96)' |  | strL |")
+    assert r(n) == 1
+    * the x variable (float) is not typed strL
+    qa_md_contains using "`tmp_dir'/_out_strl.md", needle("| `=char(96)'x`=char(96)' |  | float |")
+    assert r(n) == 1
+    * no string value reaches the document (10 distinct strings, all counts 1)
+    qa_md_contains using "`tmp_dir'/_out_strl.md", needle("This is a test string")
+    assert r(n) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - strL variable handling (note + guidance)"
+    display as result "  PASS: datamap Markdown - strL variable handling (Type strL, string summary)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - strL handling (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - strL handling (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_test_strl.dta"
-capture erase "`tmp_dir'/_out_strl.txt"
+capture erase "`tmp_dir'/_out_strl.md"
 
 **## Tab >32K fallback -- never "(too many)"
 * -tabulate- used to abort at ~12k levels and the report said "(too many)".
 * It must still never say that.  From 1.6.0 the count is CENSORED at
 * uniqcap (default 1000) rather than sorted, so a 40,000-distinct variable
 * reports ">1000"; uniqcap(0) asks for the exact count and gets 40000 back.
+* 2026-11-10 (datamap 2.0.0): the count is the Unique column (columns(unique)),
+* no longer a "Unique Values:" line of the text layout.
 local ++test_count
 capture noisily {
     clear
     set obs 40000
     gen double bigvar = _n + runiform()
     quietly save "`tmp_dir'/_test_bigvar.dta", replace
-
     * (a) default: censored, rendered as ">1000", never "(too many)"
-    datamap, single("`tmp_dir'/_test_bigvar") output("`tmp_dir'/_out_bigvar.txt")
-    confirm file "`tmp_dir'/_out_bigvar.txt"
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_out_bigvar.txt", read text
-    local found_too_many 0
-    local found_capped 0
-    local found_bare_bound 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "\(too many\)") {
-            local found_too_many 1
-        }
-        if regexm(`"`macval(line)'"', "Unique.*>1000") {
-            local found_capped 1
-        }
-        if regexm(`"`macval(line)'"', "Unique Values: 1001") {
-            local found_bare_bound 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_too_many' == 0
-    assert `found_capped' == 1
-    assert `found_bare_bound' == 0
-
+    datamap, single("`tmp_dir'/_test_bigvar") output("`tmp_dir'/_out_bigvar.md") columns(variable type unique)
+    confirm file "`tmp_dir'/_out_bigvar.md"
+    qa_md_contains using "`tmp_dir'/_out_bigvar.md", needle("(too many)")
+    assert r(n) == 0
+    qa_md_contains using "`tmp_dir'/_out_bigvar.md", needle("| `=char(96)'bigvar`=char(96)' | double | >1000 |") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_out_bigvar.md", needle("1001")
+    assert r(n) == 0
     * (b) uniqcap(0): exact count restored
-    datamap, single("`tmp_dir'/_test_bigvar") output("`tmp_dir'/_out_bigvar0.txt") uniqcap(0)
-    confirm file "`tmp_dir'/_out_bigvar0.txt"
-
-    tempname fh0
-    file open `fh0' using "`tmp_dir'/_out_bigvar0.txt", read text
-    local found_exact 0
-    file read `fh0' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "Unique.*40000") {
-            local found_exact 1
-        }
-        file read `fh0' line
-    }
-    file close `fh0'
-    assert `found_exact' == 1
+    datamap, single("`tmp_dir'/_test_bigvar") output("`tmp_dir'/_out_bigvar0.md") uniqcap(0) columns(variable type unique)
+    confirm file "`tmp_dir'/_out_bigvar0.md"
+    qa_md_contains using "`tmp_dir'/_out_bigvar0.md", needle("| `=char(96)'bigvar`=char(96)' | double | 40000 |") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - tab >32K fallback (censored by default, exact under uniqcap(0))"
+    display as result "  PASS: datamap Markdown - tab >32K fallback (censored by default, exact under uniqcap(0))"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - tab >32K fallback (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - tab >32K fallback (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_test_bigvar.dta"
-capture erase "`tmp_dir'/_out_bigvar.txt"
+capture erase "`tmp_dir'/_out_bigvar.md"
+capture erase "`tmp_dir'/_out_bigvar0.md"
 
 **## Contextual ANALYSIS GUIDANCE — skewed continuous variable
+* 2026-11-10 (datamap 2.0.0): REMOVED FEATURE.  The ANALYSIS GUIDANCE prose
+* ("Right-skewed distribution ... skewness=") is gone with the text layout
+* (plan O2, option noguidance removed).  This test now pins the replacement
+* fact and the removal: the summary cell carries the exact mean, SD and median
+* (computed here with -summarize-), and the guidance sentence never appears.
 local ++test_count
 capture noisily {
     clear
+    set seed 4242
     set obs 1000
     gen double skewed = exp(rnormal())
     quietly save "`tmp_dir'/_test_skewed.dta", replace
-
-    datamap, single("`tmp_dir'/_test_skewed") output("`tmp_dir'/_out_skewed.txt")
-    confirm file "`tmp_dir'/_out_skewed.txt"
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_out_skewed.txt", read text
-    local found_skew 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "Right-skewed distribution.*skewness=") {
-            local found_skew 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_skew' == 1
+    quietly summarize skewed, detail
+    local m  = string(r(mean), "%9.2f")
+    local sd = string(r(sd), "%9.2f")
+    local md = string(r(p50), "%9.2f")
+    datamap, single("`tmp_dir'/_test_skewed") output("`tmp_dir'/_out_skewed.md")
+    confirm file "`tmp_dir'/_out_skewed.md"
+    qa_md_contains using "`tmp_dir'/_out_skewed.md", needle("N=1000; mean=`m'; SD=`sd'; median=`md';")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_out_skewed.md", needle("skewness")
+    assert r(n) == 0
+    qa_md_contains using "`tmp_dir'/_out_skewed.md", needle("Right-skewed")
+    assert r(n) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - contextual guidance: right-skewed with skewness value"
+    display as result "  PASS: datamap Markdown - skewed variable: exact summary cell, no guidance prose"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - contextual guidance skewness (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - skewed variable summary (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_test_skewed.dta"
-capture erase "`tmp_dir'/_out_skewed.txt"
+capture erase "`tmp_dir'/_out_skewed.md"
 
 **## Contextual ANALYSIS GUIDANCE — high missing percentage
+* 2026-11-10 (datamap 2.0.0): REMOVED FEATURE (the "verify missingness"
+* guidance sentence).  Pinned instead: the Missing cell counts and shares the
+* 30 missing of 100 exactly, the summary is over the 70 observed values, and
+* no guidance sentence is printed.
 local ++test_count
 capture noisily {
     clear
@@ -1833,101 +1922,80 @@ capture noisily {
     gen x = _n
     replace x = . if _n > 70
     quietly save "`tmp_dir'/_test_highmiss.dta", replace
-
-    datamap, single("`tmp_dir'/_test_highmiss") output("`tmp_dir'/_out_highmiss.txt")
-    confirm file "`tmp_dir'/_out_highmiss.txt"
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_out_highmiss.txt", read text
-    local found_miss_warning 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "missing.*verify missingness") {
-            local found_miss_warning 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_miss_warning' == 1
+    datamap, single("`tmp_dir'/_test_highmiss") output("`tmp_dir'/_out_highmiss.md")
+    confirm file "`tmp_dir'/_out_highmiss.md"
+    qa_md_rows using "`tmp_dir'/_out_highmiss.md", var(x) miss("30 (30.0%)") cell("N=70; mean=35.50; SD=20.35; median=35.50; IQR=18.00-53.00; range=1.00-70.00")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_out_highmiss.md", needle("verify missingness")
+    assert r(n) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - contextual guidance: high missing% warning"
+    display as result "  PASS: datamap Markdown - high missing%: exact Missing cell, no guidance prose"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - contextual guidance missing% (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - high missing% (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_test_highmiss.dta"
-capture erase "`tmp_dir'/_out_highmiss.txt"
+capture erase "`tmp_dir'/_out_highmiss.md"
 
 **## Contextual ANALYSIS GUIDANCE — discrete integer continuous
+* 2026-11-10 (datamap 2.0.0): REMOVED FEATURE (the "Discrete integer ...
+* ordinal" guidance sentence).  Pinned instead: with maxcat(5) and ten distinct
+* integer values the variable is summarised as continuous (statistics, no
+* level list), and no guidance sentence is printed.
 local ++test_count
 capture noisily {
     clear
     set obs 100
+    set seed 99
     gen score = int(runiform() * 10) + 1
     * Ensure maxcat is lower so this is classified as continuous
     quietly save "`tmp_dir'/_test_discrete.dta", replace
-
-    datamap, single("`tmp_dir'/_test_discrete") maxcat(5) output("`tmp_dir'/_out_discrete.txt")
-    confirm file "`tmp_dir'/_out_discrete.txt"
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_out_discrete.txt", read text
-    local found_discrete 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "Discrete integer.*ordinal") {
-            local found_discrete 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_discrete' == 1
+    quietly summarize score
+    local m = string(r(mean), "%9.2f")
+    datamap, single("`tmp_dir'/_test_discrete") maxcat(5) output("`tmp_dir'/_out_discrete.md")
+    confirm file "`tmp_dir'/_out_discrete.md"
+    qa_md_contains using "`tmp_dir'/_out_discrete.md", needle("N=100; mean=`m'; SD=")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_out_discrete.md", needle("ordinal")
+    assert r(n) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: datamap - contextual guidance: discrete integer detection"
+    display as result "  PASS: datamap Markdown - discrete integer with maxcat(5): continuous summary, no guidance prose"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datamap - contextual guidance discrete (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - discrete integer detection (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_test_discrete.dta"
-capture erase "`tmp_dir'/_out_discrete.txt"
+capture erase "`tmp_dir'/_out_discrete.md"
 
-**## datadict — in-memory mode with metadata options
+**## datamap — in-memory mode with metadata options
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    datadict, output("`tmp_dir'/_dd_mem_meta.md") title("Auto Dataset") author("Test")
+    datamap, output("`tmp_dir'/_dd_mem_meta.md") title("Auto Dataset") author("Test")
     confirm file "`tmp_dir'/_dd_mem_meta.md"
-    * Verify title appears in output
-    tempname fh
-    file open `fh' using "`tmp_dir'/_dd_mem_meta.md", read text
-    local found_title 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "Auto Dataset") {
-            local found_title 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_title' == 1
+    * Verify title and author appear in output
+    qa_md_contains using "`tmp_dir'/_dd_mem_meta.md", needle("# Auto Dataset") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_dd_mem_meta.md", needle("**Author:** Test") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - in-memory mode with title/author"
+    display as result "  PASS: datamap Markdown - in-memory mode with title/author"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - in-memory with metadata (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - in-memory with metadata (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_dd_mem_meta.md"
 
-**## datadict — in-memory data preservation
+**## datamap — in-memory data preservation
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -1936,7 +2004,7 @@ capture noisily {
     datasignature
     local sig_before "`r(datasignature)'"
 
-    datadict, output("`tmp_dir'/_dd_mem_pres.md")
+    datamap, output("`tmp_dir'/_dd_mem_pres.md")
 
     assert _N == `N_before'
     assert c(k) == `k_before'
@@ -1944,47 +2012,41 @@ capture noisily {
     assert "`r(datasignature)'" == "`sig_before'"
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - in-memory data preservation"
+    display as result "  PASS: datamap Markdown - in-memory data preservation"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - in-memory data preservation (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - in-memory data preservation (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_dd_mem_pres.md"
 
-**## datadict — removed hardcoded default notes
+**## datamap — removed hardcoded default notes
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    datadict, output("`tmp_dir'/_dd_notes.md")
+    datamap, output("`tmp_dir'/_dd_notes.md")
     confirm file "`tmp_dir'/_dd_notes.md"
-    tempname fh
-    file open `fh' using "`tmp_dir'/_dd_notes.md", read text
-    local found_anonymous 0
-    local found_no_notes 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if regexm(`"`macval(line)'"', "anonymous identifiers") {
-            local found_anonymous 1
-        }
-        if regexm(`"`macval(line)'"', "All date variables are displayed") {
-            local found_no_notes 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    * Old hardcoded notes should be gone
-    assert `found_anonymous' == 0
-    * New generic note should be present
-    assert `found_no_notes' == 1
+    * Old hardcoded notes stay gone
+    qa_md_contains using "`tmp_dir'/_dd_notes.md", needle("anonymous identifiers")
+    assert r(n) == 0
+    * 2026-11-10 (datamap 2.0.0): datadict 1.x printed a generic note ("All date
+    * variables are displayed ...") when notes() was not given.  datamap prints no
+    * default note: there is no Notes section, no Change Log and no footer
+    * without the document options.
+    qa_md_contains using "`tmp_dir'/_dd_notes.md", needle("All date variables are displayed")
+    assert r(n) == 0
+    qa_md_contains using "`tmp_dir'/_dd_notes.md", needle("## Notes")
+    assert r(n) == 0
+    qa_md_contains using "`tmp_dir'/_dd_notes.md", needle("## Change Log")
+    assert r(n) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: datadict - no hardcoded default notes"
+    display as result "  PASS: datamap Markdown - no hardcoded default notes"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict - hardcoded notes check (error `=_rc')"
+    display as error "  FAIL: datamap Markdown - hardcoded notes check (error `=_rc')"
     local ++fail_count
 }
 capture erase "`tmp_dir'/_dd_notes.md"
@@ -2039,8 +2101,8 @@ foreach f of local conf_files {
     capture erase "`tmp_dir'/`f'"
 }
 capture erase "`tmp_dir'/_dd_manifest.txt"
-capture erase "`tmp_dir'/test_cohort_map.txt"
-capture erase "`tmp_dir'/test_small_map.txt"
+capture erase "`tmp_dir'/test_cohort_map.md"
+capture erase "`tmp_dir'/test_small_map.md"
 capture erase "`tmp_dir'/test_cohort_dict.md"
 capture erase "`tmp_dir'/test_small_dict.md"
 capture erase "`qa_dir'/test_cohort_dictionary.md"

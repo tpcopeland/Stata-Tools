@@ -1,20 +1,22 @@
 v 3
 d 'DATAMAP': Describe and check data you can't share
 d
-d datamap generates comprehensive, privacy-safe documentation for Stata
-d datasets. It automatically classifies variables and generates appropriate
-d documentation for each type, with privacy controls to exclude sensitive
-d variables or limit date precision.
+d datamap writes privacy-safe Markdown documentation of Stata datasets:
+d one table row per variable with its type, label, missing count (with
+d each extended missing code) and values or statistics, classified
+d automatically, with controls to exclude sensitive variables, suppress
+d small cells and withhold exact dates, and a safe preset for output that
+d goes to a coding agent. Several datasets get a linkage section. saving()
+d writes the same facts as a variable-level metadata table.
 d
-d The package includes five commands:
-d - datamap: Generate privacy-safe dataset documentation (text or JSON)
-d - datadict: Generate Markdown data dictionaries
-d - dataprobe: Console QC profiling and expectation gates
+d The package includes four commands:
+d - datamap: Privacy-safe Markdown documentation of one or more datasets
+d - dataprobe: Console QC profiling, expectation gates, snapshot and diff
 d - dataqa: Session defaults and a structured QA ledger over dataprobe
 d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
-d Distribution-Date: 20261026
+d Distribution-Date: 20261110
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -27,8 +29,6 @@ d KW: metadata
 d
 f datamap.ado
 f datamap.sthlp
-f datadict.ado
-f datadict.sthlp
 f dataprobe.ado
 f dataprobe.sthlp
 f datamvp.ado
@@ -43,13 +43,28 @@ f _datamap_count_files.ado
 f _datamap_load_config.ado
 f _datamap_nuniq.ado
 f _datamap_post_metadata_rows.ado
+f _datamap_collect_dataset.ado
+f _datamap_collect_levels.ado
+f _datamap_collect_link.ado
+f _datamap_collect_cands.ado
+f _datamap_md_anchor.ado
+f _datamap_md_columns.ado
+f _datamap_md_document.ado
+f _datamap_md_manifest.ado
+f _datamap_md_outname.ado
+f _datamap_md_sections.ado
+f _datamap_md_tablehead.ado
+f _datamap_md_textblock.ado
+f _datamap_md_varrows.ado
 f _datamap_validate_path.ado
 f _datamap_version.ado
 f _datamap_dqdefaults.ado
 f _datamap_missby.ado
 f _datamap_memshell.ado
 f _datamap_sumpolicy.ado
+f _datamap_datefamily.ado
 f _datamap_stage.ado
+f _datamap_idnames.ado
 f _dataprobe_mcount.ado
 f _dataprobe_mshare.ado
 f _dataprobe_statval.ado
@@ -73,3 +88,9 @@ f _dataprobe_datefull.ado
 f _dataprobe_bound.ado
 f _dataprobe_groupmiss.ado
 f _dataprobe_gtext.ado
+f _dataprobe_brieflev.ado
+f _dataprobe_safesave.ado
+f _dataprobe_target.ado
+f _dataprobe_diff.ado
+f _dataprobe_snapshot.ado
+f _dataprobe_spec2do.ado

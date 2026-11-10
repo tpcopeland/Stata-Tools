@@ -3,6 +3,20 @@ set more off
 version 16.0
 
 * test_datamap_v15.do - Regression tests for datamap 1.5.0 integration features
+*
+* 2026-11-10 (datamap 2.0.0): datadict is removed.  Test 2 (datadict privacy
+* parity: exclude() and mincell() suppress disclosures, common saving schema)
+* is ported to datamap's Markdown writer:
+*   - datevars() is removed (rc 198); date() classifies, as in test 1
+*   - the stats option is removed (statistics are always printed)
+*   - the "(suppressed <5)" cell text is "suppressed (<5)"
+*   - an excluded variable stays in saving() as a structure-only row (datadict
+*     dropped it), so "no id row" becomes "the id row is class excluded with
+*     no statistic and no unique count"
+*   - the excluded variable's LABEL is structure and appears in its row; its
+*     VALUES never do (the 30 identifiers 1..30), asserted instead of the label
+* Documents are read through _qa_md.do (a macro line reader stops with r(132)
+* on a line ending in a backtick).
 
 local test_count = 0
 local pass_count = 0
@@ -17,22 +31,14 @@ capture mkdir "`tmp_dir'"
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") replace
 discard
+do "`qa_dir'/_qa_md.do"
 
 capture program drop _v15_contains
 program define _v15_contains, rclass
     version 16.0
     syntax using/ , NEEDLE(string)
-
-    tempname fh
-    local found 0
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`needle'"') > 0 local found 1
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar found = `found'
+    qa_md_contains using `"`using'"', needle(`"`needle'"')
+    return scalar found = r(found)
 end
 
 capture program drop _v15_common_schema
@@ -77,10 +83,10 @@ end
 
 local dta "`tmp_dir'/v15_source.dta"
 local dta_changed "`tmp_dir'/v15_changed.dta"
-local map_txt "`tmp_dir'/v15_datamap.txt"
+local map_txt "`tmp_dir'/v15_datamap.md"
 local map_meta "`tmp_dir'/v15_datamap_meta.dta"
-local dict_md "`tmp_dir'/v15_datadict.md"
-local dict_meta "`tmp_dir'/v15_datadict_meta.dta"
+local dict_md "`tmp_dir'/v15_datamap_doc.md"
+local dict_meta "`tmp_dir'/v15_datamap_doc_meta.dta"
 local check_meta "`tmp_dir'/v15_dataprobe_meta.dta"
 local base_meta "`tmp_dir'/v15_dataprobe_base.dta"
 local changed_meta "`tmp_dir'/v15_dataprobe_changed_meta.dta"
@@ -137,24 +143,32 @@ else {
 }
 
 * ============================================================
-* 2. datadict privacy parity: exclude() and mincell() suppress disclosures
+* 2. (was datadict) privacy parity: exclude() and mincell() suppress disclosures
 * ============================================================
 local ++test_count
 capture noisily {
-    datadict, single("`dta'") output("`dict_md'") stats mincell(5) ///
-        exclude(id) continuous(score) categorical(note) datevars(visit_date) ///
+    datamap, single("`dta'") output("`dict_md'") mincell(5) ///
+        exclude(id) continuous(score) categorical(note) date(visit_date) ///
         saving("`dict_meta'", replace)
 
-    _v15_contains using "`dict_md'", needle("(suppressed <5)")
+    * the rare arm (1 of 30) is suppressed, never printed as a count
+    _v15_contains using "`dict_md'", needle("1 Rare arm: suppressed (<5)")
     assert r(found) == 1
-    _v15_contains using "`dict_md'", needle("Identifier")
+    _v15_contains using "`dict_md'", needle("(suppressed <5)")
+    assert r(found) == 0
+    * the excluded id: a structure-only row, none of its 30 values in the document
+    qa_md_rows using "`dict_md'", var(id) cell("excluded (structure only)")
+    assert r(n) == 1
+    _v15_contains using "`dict_md'", needle("range=1.00-30")
+    assert r(found) == 0
+    _v15_contains using "`dict_md'", needle("mean=15.50")
     assert r(found) == 0
 
     preserve
     use "`dict_meta'", clear
-    _v15_common_schema datadict
-    quietly count if variable == "id"
-    assert r(N) == 0
+    _v15_common_schema datamap
+    quietly count if variable == "id" & class == "excluded" & missing(mean) & missing(sd) & missing(unique)
+    assert r(N) == 1
     quietly count if variable == "score" & class == "continuous"
     assert r(N) == 1
     quietly count if variable == "note" & class == "categorical"
@@ -167,11 +181,11 @@ capture noisily {
     restore
 }
 if _rc == 0 {
-    display as result "  PASS: datadict exclude()/mincell() privacy and common saving schema"
+    display as result "  PASS: datamap Markdown exclude()/mincell() privacy and common saving schema"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datadict privacy/common schema regression (error `=_rc')"
+    display as error "  FAIL: datamap Markdown privacy/common schema regression (error `=_rc')"
     local ++fail_count
 }
 

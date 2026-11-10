@@ -290,52 +290,46 @@ capture noisily {
     gen double x = cond(_n <= 55, 0, cond(_n <= 58, 1, 2))
     gen double y = _n
     gen double q = mod(_n, 4)
-    quietly datamap, output("`W'/r3.txt") continuous(x q) saving("`W'/r3m.dta", replace)
-    quietly datamap, output("`W'/r3.json") format(json) continuous(x q)
-    quietly datadict, output("`W'/r3.md") continuous(x q) stats saving("`W'/r3d.dta", replace)
+    * 2026-11-10 (datamap 2.0.0): the text layout, format(json) and datadict are
+    * removed.  The withholding is asserted on the Markdown cell and on saving();
+    * the JSON ".1166" / ".4154" checks tested a feature that no longer exists
+    * (the saving() check below carries the same fact: mean and SD missing).
+    quietly datamap, output("`W'/r3.md") continuous(x q) saving("`W'/r3m.dta", replace)
     * mean .117 and SD .415 with N 60 gave n1 = 3, n2 = 2 back
-    _v4_count "`W'/r3.txt" "Mean: .117"
+    _v4_count "`W'/r3.md" "mean=0.117"
     assert r(n) == 0
-    _v4_count "`W'/r3.txt" "SD: .415"
+    _v4_count "`W'/r3.md" "SD=0.415"
     assert r(n) == 0
-    _v4_count "`W'/r3.txt" "Mean: withheld (mincell; two or three values)"
+    _v4_count "`W'/r3.md" "mean and SD withheld (mincell; two or three values)"
     assert r(n) == 1
-    _v4_count "`W'/r3.md" "Mean=0.117"
-    assert r(n) == 0
-    _v4_count "`W'/r3.md" "Mean=withheld (mincell; two or three values)"
+    * the withheld cell is x's row, and the median/range still show
+    * 2026-11-10 (2.0.0 repair round 3): the exact-zero median now prints with
+    * the cell's decimals (median=0.00, beside range=0.00-2.00), was "median=0;"
+    _v4_count "`W'/r3.md" "N=60; mean and SD withheld (mincell; two or three values); median=0.00;"
     assert r(n) == 1
-    _v4_count "`W'/r3.json" ".1166"
-    assert r(n) == 0
-    _v4_count "`W'/r3.json" ".4154"
-    assert r(n) == 0
     * guard: a four-valued variable keeps its mean (1.5) and SD
-    _v4_count "`W'/r3.txt" "Mean: 1.5"
+    _v4_count "`W'/r3.md" "N=60; mean=1.50; SD=1.13;"
     assert r(n) == 1
     use "`W'/r3m.dta", clear
     quietly count if variable == "x" & missing(mean) & missing(sd)
     assert r(N) == 1
     quietly count if variable == "q" & !missing(mean) & !missing(sd)
     assert r(N) == 1
-    use "`W'/r3d.dta", clear
-    quietly count if variable == "x" & missing(mean) & missing(sd)
-    assert r(N) == 1
-    quietly count if variable == "q" & !missing(mean)
-    assert r(N) == 1
     * guard: mincell(0) prints the mean
     clear
     quietly set obs 60
     gen double x = cond(_n <= 55, 0, cond(_n <= 58, 1, 2))
-    quietly datamap, output("`W'/r3z.txt") continuous(x) mincell(0)
-    _v4_count "`W'/r3z.txt" "Mean: .117"
+    quietly datamap, output("`W'/r3z.md") continuous(x) mincell(0)
+    _v4_count "`W'/r3z.md" "mean=0.117; SD=0.415"
     assert r(n) == 1
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: R3 two- or three-valued continuous(): mean/SD withheld in text, JSON, saving(), datadict"
+    display as result "  PASS: R3 two- or three-valued continuous(): mean/SD withheld in the Markdown cell and saving()"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: R3 two- or three-valued continuous(): mean/SD withheld in text, JSON, saving(), datadict"
+    display as error "  FAIL: R3 two- or three-valued continuous(): mean/SD withheld in the Markdown cell and saving()"
 }
 
 **# R4 a fixed file reloaded and rerun supersedes; a (modified) subset does not

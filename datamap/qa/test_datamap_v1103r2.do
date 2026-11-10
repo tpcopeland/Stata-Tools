@@ -7,12 +7,31 @@ set linesize 255
 * datamap, datadict and dataqa.  Each test names its finding:
 *   M* datamap, K* datadict, Q* dataqa, S* suspected items that reproduced.
 * Every test was red on the tree before these fixes.
+*
+* 2026-11-10 (datamap 2.0.0): datadict, the text layout and format(json) are
+* removed.  K1-K12 and S4/S5 (datadict) run on datamap's Markdown writer; M1-M7
+* read the Markdown document.  Changes that are more than a renamed needle:
+*   M1  VALUE LABEL DEFINITIONS is gone; the privacy content (no data value, no
+*       label for a value the data do not hold) is asserted on the document
+*   M2/M3/M4  the JSON halves are REMOVED FEATURE (no JSON writer); saving()
+*       carries the same withholding and the sort order is a Markdown bullet
+*   M5  the previous-output file is now c_map.md (the old seed c_map.txt would pass
+*       untouched for any behaviour)
+*   K3  datadict's config "missing = no|yes" (a column switch) is gone: the Missing
+*       column is always on and "missing" is datamap's detail|pattern selector
+*   K6  the proper() title-casing of the file name is removed: the heading is
+*       the name as written
+*   K7  datadict printed ".a=Refused (missing code)"; since 2.0.0 Phase 3 (F3,
+*       2026-11-10) the Missing cell lists it again with its count
+* Documents are read through Mata (the counters below), so a line ending in a
+* backtick is safe.
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
 discard
+do "`qa_dir'/_qa_md.do"
 
 local test_count = 0
 local pass_count = 0
@@ -99,20 +118,24 @@ capture noisily {
     gen income = 20000 + _n * 1013
     label define incl 99999 "refused" .a "not asked"
     label values income incl
-    quietly datamap, output("`W'/m1.txt") datesafe exclude(id) mincell(5)
+    quietly datamap, output("`W'/m1.md") datesafe exclude(id) mincell(5) ///
+        columns(variable type vallabel values)
     * a data value of each: an exact date (day count) and a unique income
-    _r2_count "`W'/m1.txt" "-3615"
+    _r2_count "`W'/m1.md" "-3615"
     local n1 = r(n)
-    _r2_count "`W'/m1.txt" "21013"
+    _r2_count "`W'/m1.md" "21013"
     local n2 = r(n)
     assert `n1' == 0 & `n2' == 0
-    _r2_eq "`W'/m1.txt" "0 = unknown"
+    * 2.0.0: no label-definition section.  The labels of values the data do not
+    * hold (0 "unknown", 99999 "refused", .a "not asked") appear nowhere
+    foreach t in unknown refused "not asked" "99999" {
+        _r2_count "`W'/m1.md" "`t'"
+        assert r(n) == 0
+    }
+    * the label NAMES are visible, once each, on their own variable's row
+    _r2_count "`W'/m1.md" " | dobl | "
     assert r(n) == 1
-    _r2_eq "`W'/m1.txt" "99999 = refused"
-    assert r(n) == 1
-    _r2_eq "`W'/m1.txt" ".a = not asked"
-    assert r(n) == 1
-    _r2_count "`W'/m1.txt" "(used by: income)"
+    _r2_count "`W'/m1.md" " | incl | "
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -133,22 +156,19 @@ capture noisily {
     gen visit = mdy(3, 1, 2020) + _n
     format visit %td
     gen y = _n
-    quietly datamap, output("`W'/m2.txt") datesafe continuous(visit) samples(2) ///
+    quietly datamap, output("`W'/m2.md") datesafe continuous(visit) samples(2) ///
         saving("`W'/m2.dta", replace)
     * day counts 21976..22015 and the dates themselves
     foreach v in 21976 21977 22015 2020/03 03mar2020 {
-        _r2_count "`W'/m2.txt" "`v'"
+        _r2_count "`W'/m2.md" "`v'"
         assert r(n) == 0
     }
-    _r2_count "`W'/m2.txt" "withheld (datesafe; date-formatted variable)"
+    _r2_count "`W'/m2.md" "N=40; summary withheld (datesafe)"
     assert r(n) == 1
-    _r2_count "`W'/m2.txt" "[DATE SUPPRESSED]"
+    _r2_count "`W'/m2.md" "[DATE SUPPRESSED]"
     assert r(n) == 2
-    quietly datamap, output("`W'/m2.json") format(json) datesafe continuous(visit)
-    _r2_count "`W'/m2.json" "2197"
-    assert r(n) == 0
-    _r2_count "`W'/m2.json" `""withheld": "datesafe""'
-    assert r(n) == 1
+    * (2026-11-10: the JSON half -- "withheld": "datesafe" -- is removed with
+    * format(json); the saving() check below carries the same withholding)
     use "`W'/m2.dta", clear
     quietly keep if variable == "visit"
     assert class == "continuous"
@@ -158,8 +178,8 @@ capture noisily {
     quietly set obs 40
     gen visit = mdy(3, 1, 2020) + _n
     format visit %td
-    quietly datamap, output("`W'/m2c.txt") continuous(visit)
-    _r2_count "`W'/m2c.txt" "Range: 21976 to 22015"
+    quietly datamap, output("`W'/m2c.md") continuous(visit)
+    _r2_count "`W'/m2c.md" "range=21,976-22,015"
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -179,39 +199,37 @@ capture noisily {
     quietly set obs 60
     gen wgt = cond(_n <= 2, 10, 1)
     gen y = _n
-    quietly datamap, output("`W'/m3.txt") detect(survey)
+    quietly datamap, output("`W'/m3.md") detect(survey)
     * mean 1.3 = 1 + 9 * 2 / 60 gives the suppressed cell (2 rows of 10) back
-    _r2_count "`W'/m3.txt" "mean: 1.3"
+    _r2_count "`W'/m3.md" "mean 1.3"
     assert r(n) == 0
-    _r2_count "`W'/m3.txt" "Sampling weight: wgt (range: 1 to 10, mean: withheld (mincell))"
+    _r2_count "`W'/m3.md" "range 1 to 10; mean withheld (mincell)"
     assert r(n) == 1
     * control: mincell(0) prints it
-    quietly datamap, output("`W'/m3c.txt") detect(survey) mincell(0)
-    _r2_count "`W'/m3c.txt" "mean: 1.3)"
+    quietly datamap, output("`W'/m3c.md") detect(survey) mincell(0)
+    _r2_count "`W'/m3c.md" "range 1 to 10; mean 1.3"
     assert r(n) == 1
     * a 0/1 flag forced into continuous(): mean .05 x N 60 = 3 events
     clear
     quietly set obs 60
     gen byte flag = _n <= 3
     gen y = _n
-    quietly datamap, output("`W'/m3b.txt") continuous(flag) saving("`W'/m3b.dta", replace)
-    _r2_count "`W'/m3b.txt" "Mean: .05"
+    quietly datamap, output("`W'/m3b.md") continuous(flag) saving("`W'/m3b.dta", replace)
+    _r2_count "`W'/m3b.md" "mean=0.050"
     assert r(n) == 0
-    _r2_count "`W'/m3b.txt" "Mean: withheld (mincell; two or three values)"
+    _r2_count "`W'/m3b.md" "mean and SD withheld (mincell; two or three values)"
     assert r(n) == 1
-    _r2_count "`W'/m3b.txt" "skewness="
+    _r2_count "`W'/m3b.md" "skewness"
     assert r(n) == 0
-    quietly datamap, output("`W'/m3b.json") format(json) continuous(flag)
-    _r2_count "`W'/m3b.json" `""mean": null"'
-    assert r(n) == 1
+    * (the JSON half, "mean": null, is removed with format(json); saving() says the same)
     use "`W'/m3b.dta", clear
     quietly keep if variable == "flag"
     assert missing(mean) & missing(sd) & max == 1
     clear
     quietly set obs 60
     gen byte flag = _n <= 3
-    quietly datamap, output("`W'/m3d.txt") continuous(flag) mincell(0)
-    _r2_count "`W'/m3d.txt" "Mean: .05"
+    quietly datamap, output("`W'/m3d.md") continuous(flag) mincell(0)
+    _r2_count "`W'/m3d.md" "mean=0.050"
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -231,16 +249,14 @@ capture noisily {
     keep make price foreign
     sort foreign price
     quietly save "`W'/m4.dta", replace
-    quietly datamap, single("`W'/m4.dta") output("`W'/m4.txt")
-    _r2_eq "`W'/m4.txt" "Sort Order: foreign price"
+    quietly datamap, single("`W'/m4.dta") output("`W'/m4.md")
+    qa_md_contains using "`W'/m4.md", needle("- Sort order: `=char(96)'foreign`=char(96)', `=char(96)'price`=char(96)'") exact
     assert r(n) == 1
-    quietly datamap, single("`W'/m4.dta") output("`W'/m4.json") format(json)
-    _r2_count "`W'/m4.json" `""sort_order": "foreign price""'
-    assert r(n) == 1
+    * (the JSON "sort_order" half is removed with format(json))
     use "`W'/m4.dta", clear
     sort price
-    quietly datamap, output("`W'/m4m.txt")
-    _r2_eq "`W'/m4m.txt" "Sort Order: price"
+    quietly datamap, output("`W'/m4m.md")
+    qa_md_contains using "`W'/m4m.md", needle("- Sort order: `=char(96)'price`=char(96)'") exact
     assert r(n) == 1
     assert "`: sortedby'" == "price"
 }
@@ -264,18 +280,19 @@ capture noisily {
     file open `fh' using "`W'/m5/c.dta", write replace
     file write `fh' "not a dta" _n
     file close `fh'
-    file open `fh' using "`W'/m5/c_map.txt", write replace
+    file open `fh' using "`W'/m5/c_map.md", write replace
     file write `fh' "PREVIOUS GOOD CONTENT" _n
     file close `fh'
     capture datamap, directory("`W'/m5") separate
     assert _rc != 0
-    _r2_eq "`W'/m5/c_map.txt" "PREVIOUS GOOD CONTENT"
+    _r2_eq "`W'/m5/c_map.md" "PREVIOUS GOOD CONTENT"
     assert r(n) == 1
-    _r2_count "`W'/m5/c_map.txt" "Dataset Documentation"
+    _r2_count "`W'/m5/c_map.md" "## 1."
     assert r(n) == 0
+
     erase "`W'/m5/c.dta"
-    erase "`W'/m5/c_map.txt"
-    capture erase "`W'/m5/a_map.txt"
+    erase "`W'/m5/c_map.md"
+    capture erase "`W'/m5/a_map.md"
     erase "`W'/m5/a.dta"
     rmdir "`W'/m5"
 }
@@ -298,28 +315,28 @@ capture noisily {
     sysuse census, clear
     quietly save "`W'/m6/b.dta", replace
     local here "`c(pwd)'"
-    capture erase "`here'/datamap.txt"
+    capture erase "`here'/datamap.md"
     quietly datamap, directory("`W'/m6") separate saving("`W'/m6meta.dta", replace)
-    capture confirm file "`here'/datamap.txt"
+    capture confirm file "`here'/datamap.md"
     assert _rc != 0
     use "`W'/m6meta.dta", clear
-    quietly count if output == "datamap.txt"
+    quietly count if output == "datamap.md"
     assert r(N) == 0
-    quietly count if dataset == "a" & output == "`W'/m6/a_map.txt"
+    quietly count if dataset == "a" & output == "`W'/m6/a_map.md"
     assert r(N) > 0 & r(N) < .
-    quietly count if dataset == "b" & output == "`W'/m6/b_map.txt"
+    quietly count if dataset == "b" & output == "`W'/m6/b_map.md"
     assert r(N) > 0 & r(N) < .
-    foreach f in a.dta b.dta a_map.txt b_map.txt {
+    foreach f in a.dta b.dta a_map.md b_map.md {
         erase "`W'/m6/`f'"
     }
     rmdir "`W'/m6"
     * memory + separate
     sysuse auto, clear
-    capture erase "`here'/memory_map.txt"
+    capture erase "`here'/memory_map.md"
     quietly datamap, separate saving("`W'/m6m.dta", replace)
     use "`W'/m6m.dta", clear
-    assert output == "memory_map.txt"
-    capture erase "`here'/memory_map.txt"
+    assert output == "memory_map.md"
+    capture erase "`here'/memory_map.md"
 }
 if _rc == 0 {
     local ++pass_count
@@ -337,17 +354,21 @@ capture noisily {
     sysuse auto, clear
     gen byte hi = price > 10000
     gen age = cond(_n == 1, 130, 20)
-    quietly datamap, output("`W'/m7.txt") compact samples(2) quality detect(binary)
-    _r2_count "`W'/m7.txt" "SAMPLE OBSERVATIONS"
+    quietly datamap, output("`W'/m7.md") compact samples(2) quality detect(binary)
+    _r2_count "`W'/m7.md" "### Sample rows"
     assert r(n) == 1
-    _r2_count "`W'/m7.txt" "DATA QUALITY FLAGS"
+    _r2_count "`W'/m7.md" "### Flags"
     assert r(n) == 1
-    _r2_count "`W'/m7.txt" "Binary Variables"
+    _r2_count "`W'/m7.md" "- Binary (two distinct values): "
     assert r(n) == 1
-    * compact still drops the detail sections and label definitions
-    _r2_count "`W'/m7.txt" "CATEGORICAL VARIABLES"
+    * compact is the five-column preset: no statistics, no level cells, no label section
+    _r2_count "`W'/m7.md" "| Variable | Type | Label | Missing | Unique |"
+    assert r(n) == 1
+    _r2_count "`W'/m7.md" "mean="
     assert r(n) == 0
-    _r2_count "`W'/m7.txt" "VALUE LABEL DEFINITIONS"
+    _r2_count "`W'/m7.md" "CATEGORICAL VARIABLES"
+    assert r(n) == 0
+    _r2_count "`W'/m7.md" "VALUE LABEL DEFINITIONS"
     assert r(n) == 0
 }
 if _rc == 0 {
@@ -370,9 +391,9 @@ capture noisily {
     sysuse auto, clear
     capture log close _r2l
     log using "`W'/s1.log", text replace name(_r2l)
-    capture noisily datamap, output("`W'/s1.txt") config("`W'/s1.cfg")
+    capture noisily datamap, output("`W'/s1.md") config("`W'/s1.cfg")
     local rc1 = _rc
-    capture noisily datadict, output("`W'/s1.md") config("`W'/s1.cfg")
+    capture noisily datamap, output("`W'/s1b.md") config("`W'/s1.cfg") title("T")
     local rc2 = _rc
     log close _r2l
     assert `rc1' == 198 & `rc2' == 198
@@ -395,19 +416,18 @@ capture noisily {
     sysuse auto, clear
     * auto: price comes before weight, so weight-price is reversed
     foreach o in continuous categorical date {
-        capture datamap, output("`W'/k5.txt") `o'(weight-price)
+        capture datamap, output("`W'/k5.md") `o'(weight-price)
         assert _rc == 111
     }
-    capture datadict, output("`W'/k5.md") categorical(weight-price)
+    capture datamap, output("`W'/k5.md") categorical(weight-price) title("T")
     assert _rc == 111
-    capture datadict, output("`W'/k5.md") datevars(weight-price)
-    assert _rc == 111
+    * (datadict's datevars() is removed: rc 198 with its pointer to date())
     * file mode too (precheck on the file list)
     quietly save "`W'/k5.dta", replace
-    capture datamap, single("`W'/k5.dta") output("`W'/k5.txt") categorical(weight-price)
+    capture datamap, single("`W'/k5.dta") output("`W'/k5.md") categorical(weight-price)
     assert _rc == 111
     * control: the forward range still works
-    quietly datamap, output("`W'/k5.txt") categorical(price-weight)
+    quietly datamap, output("`W'/k5.md") categorical(price-weight)
     assert strpos(" `r(categorical_vars)' ", " price ")
 }
 if _rc == 0 {
@@ -426,19 +446,19 @@ capture noisily {
     sysuse auto, clear
     capture erase "`W'/k4meta.dta"
     capture erase "`W'/k4b.md"
-    capture erase "`W'/k4b.txt"
-    quietly datadict, output("`W'/k4a.md") saving("`W'/k4meta")
+    capture erase "`W'/k4b.md"
+    quietly datamap, output("`W'/k4a.md") saving("`W'/k4meta") title("T")
     confirm file "`W'/k4meta.dta"
-    capture datadict, output("`W'/k4b.md") saving("`W'/k4meta")
+    capture datamap, output("`W'/k4b.md") saving("`W'/k4meta") title("T")
     assert _rc == 602
     capture confirm file "`W'/k4b.md"
     assert _rc != 0
     capture erase "`W'/k4meta2.dta"
-    quietly datamap, output("`W'/k4a.txt") saving("`W'/k4meta2")
+    quietly datamap, output("`W'/k4a.md") saving("`W'/k4meta2")
     assert "`r(metadata)'" == "`W'/k4meta2.dta"
-    capture datamap, output("`W'/k4b.txt") saving("`W'/k4meta2")
+    capture datamap, output("`W'/k4b.md") saving("`W'/k4meta2")
     assert _rc == 602
-    capture confirm file "`W'/k4b.txt"
+    capture confirm file "`W'/k4b.md"
     assert _rc != 0
 }
 if _rc == 0 {
@@ -450,7 +470,7 @@ else {
     display as error "  FAIL: K4/S3 saving() name without .dta checked before any output"
 }
 
-**# K1 datadict saving(): no categorical summaries under mincell()
+**# K1 datamap saving(): no categorical summaries under mincell()
 
 local ++test_count
 capture noisily {
@@ -458,8 +478,8 @@ capture noisily {
     quietly set obs 100
     gen byte flag = _n <= 3
     gen double y = _n
-    quietly datadict, output("`W'/k1.md") saving("`W'/k1.dta", replace)
-    _r2_count "`W'/k1.md" "suppressed <5"
+    quietly datamap, output("`W'/k1.md") saving("`W'/k1.dta", replace)
+    _r2_count "`W'/k1.md" "1: suppressed (<5)"
     assert r(n) == 1
     use "`W'/k1.dta", clear
     quietly keep if variable == "flag"
@@ -469,10 +489,10 @@ capture noisily {
     clear
     quietly set obs 100
     gen byte flag = _n <= 3
-    quietly datadict, output("`W'/k1b.md") continuous(flag) stats saving("`W'/k1b.dta", replace)
-    _r2_count "`W'/k1b.md" "Mean=withheld"
+    quietly datamap, output("`W'/k1b.md") continuous(flag) saving("`W'/k1b.dta", replace)
+    _r2_count "`W'/k1b.md" "mean and SD withheld"
     assert r(n) == 1
-    _r2_count "`W'/k1b.md" "Mean=.03"
+    _r2_count "`W'/k1b.md" "mean=0.03"
     assert r(n) == 0
     use "`W'/k1b.dta", clear
     assert missing(mean) & missing(sd)
@@ -480,20 +500,20 @@ capture noisily {
     clear
     quietly set obs 100
     gen byte flag = _n <= 3
-    quietly datadict, output("`W'/k1c.md") mincell(0) saving("`W'/k1c.dta", replace)
+    quietly datamap, output("`W'/k1c.md") mincell(0) saving("`W'/k1c.dta", replace)
     use "`W'/k1c.dta", clear
     assert abs(mean - .03) < 1e-12
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: K1 datadict saving() withholds categorical and two-valued summaries under mincell()"
+    display as result "  PASS: K1 datamap saving() withholds categorical and two-valued summaries under mincell()"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: K1 datadict saving() withholds categorical and two-valued summaries under mincell()"
+    display as error "  FAIL: K1 datamap saving() withholds categorical and two-valued summaries under mincell()"
 }
 
-**# K2 datadict: a failed run keeps the previous dictionary
+**# K2 datamap: a failed run keeps the previous document
 
 local ++test_count
 capture noisily {
@@ -506,31 +526,31 @@ capture noisily {
     file open `fh' using "`W'/k2.md", write replace
     file write `fh' "PREVIOUS GOOD CONTENT" _n
     file close `fh'
-    capture datadict, filelist("`W'/k2good" "`W'/k2bad") output("`W'/k2.md")
+    capture datamap, filelist("`W'/k2good" "`W'/k2bad") output("`W'/k2.md")
     assert _rc != 0
     _r2_eq "`W'/k2.md" "PREVIOUS GOOD CONTENT"
     assert r(n) == 1
-    _r2_count "`W'/k2.md" "Data Dictionary"
+    _r2_count "`W'/k2.md" "## 1."
     assert r(n) == 0
-    * separate: the failing file's dictionary is not truncated
-    file open `fh' using "`W'/k2bad_dictionary.md", write replace
+    * separate: the failing file's document is not truncated
+    file open `fh' using "`W'/k2bad_map.md", write replace
     file write `fh' "PREVIOUS GOOD CONTENT" _n
     file close `fh'
-    capture datadict, filelist("`W'/k2good" "`W'/k2bad") separate
+    capture datamap, filelist("`W'/k2good" "`W'/k2bad") separate
     assert _rc != 0
-    _r2_eq "`W'/k2bad_dictionary.md" "PREVIOUS GOOD CONTENT"
+    _r2_eq "`W'/k2bad_map.md" "PREVIOUS GOOD CONTENT"
     assert r(n) == 1
     * an unwritable output still fails before any dataset is read
-    capture datadict, single("`W'/k2good") output("`W'/nodir/x.md")
+    capture datamap, single("`W'/k2good") output("`W'/nodir/x.md")
     assert _rc == 603
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: K2 datadict stages output; a failure keeps the previous file"
+    display as result "  PASS: K2 datamap stages output; a failure keeps the previous file"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: K2 datadict stages output; a failure keeps the previous file"
+    display as error "  FAIL: K2 datamap stages output; a failure keeps the previous file"
 }
 
 **# K3 config() missing = no leaves the Missing column off
@@ -545,12 +565,27 @@ capture noisily {
     file write `fh' "missing = yes" _n
     file close `fh'
     sysuse auto, clear
-    quietly datadict, output("`W'/k3.md") config("`W'/k3.cfg")
-    _r2_count "`W'/k3.md" "| Missing |"
-    assert r(n) == 0
-    quietly datadict, output("`W'/k3y.md") config("`W'/k3y.cfg")
-    _r2_count "`W'/k3y.md" "| Missing |"
+    * 2026-11-10 (datamap 2.0.0): datadict's "missing = yes|no" switched the Missing
+    * column.  The column is always there now and "missing" is datamap's
+    * missing(detail|pattern) selector, so yes and no are refused by value (rc 198)
+    * and the column is present either way
+    capture datamap, output("`W'/k3.md") config("`W'/k3.cfg")
+    assert _rc == 198
+    capture datamap, output("`W'/k3y.md") config("`W'/k3y.cfg")
+    assert _rc == 198
+    file open `fh' using "`W'/k3d.cfg", write replace
+    file write `fh' "missing = detail" _n
+    file close `fh'
+    datamap, output("`W'/k3d.md") config("`W'/k3d.cfg")
+    _r2_count "`W'/k3d.md" "| Missing |"
     assert r(n) == 1
+    _r2_count "`W'/k3d.md" "### Missingness"
+    assert r(n) == 1
+    datamap, output("`W'/k3n.md")
+    _r2_count "`W'/k3n.md" "| Missing |"
+    assert r(n) == 1
+    _r2_count "`W'/k3n.md" "### Missingness"
+    assert r(n) == 0
 }
 if _rc == 0 {
     local ++pass_count
@@ -569,17 +604,18 @@ capture noisily {
     keep make price
     local nm = "`W'/" + uchar(246) + "rebro_data.dta"
     quietly save "`nm'", replace
-    quietly datadict, single("`nm'") output("`W'/k6.md")
-    global R2_ND = "## 1. " + uchar(214) + "rebro Data"
+    quietly datamap, single("`nm'") output("`W'/k6.md") title("T")
+    * 2026-11-10: the heading is the file name as written (no proper() casing)
+    global R2_ND = "## 1. " + uchar(246) + "rebro_data"
     _r2_countg "`W'/k6.md"
     assert r(n) == 1
-    global R2_ND = "(#1-" + uchar(246) + "rebro-data)"
+    global R2_ND = "(#1-" + uchar(246) + "rebro_data)"
     _r2_countg "`W'/k6.md"
     assert r(n) == 1
-    * ASCII names unchanged: proper() rules (after a digit, upper case)
+    * ASCII names are unchanged too: no proper() rules after a digit
     quietly save "`W'/k6_2nd_wave.dta", replace
-    quietly datadict, single("`W'/k6_2nd_wave") output("`W'/k6b.md")
-    _r2_count "`W'/k6b.md" "## 1. K6 2Nd Wave"
+    quietly datamap, single("`W'/k6_2nd_wave") output("`W'/k6b.md") title("T")
+    _r2_count "`W'/k6b.md" "## 1. k6_2nd_wave"
     assert r(n) == 1
     erase "`nm'"
 }
@@ -592,7 +628,7 @@ else {
     display as error "  FAIL: K6 non-ASCII dataset heading and anchor"
 }
 
-**# K7 labelled extended missing codes are documented
+**# K7 labelled extended missing codes are listed with their counts (F3)
 
 local ++test_count
 capture noisily {
@@ -602,8 +638,12 @@ capture noisily {
     replace q = .a in 1/3
     label define ql 1 "Yes" 2 "No" .a "Refused"
     label values q ql
-    quietly datadict, output("`W'/k7.md")
-    _r2_count "`W'/k7.md" ".a=Refused (missing code)"
+    quietly datamap, output("`W'/k7.md") mincell(0)
+    * 2026-11-10 (2.0.0 Phase 3, F3): datadict printed ".a=Refused (missing
+    * code)"; Phase 2 counted the three .a cells in the Missing column only (the
+    * interim pin was miss("3 (10.0%)")).  The Missing cell now lists the code,
+    * its label and its count; the levels are the data's own (1 Yes, 2 No).
+    qa_md_rows using "`W'/k7.md", var(q) miss("3 (10.0%): .a Refused 3") cell("1 Yes: 14 (46.7%)<br>2 No: 13 (43.3%)")
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -624,7 +664,7 @@ capture noisily {
     gen x = _n
     local bs = char(92)
     label variable x "a`bs'|b"
-    quietly datadict, output("`W'/k8.md")
+    quietly datamap, output("`W'/k8.md")
     * source a\\\|b renders a\|b (cmark-gfm: \\ is a backslash, \| a pipe)
     global R2_ND = "a" + char(92) + char(92) + char(92) + "|b"
     _r2_countg "`W'/k8.md"
@@ -646,11 +686,15 @@ capture noisily {
     sysuse auto, clear
     quietly save "`W'/k9.dta", replace
     tempname fh
-    file open `fh' using "`W'/k9.txt", write replace
+    file open `fh' using "`W'/k9_manifest.txt", write replace
     file write `fh' (uchar(65279) + "`W'/k9.dta") _n
     file close `fh'
-    datadict, manifest("`W'/k9.txt") output("`W'/k9.md")
+    datamap, manifest("`W'/k9_manifest.txt") output("`W'/k9.md")
     assert r(nfiles) == 1
+    assert "`r(mode)'" == "manifest"
+    * the byte-order mark is not part of the path: the file was read
+    qa_md_rows using "`W'/k9.md"
+    assert r(n) == 12
 }
 if _rc == 0 {
     local ++pass_count
@@ -666,9 +710,14 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly datadict price price mpg, output("`W'/k10.md")
-    assert r(nvars_total) == 2
-    _r2_count "`W'/k10.md" "| `=char(96)'price`=char(96)' |"
+    quietly datamap price price mpg, output("`W'/k10.md")
+    * r(nvars) is the file's 12 variables; two are documented, price once
+    assert r(nvars) == 12
+    qa_md_rows using "`W'/k10.md"
+    assert r(n) == 2
+    qa_md_rows using "`W'/k10.md", var(price)
+    assert r(n) == 1
+    _r2_count "`W'/k10.md" "- Variables: 12 (2 documented)"
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -688,8 +737,8 @@ capture noisily {
     sysuse auto, clear
     keep make price
     quietly save "`W'/k11/UP.DTA", replace
-    quietly datadict, directory("`W'/k11") output("`W'/k11.md")
-    _r2_count "`W'/k11.md" "**Filename:** `=char(96)'UP.DTA`=char(96)'"
+    quietly datamap, directory("`W'/k11") output("`W'/k11.md")
+    _r2_count "`W'/k11.md" "UP.DTA"
     assert r(n) == 1
     _r2_count "`W'/k11.md" "UP.dta"
     assert r(n) == 0
@@ -713,8 +762,8 @@ capture noisily {
     quietly set obs 30
     gen d = mdy(3, 4, 1980) + mod(_n, 3)
     format d %td
-    quietly datadict, output("`W'/k12.md") categorical(d) dateformat(%tdDD/NN/CCYY) mincell(0) stats
-    _r2_count "`W'/k12.md" "04/03/1980"
+    quietly datamap, output("`W'/k12.md") categorical(d) dateformat(%tdDD/NN/CCYY) mincell(0)
+    _r2_count "`W'/k12.md" "04/03/1980: 10 (33.3%)"
     assert r(n) == 1
     _r2_count "`W'/k12.md" "04mar1980"
     assert r(n) == 0
@@ -735,7 +784,7 @@ capture noisily {
     clear
     quietly set obs 50
     gen double v = (_n + 10) * 1e-5
-    quietly datadict, output("`W'/s4.md") stats mincell(0)
+    quietly datamap, output("`W'/s4.md") mincell(0)
     _r2_count "`W'/s4.md" "IQR=2.30e-04 to 4.80e-04"
     assert r(n) == 1
 }
@@ -757,10 +806,10 @@ capture noisily {
     keep make price
     local nm = "`W'/s5/a" + char(60) + "b.dta"
     quietly save "`nm'", replace
-    quietly datadict, directory("`W'/s5") output("`W'/s5.md")
-    _r2_count "`W'/s5.md" "## 1. A&lt;B"
+    quietly datamap, directory("`W'/s5") output("`W'/s5.md") title("T")
+    _r2_count "`W'/s5.md" "## 1. a&lt;b"
     assert r(n) == 1
-    _r2_count "`W'/s5.md" "[A&lt;B](#1-ab)"
+    _r2_count "`W'/s5.md" "[a&lt;b](#1-ab)"
     assert r(n) == 1
     erase "`nm'"
     rmdir "`W'/s5"

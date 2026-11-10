@@ -50,6 +50,7 @@ help for {cmd:datamvp}
 {syntab:Small cells}
 {synopt:{opt minc:ell(#)}}mask counts below {it:#}{p_end}
 {synopt:{opt mask:rare}}mask counts below {opt mincell()}, default 5{p_end}
+{synopt:{opt safe}}the agent-safe preset{p_end}
 
 {syntab:Statistics}
 {synopt:{opt p:ercent}}display percentages{p_end}
@@ -215,6 +216,22 @@ two final columns over all groups, are returned in {cmd:r(miss_by)}. The
 computation is shared with {help dataprobe:dataprobe, groupstat(pmiss ...)}.
 
 {dlgtab:Small cells}
+
+{phang}
+{opt safe} is the agent-safe preset: {opt maskrare} with {opt mincell(5)} (a
+larger {opt mincell()} wins), the likely identifiers (by name, as
+{help datamap}'s {cmd:r(suggested_exclude)}) left out of the varlist, and no
+identifier, date, or text holding a digit as a {opt bytable()}, {opt gby()},
+{opt over()}, or {cmd:by} variable. {opt save()} writes the patterns the table
+shows: patterns below the mask, and the smallest ones pooled with them, are
+left out, and {bf:cumpct} is not written. {cmd:nomaskrare} is refused, and
+{cmd:dataqa set agent} turns {opt safe} on for the session. It covers printed
+output and written files only; {cmd:r()} and {opt generate()} are not masked, and
+differencing across outputs is out of scope: a {cmd:datamvp} table read together
+with a {cmd:dataprobe} or {cmd:datamap} output can give back a rare count. Identifiers
+are recognized by variable name only, so an identifier under another
+name (such as {it:pnr}) stays in the varlist, and an integer date with no date
+format is not recognized as a date.
 
 {phang}
 {opt mincell(#)} and {opt maskrare} turn on small-cell control. The threshold
@@ -517,19 +534,19 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 {phang2}{stata "datamvp, graph(matrix) misscolor(red) obscolor(green*0.2)":. datamvp, graph(matrix) misscolor(red) obscolor(green*0.2)}{p_end}
 
 {pstd}Correlation heatmap of missingness{p_end}
-{phang2}{stata "datamvp, graph(correlation)":. datamvp, graph(correlation)}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom, nodrop graph(correlation)":. datamvp price mpg rep78 headroom, nodrop graph(correlation)}{p_end}
 
 {pstd}Correlation heatmap with values displayed{p_end}
-{phang2}{stata "datamvp, graph(correlation) textlabels":. datamvp, graph(correlation) textlabels}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom, nodrop graph(correlation) textlabels":. datamvp price mpg rep78 headroom, nodrop graph(correlation) textlabels}{p_end}
 
 {pstd}Correlation heatmap with grayscale color scheme{p_end}
-{phang2}{stata "datamvp, graph(correlation) colorramp(grayscale)":. datamvp, graph(correlation) colorramp(grayscale)}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom, nodrop graph(correlation) colorramp(grayscale)":. datamvp price mpg rep78 headroom, nodrop graph(correlation) colorramp(grayscale)}{p_end}
 
 {pstd}Save graph to file without displaying{p_end}
 {phang2}{stata "datamvp, graph(bar) gsaving(missingness.gph, replace) nodraw":. datamvp, graph(bar) gsaving(missingness.gph, replace) nodraw}{p_end}
 
 {pstd}Name graph in memory for later use{p_end}
-{phang2}{stata "datamvp, graph(correlation) gname(mycorr)":. datamvp, graph(correlation) gname(mycorr)}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom, nodrop graph(correlation) gname(mycorr)":. datamvp price mpg rep78 headroom, nodrop graph(correlation) gname(mycorr)}{p_end}
 
 {pstd}Use a specific graph scheme{p_end}
 {phang2}{stata "datamvp, graph(bar) scheme(s2color)":. datamvp, graph(bar) scheme(s2color)}{p_end}
@@ -554,15 +571,15 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 {pstd}{bf:Registry data examples}{p_end}
 
 {pstd}Missing patterns in LISA data{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
+{phang2}{stata "use https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta, clear":. use _data/lisa.dta, clear}{p_end}
 {phang2}{stata "datamvp disp_income employment education_level, percent sort":. datamvp disp_income employment education_level, percent sort}{p_end}
 
 {pstd}Missing data visualization for cohort{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata "use https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta, clear":. use _data/cohort.dta, clear}{p_end}
 {phang2}{stata "datamvp death_date, graph(bar)":. datamvp death_date, graph(bar)}{p_end}
 
 {pstd}Generate missingness indicators for imputation planning{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
+{phang2}{stata "use https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta, clear":. use _data/lisa.dta, clear}{p_end}
 {phang2}{stata "datamvp disp_income employment, generate(m) monotone":. datamvp disp_income employment, generate(m) monotone}{p_end}
 
 

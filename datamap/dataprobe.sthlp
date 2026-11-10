@@ -2,7 +2,6 @@
 {* *! dataprobe (version recorded in datamap.sthlp)}{...}
 {vieweralsosee "datamap" "help datamap"}{...}
 {vieweralsosee "dataqa" "help dataqa"}{...}
-{vieweralsosee "datadict" "help datadict"}{...}
 {vieweralsosee "datamvp" "help datamvp"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] assert" "help assert"}{...}
@@ -12,6 +11,8 @@
 {viewerjumpto "Description" "dataprobe##description"}{...}
 {viewerjumpto "Options" "dataprobe##options"}{...}
 {viewerjumpto "Gate mode" "dataprobe##gate"}{...}
+{viewerjumpto "Snapshot and diff" "dataprobe##snapdiff"}{...}
+{viewerjumpto "Keyset preflight" "dataprobe##keyset"}{...}
 {viewerjumpto "Invariants, bands, and review items" "dataprobe##kinds"}{...}
 {viewerjumpto "Idiom map" "dataprobe##idioms"}{...}
 {viewerjumpto "Masking" "dataprobe##masking"}{...}
@@ -73,7 +74,7 @@
 {synopt:{opt gates:only}}run validation gates only{p_end}
 {synopt:{opt expectn(numlist)}}require exact {cmd:_N} or a range{p_end}
 {synopt:{opt isid(keyspec)}}assert unique by a key; {cmd:\}-separate keys{p_end}
-{synopt:{opt nodups}}assert no duplicated rows (on {it:varlist} if given){p_end}
+{synopt:{opt nodups}}assert no duplicated rows{p_end}
 {synopt:{opt req:uire(varlist)}}assert these variables exist{p_end}
 {synopt:{opt notmiss:ing(varlist)}}require complete values{p_end}
 {synopt:{opt inrange(spec)}}require ranges; {cmd:\}-separate{p_end}
@@ -108,13 +109,18 @@
 {synopt:{opt by(varlist)}}evaluate gates/missingness within groups{p_end}
 {synopt:{opt over(varname)}}single-variable synonym for {opt by()}{p_end}
 {synopt:{opt check:s(filename)}}read checks from file{p_end}
-{synopt:{opt makes:pec(filename[, replace])}}write a starter checks file{p_end}
-{synopt:{opt comp:are(filename)}}compare with a saved schema{p_end}
+{synopt:{opt makes:pec(name[, replace])}}write starter checks: .dta or .do{p_end}
+{synopt:{opt comp:are(name)}}compare with a baseline frame or file{p_end}
 {synopt:{opt warn}}report every gate failure as a warning{p_end}
 {synopt:{opt minver:sion(#)}}require at least this datamap version{p_end}
 
 {syntab:Output}
-{synopt:{opt sav:ing(name[, replace])}}save profile to {opt .dta}/frame{p_end}
+{synopt:{opt sav:ing(name[, replace])}}save profile to a frame or {opt .dta}{p_end}
+{synopt:{opt snap:shot(frame[, replace])}}store the profile in a frame{p_end}
+{synopt:{opt diff(name)}}print changes against a baseline{p_end}
+{synopt:{opt tol(# [#])}}change thresholds for {opt diff()}{p_end}
+{synopt:{opt brief}}one line per variable, flagged first{p_end}
+{synopt:{opt safe}}the agent-safe preset{p_end}
 {synopt:{opt only:flagged}}show only flagged variables/groups{p_end}
 {synopt:{opt show(flagged)}}same as {opt onlyflagged}{p_end}
 {synopt:{opt viol:ations(name[, replace])}}save violations to {opt .dta}/frame{p_end}
@@ -130,9 +136,9 @@
 {pstd}
 {cmd:dataprobe} interrogates a dataset in the console and optionally gates on
 declared expectations. It is the interactive sibling of {help datamap} (which
-{it:documents} a dataset to a file) and {help datadict} (which {it:publishes} a
-Markdown dictionary). All three commands share one classification engine, so a
-variable is classified the same way no matter which command looks at it.
+{it:documents} a dataset to a Markdown file). The two commands share one
+classification engine, so a variable is classified the same way no matter
+which command looks at it, and the same {opt saving()} column schema.
 
 {pstd}
 With no options, {cmd:dataprobe} auto-classifies every variable and prints a
@@ -175,7 +181,11 @@ extension is optional.
 {cmd:exclude}, {cmd:continuous}, {cmd:categorical}, {cmd:datevars},
 {cmd:maxcat}, {cmd:maxfreq}, {cmd:rare}, {cmd:mincell}, {cmd:outliers},
 {cmd:maskrare}, {cmd:nomissing}, {cmd:patterns}, {cmd:gatesonly},
-{cmd:onlyflagged}, and {cmd:show}. Command-line options override session
+{cmd:onlyflagged}, and {cmd:show}. A note names, and the run ignores, a key
+that neither {cmd:dataprobe} nor {helpb datamap} reads, a line with no {cmd:=}
+or {cmd::}, and a switch key whose value is not {cmd:1}, {cmd:yes}, {cmd:true},
+or {cmd:on} or {cmd:0}, {cmd:no}, {cmd:false}, or {cmd:off}; keys that only
+{cmd:datamap} reads are ignored without a note. Command-line options override session
 defaults set by {help dataqa:dataqa set}, which override config-file defaults.
 
 {phang}
@@ -201,7 +211,8 @@ value-label coding are never shown. They are never flagged and never appear in
 their missing share. A gate on an excluded variable reports its verdict and
 counts, never a value of the variable: an {opt inrange()} violation reports the
 count only, never the offending minimum and maximum; {opt stat()} and a
-{opt groupstat()} cell print {bf:[excluded]}; {opt coverage()} prints
+{opt groupstat()} cell print {bf:[excluded]} ({bf:[excl.]} in a multi-statistic
+table); {opt coverage()} prints
 {bf:[excluded]} for the first and last dates and counts the empty years
 without naming them; and an {opt events()} covariate's level is named by its
 rank, {cmd:rep78 = [excluded] level 3}. A {opt by()} variable still labels its
@@ -240,6 +251,37 @@ threshold {it:m} is {opt mincell(#)} when specified; otherwise {opt rare(#)}; ot
 5. See {help dataprobe##masking:Masking}. An explicit
 {cmd:nomaskrare} overrides a session default {opt maskrare} and prints a note
 saying so.
+
+{phang}
+{opt safe} is the agent-safe preset: {opt maskrare} with {opt mincell(5)} (a
+larger {opt mincell()} wins); the likely identifiers (variables whose names
+match the pattern {cmd:datamap} uses for {cmd:r(suggested_exclude)}) are
+excluded as {opt exclude()} excludes them; no date is printed (a date's p1
+and p99 print as {bf:[withheld]}, its span still prints); and no levels are
+listed for text with more than {opt maxcat()} distinct values, for text
+holding a digit, or for a date-formatted variable. {opt saving()} writes the
+same masks ({bf:.s}). {opt makespec()}, {cmd:nomaskrare}, and a {opt by()} or
+{opt over()} variable that is an identifier, a date, or text holding a digit
+are refused. {cmd:dataqa set agent} turns {opt safe} on for the session. {opt safe}
+covers printed output and written files only: {cmd:r()}, a
+{opt snapshot()} frame, and differencing across outputs are not masked (a
+{cmd:dataprobe} and a {cmd:datamap} output can each be safe and together give
+back a rare count). In {opt stat()} and {opt groupstat()} the mean or a
+percentile (the median included) of a date-formatted variable prints as
+{bf:[withheld]}. The
+identifier rule reads names, so an identifier under another name (such as
+{it:pnr}) is not excluded, and digit-free text (names) with {it:m} or more rows
+per value is still listed; integer dates such as 20200115 with no date format
+are not recognized as dates.
+
+{phang}
+{opt brief} prints one line per variable in place of the profile sections: name,
+class, type, missing share, distinct values, and flag, flagged
+variables first; a categorical variable adds its five most frequent levels
+(a level held by one row, or by fewer than the mask, is not listed); text
+whose values are all distinct reads {bf:all distinct, maxlen} {it:#}. The
+stored results are those of the full profile. {opt brief} cannot be combined
+with {opt gatesonly}, {opt patterns}, or {opt byfreq}.
 
 {phang}
 {opt out:liers(#)} flags continuous values lying more than {it:#} interquartile
@@ -286,11 +328,18 @@ of {opt checks()} adds a key beside {opt isid()}.
 {it:varlist}, rows are compared on the {it:varlist} together with the
 variables named in other options (such as {opt id()}, {opt inrange()}, or
 {opt exclude()}), not on every variable in the data: {cmd:dataprobe x, nodups}
-fails when two rows share {cmd:x} even if another variable tells them apart.
-Omit the {it:varlist} to compare every variable.
+fails when two rows share {cmd:x} even if another variable tells them apart. Omit
+the {it:varlist} to compare every variable.
 
 {phang}
-{opt req:uire(varlist)} asserts that the named variables exist in the dataset.
+{opt req:uire(varlist)} asserts that the named variables exist in the dataset. When
+{opt require()} reports a variable missing, the entries of
+{opt isid()}, {opt notmissing()}, {opt binary()}, {opt inrange()},
+{opt allowed()}, {opt forbid()}, {opt notvalues()}, and {opt regex()} that
+name it are not run, a note says so
+({cmd:note: gates on} {it:vars} {cmd:not run (require() reports the variable missing)}),
+and {opt require()} fails (exit 9). A variable that is missing and not in
+{opt require()} stops the call with its own error (r(111)).
 
 {phang}
 {opt notmiss:ing(varlist)} asserts that the named variables have no missing
@@ -312,7 +361,10 @@ never outside a range. Bounds are compared at full double precision, so a
 {phang}
 {opt all:owed(spec)} asserts that variables contain only declared values. The
 specification is {cmd:\}-separated entries of the form
-{it:var values}: {cmd:allowed(sex 0 1 \ arm "usual" "active")}.
+{it:var values}: {cmd:allowed(sex 0 1 \ arm "usual" "active")}. Typing the
+option removes the quotes around a value, so a level that contains a space
+({cmd:"usual care"}) is read as separate levels; list such a level in a
+{opt checks()} file, where it is read as written.
 
 {phang}
 {opt for:bid(spec)} asserts that variables do not contain declared forbidden
@@ -390,8 +442,8 @@ are read as spaces in the band, before the {cmd:if}, so a band stored as
 {it:lo, hi} can be reused. A statistic with no value in scope (a mean of no
 observations, {cmd:pmiss} of no rows) is a violation; {cmd:sum}, {cmd:n}, and
 {cmd:distinct} of no rows are 0. An upper bound written {cmd:.} is open, for a
-date as for any other variable; a lower bound of {cmd:.} is an error (r(198)).
-A percentile of a float variable is compared
+date as for any other variable; a lower bound of {cmd:.} is an error (r(198)). A
+percentile of a float variable is compared
 with the bounds at float precision, but a mean, sd, or sum is compared
 exactly, in double precision: a float variable holding 0.2 in every row has
 mean 0.20000000298 and fails {cmd:stat(mean x 0 0.2)}. Set such a band a
@@ -448,7 +500,8 @@ saved dataset. Each {cmd:\}-separated entry is {it:varlist} {cmd:using}
 every key in the file exists in memory; {cmd:equal} (the default) requires
 both. Equal counts with different members, such as one person lost and another
 gained after a merge on the wrong key, fail. {opt keyset()} ignores
-{opt by()}.
+{opt by()}. Before the verdict, {opt keyset()} prints a preflight report; see
+{help dataprobe##keyset:Keyset preflight}.
 
 {phang}
 {opt constant(spec)} asserts that variables take one value within each key. Each
@@ -664,7 +717,8 @@ print. The same holds for the rows of the groups not shown exactly minus that
 difference (a group printed with a small complement), and in a profile for
 the profiled variable's nonmissing count and, for the {cmd:sum} of a 0/1
 categorical variable, its count of ones. The smallest shown cell (for the
-complement, the cell with the smallest complement) then reads {bf:[suppr.]}. A {cmd:pmiss} cell is masked when the group's missing or nonmissing
+complement, the cell with the smallest complement) then reads {bf:[suppr.]}. A
+{cmd:pmiss} cell is masked when the group's missing or nonmissing
 count is 1 to {it:m}-1. An {cmd:sd} cell is masked when the group has fewer
 than {it:m} nonmissing rows or, for a variable with two or three values in the group,
 fewer than {it:m} rows of any value; an {cmd:ess} cell when the group's
@@ -769,9 +823,19 @@ suboptions in {cmd:values}; a {cmd:complete} row takes the variables in
 {it:countexp}s in {cmd:var} and the entry condition in {cmd:pattern}.
 
 {phang}
-{opt makes:pec(filename[, replace])} writes a starter checks file from the
+{opt makes:pec(name[, replace])} writes a starter checks file from the
 current dataset: the observed row count, required variables, observed ranges
-or allowed values, and a candidate {cmd:isid} key. It describes the data as
+or allowed values, and a candidate {cmd:isid} key. A name ending in {cmd:.do}
+writes the same gates as one {cmd:dataprobe, gatesonly} command in a do-file,
+so they can be read, edited, and compared in a diff; any other name follows
+the frame-or-file rule of {opt saving()} and writes the {opt checks()} spec. Run
+on the data it was made from, the do-file passes, and a gate that fails
+exits 9. A row whose text holds a line break, a backtick, {cmd:$}, or a comment
+opener, and the {opt allowed()} entry of a string variable with a level that
+holds a space, are left out with a comment saying so. The header comment
+names the dataset and the datamap version. If the data later lose a gated
+variable, the do-file's {opt require()} fails (exit 9) and the gates on that
+variable are skipped with a note (see {opt require()}). It describes the data as
 they are; review it before treating it as a gate contract, and never use it
 as a source of bands. Numeric bounds and levels are written at full precision
 and string levels in double quotes, so {opt checks()} reads the file back as a
@@ -780,10 +844,18 @@ double quote, a backtick, a dollar sign, or a backslash gets no {cmd:allowed}
 row.
 
 {phang}
-{opt comp:are(filename)} compares the current profiled variables with a saved
-baseline. Added, dropped, storage-type, class, and observation-count changes
-are reported as a {cmd:compare} violation. A baseline variable is dropped when it
-is no longer in the data; one left out of {it:varlist} is not.
+{opt comp:are(name)} compares the current profile with a baseline: a frame, or
+a Stata dataset ({it:name} or {it:name}{cmd:.dta}). The baseline may be a saved
+profile ({opt saving()} from {cmd:dataprobe} or {cmd:datamap}, or a
+{opt snapshot()} frame) or any other dataset, whose variable names and
+storage types alone are compared. The call prints the block described under
+{help dataprobe##snapdiff:Snapshot and diff}, under {opt gatesonly} too. An
+added or dropped variable, a changed storage type or class, and a changed
+observation count are reported as a {cmd:compare} violation; a changed
+missing count, distinct count, mean, or range is printed and never fails. A
+baseline variable is dropped when it is no longer in the data; one left out
+of {it:varlist} is not. The target is checked before any output (see
+{opt saving()}).
 
 {phang}
 {opt warn} downgrades every gate, invariant and band alike, from a halt to a
@@ -799,11 +871,35 @@ it does not know the option, so a do-file can reinstall on a nonzero return code
 {dlgtab:Output}
 
 {phang}
-{opt sav:ing(name[, replace])} saves the per-variable profile. If {it:name}
-ends in {opt .dta} or contains a path separator the profile is written to that
-file; otherwise it is copied into a frame of that name. Its {cmd:datasignature}
-column holds the {help datasignature} of the dataset as loaded, before
-{cmd:if}/{cmd:in}, the value {opt signature} returns.
+{opt sav:ing(name[, replace])} saves the per-variable profile, the 27 columns
+of {help datamap##saving:datamap's saving()} table plus {cmd:varname} and
+{cmd:dc_class}. The target follows one rule in {opt saving()}, {opt compare()},
+{opt diff()}, {opt snapshot()}, and {opt makespec()}: a name that ends in
+{opt .dta} (or {cmd:.do}, for {opt makespec()}) or holds a {cmd:/} or {cmd:\}
+is a file, and any other name is a frame. {opt compare()} and {opt diff()} read
+the frame of that name when one exists, and otherwise the file ({it:name} or
+{it:name}{cmd:.dta}); {opt snapshot()} takes a frame only. The target is
+checked right after the options are parsed, before any profile output: an
+existing frame (r(110)) or file (r(602)) without {cmd:replace}, a folder that
+does not exist (r(603)), a file that cannot be found (r(601)), and the current
+frame (r(198)) stop the call. {opt saving()} and {opt snapshot()} cannot name
+the same frame, and a suboption other than {cmd:replace} is r(198). The
+{cmd:datasignature} column holds the {help datasignature} of the dataset as
+loaded, before {cmd:if}/{cmd:in}, the value {opt signature} returns.
+
+{phang}
+{opt snap:shot(frame[, replace])} stores the profile of the data in a frame
+named {it:frame}: the rows {opt saving()} writes, and the key and row count the
+snapshot was taken with. It runs after {opt diff()}, so
+{cmd:diff(before) snapshot(before, replace)} compares with the last snapshot and
+then replaces it. See {help dataprobe##snapdiff:Snapshot and diff}.
+
+{phang}
+{opt diff(name)} prints what changed since a baseline, a frame or a file named
+as for {opt compare()}, and never halts. {opt tol(# [#])} sets what counts as a
+change: the first number is the relative tolerance for a mean, minimum, or
+maximum (default {bf:1e-8}), the second the absolute tolerance for counts
+(default {bf:0}). {opt tol()} requires {opt diff()} or {opt compare()}.
 
 {phang}
 {opt only:flagged} filters console output to flagged variables and groups. It
@@ -933,8 +1029,123 @@ ledger row. Each pair below gives the same pass or fail verdict on the same data
 {p2line}
 {p2colreset}{...}
 
+
+{marker snapdiff}{...}
+{title:Snapshot and diff}
+
 {pstd}
-The pairs are exercised in the package QA suite.
+After a data step, {cmd:dataprobe, snapshot(before)} keeps the profile in a
+frame, and after the next step {cmd:dataprobe, diff(before)} prints what
+changed. {opt compare()} prints the same block against a frame or a file, and
+fails on a schema change; {opt diff()} never halts. Under {opt gatesonly} the
+block still prints.
+
+{phang2}{cmd:. dataprobe, gatesonly snapshot(before)}{p_end}
+{phang2}{cmd:. drop if rep78 == .}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly diff(before) snapshot(before, replace)}{p_end}
+
+{pstd}
+The block is headed {bf:DIFF} (or {bf:SCHEMA COMPARE} under {opt compare()}),
+names the baseline, and then prints:
+
+{p2colset 5 24 26 2}{...}
+{p2col:{bf:N}}{cmd:N: current 60, baseline 74, delta -14}{p_end}
+{p2col:{bf:key}}when a key is known, {cmd:key make: unique before and after},
+or {cmd:key make: unique before, not unique after (3 surplus rows)}{p_end}
+{p2col:{bf:variables}}one line per variable that changed, in baseline order, with
+the parts that changed, such as {cmd:type int -> str1}, {cmd:class categorical -> string},
+{cmd:missing 5 -> 0 (-5)}, {cmd:distinct 21 -> 19 (-2)},
+{cmd:mean 6165.26 -> 6292.68}, and {cmd:range 12 to 41 -> 12 to 35}. Then
+{cmd:v: dropped (float)} for a variable no longer there and
+{cmd:v: added (byte, categorical)} for a new one{p_end}
+{p2col:{bf:none}}{cmd:no changes} when nothing moved{p_end}
+{p2colreset}{...}
+
+{pstd}
+A count changes when it moves by more than the second number of {opt tol()}
+(default 0). A mean, minimum, or maximum changes when it moves by more than
+the first number (default 1e-8) times the larger magnitude. A variable with
+a missing statistic on either side is not compared on it.
+
+{pstd}
+The baseline is a saved profile ({opt saving()}, {opt snapshot()}) or any
+dataset. A dataset that is not a profile gives schema-only lines: N, added,
+dropped, and storage type ({cmd:r(diff_schema_only)} is 1), with no missing,
+distinct, or mean line. An excluded variable (on either side) is compared on
+type, class, and missing count only. The key is the call's {opt id()} or
+{opt isid()} key, otherwise the key a {opt snapshot()} recorded, otherwise the
+first baseline variable with no missing value and as many distinct values as
+rows. A {opt saving()} frame or file records no key, so with one the key before
+is {cmd:unknown} when it has more than 1,000 distinct values (the profile
+counts distinct values only up to {cmd:max(1000, maxcat())}); a {opt snapshot()}
+always knows it. A key that is in the data but outside {it:varlist} reads
+{cmd:key K: unique before, not checked after (not in the varlist)}, and a key
+dropped from the data reads {cmd:dropped}.
+
+{pstd}
+Under {opt maskrare} every count from 1 to {it:m}-1 prints as {bf:<}{it:m} and a
+count that would give one back is withheld; a minimum or maximum is never
+printed (the line says {cmd:range changed}); and a mean prints only when both
+sides have at least {it:m} nonmissing values and the variable is neither
+categorical nor two- or three-valued on either side (else the line says
+{cmd:mean changed}), because such a mean is a share that gives a count
+back. {opt mincell()} alone does not mask the block. The stored results {cmd:r(diff_*)} are not masked.
+
+{pstd}
+{opt diff()} or {opt compare()} naming the current frame is r(198); naming a
+frame or file that does not exist is r(601). {opt snapshot()}
+refuses an existing frame without {cmd:replace} (r(110)). A path with a space
+is given in quotes, {cmd:diff("my dir/before.dta")}, as in {opt saving()}; an
+unquoted name with a space is r(198).
+
+{pstd}
+Empty data. When no observations remain (or none satisfy {cmd:if}/{cmd:in}), a
+call with {opt diff()}, {opt compare()}, or {opt snapshot()} skips the profile
+with a note, runs the declared gates, and reports the empty data: the N line
+(for example {cmd:N: current 0, baseline 74, delta -74}) and each variable's
+missing and distinct counts falling to 0. A class change is not reported
+against an empty side, since every empty variable would classify as
+categorical. Any other call on empty data stops with r(2000), as before.
+
+{pstd}
+Changes from 1.x. {opt compare()} prints one line per variable ({cmd:v: added},
+{cmd:v: dropped}, {cmd:v: type a -> b}) and {cmd:no changes} in place of the
+{cmd:added:} lists and {cmd:no schema drift detected}; its N line is as before. A
+{opt saving()} target that cannot be written (a folder that does not exist is
+r(603)) now stops the call before any output, where 1.x printed a note at the
+end and returned 0. A {opt keyset()} key that is numeric on one side and string
+on the other is a failed entry (a warning under {opt warn}), where 1.x stopped
+with an error. {cmd:compare(}{it:name}{cmd:)} reads a frame of that name before a
+file. {opt compare()} on empty data reports it, where 1.x stopped with r(2000),
+and reads a quoted path that holds a space, where 1.x stopped with r(198).
+
+
+{marker keyset}{...}
+{title:Keyset preflight}
+
+{pstd}
+Before the verdict, {opt keyset()} prints a report on the merge the two
+datasets would make, under {opt gatesonly} too:
+
+{phang2}{cmd:KEYSET PREFLIGHT: make using ids}{p_end}
+{phang2}{cmd:  types: make str18 in memory, str18 in ids}{p_end}
+{phang2}{cmd:  unique: memory yes, ids yes; merge 1:1}{p_end}
+{phang2}{cmd:  keys: 69 matched, 5 memory only, 5 ids only}{p_end}
+{phang2}{cmd:  merge 1:1 would report: 69 matched, 5 master only, 5 using only}{p_end}
+{phang2}{cmd:  shared non-key variables: price}{p_end}
+
+{pstd}
+The key types come first. A key that is numeric in memory and string in the
+file (or the reverse) is a failed entry, reported before any count (exit 9, or
+a warning under {opt warn}); {helpb merge} itself stops with r(106). Differing
+string widths or numeric storage types are not a conflict. Uniqueness counts
+missing values as values, as {cmd:merge} does, and decides the merge type
+({cmd:1:1}, {cmd:1:m}, {cmd:m:1}, {cmd:m:m}). The row counts are those {cmd:merge}
+reports for that type. Under {opt maskrare} each count obeys the mask, and one
+whose complement is small prints {bf:all but <}{it:m}, as in
+{cmd:keys: all but <5 matched, <5 memory only, 0 ids only}. In an {cmd:m:m}
+merge with unequal rows per key, the matched-row count prints as computed. The
+stored results are not masked.
 
 
 {marker masking}{...}
@@ -962,8 +1173,8 @@ not masked.{p_end}
 {phang2}o  the MISSINGNESS and GROUPWISE blocks print a small missing count as
 {bf:<}{it:m} and its percentage as {bf:[masked]}; a count whose complement is small prints as
 {bf:all but <}{it:m}, while a zero count prints as {bf:0}; a {opt by()} group smaller than {it:m} is not shown and is counted
-in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}.
-The counts a {opt by()} profile prints per group are protected together; see
+in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}. The
+counts a {opt by()} profile prints per group are protected together; see
 {it:Linked counts in a by() profile} below. The {bf:Unique} column, a string's
 {bf:unique=} and a categorical variable's level count print as
 {bf:[masked]} when N, or the nonmissing N, minus that count is 1 to
@@ -984,12 +1195,17 @@ KEY STRUCTURE follows the same rule over the keys.{p_end}
 {phang2}o  the {opt patterns} table is masked by {help datamvp}.{p_end}
 
 {pstd}
+{opt diff()}, {opt compare()}, and the {opt keyset()} preflight follow the same
+rule; see {help dataprobe##snapdiff:Snapshot and diff} and
+{help dataprobe##keyset:Keyset preflight}.
+
+{pstd}
 {bf:Linked counts in a by() profile.} A profile with {opt by()} prints many
 counts per group that are tied to one another and to totals printed
 elsewhere, so a count withheld in one place could be recalculated from the
 others (Hundepool et al. 2025, sec. 4.2.2 and 5.3: secondary suppression for
-linked tables). The relations an attacker can use within one output are:
-group sizes sum to N; a quantity's group counts and the pooled groups' count
+linked tables). The relations an attacker can use within one output are: group
+sizes sum to N; a quantity's group counts and the pooled groups' count
 sum to its total (a variable's missing count in MISSINGNESS, Miss% and the
 continuous N; complete cases in the header; a level's count in the pooled
 frequency table; the rows outside a date window in DATE); a group's levels
@@ -1015,8 +1231,8 @@ quantities. A count printed {bf:<}{it:m} or {bf:all but <}{it:m} therefore keeps
 at least two possible values. {cmd:dataprobe} first withholds, as
 {bf:[suppr.]} (a frequency-table row: {bf:[suppressed]}), the smallest exact
 count whose total minus the exactly printed counts would be 1 to {it:m}-1, as
-before. It then checks every such count against all the relations together:
-it looks for another table of counts that prints the same output with that
+before. It then checks every such count against all the relations together: it
+looks for another table of counts that prints the same output with that
 count changed (one unit moved between two values in a group and taken back
 elsewhere, a missing unit traded between two variables, an incomplete row
 moved), and failing that computes the count's feasibility interval by linear
@@ -1032,13 +1248,13 @@ unchanged.
 {pstd}
 Not covered: a count read across two calls (differencing two outputs); the
 verdict of a band gate ({opt stat()} bounds, {opt complete()} {cmd:min()},
-{opt expectn()}), which says whether a count lies in a band the user chose;
-counts of user expressions ({opt rule()}, {opt byrule()}, {opt regex()},
+{opt expectn()}), which says whether a count lies in a band the user chose; counts
+of user expressions ({opt rule()}, {opt byrule()}, {opt regex()},
 {opt events()}, {opt isid()}, {opt nodups}), and of {opt review()} beyond its
 own total, set against other counts; statistics (means, SDs, percentiles, sums of variables other than
 0/1), which follow the rules above; the {opt patterns} table's pattern
-totals; {opt groupstat()} over another {opt by()} or with its own {cmd:if};
-counts of rows missing two variables at once, which are not printed; the
+totals; {opt groupstat()} over another {opt by()} or with its own {cmd:if}; counts
+of rows missing two variables at once, which are not printed; the
 pooled blocks' own totals, masked by their own rules; and inference from how
 the withheld counts were chosen. The interval is computed for outputs with up
 to 700 unknown counts and 40 programs per call; beyond that a count without
@@ -1046,17 +1262,17 @@ another table of counts is protected by pooling its group.
 
 {pstd}
 The search for another table of counts and the linear programs share one
-budget per call, across every repeat of the check: 4,000,000 tries.
-Re-ranking a frequency table of {it:L} levels counts {it:L}/512 tries more,
+budget per call, across every repeat of the check: 4,000,000 tries. Re-ranking
+a frequency table of {it:L} levels counts {it:L}/512 tries more,
 and each linear program counts the cube of its size (unknowns plus
 constraints) over 6,000, about 800,000 tries for a program that takes 15
 seconds. When the budget runs out before every count is shown safe, an
 unresolved count may be a disclosure, and pooling only some groups could not
 be checked again, so every group is pooled: no group's size or audited count
 prints, a note under the header says so, and {cmd:r(linkaudit_capped)} is 1
-(it is 0 when the check finishes, and posted only when the check runs:
-{opt by()} and {opt maskrare} without {opt gatesonly}).
-This happens on outputs with many small groups and many linked counts
+(it is 0 when the check finishes, and posted only when the check runs: {opt by()}
+and {opt maskrare} without {opt gatesonly}). This
+happens on outputs with many small groups and many linked counts
 (thousands of rows in 40 groups with {opt byfreq} and several gates), with
 a {opt byfreq} variable whose levels are mostly single rows (an identifier
 string such as {cmd:make} in {cmd:auto}), or with {opt byfreq} tables whose
@@ -1070,10 +1286,12 @@ and call always give the same output.
 {pstd}
 Every PASS line and violation heading ends with the active masking, such as
 {bf:[masked <5]}. {cmd:r(masked)} is 1 when any printed count was masked,
-a suppressed frequency-table cell included. {opt saving()}
-and {opt makespec()} still write observed minima and maxima. Stored
-results are not masked: {cmd:r()} is not written to the log unless
-displayed.
+a suppressed frequency-table cell included, and it has the same value under
+{cmd:quietly}. {opt saving()} and {opt makespec()} still write observed
+minima and maxima (under {opt safe}, {opt saving()} is masked and
+{opt makespec()} is refused). Stored results are not masked: {cmd:r()} and a
+{opt snapshot()} frame hold the exact values, and {cmd:r()} is not written to
+the log unless displayed.
 
 
 {marker examples}{...}
@@ -1096,7 +1314,16 @@ displayed.
 {phang2}{cmd:. dataprobe, gatesonly byrule(make (price): "order": _n >= 1)}{p_end}
 
 {pstd}Gate a results table before release: no count or difference of 1 to 4 on rows not suppressed:{p_end}
+{phang2}{cmd:. preserve}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set obs 4}{p_end}
+{phang2}{cmd:. generate n1 = 40 + 10*_n}{p_end}
+{phang2}{cmd:. generate e1 = 12 + _n}{p_end}
+{phang2}{cmd:. generate n0 = 50 + 10*_n}{p_end}
+{phang2}{cmd:. generate e0 = 14 + _n}{p_end}
+{phang2}{cmd:. generate byte suppressed = 0}{p_end}
 {phang2}{cmd:. dataprobe, gatesonly mincell(5) smallcells(n1 e1 n1-e1 n0 e0 n0-e0 if !suppressed)}{p_end}
+{phang2}{cmd:. restore}{p_end}
 
 {pstd}Review items that print and never halt:{p_end}
 {phang2}{cmd:. dataprobe, gatesonly review("cheap": price < 4000) complete(rep78 mpg) groupstat(mean price mpg, by(foreign))}{p_end}
@@ -1108,6 +1335,32 @@ displayed.
 
 {pstd}Require a minimum installed version; a nonzero return code means reinstall:{p_end}
 {phang2}{cmd:. capture dataprobe, minversion(1.8.0)}{p_end}
+
+{pstd}Keep the profile, change the data, and see what moved:{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly snapshot(before) id(make)}{p_end}
+{phang2}{cmd:. drop if rep78 == .}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly diff(before) tol(1e-6 2)}{p_end}
+
+{pstd}Compare with a saved profile, a file or a frame:{p_end}
+{phang2}{cmd:. dataprobe, gatesonly saving(auto_profile.dta, replace)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly compare(auto_profile.dta)}{p_end}
+
+{pstd}Check the keys against a file before a merge:{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. keep make price}{p_end}
+{phang2}{cmd:. save auto_ids, replace}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. drop in 1/5}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly keyset(make using auto_ids) warn}{p_end}
+
+{pstd}Write the starter gates as a do-file, then run it:{p_end}
+{phang2}{cmd:. dataprobe, gatesonly makespec(auto_gates.do, replace)}{p_end}
+{phang2}{cmd:. do auto_gates.do}{p_end}
+
+{pstd}One line per variable, or the agent-safe preset:{p_end}
+{phang2}{cmd:. dataprobe, brief}{p_end}
+{phang2}{cmd:. dataprobe, safe brief}{p_end}
 
 {pstd}Show only flagged variables and mask rare cells before sharing a log:{p_end}
 {phang2}{cmd:. dataprobe, rare(5) mincell(5) maskrare show(flagged)}{p_end}
@@ -1136,6 +1389,7 @@ displayed.
 {synopt:{cmd:r(onlyflagged)}}1 with {opt onlyflagged} or {cmd:show(flagged)}{p_end}
 {synopt:{cmd:r(mincell)}}{opt mincell()} as given or defaulted{p_end}
 {synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was in effect{p_end}
+{synopt:{cmd:r(safe)}}1 when {opt safe} was in effect{p_end}
 {synopt:{cmd:r(masked)}}1 when any printed count was masked{p_end}
 {synopt:{cmd:r(linkaudit_capped)}}1 if the linked-count check ran out of budget{p_end}
 {synopt:{cmd:r(n_continuous)}}continuous variables (profile only){p_end}
@@ -1158,6 +1412,20 @@ displayed.
 {synopt:{cmd:r(compare_changed)}}schema-drift count, including any N delta{p_end}
 {synopt:{cmd:r(keyset_only_master)}}keys in memory absent from the {opt keyset()} file{p_end}
 {synopt:{cmd:r(keyset_only_using)}}keys of the {opt keyset()} file absent from memory{p_end}
+{synopt:{cmd:r(keyset_matched)}}keys present on both sides{p_end}
+{synopt:{cmd:r(diff_n_lines)}}variable lines the {opt diff()} block printed{p_end}
+{synopt:{cmd:r(diff_base_N)}}observations of the baseline{p_end}
+{synopt:{cmd:r(diff_n_delta)}}current N minus baseline N{p_end}
+{synopt:{cmd:r(diff_key_before)}}key unique before: 1, 0, or missing{p_end}
+{synopt:{cmd:r(diff_key_after)}}the same after (missing if not checked){p_end}
+{synopt:{cmd:r(diff_key_surplus)}}rows beyond one per key after{p_end}
+{synopt:{cmd:r(diff_schema_only)}}1 when the baseline held no profile statistics{p_end}
+{synopt:{cmd:r(diff_added)}}variables added{p_end}
+{synopt:{cmd:r(diff_dropped)}}variables dropped{p_end}
+{synopt:{cmd:r(diff_type_changed)}}variables with a changed storage type{p_end}
+{synopt:{cmd:r(diff_changed)}}variables with any change{p_end}
+{synopt:{cmd:r(diff_tol)}}the relative tolerance used{p_end}
+{synopt:{cmd:r(diff_ctol)}}the absolute count tolerance used{p_end}
 {synopt:{cmd:r(ledger_seq)}}call number within the run, with {opt ledger()}{p_end}
 {synopt:{cmd:r(n_dup_}{it:key}{cmd:)}}keys with >1 record per {opt id()} key (profile only){p_end}
 
@@ -1186,6 +1454,19 @@ displayed.
 {synopt:{cmd:r(compare_dropped_vars)}}variables dropped relative to {opt compare()}{p_end}
 {synopt:{cmd:r(compare_type_changed_vars)}}variables whose storage type changed{p_end}
 {synopt:{cmd:r(compare_class_changed_vars)}}variables whose class changed{p_end}
+{synopt:{cmd:r(keyset_merge)}}merge type the {opt keyset()} preflight implies{p_end}
+{synopt:{cmd:r(snapshot)}}the frame {opt snapshot()} wrote{p_end}
+{synopt:{cmd:r(snapshot_key)}}the key the snapshot recorded{p_end}
+{synopt:{cmd:r(diff_baseline)}}the baseline {opt diff()} read{p_end}
+{synopt:{cmd:r(diff_key)}}the key {opt diff()} used{p_end}
+{synopt:{cmd:r(diff_added_vars)}}variables added since the baseline{p_end}
+{synopt:{cmd:r(diff_dropped_vars)}}variables dropped since the baseline{p_end}
+{synopt:{cmd:r(diff_type_changed_vars)}}variables whose storage type changed{p_end}
+{synopt:{cmd:r(diff_class_changed_vars)}}variables whose class changed{p_end}
+{synopt:{cmd:r(diff_missing_changed_vars)}}variables whose missing count changed{p_end}
+{synopt:{cmd:r(diff_unique_changed_vars)}}variables whose distinct count changed{p_end}
+{synopt:{cmd:r(diff_stat_changed_vars)}}variables whose mean or range changed{p_end}
+{synopt:{cmd:r(diff_changed_vars)}}every variable with a change{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -1200,8 +1481,8 @@ continue after violations so that later code can read the results.
 {phang}
 Hundepool, A., J. Domingo-Ferrer, L. Franconi, S. Giessing, R. Lenz, J. Naylor,
 E. Schulte Nordholt, G. Seri, P.-P. de Wolf, R. Tent, A. Młodak, J. Gussenbauer,
-and K. Wilak. 2025. {it:Handbook on Statistical Disclosure Control}. 2nd ed.
-Center of Excellence SDC.
+and K. Wilak. 2025. {it:Handbook on Statistical Disclosure Control}. 2nd ed. Center
+of Excellence SDC.
 {p_end}
 
 {phang}
@@ -1221,7 +1502,7 @@ Kish, L. 1965. {it:Survey Sampling}. New York: Wiley.
 {title:Also see}
 
 {psee}
-{help dataqa}, {help datamap}, {help datadict}, {help datamvp}, {manlink D codebook}, {manlink D assert}
+{help dataqa}, {help datamap}, {help datamvp}, {manlink D codebook}, {manlink D assert}
 {p_end}
 
 {hline}

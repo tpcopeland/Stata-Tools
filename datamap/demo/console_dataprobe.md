@@ -4,13 +4,9 @@ title: "console_dataprobe"
 
 ## Console QC profile
 
-<!-- * dataprobe profiles the data in memory: per-class distributions, missingness, -->
+<!-- * The cohort carries a deliberate age = -3 outlier, a 115% adherence value, a -->
 
-<!-- * key structure, and quality flags. The cohort carries a deliberate age = -3 -->
-
-<!-- * outlier, a 115% adherence value, a rare "Satellite clinic" site, and missing -->
-
-<!-- * biomarkers. Its 1,200 distinct IDs also exercise v1.6.0's capped count display. -->
+<!-- * rare "Satellite clinic" site, and missing biomarkers. -->
 
 ```stata
 . use "`pkg_dir'/_demo_cohort.dta", clear
@@ -22,7 +18,7 @@ title: "console_dataprobe"
 ```
 
 ```stata
-. noisily dataprobe patient_id age sex smoking bmi pct_adherence site,
+. noisily dataprobe patient_id age sex smoking bmi pct_adherence site, ///
 >     id(patient_id) outliers(3) rare(5)
 ```
 
@@ -80,12 +76,12 @@ KEY STRUCTURE
 
 ## Expectation gate (warn mode)
 
-<!-- * The same expectations run as a gate. With warn, violations are reported and -->
+<!-- * With warn, violations are reported and execution continues; drop warn to halt -->
 
-<!-- * execution continues; drop warn to halt the do-file with r(9) instead. -->
+<!-- * the do-file with r(9) instead. -->
 
 ```stata
-. noisily dataprobe age pct_adherence, expectn(1200) isid(patient_id)
+. noisily dataprobe age pct_adherence, expectn(1200) isid(patient_id) ///
 >     notmissing(age sex) inrange(age 18 110 \ pct_adherence 0 100) warn
 ```
 
@@ -113,5 +109,40 @@ KEY STRUCTURE
 WARNINGS (2): _demo_cohort
   inrange(age): 1 obs outside [18, 110]  (min -3, max 97.7)
   inrange(pct_adherence): 110 obs outside [0, 100]  (min 25.1, max 147.3)
+
+```
+
+## brief: one line per variable
+
+```stata
+. noisily dataprobe, brief
+```
+
+```
+dataprobe: 1200 obs, 17 variables profiled  (complete cases: 624 = 52.0%)
+  Variable              Class       Type           Miss%   Unique  Flag      Levels
+  patient_name          string      str32           0.0%    >1000  hi-card   all distinct, maxlen 12
+  smoking               categorical double         15.7%        3  missing   0 Never 352; 2 Current 345; 1 Former 315
+  bmi                   continuous  double          7.6%      238  missing
+  sbp                   continuous  double          4.3%      108  missing
+  creatinine            continuous  double         11.8%      168  missing
+  pct_adherence         continuous  double         19.3%      534  missing
+  patient_id            continuous  double          0.0%    >1000
+  subject_id            continuous  double          0.0%    >1000
+  age                   continuous  double          0.0%      450
+  sex                   categorical double          0.0%        2            1 Male 614; 0 Female 586
+  enroll_date           date        double          0.0%      649
+  birth_date            date        double          0.0%    >1000
+  follow_up_time        continuous  double          0.0%      643
+  event                 categorical double          0.0%        2            0 Censored 872; 1 Event 328
+  treatment             categorical double          0.0%        2            0 Control 617; 1 Active 583
+  site                  categorical double          0.0%        7            4 Uppsala 209; 1 Stockholm 207; 2 Gothenburg 202; 5 Linkoping 196; 6 Lund 194; +2 more
+  rare_marker           categorical double          0.0%        2            0 Absent 1,197; 1 Present 3
+
+KEY STRUCTURE
+  (id() not given; inferred from identifier-like names)
+  key (patient_id):  1200 obs, 1200 distinct, records/key min/median/max = 1/1/1, 0 key(s) with >1 record
+  key (subject_id):  1200 obs, 1200 distinct, records/key min/median/max = 1/1/1, 0 key(s) with >1 record
+  key (patient_name):  1200 obs, 1200 distinct, records/key min/median/max = 1/1/1, 0 key(s) with >1 record
 
 ```

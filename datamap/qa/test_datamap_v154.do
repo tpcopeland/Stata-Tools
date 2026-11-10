@@ -3,7 +3,10 @@ set more off
 version 16.0
 
 * test_datamap_v154.do - Regression tests for datamap 1.5.4
-*   1. datadict's documented mincell(5) privacy default is honored
+*   1. datamap's documented mincell(5) privacy default is honored
+*      (2026-11-10, 2.0.0: was datadict's; datadict is removed and its Markdown
+*      writer is datamap's, so tests 1-3 below run on datamap with the same
+*      thresholds; the suppressed cell reads "suppressed (<5)")
 *   2. explicit/configured invalid thresholds are rejected, not defaulted
 *   3. datamvp rejects invalid filters and graph-only no-op options
 
@@ -17,6 +20,7 @@ local tmp_dir "`qa_dir'/data"
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") replace
 discard
+do "`qa_dir'/_qa_md.do"
 
 capture program drop _v154_record
 program define _v154_record
@@ -26,7 +30,7 @@ program define _v154_record
     else    display as error  "FAIL: `label'"
 end
 
-**# datadict privacy default
+**# datamap privacy default (was datadict)
 
 clear
 input byte arm
@@ -38,32 +42,31 @@ label define arm_lbl 1 "Control" 2 "Treatment"
 label values arm arm_lbl
 
 local dict "`tmp_dir'/_v154_dictionary.md"
-capture noisily datadict, output("`dict'") stats
+capture erase "`dict'"
+capture noisily datamap, output("`dict'")
 local dict_rc = _rc
 local saw_suppressed = 0
-tempname fh
-capture file open `fh' using "`dict'", read text
-if _rc == 0 {
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "suppressed <5") local saw_suppressed = 1
-        file read `fh' line
-    }
-    file close `fh'
+local saw_count = 0
+if `dict_rc' == 0 {
+    qa_md_contains using "`dict'", needle("1 Control: suppressed (<5)")
+    local saw_suppressed = r(found)
+    * the Control count (2) and share (66.7%) are never printed
+    qa_md_contains using "`dict'", needle("66.7%")
+    local saw_count = r(found)
 }
 local ++test_count
-local ok = (`dict_rc' == 0 & `saw_suppressed')
+local ok = (`dict_rc' == 0 & `saw_suppressed' & !`saw_count')
 local pass_count = `pass_count' + `ok'
-_v154_record `ok' "datadict defaults to mincell(5)"
+_v154_record `ok' "datamap defaults to mincell(5)"
 
 **# Explicit negative thresholds
 
 foreach spec in "maxc(-1)" "maxfr(-1)" "mince(-1)" {
     local ++test_count
-    capture noisily datadict, output("`dict'") `spec'
+    capture noisily datamap, output("`dict'") `spec'
     local ok = (_rc == 198)
     local pass_count = `pass_count' + `ok'
-    _v154_record `ok' "datadict rejects `spec'"
+    _v154_record `ok' "datamap rejects `spec'"
 }
 
 foreach spec in "maxc(-1)" "maxfr(-1)" "rare(-1)" "outl(-1)" "mince(-1)" {
@@ -76,16 +79,17 @@ foreach spec in "maxc(-1)" "maxfr(-1)" "rare(-1)" "outl(-1)" "mince(-1)" {
 
 **# Invalid configured thresholds
 
+tempname fh
 local badcfg "`tmp_dir'/_v154_bad_config.txt"
 file open `fh' using "`badcfg'", write text replace
 file write `fh' "maxcat = -2" _n
 file close `fh'
 
 local ++test_count
-capture noisily datadict, output("`dict'") config("`badcfg'")
+capture noisily datamap, output("`dict'") config("`badcfg'")
 local ok = (_rc == 198)
 local pass_count = `pass_count' + `ok'
-_v154_record `ok' "datadict rejects invalid configured maxcat"
+_v154_record `ok' "datamap rejects invalid configured maxcat"
 
 local ++test_count
 capture noisily dataprobe, config("`badcfg'")
@@ -131,7 +135,7 @@ local ok = (_rc == 0)
 local pass_count = `pass_count' + `ok'
 _v154_record `ok' "option-like title text is not parsed as top()"
 
-local map_with_option_text "`tmp_dir'/maxcat(-1).txt"
+local map_with_option_text "`tmp_dir'/maxcat(-1).md"
 local ++test_count
 capture noisily datamap, output("`map_with_option_text'")
 local ok = (_rc == 0)

@@ -1,5 +1,13 @@
 *! test_regressions.do Version 1.0.0  2026/08/11
 *! Adversarial regressions from the datamap 1.6.5 deep review
+*! 2026-11-10 (datamap 2.0.0): datadict, the text layout and format(json) are
+*! removed.  The datadict regressions (7, 8, 10, 14, 16, 17, 18) run on datamap's
+*! Markdown writer in document mode; 9, 11, 12 read the Markdown/saving()
+*! identity of data in memory ("## 1. Data in memory", "- Source: data in
+*! memory", source/dataset "memory", memory_map.md); 15 lost its JSON half
+*! (REMOVED FEATURE: no JSON writer, so no "name": "memory" key) and keeps the
+*! separate half.  Documents are read through _qa_md.do (Mata): a document line
+*! may end in a backtick, which stops a macro line reader.
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 clear all
@@ -16,6 +24,18 @@ local pkg_dir "`qa_dir'/.."
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
 discard
+do "`qa_dir'/_qa_md.do"
+
+* is the FIRST line of a document exactly the text in global REG_WANT prefixed "# "?
+* (Mata: want holds quotes the macro layer would re-read)
+capture program drop _reg_firstline
+program define _reg_firstline, rclass
+    version 16.0
+    args file
+    mata: st_numscalar("__rg_ok", _qa_md_cat(st_local("file"))[1] == "# " + st_global("REG_WANT"))
+    return scalar ok = scalar(__rg_ok)
+    scalar drop __rg_ok
+end
 
 capture program drop _reg_record
 program define _reg_record
@@ -156,7 +176,7 @@ else {
     local failed_tests "`failed_tests' 6"
 }
 
-**# datadict quote and path fidelity
+**# document-mode quote and path fidelity (was datadict)
 
 **## Apostrophes in document text round-trip exactly
 local ++test_count
@@ -164,24 +184,15 @@ capture noisily {
     sysuse auto, clear
     tempfile dict
     local dictfile "`dict'.md"
-    quietly datadict, output("`dictfile'") title("Patient's dictionary") ///
+    quietly datamap, output("`dictfile'") title("Patient's dictionary") ///
         notes("Clinician's note")
-    tempname fh
-    file open `fh' using "`dictfile'", read text
-    local saw_title = 0
-    local saw_notes = 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "# Patient's dictionary") > 0 local saw_title = 1
-        if strpos(`"`macval(line)'"', "Clinician's note") > 0 local saw_notes = 1
-        file read `fh' line
-    }
-    file close `fh'
-    assert `saw_title' == 1
-    assert `saw_notes' == 1
+    qa_md_contains using "`dictfile'", needle("# Patient's dictionary") exact
+    assert r(n) == 1
+    qa_md_contains using "`dictfile'", needle("Clinician's note") exact
+    assert r(n) == 1
 }
 local rc = _rc
-_reg_record `rc' "datadict preserves apostrophes in title() and notes()"
+_reg_record `rc' "datamap preserves apostrophes in title() and notes()"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count
@@ -195,13 +206,16 @@ capture noisily {
     local source "`c(tmpdir)'/patient's cohort.dta"
     tempfile dict
     quietly save "`source'", replace
-    quietly datadict, single("`source'") output("`dict'.md")
+    quietly datamap, single("`source'") output("`dict'.md") title("T")
     confirm file "`dict'.md"
+    * the apostrophe is in the Source line, not deleted
+    qa_md_contains using "`dict'.md", needle("patient's cohort.dta")
+    assert r(n) == 1
     erase "`source'"
 }
 local rc = _rc
 capture erase "`c(tmpdir)'/patient's cohort.dta"
-_reg_record `rc' "datadict accepts dataset paths containing apostrophes"
+_reg_record `rc' "datamap accepts dataset paths containing apostrophes"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count
@@ -215,20 +229,13 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     tempfile map
-    quietly datamap, output("`map'.txt")
-    tempname fh
-    file open `fh' using "`map'.txt", read text
-    local saw_memory = 0
-    local saw_tempfile = 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if `"`macval(line)'"' == "DATASET: memory" local saw_memory = 1
-        if strpos(`"`macval(line)'"', "DATASET: St") == 1 local saw_tempfile = 1
-        file read `fh' line
-    }
-    file close `fh'
-    assert `saw_memory' == 1
-    assert `saw_tempfile' == 0
+    quietly datamap, output("`map'.md")
+    qa_md_contains using "`map'.md", needle("## 1. Data in memory") exact
+    assert r(n) == 1
+    qa_md_contains using "`map'.md", needle("- Source: data in memory") exact
+    assert r(n) == 1
+    qa_md_regex using "`map'.md", re("/St[0-9]")
+    assert r(n) == 0
 }
 local rc = _rc
 _reg_record `rc' "datamap hides in-memory transport tempfiles"
@@ -238,31 +245,21 @@ else {
     local failed_tests "`failed_tests' 9"
 }
 
-**## datadict report identifies data in memory, not its tempfile
+**## datamap document mode identifies data in memory, not its tempfile
 local ++test_count
 capture noisily {
     sysuse auto, clear
     tempfile dict
-    quietly datadict, output("`dict'.md")
-    tempname fh
-    file open `fh' using "`dict'.md", read text
-    local saw_heading = 0
-    local saw_source = 0
-    local saw_tempfile = 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if `"`macval(line)'"' == "## 1. Data in memory" local saw_heading = 1
-        if `"`macval(line)'"' == "**Source:** data in memory  " local saw_source = 1
-        if strpos(`"`macval(line)'"', "/St") > 0 local saw_tempfile = 1
-        file read `fh' line
-    }
-    file close `fh'
-    assert `saw_heading' == 1
-    assert `saw_source' == 1
-    assert `saw_tempfile' == 0
+    quietly datamap, output("`dict'.md") title("T")
+    qa_md_contains using "`dict'.md", needle("## 1. Data in memory") exact
+    assert r(n) == 1
+    qa_md_contains using "`dict'.md", needle("- Source: data in memory") exact
+    assert r(n) == 1
+    qa_md_regex using "`dict'.md", re("/St[0-9]")
+    assert r(n) == 0
 }
 local rc = _rc
-_reg_record `rc' "datadict hides in-memory transport tempfiles"
+_reg_record `rc' "datamap document mode hides in-memory transport tempfiles"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count
@@ -274,14 +271,14 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     tempfile mapout mapmeta dictout dictmeta
-    quietly datamap, output("`mapout'.txt") saving("`mapmeta'", replace)
+    quietly datamap, output("`mapout'.md") saving("`mapmeta'", replace)
     preserve
     use "`mapmeta'", clear
     assert source == "memory"
     assert dataset == "memory"
     restore
 
-    quietly datadict, output("`dictout'.md") saving("`dictmeta'", replace)
+    quietly datamap, output("`dictout'.md") saving("`dictmeta'", replace) title("T")
     preserve
     use "`dictmeta'", clear
     assert source == "memory"
@@ -304,20 +301,26 @@ capture noisily {
     local scratch_dir "`c(tmpdir)'"
     cd "`scratch_dir'"
     quietly datamap, separate
-    confirm file "memory_map.txt"
-    erase "memory_map.txt"
+    confirm file "memory_map.md"
+    qa_md_contains using "memory_map.md", needle("## 1. Data in memory") exact
+    assert r(n) == 1
+    qa_md_rows using "memory_map.md"
+    assert r(n) == 12
+    erase "memory_map.md"
 
     local source "`scratch_dir'/datamap separate source.dta"
     quietly save "`source'", replace
     quietly datamap, single("`source'") separate
-    confirm file "`scratch_dir'/datamap separate source_map.txt"
+    confirm file "`scratch_dir'/datamap separate source_map.md"
+    qa_md_contains using "`scratch_dir'/datamap separate source_map.md", needle("## 1. datamap separate source") exact
+    assert r(n) == 1
     erase "`source'"
-    erase "`scratch_dir'/datamap separate source_map.txt"
+    erase "`scratch_dir'/datamap separate source_map.md"
     cd "`original_dir'"
 }
 local rc = _rc
 capture cd "`qa_dir'"
-capture erase "`c(tmpdir)'/memory_map.txt"
+capture erase "`c(tmpdir)'/memory_map.md"
 capture erase "`c(tmpdir)'/datamap separate source.dta"
 capture erase "`c(tmpdir)'/datamap separate source_map.txt"
 _reg_record `rc' "datamap separate supports memory and single() inputs"
@@ -359,69 +362,40 @@ capture noisily {
     sysuse auto, clear
     tempfile dict
     local want `"Cohort "A" patient's dictionary"'
-    quietly datadict, output("`dict'.md") title(`"`want'"')
-    tempname fh
-    file open `fh' using "`dict'.md", read text
-    file read `fh' line
-    local got `"`macval(line)'"'
-    file close `fh'
-    assert `"`macval(got)'"' == `"# `macval(want)'"'
+    quietly datamap, output("`dict'.md") title(`"`want'"')
+    global REG_WANT `"`want'"'
+    _reg_firstline "`dict'.md"
+    assert r(ok) == 1
 }
 local rc = _rc
-_reg_record `rc' "datadict round-trips embedded double and single quotes"
+_reg_record `rc' "datamap round-trips embedded double and single quotes"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count
     local failed_tests "`failed_tests' 14"
 }
 
-**## Alternate memory outputs also hide transport tempfiles
+**## Separate output also hides transport tempfiles (was: alternate memory outputs)
 local ++test_count
 capture noisily {
-    sysuse auto, clear
-    tempfile json
-    quietly datamap, output("`json'.json") format(json)
-    tempname jfh
-    file open `jfh' using "`json'.json", read text
-    local saw_json_memory = 0
-    local saw_json_tempfile = 0
-    file read `jfh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `""name": "memory""') > 0 local saw_json_memory = 1
-        if strpos(`"`macval(line)'"', `""name": "St"') > 0 local saw_json_tempfile = 1
-        file read `jfh' line
-    }
-    file close `jfh'
-    assert `saw_json_memory' == 1
-    assert `saw_json_tempfile' == 0
-
+    * 2026-11-10: the JSON half ("name": "memory") is removed with format(json)
     local original_dir "`c(pwd)'"
     cd "`c(tmpdir)'"
-    quietly datadict, separate
-    confirm file "memory_dictionary.md"
-    tempname dfh
-    file open `dfh' using "memory_dictionary.md", read text
-    local saw_heading = 0
-    local saw_memory_source = 0
-    local saw_tempfile = 0
-    file read `dfh' line
-    while r(eof) == 0 {
-        if `"`macval(line)'"' == "# Data Dictionary: Data in memory" local saw_heading = 1
-        if `"`macval(line)'"' == "**Source:** data in memory  " local saw_memory_source = 1
-        if strpos(`"`macval(line)'"', "/St") > 0 local saw_tempfile = 1
-        file read `dfh' line
-    }
-    file close `dfh'
-    assert `saw_heading' == 1
-    assert `saw_memory_source' == 1
-    assert `saw_tempfile' == 0
-    erase "memory_dictionary.md"
+    quietly datamap, separate title("T")
+    confirm file "memory_map.md"
+    qa_md_contains using "memory_map.md", needle("- Source: data in memory") exact
+    assert r(n) == 1
+    qa_md_contains using "memory_map.md", needle("## 1. Data in memory") exact
+    assert r(n) == 1
+    qa_md_regex using "memory_map.md", re("/St[0-9]")
+    assert r(n) == 0
+    erase "memory_map.md"
     cd "`original_dir'"
 }
 local rc = _rc
 capture cd "`qa_dir'"
-capture erase "`c(tmpdir)'/memory_dictionary.md"
-_reg_record `rc' "JSON and separate outputs preserve the memory identity"
+capture erase "`c(tmpdir)'/memory_map.md"
+_reg_record `rc' "separate output preserves the memory identity (JSON half removed)"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count
@@ -434,16 +408,13 @@ capture noisily {
     sysuse auto, clear
     tempfile dict
     local want `""Quoted patient's dictionary""'
-    quietly datadict, output("`dict'.md") title(`"`want'"')
-    tempname fh
-    file open `fh' using "`dict'.md", read text
-    file read `fh' line
-    local got `"`macval(line)'"'
-    file close `fh'
-    assert `"`macval(got)'"' == `"# `macval(want)'"'
+    quietly datamap, output("`dict'.md") title(`"`want'"')
+    global REG_WANT `"`want'"'
+    _reg_firstline "`dict'.md"
+    assert r(ok) == 1
 }
 local rc = _rc
-_reg_record `rc' "datadict preserves literal outer quotes"
+_reg_record `rc' "datamap preserves literal outer quotes"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count
@@ -457,14 +428,14 @@ capture noisily {
     local want `"Patient's "quoted" cohort"'
     label data `"`want'"'
     tempfile dict meta
-    quietly datadict, output("`dict'.md") saving("`meta'", replace)
+    quietly datamap, output("`dict'.md") saving("`meta'", replace) title("T")
     preserve
     use "`meta'", clear
     assert dataset_label == `"`want'"'
     restore
 }
 local rc = _rc
-_reg_record `rc' "datadict metadata preserves quoted dataset labels"
+_reg_record `rc' "datamap metadata preserves quoted dataset labels"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count
@@ -475,26 +446,26 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    local badsemi "`c(tmpdir)'/datamap;unsafe.txt"
+    local badsemi "`c(tmpdir)'/datamap;unsafe.md"
     capture noisily datamap, output(`"`badsemi'"')
     local maprc = _rc
     capture erase `"`badsemi'"'
     assert `maprc' == 198
 
-    local badquote = "`c(tmpdir)'/datadict" + char(34) + "unsafe.md"
-    capture noisily datadict, output(`"`macval(badquote)'"')
+    local badquote = "`c(tmpdir)'/datamap" + char(34) + "unsafe.md"
+    capture noisily datamap, output(`"`macval(badquote)'"') title("T")
     local dictquoterc = _rc
     capture erase `"`macval(badquote)'"'
     assert `dictquoterc' == 198
 
-    local badtick = "`c(tmpdir)'/datadict" + char(96) + "unsafe.md"
-    capture noisily datadict, output(`"`macval(badtick)'"')
+    local badtick = "`c(tmpdir)'/datamap" + char(96) + "unsafe.md"
+    capture noisily datamap, output(`"`macval(badtick)'"') title("T")
     local dicttickrc = _rc
     capture erase `"`macval(badtick)'"'
     assert `dicttickrc' != 0
 }
 local rc = _rc
-_reg_record `rc' "datamap and datadict enforce output path guards"
+_reg_record `rc' "datamap (plain and document mode) enforces output path guards"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count

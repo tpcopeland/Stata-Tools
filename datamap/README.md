@@ -2,56 +2,57 @@
 
 # datamap — Describe and check data you can't share
 
-**Version 1.10.6** | 2026-10-26
+**Version 2.0.0** | 2026-11-10
 
-[![version](https://img.shields.io/badge/version-1.10.6-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-2.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
-**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Migrating from 1.x](#migrating-from-1x)** · **[Using datamap with a coding agent](#using-datamap-with-a-coding-agent)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
-`datamap` and its companion commands describe a dataset without exposing its rows: privacy-aware text or JSON maps, Markdown data dictionaries, console QC gates that stop a do-file when an expectation fails, a QA ledger of every gate run, and missing-value pattern tables. They are for analysts who must document or hand over data they cannot share.
+`datamap` and its companion commands describe a dataset without exposing its rows, then check it as it changes: privacy-aware Markdown documentation that a person or a coding agent can read, snapshots and diffs that show what a data step did, merge preflight, QC gates that stop a do-file when an expectation fails, a QA ledger, and missing-value pattern tables. They are for analysts who must document, hand over, or work on data they cannot share.
 
 ## Quick Start
 
-After [installing](#installation), write a Markdown data dictionary for Stata's `auto` data:
+After [installing](#installation), document Stata's `auto` data:
 
 ```stata
 sysuse auto, clear
-datadict, output(auto_dictionary.md) missing stats
+datamap, output(auto_map.md)
 ```
 
-The dictionary's Variables table, as written to the file (frequency cells below the default `mincell(5)` are suppressed):
+`datamap` writes one Markdown file: a header for the dataset (source, label, observations, sort order, notes, data signature, and what was withheld) and a Variables table. Frequency cells below the default `mincell(5)` are suppressed. The Variables table, as written to the file:
 
-| Variable | Label | Type | Missing | Statistics/Values |
+<!-- demo-output:start quickstart -->
+| Variable | Label | Type | Missing | Values/Statistics |
 |---|---|---|---|---|
-| `make` | Make and model | String | 0 (0.0%) | N=74; 74 unique values |
-| `price` | Price | Numeric | 0 (0.0%) | N=74<br>Median=5,006; IQR=4,195-6,342<br>Mean=6,165 (SD=2,949)<br>Range=3,291-15,906 |
-| `mpg` | Mileage (mpg) | Numeric | 0 (0.0%) | Unique=21<br>12 (suppressed <5)<br>14 (6; 8.1%)<br>15 (suppressed <5)<br>16 (suppressed <5)<br>17 (suppressed <5)<br>18 (9; 12.2%)<br>19 (8; 10.8%)<br>20 (suppressed <5)<br>21 (5; 6.8%)<br>22 (5; 6.8%)<br>23 (suppressed <5)<br>24 (suppressed <5)<br>25 (5; 6.8%)<br>26 (suppressed <5)<br>28 (suppressed <5)<br>29 (suppressed <5)<br>30 (suppressed <5)<br>31 (suppressed <5)<br>34 (suppressed <5)<br>35 (suppressed <5)<br>41 (suppressed <5) |
-| `rep78` | Repair record 1978 | Numeric | 5 (6.8%) | Unique=5<br>1 (suppressed <5)<br>2 (suppressed, complementary)<br>3 (30; 43.5%)<br>4 (18; 26.1%)<br>5 (11; 15.9%) |
-| `headroom` | Headroom (in.) | Numeric | 0 (0.0%) | Unique=8<br>1.5 (suppressed <5)<br>2.0 (13; 17.6%)<br>2.5 (14; 18.9%)<br>3.0 (13; 17.6%)<br>3.5 (15; 20.3%)<br>4.0 (10; 13.5%)<br>4.5 (suppressed <5)<br>5.0 (suppressed <5) |
-| `trunk` | Trunk space (cu. ft.) | Numeric | 0 (0.0%) | Unique=18<br>5 (suppressed <5)<br>6 (suppressed <5)<br>7 (suppressed <5)<br>8 (5; 6.8%)<br>9 (suppressed <5)<br>10 (5; 6.8%)<br>11 (8; 10.8%)<br>12 (suppressed <5)<br>13 (suppressed <5)<br>14 (suppressed <5)<br>15 (5; 6.8%)<br>16 (12; 16.2%)<br>17 (8; 10.8%)<br>18 (suppressed <5)<br>20 (6; 8.1%)<br>21 (suppressed <5)<br>22 (suppressed <5)<br>23 (suppressed <5) |
-| `weight` | Weight (lbs.) | Numeric | 0 (0.0%) | N=74<br>Median=3,190; IQR=2,240-3,600<br>Mean=3,019 (SD=777)<br>Range=1,760-4,840 |
-| `length` | Length (in.) | Numeric | 0 (0.0%) | N=74<br>Median=192; IQR=170-204<br>Mean=188 (SD=22.27)<br>Range=142-233 |
-| `turn` | Turn circle (ft.) | Numeric | 0 (0.0%) | Unique=18<br>31 (suppressed <5)<br>32 (suppressed <5)<br>33 (suppressed <5)<br>34 (6; 8.1%)<br>35 (6; 8.1%)<br>36 (9; 12.2%)<br>37 (suppressed <5)<br>38 (suppressed <5)<br>39 (suppressed <5)<br>40 (6; 8.1%)<br>41 (suppressed <5)<br>42 (7; 9.5%)<br>43 (12; 16.2%)<br>44 (suppressed <5)<br>45 (suppressed <5)<br>46 (suppressed <5)<br>48 (suppressed <5)<br>51 (suppressed <5) |
-| `displacement` | Displacement (cu. in.) | Numeric | 0 (0.0%) | N=74<br>Median=196; IQR=119-250<br>Mean=197 (SD=91.84)<br>Range=79.00-425 |
-| `gear_ratio` | Gear ratio | Numeric | 0 (0.0%) | N=74<br>Median=2.96; IQR=2.73-3.37<br>Mean=3.01 (SD=0.456)<br>Range=2.19-3.89 |
-| `foreign` | Car origin | Numeric | 0 (0.0%) | Unique=2<br>0 Domestic (52; 70.3%)<br>1 Foreign (22; 29.7%) |
-
-<sub>Copied from `demo/datadict_auto.md`, written by `demo/demo_datamap.do` from a saved copy of `auto` through `single()`; the in-memory call above writes the same table, and only the file header above it differs.</sub>
+| `make` | Make and model | str18 | 0 (0.0%) | N=74; 74 distinct; max length 17 |
+| `price` | Price | int | 0 (0.0%) | N=74; mean=6,165; SD=2,949; median=5,006; IQR=4,195-6,342; range=3,291-15,906 |
+| `mpg` | Mileage (mpg) | int | 0 (0.0%) | 12: suppressed (<5)<br>14: 6 (8.1%)<br>15: suppressed (<5)<br>16: suppressed (<5)<br>17: suppressed (<5)<br>18: 9 (12.2%)<br>19: 8 (10.8%)<br>20: suppressed (<5)<br>21: 5 (6.8%)<br>22: 5 (6.8%)<br>23: suppressed (<5)<br>24: suppressed (<5)<br>25: 5 (6.8%)<br>26: suppressed (<5)<br>28: suppressed (<5)<br>29: suppressed (<5)<br>30: suppressed (<5)<br>31: suppressed (<5)<br>34: suppressed (<5)<br>35: suppressed (<5)<br>41: suppressed (<5) |
+| `rep78` | Repair record 1978 | int | 5 (6.8%) | 1: suppressed (<5)<br>2: suppressed (complementary)<br>3: 30 (40.5%)<br>4: 18 (24.3%)<br>5: 11 (14.9%) |
+| `headroom` | Headroom (in.) | float | 0 (0.0%) | 1.5: suppressed (<5)<br>2.0: 13 (17.6%)<br>2.5: 14 (18.9%)<br>3.0: 13 (17.6%)<br>3.5: 15 (20.3%)<br>4.0: 10 (13.5%)<br>4.5: suppressed (<5)<br>5.0: suppressed (<5) |
+| `trunk` | Trunk space (cu. ft.) | int | 0 (0.0%) | 5: suppressed (<5)<br>6: suppressed (<5)<br>7: suppressed (<5)<br>8: 5 (6.8%)<br>9: suppressed (<5)<br>10: 5 (6.8%)<br>11: 8 (10.8%)<br>12: suppressed (<5)<br>13: suppressed (<5)<br>14: suppressed (<5)<br>15: 5 (6.8%)<br>16: 12 (16.2%)<br>17: 8 (10.8%)<br>18: suppressed (<5)<br>20: 6 (8.1%)<br>21: suppressed (<5)<br>22: suppressed (<5)<br>23: suppressed (<5) |
+| `weight` | Weight (lbs.) | int | 0 (0.0%) | N=74; mean=3,019; SD=777; median=3,190; IQR=2,240-3,600; range=1,760-4,840 |
+| `length` | Length (in.) | int | 0 (0.0%) | N=74; mean=188; SD=22.27; median=192; IQR=170-204; range=142-233 |
+| `turn` | Turn circle (ft.) | int | 0 (0.0%) | 31: suppressed (<5)<br>32: suppressed (<5)<br>33: suppressed (<5)<br>34: 6 (8.1%)<br>35: 6 (8.1%)<br>36: 9 (12.2%)<br>37: suppressed (<5)<br>38: suppressed (<5)<br>39: suppressed (<5)<br>40: 6 (8.1%)<br>41: suppressed (<5)<br>42: 7 (9.5%)<br>43: 12 (16.2%)<br>44: suppressed (<5)<br>45: suppressed (<5)<br>46: suppressed (<5)<br>48: suppressed (<5)<br>51: suppressed (<5) |
+| `displacement` | Displacement (cu. in.) | int | 0 (0.0%) | N=74; mean=197; SD=91.84; median=196; IQR=119-250; range=79.00-425.00 |
+| `gear_ratio` | Gear ratio | float | 0 (0.0%) | N=74; mean=3.01; SD=0.456; median=2.96; IQR=2.73-3.37; range=2.19-3.89 |
+| `foreign` | Car origin | byte | 0 (0.0%) | 0 Domestic: 52 (70.3%)<br>1 Foreign: 22 (29.7%) |
+<!-- demo-output:end quickstart -->
 
 ## Features
 
-- **Aggregate by default.** `datamap` and `datadict` write class-level summaries, suppress frequency cells below `mincell(5)`, and cap distinct-value counts at `uniqcap(1000)`; row-level sample values appear only when `samples()` asks for them, and `datesafe` withholds date values.
-- **Your data is left as found.** A successful in-memory run leaves the caller's observations, variables, sort order, labels, characteristics, and data signature unchanged; file-based routes (`single()`, `directory()`, `filelist()`) restore the data in memory.
-- **One classifier for every command.** `datamap`, `datadict`, and `dataprobe` classify variables the same way, with `exclude()`, class overrides, and a reusable `config()` file.
-- **Gates that stop a do-file.** `dataprobe` invariants such as `expectn()`, `isid()`, `inrange()`, and `rule()` exit with return code 9 when they fail; sanity `bands()` and `review()` items are kept apart so they can warn without halting.
-- **A record of every check.** `dataqa` keeps a ledger row per gate entry, `dataqa assert` halts when a gate failed or an expected dataset was never checked, and `dataqa export` refuses a release copy that shows a small cell.
-- **Missing-data patterns.** `datamvp` tabulates joint missingness, tests for monotone missingness, and draws bar, pattern, matrix, and correlation graphs; under `mincell()` or `maskrare` rare patterns are pooled.
+- **Aggregate by default.** `datamap` writes class-level summaries, suppresses frequency cells below `mincell(5)`, and caps distinct-value counts at `uniqcap(1000)`; row-level sample values appear only when `samples()` asks for them, and `datesafe` withholds date values.
+- **One document command, one collector.** The Markdown document and the `saving()` metadata table (37 columns, optional CSV copy) are built from the same frames, so the file and the table cannot disagree. Markdown is the only file format.
+- **The facts code needs.** Each variable row shows its storage type and date family (`long`, `str12`, `strL`, `double %tc datetime`), its missing count with every extended-missing code (`276 (9.2%): . 51, .a Refused 145, .b Not asked 80`), and for text the numeric-parsable share, non-numeric tokens, padded values, and date-like pattern; the header shows declared `xtset`, `stset`, `svyset`, and `mi` settings; several files in one document get a Linkage block with type conflicts and the merge type each key implies.
+- **What a data step changed.** `dataprobe, snapshot()` stores a profile and `dataprobe, diff()` prints the N change, key uniqueness before and after, and one line per variable that was added, dropped, retyped, or moved; `keyset()` reports a merge's key types, uniqueness, and matched counts before `merge` runs.
+- **A safe preset for logs that leave the machine.** `safe` (or `dataqa set agent` for a session) applies small-cell masking, drops likely identifiers, and withholds exact dates on `datamap`, `dataprobe`, and `datamvp`; it covers printed output and written files, not stored results.
+- **Gates that stop a do-file, and a record of them.** `dataprobe` invariants such as `expectn()`, `isid()`, `inrange()`, and `rule()` exit with return code 9; `dataqa` keeps a ledger row per gate entry and refuses a release copy that shows a small cell.
+- **Missing-data patterns.** `datamvp` tabulates joint missingness, tests for monotone missingness, and draws bar, pattern, matrix, and correlation graphs.
 
 ## Requirements
 
 - Stata 16 or later
-- No external package dependencies for the five commands
-- Pandoc is optional and is needed only when converting a `datadict` Markdown file to HTML, PDF, or Word
+- No external package dependencies for the four commands
+- Pandoc is optional and is needed only when converting a `datamap` Markdown file to HTML, PDF, or Word
 
 The repository demo uses the sibling `logdoc` and `tc_schemes` packages to regenerate console transcripts and the gallery graph. It installs them from the checkout when available and otherwise uses their public Stata-Tools sources.
 
@@ -62,81 +63,156 @@ capture ado uninstall datamap
 net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/datamap") replace
 ```
 
+Upgrading from 1.x: run `ado uninstall datamap` first, then install. `net install, replace` alone leaves the removed `datadict.ado` and `datadict.sthlp` behind in PLUS, still runnable and now out of step with the new helpers, and registers `datamap` a second time, after which `ado uninstall datamap` stops with "criterion matches more than one package". To recover from an in-place upgrade, run `ado dir`, uninstall each `datamap` entry by its number, highest first (for example `ado uninstall [2]`, then `ado uninstall [1]`), and install again. After a clean install `datadict` is unrecognized (r(199)).
+
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `datamap` | Create aggregate text or JSON documentation for one dataset or a collection of `.dta` files |
-| `datadict` | Create a Markdown data dictionary with optional metadata, missingness, statistics, and separate-file output |
-| `dataprobe` | Profile data in the console and enforce declared invariants, sanity bands, and schema comparisons |
-| `dataqa` | Set session QA defaults and report, assert, compare, and export the ledger `dataprobe` writes |
+| `datamap` | Write privacy-aware Markdown documentation for one dataset or a collection of `.dta` files, and a machine-readable variable table with `saving()` |
+| `dataprobe` | Profile data in the console, enforce declared invariants and sanity bands, snapshot and diff a dataset, and preflight a merge key |
+| `dataqa` | Set session QA defaults (including the agent-safe preset) and report, assert, compare, and export the ledger `dataprobe` writes |
 | `datamvp` | Tabulate missing-value patterns, test monotone missingness, and draw missingness graphs |
 
 ## How It Works
 
-`datamap`, `datadict`, and `dataprobe` use the same classifier. It applies `exclude()` first, then explicit `continuous()`, `categorical()`, and date overrides, followed by string type, date formats, value labels or low cardinality, and continuous fallback; `config()` can supply reusable settings.
+`datamap` and `dataprobe` use the same classifier. It applies `exclude()` first, then explicit `continuous()`, `categorical()`, and `date()` overrides, followed by string type, date formats, value labels or low cardinality, and continuous fallback; `config()` can supply reusable settings. Categorical shares use N including missing as the denominator everywhere, so a variable's levels and its missing codes sum to 100%.
 
-The default input is the dataset in memory. `single()` reads one `.dta` file, `directory()` scans `.dta` files, and `filelist()` reads a named list of files; add `recursive` for nested directories. `datadict` also accepts a line-delimited `manifest()` and can use a varlist only with in-memory data or `single()` input.
+`datamap` collects each dataset once into three frames (datasets, variables, levels) and renders from them: the Markdown document and `saving()` read only those frames. `dataprobe` keeps its own profiler and shares the classifier, the `saving()` column schema, and the percent rule.
 
-`datamap` writes text by default and switches to JSON with `format(json)`. `datadict` writes Markdown. `separate` creates one output per input dataset, while `saving()` writes the variable-level metadata table used by downstream checks or other project tooling.
+The default input is the dataset in memory. `single()` reads one `.dta` file, `directory()` scans a folder (add `recursive` for nested folders), `filelist()` reads a named list of files, and `manifest()` reads a text file naming one dataset per line. A varlist narrows the variables only with in-memory data or `single()`.
 
-`datamap` and `datadict` aggregate values by default. `datamap`'s `samples()` option deliberately adds row-level sample values; use `exclude()` and `datesafe` when those rows must not expose identifiers or date values. `mincell(5)` is the default small-cell threshold for categorical and binary frequencies, and `uniqcap(1000)` is the default cap for distinct-value counts.
+The document is one section per dataset: a header, the Variables table, flags and candidates under `quality`, and optional structure, missingness, and sample-row sections. The title block, contents, notes, change log, and footer are written only when a document option (`title()`, `subtitle()`, `version()`, `author()`, `docdate()`, `notes()`, `changelog()`) is given; the contents also appear with two or more datasets, followed by a Linkage block that lists each variable name shared by two or more files with its storage type per file, whether it is unique per file, the merge type it implies, and a flag for a numeric-versus-string conflict or a value label defined differently in two files. `separate` writes one document per dataset (`<dataset>_map.md`, or another `suffix()`, beside the dataset or in `outdir()`), and `append` adds dataset sections to an existing file.
 
-On successful in-memory runs, `datamap` and `datadict` leave the caller's observations, variables, sort order, labels, characteristics, and data signature unchanged. File-based routes preserve and restore the caller's data; `dataprobe` always restores it, and `datamvp` is `sortpreserve`.
+The default Variables columns are Variable, Label, Type, Missing, and Values/Statistics. `columns()` chooses and orders `variable`, `label`, `type`, `class`, `format`, `vallabel`, `missing`, `values`, `notes`, `chars`, `unique`, and `position`; `compact` is the preset `variable type label missing unique`. The data signature is always printed. The Missing cell is masked like any other cell: below `mincell()` a count prints as `suppressed (<5)`, a code whose count would give a withheld count back is withheld too, and when the total is withheld every code is; a variable with only `.` missing has no breakdown. Settings read from the dataset (`xtset`, `tsset`, `stset`, `svyset`, `mi`) are printed as declared; structure found by `detect()` is labelled inferred. The placeholder candidates under `quality` are a heuristic (placeholder dates and values after the run date, plus the values you declare with `placeholders()`); they have no citable source, are listed as "Candidates (not applied)", and are never excluded or changed.
+
+On successful in-memory runs, `datamap` leaves the caller's observations, variables, sort order, labels, characteristics, and data signature unchanged. File-based routes preserve and restore the caller's data; `dataprobe` always restores it, and `datamvp` is `sortpreserve`.
+
+### Migrating from 1.x
+
+`datadict`, the text layout, and `format(json)` are gone. The table lists every removed command, option, config key, and stored result. A removed option stops with r(198) and, for `format()`, `datevars()`, and `date()` holding a date string, a message that names the replacement; `datadict` itself is unrecognized (r(199)) after a clean install, so a stale call fails loudly rather than writing the wrong file.
+
+| 1.x | 2.0.0 |
+|---|---|
+| `datadict, output(d.md) missing stats` | `datamap, output(d.md)`. The Missing column and the statistics are always written. |
+| `datadict, output(d.md) detail` | `datamap, output(d.md) columns(variable label type format vallabel missing values notes chars)` |
+| `datadict, ... datasignature` | `datamap, ...`. The data signature is always printed. |
+| `datadict, ... date("2026-01-01")` | `datamap, ... docdate("2026-01-01")`. `date()` now takes a varlist and classifies variables as dates. |
+| `datadict, ... datevars(v)` | `datamap, ... date(v)`. `datevars()` stops with r(198). |
+| `datadict, directory(d) separate` | `datamap, directory(d) separate suffix(_dictionary)`. The default suffix is `_map`; files are named `<dataset><suffix>.md`. |
+| `datadict` with no `output()` (`data_dictionary.md`) | `datamap` (`datamap.md`) |
+| `datadict, manifest(f)`, `title()`, `subtitle()`, `version()`, `author()`, `notes()`, `changelog()`, `columns()`, `outdir()` | The same options on `datamap`. A document option adds the title block, contents, notes, change log, and footer. |
+| `datamap` (text map, `datamap.txt`) | `datamap` writes Markdown to `datamap.md`; a `.txt` name still gets Markdown |
+| `datamap, format(json)` or `format(text)` | `format()` stops with r(198). Use `saving(f, replace csv)` for a machine-readable table; it holds the 27 columns of 1.10.6 unchanged plus 10 new ones. |
+| `datamap, noguidance` | Removed (r(198)). The guidance prose is gone from the output. |
+| `datamap, compact` | `compact` is now the preset `variable type label missing unique`; `compact` with `columns()` stops with r(198). |
+| `datamap, append` on a text file | `append` adds dataset sections to a Markdown file; it stops with r(198) with a document option or `separate`. |
+| `datadict, ... missing`, `datamap, missing(detail)` | Bare `missing` and `stats` stop with r(198). `missing(detail)` and `missing(pattern)` still add the missingness section. |
+| config key `format = json`, `missing = yes`, `stats`, `detail`, `datasignature`, `noguidance` | `format` and `missing = yes\|no` stop with r(198) naming the key. `stats`, `detail`, `datasignature`, and `noguidance` are ignored with a note, as is any key no command reads, a line with no `=` or `:`, and a switch whose value is not yes or no (1.x ignored all of these silently). The `datevars` key now sets `date()`; the `docdate` key sets the document date. |
+| `saving(f, replace foo)` | A suboption other than `replace` or `csv` stops with r(198); 1.x ignored it. |
+| `r(nobs_total)`, `r(nvars_total)` (`datadict`) | `r(nobs)` and `r(nvars)`, set only for a run on the data in memory or `single()` (not for `filelist()`, `directory()`, or `manifest()`, even when they name one file). |
+| `r(format)` | Removed. |
+| `r(output)` under `separate` | Unset under `separate`. Read `r(outputs)`, a `;`-separated list of the files written. |
+| Categorical shares in `datadict` (of nonmissing) | Of N including missing, as `datamap` and `dataprobe` always did. |
+
+`dataprobe` keeps its 1.x calls. Three behaviours changed. First, `saving()`, `compare()`, `diff()`, `snapshot()`, and `makespec()` targets are checked before any output (a missing folder is r(603), an existing target without `replace` is r(110) or r(602), and `compare()` or `diff()` naming the current frame is r(198)), second, a `keyset()` type conflict is a failed entry (return code 9, or a warning under `warn`) where 1.x stopped with an error; third, `compare()` prints one line per changed variable (`gear_ratio: dropped (float)`, `flag: added (byte, categorical)`) and `no changes`, in place of the aggregate `added:` and `dropped:` lines and `no schema drift detected`.
 
 ## Choosing a Workflow
 
 | Goal | Command | Result |
 |------|---------|--------|
-| Build a technical inventory for a handoff or pipeline | `datamap` | Privacy-aware text or JSON map with classifications, summaries, and optional samples |
-| Publish a readable variable reference | `datadict` | CommonMark Markdown with optional metadata, missingness, statistics, and notes |
-| Inspect or gate a dataset before analysis | `dataprobe` | Console profile, expectation verdict, and optional profile or violation artifact |
+| Give a person or a coding agent the structure of a dataset | `datamap` | Markdown header, variable table, flags, optional structure and missingness sections |
+| Publish a readable variable reference | `datamap` with `title()`, `notes()`, `changelog()` | Title block, contents, notes, change log, footer |
+| Hand a variable-level table to code | `datamap, saving()` | `.dta` (and `.csv` with `csv`) with 37 columns per variable |
+| Document a collection and see how the files link | `datamap, directory()` or `filelist()` | One document with a Linkage block, or `separate` documents |
+| See what a data step changed | `dataprobe, snapshot()` then `diff()` | N, key, and one line per changed variable |
+| Check a merge before running it | `dataprobe, keyset()` | Types, uniqueness, merge type, matched and unmatched keys |
+| Inspect or gate a dataset | `dataprobe` | Console profile, expectation verdict, optional profile or violation artifact |
 | Keep a structured record of every gate run | `dataqa` | Ledger rows per gate entry, a register draft, and an assert that every expected dataset was checked |
 | Understand joint missingness | `datamvp` | Pattern-frequency table, monotone test, generated indicators, or graph |
 
-Start with one dataset and the default output. Add `exclude()` and `datesafe` before sharing a map, then move to `directory()` plus `recursive` for nested collections; for `datadict`, use `manifest()` when the single-dataset contract is settled.
+Start with one dataset and the default output. Add `exclude()` and `datesafe` (or `safe`) before sharing a map, then move to `directory()` plus `recursive` for nested collections.
+
+### Using datamap with a coding agent
+
+An agent that writes Stata code cannot look at the rows and cannot see what a data step did. Four situations, one command each; with `safe` on, each prints aggregates only.
+
+| Situation | Command | What the agent learns |
+|---|---|---|
+| Before writing code | `datamap, safe output(map.md)` | Every variable's storage type, label, missing counts, levels or statistics, the declared panel and survival settings, and for several files which variables link them |
+| After each data step | `dataprobe, diff(prev) snapshot(prev, replace) gatesonly` | N before and after, key uniqueness, and one line per added, dropped, retyped, or changed variable |
+| Before a merge | `dataprobe, gatesonly keyset(<key> using <file>.dta)` | Key types, uniqueness on each side, the implied merge type, and matched, memory-only, and file-only key counts |
+| When a result looks wrong | `dataprobe, brief` | One line per variable, flagged variables first, top levels for categoricals |
+
+`dataqa set agent` switches `safe` on for `datamap`, `dataprobe`, and `datamvp` until `dataqa set clear`. Put this in the project's `CLAUDE.md` (or the equivalent instruction file for another agent):
+
+````markdown
+## Data checks (Stata, datamap package)
+
+This project uses the Stata package `datamap` (`net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/datamap")`). Do not list, browse, or print rows of the data. Use these commands and read their output.
+
+- Start each Stata session with `dataqa set agent`. Until `dataqa set clear`, `datamap`, `dataprobe`, and `datamvp` withhold small counts, likely identifiers, and exact dates from printed output and written files.
+- Before writing code against a dataset, run `datamap, output(map.md)` (several files: `datamap, directory(<folder>) output(map.md)`) and read `map.md`.
+- After every step that changes the data, run `dataprobe, diff(prev) snapshot(prev, replace) gatesonly` and read its lines before continuing. Start the chain once with `quietly dataprobe, snapshot(prev)`.
+- Before every merge, run `dataprobe, gatesonly keyset(<key> using <file>.dta)`. Do not run `merge` while it reports a type conflict.
+- When a result looks wrong, run `dataprobe, brief`.
+- Stored results (`r()`) and `snapshot()` frames are not masked: do not print them. `safe` covers printed output and written files only.
+````
 
 ## Worked Examples
 
-The examples use only Stata's built-in `auto` data and temporary files created by the examples. Run each example independently unless it explicitly carries state forward.
+The examples use Stata's built-in `auto` data, data the example creates, and temporary files. Run each example independently unless it says it carries state forward.
 
-### 1. Write an aggregate text map
+### 1. Withhold identifiers and flag placeholders
+
+```stata
+clear
+set seed 20261110
+set obs 400
+generate long lopnr = 100000 + _n
+generate byte sex = runiform() < .5
+label define edul 1 "Primary" 2 "Secondary" 3 "Tertiary" .a "Refused" .b "Not asked"
+generate byte edu = ceil(3*runiform())
+replace edu = .a in 1/18
+replace edu = .b in 19/30
+replace edu = . in 31/45
+label values edu edul
+generate double bmi = 18 + 14*runiform()
+replace bmi = 999 in 1/26
+generate admit = mdy(1, 1, 2015) + floor(runiform()*700)
+format admit %td
+generate exit = admit + 100
+replace exit = mdy(1, 1, 2070) in 1/7
+format exit %td
+datamap, exclude(auto) quality placeholders(999) output(person_map.md)
+```
+
+`exclude(auto)` withholds every variable `r(suggested_exclude)` would name (here `lopnr`); the document lists its structure and no values. `edu` reads `45 (11.3%): . 15, .a Refused 18, .b Not asked 12` in the Missing column, `admit` and `exit` read `float %td daily`, and the section "Candidates (not applied)" lists `bmi: 999: 26 rows` (declared with `placeholders(999)`) and the seven `exit` values after the run date. Without `quality` no candidates are listed.
+
+### 2. Save the variable-level table
 
 ```stata
 sysuse auto, clear
-datamap, output(auto_map.txt) quality missing(detail)
+datamap, compact output(auto_compact.md) saving(auto_meta, replace csv)
+import delimited using auto_meta.csv, clear varnames(1)
+list variable storage_type missing unique key in 1/5, noobs
 ```
 
-The output contains variable classes, aggregate summaries, value labels, missingness, and quality guidance without exporting sample rows.
+`saving()` keeps the 27 columns of 1.10.6 and adds `missing_codes`, `position`, `date_family`, `numeric_n`, `numeric_pct`, `padded_n`, `date_mask`, `is_strl`, `key`, and `candidates` (`missing_codes` and `candidates` are `strL`). `csv` also writes `auto_meta.csv`. In both files the new count columns (`numeric_n`, `numeric_pct`, `padded_n`) are `.s` wherever the document withholds them. The 1.10.6 count columns keep exact values except under `safe`, where `missing` and `missing_pct` are `.s` wherever the document withholds the Missing count; without `safe`, a document that prints `suppressed (<5)` sits beside files that hold the exact count. Even under `safe`, unique counts, minima, maxima, and quartiles are written as computed. `r(metadata)` and `r(metadata_csv)` name the files.
 
-### 2. Apply privacy controls and automatic structure detection
+### 3. Write a publishable document
 
 ```stata
 sysuse auto, clear
-datamap, output(auto_private.txt) exclude(make) compact autodetect quality
+datamap, output(auto_dictionary.md) title("Auto data dictionary") subtitle("1978 models") ///
+    author("Timothy P Copeland, Karolinska Institutet") version("1.0") docdate("2026-11-10") ///
+    notes("Prices are in 1978 US dollars.") changelog("1.0: first release") ///
+    columns(variable label type format vallabel missing values)
 ```
 
-`compact` keeps the disclosure summary and quick-reference content while omitting the longer guidance sections.
+Any document option adds the title block, contents, `## Notes`, `## Change Log`, and a footer with the document version, author, and date; `notes()` and `changelog()` accept inline text or the path of a text file.
 
-### 3. Produce JSON and save the metadata table
-
-```stata
-sysuse auto, clear
-datamap, format(json) output(auto_map.json) saving(auto_metadata.dta, replace)
-```
-
-The JSON is suitable for programmatic consumers, and `auto_metadata.dta` contains one row per documented variable plus the shared classification and privacy fields.
-
-### 4. Create a Markdown dictionary with statistics
-
-```stata
-sysuse auto, clear
-datadict, output(auto_dictionary.md) title("Auto data dictionary") missing stats detail datasignature
-```
-
-Use `columns()` when the default dictionary columns should be replaced or reordered, and use `notes()` or `changelog()` for document-level content.
-
-### 5. Document a saved dataset without changing the active data
+### 4. Document a saved dataset without changing the active data
 
 ```stata
 sysuse auto, clear
@@ -145,33 +221,35 @@ local before "`r(datasignature)'"
 tempfile auto_file
 local auto_file "`auto_file'.dta"
 save "`auto_file'", replace
-datadict, single("`auto_file'") output(auto_from_file.md) missing stats
+datamap, single("`auto_file'") output(auto_from_file.md)
 quietly datasignature
 assert "`before'" == "`r(datasignature)'"
 ```
 
 The `single()` route loads the file for processing and restores the caller's in-memory data afterward.
 
-### 6. Build separate dictionaries from a temporary directory
+### 5. Document several files and read the Linkage block
 
 ```stata
 tempfile marker
-local inputs "`marker'_inputs"
-local outputs "`marker'_outputs"
-mkdir "`inputs'"
-mkdir "`outputs'"
-
-sysuse auto, clear
-save "`inputs'/auto_original.dta", replace
-replace mpg = mpg + 1
-save "`inputs'/auto_changed.dta", replace
-
-datadict, directory("`inputs'") recursive separate outdir("`outputs'") suffix("_dictionary")
+local dir "`marker'_link"
+capture mkdir "`dir'"
+clear
+set obs 300
+generate long lopnr = _n
+generate byte sex = mod(_n, 2)
+save "`dir'/person.dta", replace
+clear
+set obs 900
+generate str12 lopnr = string(ceil(_n/3))
+generate int drug = mod(_n, 7)
+save "`dir'/rx.dta", replace
+datamap, directory("`dir'") output(linked.md)
 ```
 
-`outdir()` must already exist. The command writes one Markdown file per dataset with the requested suffix.
+The Linkage block reads `lopnr | person, rx | person long; rx str12 | person yes; rx no | cannot merge: numeric and string | type conflict: numeric in person; string in rx`: `merge` on that key would stop with r(106). Add `separate` and `outdir()` (the folder must exist) to write `person_map.md` and `rx_map.md` instead; separate documents carry no Linkage block.
 
-### 7. Profile data and enforce expectations
+### 6. Profile data and enforce expectations
 
 ```stata
 sysuse auto, clear
@@ -181,7 +259,62 @@ dataprobe, expectn(74) isid(make) notmissing(price mpg weight) inrange(mpg 10 50
 
 Gate failures exit with return code 9; add `warn` when violations should be reported without stopping the do-file.
 
-### 8. Save a profile and compare a refreshed dataset
+### 7. See what a data step changed
+
+```stata
+sysuse auto, clear
+quietly dataprobe, snapshot(step)
+tostring rep78, replace
+replace price = . in 1/10
+dataprobe, gatesonly diff(step) snapshot(step, replace)
+```
+
+The `DIFF` block prints, for this data:
+
+```
+DIFF
+  baseline: frame step
+  N: current 74, baseline 74, delta 0
+  key make: unique before and after
+  price: missing 0 -> 10 (+10); distinct 74 -> 64 (-10); mean 6165.26 -> 6266.48
+  rep78: type int -> str1; class categorical -> string; missing 5 -> 0 (-5); distinct 5 -> 6 (+1)
+```
+
+`diff()` never stops the do-file; it prints one line per variable that moved beyond `tol()` and `no changes` when nothing did. `snapshot(step, replace)` in the same call rolls the baseline forward. `compare(name)` prints the same lines for a frame or a `.dta` baseline and keeps its 1.x role as a gate.
+
+### 8. Preflight a merge and write the gates as code
+
+```stata
+sysuse auto, clear
+dataprobe, makespec(auto_gates.do, replace) gatesonly
+do auto_gates.do
+
+tempfile marker
+local dir "`marker'_merge"
+capture mkdir "`dir'"
+clear
+set obs 300
+generate long lopnr = _n
+save "`dir'/person.dta", replace
+clear
+set obs 900
+generate str12 lopnr = string(ceil(_n/3))
+save "`dir'/rx.dta", replace
+use "`dir'/person.dta", clear
+dataprobe, gatesonly warn keyset(lopnr using "`dir'/rx.dta")
+```
+
+`makespec()` with a target ending in `.do` writes the equivalent `dataprobe, gatesonly ...` command, so the gates live in code an agent can read, edit, and diff; the do-file passes on the data it came from and exits 9 on data that breaks a gate. `keyset()` prints a preflight block before its verdict:
+
+```
+KEYSET PREFLIGHT: lopnr using rx
+  types: lopnr long in memory, str12 in rx
+  type conflict (numeric and string): merge would stop with r(106)
+```
+
+With compatible types it adds uniqueness on each side, the implied merge type, matched, memory-only, and file-only key counts, the rows `merge` would report, and the non-key variables present on both sides. Under `maskrare` a count that the others would give back prints as `all but <5`. An entry `makespec()` cannot write exactly (text holding a line break, a backtick, `$`, or a comment opener, or a string level with a space) is left out of the do-file with a comment saying so.
+
+### 9. Save a profile and compare a refreshed dataset
 
 ```stata
 sysuse auto, clear
@@ -193,9 +326,9 @@ generate byte readme_added = 1
 dataprobe, compare("`baseline'") violations("`violations'", replace) warn
 ```
 
-`compare()` reports added, dropped, type-changed, and class-changed variables; `violations()` can save a structured `.dta` artifact or write to a frame.
+`saving()`, `compare()`, `diff()`, `snapshot()`, and `makespec()` take a frame name or a file: a target ending in `.dta` (`.do` for `makespec()`) or holding a `/` or `\` is a file, and anything else is a frame. All targets are validated before any output. A plain dataset used as the baseline gives schema-only lines (N, added, dropped, type); a `snapshot()` frame or a `saving()` profile also gives missing, distinct, and mean lines.
 
-### 9. Inspect missingness patterns and draw a graph
+### 10. Inspect missingness patterns and draw a graph
 
 ```stata
 sysuse auto, clear
@@ -206,7 +339,7 @@ graph export auto_missing.png, as(png) replace
 
 `datamvp` treats empty strings as missing, returns pattern counts and monotone status, and supports `generate()` or `save()` when the pattern data should be reused.
 
-### 10. Record gate results in a QA ledger
+### 11. Record gate results in a QA ledger
 
 ```stata
 tempfile ledger
@@ -222,6 +355,8 @@ Each gate entry, passed or failed, becomes one ledger row with its kind (invaria
 
 ## Demo
 
+<!-- demo-output: this section lists the files `demo/demo_datamap.do` writes; slice 3 owns the links and the figure and may rename them. -->
+
 From a Stata-Tools repository checkout, run the named demo script from the repository root:
 
 ```bash
@@ -230,13 +365,15 @@ stata-mp -b do datamap/demo/demo_datamap.do
 
 The script installs the local `datamap` source plus `logdoc` and `tc_schemes` from the checkout or their public Stata-Tools sources, writes reproducible assets under `datamap/demo/`, and removes its temporary logs at the end. The generated assets are checkout documentation, not files installed by `net install`.
 
-- [Privacy-safe map transcript](demo/console_datamap_privacy.md)
-- [JSON output transcript](demo/console_datamap_json.md)
-- [Markdown dictionary transcript](demo/console_datadict.md)
+- [Default map transcript](demo/console_datamap_map.md)
+- [Compact map transcript](demo/console_datamap_compact.md)
+- [Safe map transcript](demo/console_datamap_safe.md)
 - [Console QC transcript](demo/console_dataprobe.md)
+- [Snapshot and diff transcript](demo/console_dataprobe_diff.md)
 - [Missingness-pattern transcript](demo/console_datamvp.md)
-- [Generated JSON metadata](demo/datamap_metadata.json)
-- [Clinical Markdown dictionary](demo/datadict_clinical.md)
+- [Clinical Markdown document](demo/datamap_clinical.md)
+- [Agent-safe Markdown document](demo/datamap_agent.md)
+- [Variable-level metadata table (CSV)](demo/datamap_vars.csv)
 
 ![Horizontal bar chart showing the percentage missing for Biomarker A, B, C, and D (variables x1 to x4) in the shipped demo dataset](demo/missingness_bar.png)
 
@@ -245,18 +382,10 @@ The script installs the local `datamap` source plus `logdoc` and `tc_schemes` fr
 ### `datamap`
 
 ```stata
-datamap [, options]
+datamap [varlist] [, options]
 ```
 
-See [datamap.sthlp](datamap.sthlp) for the full syntax, classification rules, output schema, privacy warnings, and examples.
-
-### `datadict`
-
-```stata
-datadict [varlist] [, options]
-```
-
-See [datadict.sthlp](datadict.sthlp) for Markdown column contracts, manifests, metadata, conversion, and separate-output workflows.
+See [datamap.sthlp](datamap.sthlp) for the full syntax, classification rules, output layout, privacy limits, removed options, and examples.
 
 ### `dataprobe`
 
@@ -264,12 +393,12 @@ See [datadict.sthlp](datadict.sthlp) for Markdown column contracts, manifests, m
 dataprobe [varlist] [if] [in] [, options]
 ```
 
-See [dataprobe.sthlp](dataprobe.sthlp) for profile fields, gate syntax, reusable `.dta` check specifications, comparison artifacts, and return codes.
+See [dataprobe.sthlp](dataprobe.sthlp) for profile fields, gate syntax, reusable `.dta` and `.do` check specifications, snapshots and diffs, comparison artifacts, and return codes.
 
 ### `dataqa`
 
 ```stata
-dataqa set [options | clear]
+dataqa set [agent] [options | clear]
 dataqa report [using ledger] [, run() markdown() replace bands]
 dataqa assert [using ledger] [, run() expect() baseline() baseledger() optional()]
 dataqa export [using ledger], saving() [run() replace threshold()]
@@ -292,40 +421,34 @@ See [datamvp.sthlp](datamvp.sthlp) for pattern filters, monotone tests, generate
 
 | Options | Purpose |
 |-------|----------------------|
-| `single()`, `directory()`, `filelist()`, `recursive` | Input routes and nested-directory scanning. |
-| `output()`, `format(text)`, `format(json)`, `separate`, `append`, `saving()`, `config()` | Output format, routing, metadata, and reusable settings. |
-| `nostats`, `nofreq`, `nolabels`, `maxfreq(25)`, `maxcat(25)`, `mincell(5)`, `uniqcap(1000)`, `compact`, `noguidance` | Summary detail, thresholds, and report length. |
-| `exclude()`, `continuous()`, `categorical()`, `date()`, `dateformat()`, `detect()`, `autodetect`, `panelid()`, `survivalvars()` | Privacy exclusions, classification overrides, and structure detection. |
-| `datesafe`, `samples()`, `missing(detail/pattern)`, `quality`, `quality2(strict)` | Sample-row privacy, missingness, and quality diagnostics. |
+| `single()`, `directory()`, `filelist()`, `manifest()`, `recursive` | Input routes and nested-directory scanning; a varlist only with memory or `single()`. |
+| `output()`, `separate`, `outdir()`, `suffix(_map)`, `append`, `saving()`, `config()` | Output routing (`datamap.md` by default), the metadata table (`saving(name[, replace csv])`), and reusable settings. |
+| `title()`, `subtitle()`, `version()`, `author()`, `docdate()`, `notes()`, `changelog()` | Document options; any one adds the title block, contents, notes, change log, and footer. |
+| `columns()`, `compact`, `nostats`, `nofreq`, `nolabels`, `maxfreq(25)`, `maxcat(25)`, `mincell(5)`, `uniqcap(1000)` | Table columns, summary detail, and thresholds. |
+| `exclude()`, `datesafe`, `dateformat()`, `safe`, `samples()` | Privacy: `exclude(auto)` withholds the likely identifiers; `safe` is the agent-safe preset; `samples()` adds row-level values and is refused under `safe`. |
+| `continuous()`, `categorical()`, `date()` | Classification overrides (`date()` is a varlist). |
+| `detect()`, `autodetect`, `panelid()`, `survivalvars()` | Structure detection, labelled inferred. |
+| `quality`, `quality2(strict)`, `missing(detail/pattern)`, `placeholders()` | Quality flags, candidate placeholder values and dates, and the missingness section. |
+| `format()`, `datevars()` | Removed in 2.0.0; parsed only to stop with a pointer (r(198)). |
 
-`format(text)` is the default and uses `datamap.txt` when `output()` is omitted; JSON uses `datamap.json`. `append` is available for combined text output, not JSON.
-
-### `datadict`
-
-| Options | Purpose |
-|-------|----------------------|
-| `single()`, `directory()`, `filelist()`, `manifest()`, `recursive` | Input routes and nested-directory scanning. |
-| `output()`, `separate`, `outdir()`, `suffix(_dictionary)`, `saving()`, `config()` | Output routing, metadata, and reusable settings. |
-| `title()`, `subtitle()`, `version()`, `author()`, `date()`, `notes()`, `changelog()` | Document metadata and explanatory sections. |
-| `missing`, `stats`, `detail`, `columns()`, `datasignature` | Dictionary content and technical metadata. |
-| `exclude()`, `continuous()`, `categorical()`, `datevars()`, `dateformat()` | Privacy exclusions and classification overrides. |
-| `maxcat(25)`, `maxfreq(25)`, `mincell(5)`, `uniqcap(1000)` | Category, frequency, suppression, and distinct-count thresholds. |
-
-The default output is `data_dictionary.md`. `date()` sets document metadata, while `datevars()` overrides which variables are classified as dates.
+`exclude(auto)` may be combined with names (`exclude(auto ssn)`). `safe` raises `mincell()` to at least 5 (a larger value wins), turns on `datesafe` and `exclude(auto)`, lists no values for text above `maxcat()` distinct values or holding a digit, names no level held by fewer than `mincell()` rows (`other values: suppressed (<5 each)`), and refuses a typed `samples()`. It does not scan free text: the data label, dataset notes, variable and value labels, and (with `columns()` or `saving()`) variable notes and characteristics print as written, so read them before sharing.
 
 ### `dataprobe`
 
 | Options | Purpose |
 |-------|----------------------|
 | `single()`, `id()`, `exclude()`, `continuous()`, `categorical()`, `date()`, `detail`, `maxfreq(20)`, `rare()`, `outliers(0)`, `mincell(0)`, `maskrare` | Profile variables, distributions, rare cells, and outliers. |
-| `nomissing`, `patterns` | Missingness summaries and pattern analysis. |
+| `nomissing`, `patterns`, `brief`, `safe` | Missingness summaries and pattern analysis; `brief` prints one line per variable; `safe` is the agent-safe preset. |
 | `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `rule()`, `byrule()`, `stat()`, `binary()`, `events()`, `intervals()`, `keyset()`, `constant()`, `sets()`, `smallcells()` | Invariant gates. |
 | `bands()`, `bandwarn`, `coverage()` | Sanity bands kept apart from invariants; `bandwarn` makes only bands warn. |
 | `review()`, `heaping()`, `groupstat()`, `complete()`, `jumps()` | Review items that print and never halt (or gate with a threshold). |
 | `warn`, `gatesonly`, `onlyflagged`, `show(flagged)`, `minversion()` | Halting behavior, display filters, and a version probe. |
-| `by()`, `byfreq`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `ledger()`, `name()`, `signature`, `config()` | Grouped checks, reusable specs, comparisons, artifacts, the QA ledger, and settings. |
+| `snapshot()`, `diff()`, `tol()` | Store a profile in a frame; print what changed against a frame or file; the tolerances (default relative 1e-8 for moments, 0 for counts). |
+| `by()`, `byfreq`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `ledger()`, `name()`, `signature`, `config()` | Grouped checks, reusable specs (`.dta`, or `.do` for `makespec()`), comparisons, artifacts, the QA ledger, and settings. |
 
-`maskrare` masks every printed count below the threshold (gate messages, missingness and groupwise blocks, the `patterns` table), withholds percentages and complements that would recover one, and replaces minima and maxima with guarded p1 and p99. `stat()` accepts mean, sd, percentiles, `sum`, `n`, `distinct`, `pmiss`, `ess` (Kish effective sample size), and `ratio num den`, each with an optional `if` per entry. `events()` requires an event at every covariate level, `intervals()` checks overlap, gaps, order, and event placement on its own sort, `keyset()` compares keys with a saved file, `constant()` requires time-fixed values within a key, `byrule()` evaluates a rule under `by byvars (sortvars):` so `_n`, `_N`, and `[_n-1]` count within groups, and `smallcells()` is a publication gate on a results table (no released count or difference such as `n1-e1` in 1 to m-1). `coverage()` takes `endq()` to test the delivery ends on quantiles rather than the raw extremes, and `gap(none)` to declare that no delivery lag was sourced; `groupstat(n mean p99: x, by(g))` prints several statistics in one table, and `by(g) byfreq` adds frequency tables within each group. Gates inside `bands()` are sanity bands: with `bandwarn` they warn while invariants still halt. Under `gatesonly` the profile is skipped and only the gate columns are kept. Gate failures exit with return code 9; a run where every gate passes prints a `PASS:` line naming the dataset and the active masking.
+`brief` runs the full profile quietly and prints one line per variable (name, class, type, missing share, distinct count, flag), flagged variables first, the top five levels of a categorical variable (a level held by fewer than the mask is not listed), and `all distinct, maxlen #` for text whose values are all distinct; the stored results are those of the full profile, and `brief` cannot be combined with `gatesonly`, `patterns`, or `byfreq`. `safe` is `maskrare` with `mincell(5)` or more, the likely identifiers excluded, no date printed (a date's p1 and p99 read `[withheld]`), and no levels for text above `maxcat()` distinct values, text holding a digit, or a date-formatted variable; it refuses `makespec()`, `nomaskrare`, and a `by()` or `over()` variable that is an identifier, a date, or text holding a digit.
+
+`maskrare` masks every printed count below the threshold (gate messages, missingness and groupwise blocks, the `patterns` table), withholds percentages and complements that would recover one, and replaces minima and maxima with guarded p1 and p99. `stat()` accepts mean, sd, percentiles, `sum`, `n`, `distinct`, `pmiss`, `ess` (Kish effective sample size), and `ratio num den`, each with an optional `if` per entry. `events()` requires an event at every covariate level, `intervals()` checks overlap, gaps, order, and event placement on its own sort, `keyset()` compares keys with a saved file and prints a merge preflight, `constant()` requires time-fixed values within a key, `byrule()` evaluates a rule under `by byvars (sortvars):` so `_n`, `_N`, and `[_n-1]` count within groups, and `smallcells()` is a publication gate on a results table (no released count or difference such as `n1-e1` in 1 to m-1). `coverage()` takes `endq()` to test the delivery ends on quantiles rather than the raw extremes, and `gap(none)` to declare that no delivery lag was sourced; `groupstat(n mean p99: x, by(g))` prints several statistics in one table, and `by(g) byfreq` adds frequency tables within each group. Gates inside `bands()` are sanity bands: with `bandwarn` they warn while invariants still halt. Under `gatesonly` the profile is skipped and only the gate columns are kept. Gate failures exit with return code 9; a run where every gate passes prints a `PASS:` line naming the dataset and the active masking. A gate entry that names a variable `require()` reports missing is not run (a note says so) and `require()` fails.
 
 ### `datamvp`
 
@@ -333,10 +456,10 @@ The default output is `data_dictionary.md`. `date()` sets document metadata, whi
 |-------|----------------------|
 | `minfreq(1)`, `notable`, `skip`, `sort`, `nodrop`, `percent`, `cumulative`, `ascending`, `minmissing()`, `maxmissing()`, `nosummary`, `wide` | Pattern table filters, ordering, and display. |
 | `correlate`, `monotone`, `bytable()`, `generate()`, `save()` | Missingness analysis, percent missing by group, and reusable outputs. |
-| `mincell()`, `maskrare`, `top()` | Small-cell masking, pooling of rare patterns, and a cap on the pattern table. |
+| `mincell()`, `maskrare`, `safe`, `top()` | Small-cell masking, pooling of rare patterns, the agent-safe preset, and a cap on the pattern table. |
 | `graph(bar\|patterns\|matrix\|correlation)`, `scheme()`, `title()`, `subtitle()`, `gname()`, `gsaving()`, `nodraw`, `varlabels`, `horizontal`, `vertical`, `top()`, `barcolor()`, `misscolor()`, `obscolor()`, `textlabels`, `colorramp()`, `gby()`, `over()`, `stacked`, `groupgap()`, `legendopts()`, `graphoptions()` | Graph types, styling, grouping, and export. |
 
-Under `mincell()` or `maskrare`, patterns below the threshold are pooled into one final row, so the displayed frequencies still sum to N. `top()` caps the pattern table (at 20 by default under masking) and pools the rest into the same row. The default graph orientation for `graph(bar)` is horizontal. `matrix` graphs automatically sample up to 500 observations when the dataset is larger and accept only the documented `sample(#)` and `sort` suboptions. The command accepts at most 244 variables. `generate()` checks every output name before creating variables and refuses to overwrite existing targets.
+Under `mincell()` or `maskrare`, patterns below the threshold are pooled into one final row, so the displayed frequencies still sum to N. `top()` caps the pattern table (at 20 by default under masking) and pools the rest into the same row. `safe` also leaves likely identifiers out of the varlist and refuses an identifier, a date, or text holding a digit as a `bytable()`, `gby()`, `over()`, or `by` variable; `save()` then drops the patterns the table withholds and writes no `cumpct`. The default graph orientation for `graph(bar)` is horizontal. `matrix` graphs automatically sample up to 500 observations when the dataset is larger and accept only the documented `sample(#)` and `sort` suboptions. The command accepts at most 244 variables. `generate()` checks every output name before creating variables and refuses to overwrite existing targets.
 
 ## Stored Results
 
@@ -346,20 +469,13 @@ The help files document the complete stored-result contracts. The following tabl
 
 | Result | Meaning |
 |--------|---------|
-| `r(nfiles)`, `r(nobs)`, `r(nvars)` | Input-file, observation, and variable counts; `r(nobs)` and `r(nvars)` are returned when applicable. |
-| `r(format)`, `r(output)`, `r(input_source)`, `r(mincell)` | Output mode, output path, input route, and effective small-cell threshold. |
+| `r(nfiles)`, `r(nobs)`, `r(nvars)` | Number of datasets; observations and variables, set only for a run on the data in memory or `single()`. |
+| `r(output)`, `r(outputs)`, `r(files)`, `r(mode)`, `r(input_source)` | The document (unset under `separate`), every file written (`;`-separated), the input paths, and the input route. |
+| `r(mincell)`, `r(safe)` | Effective small-cell threshold and whether `safe` applied. |
 | `r(n_categorical)`, `r(n_continuous)`, `r(n_date)`, `r(n_string)` | Counts by classified variable type. |
-| `r(n_excluded)`, `r(n_suggested_exclude)`, `r(excluded_vars)`, `r(suggested_exclude)` | Explicit exclusions and identifier-like suggestions. |
+| `r(n_excluded)`, `r(n_suggested_exclude)`, `r(excluded_vars)`, `r(suggested_exclude)` | Exclusions (including `exclude(auto)`) and identifier-like suggestions. |
 | `r(categorical_vars)`, `r(continuous_vars)`, `r(date_vars)`, `r(string_vars)` | Classified variable lists. |
-| `r(metadata)` | Saved metadata path when `saving()` is used. |
-
-### `datadict`
-
-| Result | Meaning |
-|--------|---------|
-| `r(nfiles)`, `r(nvars_total)`, `r(nobs_total)` | Number of inputs and total variables/observations processed. |
-| `r(mode)`, `r(files)`, `r(outputs)`, `r(output)` | Input mode, input paths, output paths, and combined output path when applicable. |
-| `r(metadata)` | Saved metadata path when `saving()` is used. |
+| `r(metadata)`, `r(metadata_csv)` | Saved metadata paths when `saving()` and `saving(, csv)` are used. |
 
 ### `dataprobe`
 
@@ -368,9 +484,14 @@ The help files document the complete stored-result contracts. The following tabl
 | `r(N)`, `r(complete_cases)`, `r(complete_pct)` | Profile denominator and complete-case summary. |
 | `r(n_checks)`, `r(n_passed)`, `r(n_failed)`, `r(n_violations)`, `r(n_errors)`, `r(n_warnings)`, `r(n_reviews)` | Gate, violation, warning, and review counts. |
 | `r(violations)`, `r(failed_checks)`, `r(checks_run)` | Families of failed entries and of the gates that ran. |
-| `r(version)`, `r(dataset)`, `r(masked)`, `r(ledger)`, `r(ledger_seq)` | Installed version, dataset name, masking, and ledger position. |
+| `r(version)`, `r(dataset)`, `r(masked)`, `r(safe)`, `r(ledger)`, `r(ledger_seq)` | Installed version, dataset name, masking, the safe preset, and ledger position. |
 | `r(singlelevel_vars)`, `r(n_singlelevel)` | Variables with exactly one observed nonmissing value (not set on the `gatesonly` fast path). |
 | `r(compare_added)`, `r(compare_dropped)`, `r(compare_type_changed)`, `r(compare_class_changed)`, `r(compare_changed)` | Schema comparison counts. |
+| `r(diff_added)`, `r(diff_dropped)`, `r(diff_type_changed)`, `r(diff_changed)`, `r(diff_n_lines)`, `r(diff_n_delta)`, `r(diff_base_N)`, `r(diff_schema_only)` | `diff()` and `compare()` counts: variables added, dropped, retyped, and changed; lines printed; the N change and baseline N; 1 when the baseline held only a schema. |
+| `r(diff_key)`, `r(diff_key_before)`, `r(diff_key_after)`, `r(diff_key_surplus)` | The key `diff()` used, its uniqueness before and after, and the rows beyond one per key when it stopped being unique. |
+| `r(diff_changed_vars)`, `r(diff_added_vars)`, `r(diff_dropped_vars)`, `r(diff_stat_changed_vars)`, `r(diff_unique_changed_vars)`, `r(diff_missing_changed_vars)`, `r(diff_baseline)`, `r(diff_tol)`, `r(diff_ctol)` | Variable lists by kind of change, the baseline, and the tolerances. |
+| `r(snapshot)`, `r(snapshot_key)` | The frame `snapshot()` wrote and the key it recorded. |
+| `r(keyset_only_master)`, `r(keyset_only_using)`, `r(keyset_matched)`, `r(keyset_merge)` | `keyset()` key counts and the implied merge type. |
 
 ### `dataqa`
 
@@ -394,12 +515,18 @@ The help files document the complete stored-result contracts. The following tabl
 
 ## Assumptions and Limits
 
-- `datamap` and `datadict` use aggregate summaries by default; `samples()` is an explicit row-level export option.
+- `datamap` uses aggregate summaries by default; `samples()` is an explicit row-level export option and is refused under `safe`.
 - `mincell()` suppresses categorical and binary frequency cells below the threshold, and `uniqcap()` reports a lower-bound count when the distinct-value cap is exceeded.
-- `datamap` and `datadict` in-memory failures are not rolled back after partial processing; use file-based input or a copy when failure isolation is required.
-- `datadict` requires an existing `outdir()` for separate outputs, and `checks()`, `compare()`, and file-based `violations()`/`makespec()` routes use Stata datasets rather than text specifications.
+- `datamap` in-memory failures are not rolled back after partial processing; use file-based input or a copy when failure isolation is required.
+- `outdir()` must name an existing folder for `separate` output, and `checks()` and file-based `violations()` routes use Stata datasets rather than text specifications.
 - `dataprobe` treats `warn` as a non-halting gate mode for every gate and `bandwarn` as one for sanity bands only; without them, failed expectations exit with return code 9.
-- Stored results are never masked; only printed output is. The working `dataqa` ledger and `datamvp` `save()` files hold small cells and belong with the data; `dataqa export` writes the copy that may leave the server and refuses one that shows a small cell.
+- Stored results are never masked; only printed output and written files are. The working `dataqa` ledger and `datamvp` `save()` files hold small cells and belong with the data; `dataqa export` writes the copy that may leave the server and refuses one that shows a small cell.
+- `safe` covers printed output and written files only. `r()`, `snapshot()` frames, and `generate()` variables are not masked. Cross-output differencing is out of scope: `datamap` and `dataprobe` choose different complementary cells, so reading both outputs together can give back a rare count. Identifiers are recognised by variable name only, so an identifier under another name (such as `pnr`) is not excluded. Integer dates such as 20200115 with no date format are not recognised as dates and print as numbers. `saving()` under `safe` masks the missing counts only; the median, quartiles, and range print as computed. No sample rows are written under `safe`, and `datesafe` (which `safe` turns on) withholds the listed values of text that contains a digit.
+- The placeholder candidates under `quality` are heuristic. Placeholder dates and values after the run date are listed as candidates and never applied; a numeric placeholder is listed only when you declare it with `placeholders()`.
+- A `dataprobe` baseline that is a plain dataset (not a `snapshot()` frame or a `saving()` profile) supports only schema lines in `diff()` and `compare()`. For a `saving()` baseline the key before the step is "unknown" when it has more than 1,000 distinct values, because the profile caps distinct counts at `max(1000, maxcat())`; only `snapshot()` records the key.
+- `diff()` and `keyset()` counts follow `maskrare` (a count below the mask prints as `<m` or `all but <m`); `mincell()` alone does not mask them. Under the mask a range change never prints values, and the mean of a categorical variable or of one with two or three distinct values prints only as `mean changed`, because it is a share that gives a count back.
+- `r(masked)` after `quietly dataprobe, maskrare` equals its value on the printing call.
+- A gate entry on a variable that `require()` reports missing is not run; the call notes it and `require()` fails (return code 9) instead of stopping with r(111).
 - `datamvp` is limited to 244 analyzed variables, and generated indicator names are shortened and disambiguated to stay within Stata's name limit; reserved-name or existing-target collisions stop with an error before any output variable is created.
 
 ## References
@@ -413,6 +540,43 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 2.0.0 (2026-11-10)
+
+Breaking changes (see [Migrating from 1.x](#migrating-from-1x) for each old call and its replacement):
+
+- Removed `datadict`: one command, `datamap`, writes the document. `datadict.ado` and `datadict.sthlp` are deleted with no stub; the command is unrecognized after a clean install. Upgrade with `ado uninstall datamap` first, because an in-place `net install, replace` leaves a runnable stale `datadict` in PLUS.
+- Markdown is the only file format. The text layout and `format(json)` are removed (`format()` stops with r(198) and points to `saving()`), as are `noguidance`, `datevars()`, `datasignature`, and the bare `missing`, `stats`, and `detail` options. The document date is `docdate()`; `date()` is the classifier's varlist. `separate` defaults to the suffix `_map`; `datamap` writes `datamap.md`.
+- Categorical shares divide by N including missing in every command, so levels and missing codes sum to 100%.
+- Returns: `r(format)`, `r(nobs_total)`, and `r(nvars_total)` are gone, `r(output)` is unset under `separate` (`r(outputs)` lists the files), and `r(nobs)` and `r(nvars)` are set only for a run on the data in memory or `single()` (a `filelist()` naming one file leaves them unset). `config()` stops on the keys `format` and `missing = yes|no`; the `datevars` key sets `date()`. `saving()` stops on an unknown suboption.
+- `dataprobe`: targets of `saving()`, `compare()`, `diff()`, `snapshot()`, and `makespec()` are validated before any output (r(603) for a missing folder, r(110) or r(602) for an existing target without `replace`, r(198) for `compare()` or `diff()` naming the current frame); a `keyset()` type conflict is a failed entry rather than an error; `compare()` prints one line per changed variable and `no changes` in place of the 1.x aggregate lines; a gate entry on a variable that `require()` reports missing is skipped with a note.
+
+New in `datamap`:
+
+- Collect once, render once: the document and `saving()` read the same frames. The document is a dense per-dataset section (header, Variables table, flags) with no repeated blocks, guidance prose, or per-variable privacy notes.
+- State header: source file and whether it changed, sort order, declared `xtset`, `tsset`, `stset`, `svyset`, and `mi` settings, and dataset notes. Structure found by `detect()` is labelled inferred.
+- Type column with the storage type and date family (`long`, `str12`, `strL`, `double %td daily`, `double %tc datetime`), `columns()` fields `unique` and `position`, and `compact` as the preset `variable type label missing unique`.
+- Missing cell with the count of every extended-missing code (`276 (9.2%): . 51, .a Refused 145, .b Not asked 80`), masked with the table's other cells.
+- String profile: the share that `real()` reads as numeric, the top non-numeric tokens, values with leading or trailing blanks, a date-mask guess (`YMD`, `DMY`, `MDY`, when at least 95% parse), and the `strL` flag.
+- `exclude(auto)` withholds the variables `r(suggested_exclude)` names; names may stand beside `auto`.
+- `quality` lists placeholder candidates (heuristic; never applied) and `placeholders(numlist)` declares numeric ones.
+- A Linkage block for two or more datasets in one document: shared names, storage type per file, uniqueness, the implied merge type, and flags for a numeric-versus-string conflict and for value labels with the same name and different definitions.
+- `saving(, csv)` writes a delimited copy and `r(metadata_csv)` names it; `saving()` keeps the 27 columns of 1.10.6 and adds `missing_codes`, `position`, `date_family`, `numeric_n`, `numeric_pct`, `padded_n`, `date_mask`, `is_strl`, `key`, and `candidates`.
+- `safe`: `mincell(5)` or more, `datesafe`, `exclude(auto)`, and no listed values for text above `maxcat()` distinct values or holding a digit; `samples()` is refused. `r(safe)` reports it.
+
+New in the other commands:
+
+- `dataprobe, snapshot()`, `diff()`, and `tol()`: store a profile in a frame and print the N change, key uniqueness before and after, and one line per added, dropped, retyped, or moved variable (`r(diff_*)`, `r(snapshot)`, `r(snapshot_key)`). `compare()` and `saving()` take a frame name or a file.
+- `dataprobe, brief`: one line per variable, flagged first, the top five levels of a categorical variable, and `all distinct, maxlen #` for identifier-like text.
+- `dataprobe, keyset()` prints a merge preflight (key types, uniqueness on each side, implied merge type, matched and unmatched key counts, shared non-key names) before its verdict; the preflight counts are masked against the totals they add up to under `maskrare`.
+- `dataprobe, makespec(file.do)` writes the equivalent `dataprobe, gatesonly ...` command as a do-file; entries it cannot write exactly are left out with a comment.
+- `dataprobe, safe`, `datamvp, safe`, and `dataqa set agent`: the agent-safe preset for printed output and written files (stored results are not masked).
+
+Fixes:
+
+- `dataprobe, maskrare byfreq by()` with groups smaller than the mask no longer runs for minutes on a many-level text variable.
+- `r(masked)` under `quietly` equals its value on the printing call.
+- The Linkage block names a file listed twice, and two files with the same stem, truthfully.
 
 ### 1.10.6 (2026-10-21)
 

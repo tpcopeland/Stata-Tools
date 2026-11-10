@@ -1,4 +1,4 @@
-*! _datamap_fmt_uniq Version 1.10.6  2026/10/21
+*! _datamap_fmt_uniq Version 2.0.0  2026/11/10
 *! Format a unique-value count for display, honouring a censored count
 *! Author: Timothy P Copeland, Karolinska Institutet
 

@@ -1,10 +1,10 @@
-*! dataqa Version 1.10.6  2026/10/21
+*! dataqa Version 2.0.0  2026/11/10
 *! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 // Subcommands:
-//   dataqa set [options | clear]            session defaults in global DATAMAP_DQ (collect: gate failures do not halt a call; baseline() baseledger(): the run compare and assert hold the current run against)
+//   dataqa set [agent] [options | clear]    session defaults in global DATAMAP_DQ (collect: gate failures do not halt a call; baseline() baseledger(): the run compare and assert hold the current run against)
 //   dataqa report [using ledger] [, run() markdown() replace bands]
 //   dataqa assert [using ledger] [, run() expect() baseline() baseledger() optional()]
 //   dataqa export [using ledger], run() saving() [replace threshold()]
@@ -64,8 +64,10 @@ program define _dataqa_set, rclass
     local 0 `", `rest'"'
     // the not-given sentinel is out of any typed range: with -1, a typed
     // mincell(-1) passed as "not given" and the call wiped the defaults
+    // agent (2.0.0, U2): the safe preset for the session; dataqa set agent
+    // reads as dataqa set, agent
     syntax [, MASKrare MINcell(integer -999999999) LEDger(string) RUN(string) BANDWARN SIGnature COLLect REPLACE ///
-        BASEline(string) BASELEDger(string)]
+        BASEline(string) BASELEDger(string) AGENT]
     if `mincell' < 0 & `mincell' != -999999999 {
         display as error "dataqa set: mincell() must be non-negative"
         exit 198
@@ -165,7 +167,8 @@ program define _dataqa_set, rclass
         }
     }
     local spec ""
-    if "`maskrare'" != "" local spec "maskrare"
+    if "`agent'" != "" local spec "safe"
+    if "`maskrare'" != "" local spec "`spec' maskrare"
     if `mincell' >= 0 local spec "`spec' mincell(`mincell')"
     if `"`ledger'"' != "" local spec `"`spec' ledger("`ledger'")"'
     if `"`run'"' != "" local spec `"`spec' run(`run')"'
@@ -177,6 +180,10 @@ program define _dataqa_set, rclass
     local spec = strtrim(`"`spec'"')
     global DATAMAP_DQ `"`spec'"'
     display as text "dataqa session defaults: " as result `"`spec'"'
+    if "`agent'" != "" {
+        display as text "  safe: datamap, dataprobe and datamvp print and write under their safe preset" ///
+            " (maskrare, mincell(5) or more, datesafe, likely identifiers excluded); stored results are not masked"
+    }
     if "`collect'" != "" {
         display as text "  collect: a dataprobe call whose gates fail records its rows and returns rc 0;" ///
             " dataqa assert is the halting point"

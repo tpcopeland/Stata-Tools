@@ -1,4 +1,4 @@
-*! datamvp Version 1.10.6  2026/10/21
+*! datamvp Version 2.0.0  2026/11/10
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -78,19 +78,75 @@ program define datamvp, rclass byable(recall) sortpreserve
         MASKrare                /// mask counts below mincell() (default 5)
         BYTable(varname)        /// percent missing by group
         VARLabels               /// variable labels on graph axes and keys
+        SAFE                    /// agent-safe preset (2.0.0)
     ]
 
     * Session defaults from dataqa set: explicit option > session default
     // an explicit nomaskrare turns the session masking off, mincell() included
-    if `"$DATAMAP_DQ"' != "" & !`_nomask_explicit' {
-        _datamap_dqdefaults
-        if r(maskrare) & "`maskrare'" == "" local maskrare "maskrare"
-        if `mincell' == -999999999 & r(mincell) >= 0 local mincell = r(mincell)
+    local _safe = ("`safe'" != "")
+    if `"$DATAMAP_DQ"' != "" {
+        // under nomaskrare the session string was never read (1.x); it is
+        // read now only to find safe, which nomaskrare cannot turn off
+        local _dqrc = 0
+        if `_nomask_explicit' {
+            capture _datamap_dqdefaults
+            local _dqrc = _rc
+        }
+        else _datamap_dqdefaults
+        if !`_dqrc' & r(safe) == 1 local _safe = 1
+        if !`_nomask_explicit' {
+            if r(maskrare) & "`maskrare'" == "" local maskrare "maskrare"
+            if `mincell' == -999999999 & r(mincell) >= 0 local mincell = r(mincell)
+        }
     }
     if `mincell' == -999999999 local mincell = 0
     if `mincell' < 0 {
         di as err "mincell() must be non-negative"
         exit 198
+    }
+    * safe (2.0.0, U2): maskrare with mincell(5) (a larger value wins), the
+    * likely identifiers left out of the varlist (_datamap_idnames, the rule
+    * datamap's exclude(auto) reads), no identifier, date or text holding a
+    * digit as a group variable, and save() written with the table's
+    * pooling.  Printed output and written files only; r() is not masked.
+    if `_safe' {
+        if `_nomask_explicit' {
+            di as err "safe cannot be combined with nomaskrare"
+            exit 198
+        }
+        local maskrare "maskrare"
+        if `mincell' > 0 & `mincell' < 5 di as txt "note: safe raises mincell(`mincell') to 5"
+        if `mincell' < 5 local mincell = 5
+        _datamap_idnames `varlist'
+        local _safe_ex "`r(names)'"
+        if "`_safe_ex'" != "" {
+            local varlist : list varlist - _safe_ex
+            di as txt "note: safe excludes likely identifier(s): `_safe_ex'"
+            if "`varlist'" == "" {
+                di as err "safe: no variables left after the likely identifiers are excluded"
+                exit 102
+            }
+        }
+        local _gvchk "`gby' `over' `bytable'"
+        if _by() local _gvchk "`_gvchk' `_byvars'"
+        local _gvchk : list uniq _gvchk
+        if "`_gvchk'" != "" {
+            _datamap_idnames `_gvchk'
+            local _bad "`r(names)'"
+            foreach v of local _gvchk {
+                capture confirm string variable `v'
+                if !_rc {
+                    qui count if ustrregexm(`v', "\p{Nd}")
+                    if r(N) local _bad "`_bad' `v'"
+                }
+                else if regexm("`: format `v''", "^%-?(t|d)") local _bad "`_bad' `v'"
+            }
+            local _bad : list uniq _bad
+            if "`_bad'" != "" {
+                di as err "safe: a group variable's values are printed; `_bad' is an identifier, a date, or text holding a digit"
+                exit 198
+            }
+        }
     }
     * Mask threshold m: mincell() when given, 5 under maskrare alone.  With
     * m > 0 no count from 1 to m-1 is printed, and no percentage or
@@ -1357,6 +1413,25 @@ program define datamvp, rclass byable(recall) sortpreserve
         qui rename `ng' freq
         qui rename `patpct' percent
         qui rename `cpct' cumpct
+        * safe: the file says no more than the table.  A pattern below m is
+        * left out, and the smallest kept one joins them until the rows left
+        * out are 0 or m or more (N is printed); cumpct would give their
+        * counts back, so it is not written.
+        if `_safe' {
+            qui gen byte _pool = (freq < `_m')
+            qui summarize freq if _pool, meanonly
+            local _pf = r(sum)
+            while `_pf' >= 1 & `_pf' < `_m' {
+                qui count if !_pool
+                if r(N) == 0 continue, break
+                qui summarize freq if !_pool, meanonly
+                qui replace _pool = 1 if !_pool & freq == r(min) & sum(!_pool & freq == r(min)) == 1
+                qui summarize freq if _pool, meanonly
+                local _pf = r(sum)
+            }
+            qui drop if _pool
+            qui drop _pool cumpct
+        }
         qui compress
         
         * Check if it's a frame name or filename

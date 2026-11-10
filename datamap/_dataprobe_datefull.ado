@@ -1,4 +1,4 @@
-*! _dataprobe_datefull Version 1.10.6  2026/10/21
+*! _dataprobe_datefull Version 2.0.0  2026/11/10
 *! A date-formatted value for a gate failure message, at full precision
 *! when its date does not show it exactly
 *! Author: Timothy P Copeland, Karolinska Institutet

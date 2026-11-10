@@ -1,4 +1,4 @@
-*! _dataprobe_groupstat Version 1.10.6  2026/10/21
+*! _dataprobe_groupstat Version 2.0.0  2026/11/10
 *! dataprobe groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -44,7 +44,7 @@ program define _dataprobe_groupstat, rclass
             PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) SCOPE(string) ///
             CELLFRAME(name) CELLIDX(integer 0) EXCLuded(string) NPRINT(integer 1) ///
             PROFile(string) PCAT(string) BYVARS(string) MHIDE(string) FHIDE(string) ///
-            PHIDE(string) CAPped]
+            PHIDE(string) CAPped SAFE]
         local head `"`spec'"'
         local opts ""
         local cp = strpos(`"`spec'"', ",")
@@ -136,7 +136,7 @@ program define _dataprobe_groupstat, rclass
                             scope(`"`macval(scope)'"') cellframe(`cf') cellidx(`si') ///
                             excluded(`excluded') nprint(`nprint') profile(`profile') ///
                             pcat(`pcat') byvars(`byvars') mhide(`mhide') fhide(`fhide') ///
-                            phide(`phide') `capped'
+                            phide(`phide') `capped' `safe'
                         local _m1 = r(masked)
                         local _f1 = r(nfail)
                         if `_m1' local anymask = 1
@@ -456,6 +456,18 @@ program define _dataprobe_groupstat, rclass
                     if `mask' > 0 & (strpos("`_vf'", "%td") | substr("`_vf'", 1, 2) == "%d") local dfmt_`j' "%tdCCYY-NN"
                     // exclude(): a variable's contents are withheld
                     local exc_`j' : list v in excluded
+                    local xtxt_`j' "[excluded]"
+                    // a multi-statistic table's 10-wide cell reads [excl.]:
+                    // [excluded] filled it and ran into the next cell
+                    local xcell_`j' = cond("`cellframe'" == "", "[excluded]", "[excl.]")
+                    // safe (2.0.0 U2): a date's mean or percentile is a date,
+                    // withheld wherever exclude() withholds a value; a
+                    // multi-statistic table's 10-wide cell reads [withh.]
+                    if !`exc_`j'' & "`safe'" != "" & `isdate_`j'' & ("`st'" == "mean" | `isorder') {
+                        local exc_`j' = 1
+                        local xtxt_`j' "[withheld]"
+                        local xcell_`j' = cond("`cellframe'" == "", "[withheld]", "[withh.]")
+                    }
                 }
                 // dataprobe's profile pools a by() group whose counts it
                 // cannot show (phide: its rows); with the call's by(), that
@@ -583,7 +595,7 @@ program define _dataprobe_groupstat, rclass
                                 date(`isday_`j'') tc(`istc_`j'')
                             local s_`k'_`j' `"`r(s)'"'
                         }
-                        if `exc_`j'' & !missing(`x') local s_`k'_`j' "[excluded]"
+                        if `exc_`j'' & !missing(`x') local s_`k'_`j' "`xtxt_`j''"
                     }
                 }
                 // Profile totals (dataprobe passes them in profile mode under
@@ -735,7 +747,7 @@ program define _dataprobe_groupstat, rclass
                         local pshown_`j' = 0
                         local anymask = 1
                     }
-                    if `exc_`j'' & !missing(`pool_`j'') local pools_`j' "[excluded]"
+                    if `exc_`j'' & !missing(`pool_`j'') local pools_`j' "`xtxt_`j''"
                 }
                 // With relative, a group's cell is its ratio to the pooled
                 // value, the number band() tests; the pooled row stays raw.
@@ -759,7 +771,7 @@ program define _dataprobe_groupstat, rclass
                         // a masked cell reads [suppr.] in a ratio column: "<5"
                         // would read as a ratio below 5
                         else if "`relative'" != "" & !`sh_`k'_`j'' local s_`k'_`j' "[suppr.]"
-                        if `exc_`j'' & !missing(`val_`k'_`j'') local s_`k'_`j' "[excluded]"
+                        if `exc_`j'' & !missing(`val_`k'_`j'') local s_`k'_`j' "`xcell_`j''"
                         local line `"`line' as result %13s "`s_`k'_`j''""'
                     }
                     local gshow = substr(`"`gl_`k''"', 1, 24)
@@ -778,13 +790,14 @@ program define _dataprobe_groupstat, rclass
                 foreach v of local gvars {
                     local ++j
                     local pdisp_`j' `"`pools_`j''"'
-                    if !`pshown_`j'' & substr(`"`pools_`j''"', 1, 1) != "<" & "`pools_`j''" != "[excluded]" ///
+                    if !`pshown_`j'' & substr(`"`pools_`j''"', 1, 1) != "<" & `"`pools_`j''"' != "`xtxt_`j''" ///
                         local pdisp_`j' "[suppr.]"
-                    else if `pshown_`j'' & !missing(`pool_`j'') & "`pools_`j''" != "[excluded]" {
+                    else if `pshown_`j'' & !missing(`pool_`j'') & `"`pools_`j''"' != "`xtxt_`j''" {
                         _dataprobe_gsfit `pool_`j'', s(`"`pools_`j''"') w(`_cw') ///
                             date(`isday_`j'') tc(`istc_`j'')
                         local pdisp_`j' `"`r(s)'"'
                     }
+                    if `"`pools_`j''"' == "`xtxt_`j''" local pdisp_`j' "`xcell_`j''"
                     local line `"`line' as result %13s "`pdisp_`j''""'
                 }
                 if "`cellframe'" == "" display as text "  " as text %-24s "pooled" `line'
@@ -917,7 +930,7 @@ program define _dataprobe_groupstat, rclass
                         local ++nfail
                         if `exc_`j'' {
                             // exclude(): the verdict, never the value
-                            local xs "[excluded]"
+                            local xs "`xtxt_`j''"
                             local onum = .
                             local om = 0
                         }

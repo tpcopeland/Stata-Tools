@@ -4,11 +4,19 @@ set more off
 version 16.0
 
 * test_datamap_float_format.do - regressions for no IEEE float-precision noise
-* in datamap/datadict/dataprobe text output. Guards the round()->write and raw-value-write
+* in datamap/dataprobe output. Guards the round()->write and raw-value-write
 * sites fixed in 1.4.1: continuous DISTRIBUTION stats, panel/survival/survey
 * detection ranges, the missing-data summary %, sample-observation rows, and the
 * dataprobe inrange gate message. Pre-1.4.1 these emitted values like
 * "49.40000000000001%", "SD: 777.1900000000001", "max 96.80000000000001".
+*
+* 2026-11-10 (datamap 2.0.0): datadict and the text layout are gone.  The
+* documents are Markdown, read through Mata (a Source or Data-signature line
+* ends in a backtick, which breaks a macro line reader).  T2 asserts the line
+* "- Complete rows: n (p%)" EXISTS before it checks the percentage (the 1.x
+* "Observations with complete data:" line is gone, and a reader that finds no
+* such line would have passed).  T6 is datadict's categorical-level check on
+* datamap's own level cells ("<value>: n (p%)", counts before the percent).
 
 capture log close _all
 log using "test_datamap_float_format.log", replace text nomsg
@@ -29,26 +37,45 @@ quietly net install datamap, from("`pkg_dir'") replace
 * A genuine value never carries a long run of zeros or nines in its fractional
 * part; an IEEE round()/double-expansion tail does (e.g. ".40000000000001",
 * ".1900000000001", ".59999999999998"). Scan a file and count offending lines.
+mata:
+void _ff_scan(string scalar f, string scalar contains, string scalar starts)
+{
+    string colvector L
+    real scalar i, n, nsel
+    string scalar smp
+    L = cat(f)
+    n = 0
+    nsel = 0
+    smp = ""
+    for (i = 1; i <= rows(L); i++) {
+        if (contains != "" & strpos(L[i], contains) == 0) continue
+        if (starts != "" & substr(L[i], 1, strlen(starts)) != starts) continue
+        nsel++
+        if (ustrregexm(L[i], "\.[0-9]+0{7,}[0-9]") | ///
+            ustrregexm(L[i], "\.[0-9]+9{7,}[0-9]")) {
+            n++
+            if (smp == "") smp = subinstr(L[i], char(96), "", .)
+        }
+    }
+    st_numscalar("__ff_n", n)
+    st_numscalar("__ff_nsel", nsel)
+    st_global("__ff_sample", smp)
+}
+end
+
+* r(n) lines (optionally only those containing / starting with a string) that
+* carry a float-noise tail, r(nsel) lines examined, r(sample) the first hit
 capture program drop _ff_count_noise
 program define _ff_count_noise, rclass
     version 16.0
-    syntax using/
-    tempname fh
-    local n 0
-    local sample ""
-    file open `fh' using `"`using'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if ustrregexm(`"`macval(line)'"', "\.[0-9]+0{7,}[0-9]") | ///
-           ustrregexm(`"`macval(line)'"', "\.[0-9]+9{7,}[0-9]") {
-            local ++n
-            if `"`sample'"' == "" local sample `"`macval(line)'"'
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar n = `n'
-    return local sample `"`sample'"'
+    syntax using/ [, CONTAINS(string) STARTS(string)]
+    confirm file `"`using'"'
+    mata: _ff_scan(st_local("using"), st_local("contains"), st_local("starts"))
+    return scalar n = scalar(__ff_n)
+    return scalar nsel = scalar(__ff_nsel)
+    return local sample `"$__ff_sample"'
+    scalar drop __ff_n __ff_nsel
+    macro drop __ff_sample
 end
 
 **# Adversarial dataset exercising every fixed path
@@ -86,17 +113,19 @@ quietly {
     save "`tmp_dir'/_ff_cohort.dta", replace
 }
 
-**# T1: datamap full text output carries no float noise (all file-write paths)
+**# T1: datamap full Markdown output carries no float noise (all file-write paths)
 local ++test_count
 capture noisily {
     quietly datamap, single("`tmp_dir'/_ff_cohort.dta") ///
-        output("`tmp_dir'/_ff_map.txt") ///
+        output("`tmp_dir'/_ff_map.md") ///
         autodetect quality missing(detail) samples(3)
-    _ff_count_noise using "`tmp_dir'/_ff_map.txt"
+    _ff_count_noise using "`tmp_dir'/_ff_map.md"
+    assert !missing(r(nsel))
+    assert r(nsel) > 20
     assert r(n) == 0
 }
 if _rc == 0 {
-    di as result "  T`test_count': PASS - datamap text output free of float noise"
+    di as result "  T`test_count': PASS - datamap Markdown output free of float noise"
     local ++pass_count
 }
 else {
@@ -107,18 +136,12 @@ else {
 **# T2: complete-data summary percentage is clean
 local ++test_count
 capture noisily {
-    tempname fh
-    local ok 1
-    file open `fh' using "`tmp_dir'/_ff_map.txt", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Observations with complete data:") > 0 {
-            if ustrregexm(`"`macval(line)'"', "0{7,}[0-9]%") local ok 0
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `ok' == 1
+    * the line must exist: 79 of 160 rows complete = 49.4%
+    _ff_count_noise using "`tmp_dir'/_ff_map.md", contains("- Complete rows: 79 (49.4%)")
+    assert r(nsel) == 1
+    assert r(n) == 0
+    _ff_count_noise using "`tmp_dir'/_ff_map.md", contains("- Complete rows:")
+    assert r(nsel) == 1
 }
 if _rc == 0 {
     di as result "  T`test_count': PASS - complete-data percentage clean"
@@ -132,19 +155,14 @@ else {
 **# T3: sample observation rows carry no float noise
 local ++test_count
 capture noisily {
-    tempname fh
-    local ok 1
-    file open `fh' using "`tmp_dir'/_ff_map.txt", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if substr(`"`macval(line)'"', 1, 2) == "| " {
-            if ustrregexm(`"`macval(line)'"', "\.[0-9]+0{7,}[0-9]") | ///
-               ustrregexm(`"`macval(line)'"', "\.[0-9]+9{7,}[0-9]") local ok 0
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `ok' == 1
+    * every table row starts "| "; the sample-rows table is among them, and
+    * the file must hold sample rows at all (samples(3) -> a Sample rows section)
+    _ff_count_noise using "`tmp_dir'/_ff_map.md", contains("### Sample rows")
+    assert r(nsel) == 1
+    _ff_count_noise using "`tmp_dir'/_ff_map.md", starts("| ")
+    assert !missing(r(nsel))
+    assert r(nsel) >= 8
+    assert r(n) == 0
 }
 if _rc == 0 {
     di as result "  T`test_count': PASS - sample rows clean"
@@ -194,36 +212,28 @@ else {
     local ++fail_count
 }
 
-**# T6: datadict categorical levels respect numeric display precision
+**# T6: categorical levels respect numeric display precision
 local ++test_count
 capture noisily {
     clear
     set obs 34
     gen float visual_score = mod(_n - 1, 17) / 10
-    quietly datadict, output("`tmp_dir'/_ff_dictionary.md") mincell(0)
-    _ff_count_noise using "`tmp_dir'/_ff_dictionary.md"
+    quietly datamap, output("`tmp_dir'/_ff_dictionary.md") mincell(0)
+    _ff_count_noise using "`tmp_dir'/_ff_dictionary.md", contains("visual_score")
+    assert r(nsel) == 1
     assert r(n) == 0
-
-    tempname fh
-    local found_clean 0
-    file open `fh' using "`tmp_dir'/_ff_dictionary.md", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', ".1 (2; 5.9%)") > 0 & ///
-           strpos(`"`macval(line)'"', "1.6 (2; 5.9%)") > 0 {
-            local found_clean 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    assert `found_clean' == 1
+    * 17 distinct levels, two rows each: ".1: 2 (5.9%)" and "1.6: 2 (5.9%)"
+    _ff_count_noise using "`tmp_dir'/_ff_dictionary.md", contains("<br>.1: 2 (5.9%)<br>")
+    assert r(nsel) == 1
+    _ff_count_noise using "`tmp_dir'/_ff_dictionary.md", contains("<br>1.6: 2 (5.9%)")
+    assert r(nsel) == 1
 }
 if _rc == 0 {
-    di as result "  T`test_count': PASS - datadict categorical levels free of float noise"
+    di as result "  T`test_count': PASS - categorical levels free of float noise"
     local ++pass_count
 }
 else {
-    di as error "  T`test_count': FAIL - noisy datadict categorical levels"
+    di as error "  T`test_count': FAIL - noisy categorical levels"
     local ++fail_count
 }
 

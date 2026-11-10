@@ -6,28 +6,78 @@ version 16.0
 * Generated: 2026-03-13
 * Validates: variable classification, content correctness, return values,
 *            output content verification, missing data handling, invariants
+*
+* 2026-11-10 (datamap 2.0.0): datadict, the text layout and format(json) are
+* removed, so this suite was rewritten against the surfaces that remain: the
+* Markdown document (read through _qa_md.do, Mata) and the saving() table.
+* Every test id V1.1 ... V10 is kept.  What changed:
+*   V1, V2, V10   classification is asserted on saving()'s class column (the
+*                 text layout's "Classification:" line is gone) and on the
+*                 Markdown row (Type column, level list or statistics cell)
+*   V3.2          r(format) was removed: it must be UNSET
+*   V3.3, V5, V7.2, V7.4, V8.4, V8.5, V8.7, V9.2   the datadict tests are
+*                 ported to datamap's Markdown writer (datadict is removed)
+*   V4.4          nostats: no mean/SD/percentile cell (the text layout's
+*                 "Percentile" lines no longer exist)
+*   V5.6          the Missing column is the default (the `missing` option is
+*                 removed), asserted with the exact count and share
+*   V6.1          the old test only confirmed that a file existed; it now
+*                 asserts the exact missing count and share
+*   V7.1, V7.2    determinism: the two documents are byte-identical (hash of
+*                 the whole text), not just equal in line count
+* The earlier assertions "the word id appears somewhere" and "50 appears
+* somewhere" matched any substring and are replaced by row-level checks.
 
 * ============================================================
 * Setup
 * ============================================================
-
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir "`qa_dir'/.."
 local tmp_dir "`qa_dir'/data"
-
 capture mkdir "`tmp_dir'"
 
 * Uninstall any existing version
-
 capture ado uninstall datamap
 
 * Install from local directory
 quietly net install datamap, from("`pkg_dir'") force
+do "`qa_dir'/_qa_md.do"
+
+* are two files line-for-line identical? r(same); r(n) the line count of the first.
+* (Mata: a datamap line may end in a backtick, so no line is held in a macro)
+capture program drop _vd_same
+program define _vd_same, rclass
+    version 16.0
+    args f1 f2
+    mata: st_numscalar("__vd_s", rows(cat(st_local("f1"))) == rows(cat(st_local("f2"))) & all(cat(st_local("f1")) :== cat(st_local("f2"))))
+    mata: st_numscalar("__vd_n", rows(cat(st_local("f1"))))
+    return scalar same = scalar(__vd_s)
+    return scalar n = scalar(__vd_n)
+    scalar drop __vd_s __vd_n
+end
+
+* class of one variable in a saving() table, as r(class); "" if absent or not unique
+capture program drop _vd_class
+program define _vd_class, rclass
+    version 16.0
+    args meta var
+    preserve
+    quietly use "`meta'", clear
+    quietly count if variable == "`var'"
+    local n = r(N)
+    local cl ""
+    if `n' == 1 {
+        quietly levelsof class if variable == "`var'", local(cl) clean
+    }
+    restore
+    return local class "`cl'"
+    return scalar n = `n'
+end
 
 * ============================================================
 * V1: Variable Classification - Known Types
@@ -40,7 +90,6 @@ quietly net install datamap, from("`pkg_dir'") force
 *   region   -> categorical (labeled 1-4)
 *   entry_dt -> date (%td format)
 *   name     -> string
-
 clear
 set seed 99999
 set obs 50
@@ -59,124 +108,93 @@ gen str10 name = "P" + string(_n)
 label data "Classification test dataset"
 save "`tmp_dir'/val_classify.dta", replace
 
-* V1.1: Continuous variables classified correctly
+
+* V1.1: Continuous variables (age, bmi) classified correctly
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_class.txt")
-
-    * Read output and check classifications
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_class.txt", read text
-    local found_age_continuous 0
-    local found_bmi_continuous 0
-    local found_sex_categorical 0
-    local found_region_categorical 0
-    local found_entry_date 0
-    local found_name_string 0
-    local current_var ""
-
-    file read `fh' line
-    while r(eof) == 0 {
-        * Detect variable section headers (variable name appears at start)
-        if strpos(`"`macval(line)'"', "  age") > 0 & "`current_var'" == "" {
-            local current_var "age"
-        }
-        if strpos(`"`macval(line)'"', "  bmi") > 0 & "`current_var'" == "" {
-            local current_var "bmi"
-        }
-        if strpos(`"`macval(line)'"', "  sex") > 0 & "`current_var'" == "" {
-            local current_var "sex"
-        }
-        if strpos(`"`macval(line)'"', "  region") > 0 & "`current_var'" == "" {
-            local current_var "region"
-        }
-        if strpos(`"`macval(line)'"', "  entry_dt") > 0 & "`current_var'" == "" {
-            local current_var "entry_dt"
-        }
-        if strpos(`"`macval(line)'"', "  name") > 0 & "`current_var'" == "" {
-            local current_var "name"
-        }
-
-        * Check classification line
-        if strpos(`"`macval(line)'"', "Classification:") > 0 | ///
-           strpos(`"`macval(line)'"', "classification:") > 0 {
-            if "`current_var'" == "age" & strpos(`"`macval(line)'"', "ontinuous") > 0 {
-                local found_age_continuous 1
-            }
-            if "`current_var'" == "bmi" & strpos(`"`macval(line)'"', "ontinuous") > 0 {
-                local found_bmi_continuous 1
-            }
-            if "`current_var'" == "sex" & strpos(`"`macval(line)'"', "ategorical") > 0 {
-                local found_sex_categorical 1
-            }
-            if "`current_var'" == "region" & strpos(`"`macval(line)'"', "ategorical") > 0 {
-                local found_region_categorical 1
-            }
-            if "`current_var'" == "entry_dt" & strpos(`"`macval(line)'"', "ate") > 0 {
-                local found_entry_date 1
-            }
-            if "`current_var'" == "name" & strpos(`"`macval(line)'"', "tring") > 0 {
-                local found_name_string 1
-            }
-            local current_var ""
-        }
-        file read `fh' line
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_class.md") saving("`tmp_dir'/_val_class_meta.dta", replace)
+    foreach v in age bmi {
+        _vd_class "`tmp_dir'/_val_class_meta.dta" `v'
+        assert r(n) == 1 & "`r(class)'" == "continuous"
+        * and the document shows statistics, not a level list
+        qa_md_rows using "`tmp_dir'/_val_class.md", var(`v')
+        assert r(n) == 1
+        qa_md_contains using "`tmp_dir'/_val_class.md", needle("`=char(96)'`v'`=char(96)' |  | double | 0 (0.0%) | N=50; mean=")
+        assert r(n) == 1
     }
-    file close `fh'
-
-    assert `found_age_continuous' == 1
-    assert `found_bmi_continuous' == 1
 }
 if _rc == 0 {
     display as result "  PASS: V1.1 - Continuous variables (age, bmi) classified correctly"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V1.1 - Continuous variable classification (error `=_rc')"
+    display as error "  FAIL: V1.1 - Continuous variables (age, bmi) classified correctly (error `=_rc')"
     local ++fail_count
 }
 
-* V1.2: Categorical variables classified correctly
+* V1.2: Categorical variables (sex, region) classified correctly
 local ++test_count
 capture noisily {
-    * Re-read from the same output
-    assert `found_sex_categorical' == 1
-    assert `found_region_categorical' == 1
+    foreach v in sex region {
+        _vd_class "`tmp_dir'/_val_class_meta.dta" `v'
+        assert r(n) == 1 & "`r(class)'" == "categorical"
+    }
+    * the labelled levels are listed with the counts the data give
+    preserve
+    quietly use "`tmp_dir'/val_classify.dta", clear
+    quietly count if sex == 0
+    local f0 = r(N)
+    quietly count if sex == 1
+    local f1 = r(N)
+    restore
+    local p0 = string(100 * `f0' / 50, "%4.1f")
+    local p1 = string(100 * `f1' / 50, "%4.1f")
+    qa_md_rows using "`tmp_dir'/_val_class.md", var(sex) cell("0 Female: `f0' (`p0'%)<br>1 Male: `f1' (`p1'%)")
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "  PASS: V1.2 - Categorical variables (sex, region) classified correctly"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V1.2 - Categorical variable classification (error `=_rc')"
+    display as error "  FAIL: V1.2 - Categorical variables (sex, region) classified correctly (error `=_rc')"
     local ++fail_count
 }
 
-* V1.3: Date variable classified correctly
+* V1.3: Date variable (entry_dt) classified correctly
 local ++test_count
 capture noisily {
-    assert `found_entry_date' == 1
+    _vd_class "`tmp_dir'/_val_class_meta.dta" entry_dt
+    assert r(n) == 1 & "`r(class)'" == "date"
+    qa_md_rows using "`tmp_dir'/_val_class.md", var(entry_dt)
+    assert r(n) == 1
+    * 2026-11-10 (2.0.0 Phase 3, U4): the Type column names the date family
+    qa_md_contains using "`tmp_dir'/_val_class.md", needle("| double %td daily | 0 (0.0%) | N=50; range 20")
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "  PASS: V1.3 - Date variable (entry_dt) classified correctly"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V1.3 - Date variable classification (error `=_rc')"
+    display as error "  FAIL: V1.3 - Date variable (entry_dt) classified correctly (error `=_rc')"
     local ++fail_count
 }
 
-* V1.4: String variable classified correctly
+* V1.4: String variable (name) classified correctly
 local ++test_count
 capture noisily {
-    assert `found_name_string' == 1
+    _vd_class "`tmp_dir'/_val_class_meta.dta" name
+    assert r(n) == 1 & "`r(class)'" == "string"
+    qa_md_rows using "`tmp_dir'/_val_class.md", var(name) cell("N=50; 50 distinct; max length 3")
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "  PASS: V1.4 - String variable (name) classified correctly"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V1.4 - String variable classification (error `=_rc')"
+    display as error "  FAIL: V1.4 - String variable (name) classified correctly (error `=_rc')"
     local ++fail_count
 }
 
@@ -186,80 +204,47 @@ else {
 * maxcat controls the threshold for categorical detection
 * A variable with 3 unique values should be categorical at maxcat(5)
 * but continuous at maxcat(2)
-
 clear
 set obs 30
 gen grp3 = mod(_n - 1, 3) + 1
 gen grp50 = _n
 save "`tmp_dir'/val_cardinality.dta", replace
 
+
 * V2.1: Variable with 3 unique values is categorical at default maxcat(25)
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/val_cardinality") output("`tmp_dir'/_val_card.txt")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_card.txt", read text
-    local grp3_cat 0
-    local current_var ""
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "  grp3") > 0 & "`current_var'" == "" {
-            local current_var "grp3"
-        }
-        if strpos(`"`macval(line)'"', "Classification:") > 0 | ///
-           strpos(`"`macval(line)'"', "classification:") > 0 {
-            if "`current_var'" == "grp3" & strpos(`"`macval(line)'"', "ategorical") > 0 {
-                local grp3_cat 1
-            }
-            local current_var ""
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `grp3_cat' == 1
+    datamap, single("`tmp_dir'/val_cardinality") output("`tmp_dir'/_val_card.md") saving("`tmp_dir'/_val_card_meta.dta", replace)
+    _vd_class "`tmp_dir'/_val_card_meta.dta" grp3
+    assert r(n) == 1 & "`r(class)'" == "categorical"
+    qa_md_rows using "`tmp_dir'/_val_card.md", var(grp3) cell("1: 10 (33.3%)<br>2: 10 (33.3%)<br>3: 10 (33.3%)")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V2.1 - 3-value variable classified as categorical (default maxcat)"
+    display as result "  PASS: V2.1 - Variable with 3 unique values is categorical at default maxcat(25)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V2.1 - Cardinality detection (error `=_rc')"
+    display as error "  FAIL: V2.1 - Variable with 3 unique values is categorical at default maxcat(25) (error `=_rc')"
     local ++fail_count
 }
 
 * V2.2: Variable with 30 unique values is continuous at default maxcat(25)
 local ++test_count
 capture noisily {
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_card.txt", read text
-    local grp50_cont 0
-    local current_var ""
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "  grp50") > 0 & "`current_var'" == "" {
-            local current_var "grp50"
-        }
-        if strpos(`"`macval(line)'"', "Classification:") > 0 | ///
-           strpos(`"`macval(line)'"', "classification:") > 0 {
-            if "`current_var'" == "grp50" & strpos(`"`macval(line)'"', "ontinuous") > 0 {
-                local grp50_cont 1
-            }
-            local current_var ""
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `grp50_cont' == 1
+    _vd_class "`tmp_dir'/_val_card_meta.dta" grp50
+    assert r(n) == 1 & "`r(class)'" == "continuous"
+    qa_md_rows using "`tmp_dir'/_val_card.md", var(grp50)
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_card.md", needle("`=char(96)'grp50`=char(96)' |  | float | 0 (0.0%) | N=30; mean=15.50;")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V2.2 - 30-value variable classified as continuous (default maxcat)"
+    display as result "  PASS: V2.2 - Variable with 30 unique values is continuous at default maxcat(25)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V2.2 - High-cardinality detection (error `=_rc')"
+    display as error "  FAIL: V2.2 - Variable with 30 unique values is continuous at default maxcat(25) (error `=_rc')"
     local ++fail_count
 }
 
@@ -267,36 +252,18 @@ else {
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/val_cardinality") maxcat(2) ///
-        output("`tmp_dir'/_val_card2.txt")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_card2.txt", read text
-    local grp3_now_cont 0
-    local current_var ""
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "  grp3") > 0 & "`current_var'" == "" {
-            local current_var "grp3"
-        }
-        if strpos(`"`macval(line)'"', "Classification:") > 0 | ///
-           strpos(`"`macval(line)'"', "classification:") > 0 {
-            if "`current_var'" == "grp3" & strpos(`"`macval(line)'"', "ontinuous") > 0 {
-                local grp3_now_cont 1
-            }
-            local current_var ""
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `grp3_now_cont' == 1
+        output("`tmp_dir'/_val_card2.md") saving("`tmp_dir'/_val_card2_meta.dta", replace)
+    _vd_class "`tmp_dir'/_val_card2_meta.dta" grp3
+    assert r(n) == 1 & "`r(class)'" == "continuous"
+    qa_md_contains using "`tmp_dir'/_val_card2.md", needle("`=char(96)'grp3`=char(96)' |  | float | 0 (0.0%) | N=30; mean and SD withheld (mincell; two or three values); median=2.00; IQR=1.00-3.00; range=1.00-3.00 |")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V2.3 - maxcat(2) reclassifies 3-value variable as continuous"
+    display as result "  PASS: V2.3 - maxcat(2) makes 3-value variable continuous"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V2.3 - maxcat threshold effect (error `=_rc')"
+    display as error "  FAIL: V2.3 - maxcat(2) makes 3-value variable continuous (error `=_rc')"
     local ++fail_count
 }
 
@@ -307,56 +274,56 @@ else {
 * V3.1: r(nfiles) matches number of files processed
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_rv1.txt")
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_rv1.md")
     assert r(nfiles) == 1
-
     datamap, filelist("`tmp_dir'/val_classify" "`tmp_dir'/val_cardinality") ///
-        output("`tmp_dir'/_val_rv2.txt")
+        output("`tmp_dir'/_val_rv2.md")
     assert r(nfiles) == 2
 }
 if _rc == 0 {
-    display as result "  PASS: V3.1 - r(nfiles) correct for single (1) and filelist (2)"
+    display as result "  PASS: V3.1 - r(nfiles) matches number of files processed"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V3.1 - r(nfiles) verification (error `=_rc')"
+    display as error "  FAIL: V3.1 - r(nfiles) matches number of files processed (error `=_rc')"
     local ++fail_count
 }
 
-* V3.2: r(format) always "text" for datamap
+* V3.2: r(format) is gone (removed with the text layout in 2.0.0); r(mode) says single
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_fmt.txt")
-    assert "`r(format)'" == "text"
-
-    datamap, single("`tmp_dir'/val_classify") nostats output("`tmp_dir'/_val_fmt2.txt")
-    assert "`r(format)'" == "text"
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_fmt.md")
+    assert "`r(format)'" == ""
+    assert "`r(mode)'" == "single"
+    datamap, single("`tmp_dir'/val_classify") nostats output("`tmp_dir'/_val_fmt2.md")
+    assert "`r(format)'" == ""
+    assert "`r(mode)'" == "single"
 }
 if _rc == 0 {
-    display as result "  PASS: V3.2 - r(format) always 'text'"
+    display as result "  PASS: V3.2 - r(format) is gone (removed with the text layout in 2.0.0); r(mode) says single"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V3.2 - r(format) verification (error `=_rc')"
+    display as error "  FAIL: V3.2 - r(format) is gone (removed with the text layout in 2.0.0); r(mode) says single (error `=_rc')"
     local ++fail_count
 }
 
-* V3.3: datadict r(nfiles) matches number of files
+* V3.3: (was datadict) r(nfiles) correct for single and filelist, r(mode) filelist
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd_rv1.md")
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd_rv1.md")
     assert r(nfiles) == 1
-
-    datadict, filelist("`tmp_dir'/val_classify" "`tmp_dir'/val_cardinality") ///
+    datamap, filelist("`tmp_dir'/val_classify" "`tmp_dir'/val_cardinality") ///
         output("`tmp_dir'/_val_dd_rv2.md")
     assert r(nfiles) == 2
+    assert "`r(mode)'" == "filelist"
 }
 if _rc == 0 {
-    display as result "  PASS: V3.3 - datadict r(nfiles) correct for single and filelist"
+    display as result "  PASS: V3.3 - (was datadict) r(nfiles) correct for single and filelist, r(mode) filelist"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V3.3 - datadict r(nfiles) (error `=_rc')"
+    display as error "  FAIL: V3.3 - (was datadict) r(nfiles) correct for single and filelist, r(mode) filelist (error `=_rc')"
     local ++fail_count
 }
 
@@ -367,355 +334,229 @@ else {
 * V4.1: Output contains dataset label
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_content.txt")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_content.txt", read text
-    local found_label 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Classification test dataset") > 0 {
-            local found_label 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_label' == 1
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_content.md")
+    qa_md_contains using "`tmp_dir'/_val_content.md", needle("- Label: Classification test dataset") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "  PASS: V4.1 - Output contains dataset label"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V4.1 - Dataset label in output (error `=_rc')"
+    display as error "  FAIL: V4.1 - Output contains dataset label (error `=_rc')"
     local ++fail_count
 }
 
-* V4.2: Output contains all variable names
+* V4.2: Output contains one row per variable, in dataset order
 local ++test_count
 capture noisily {
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_content.txt", read text
-    local found_id 0
-    local found_age 0
-    local found_sex 0
-    local found_bmi 0
-    local found_region 0
-    local found_entry 0
-    local found_name 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "id") > 0 local found_id 1
-        if strpos(`"`macval(line)'"', "age") > 0 local found_age 1
-        if strpos(`"`macval(line)'"', "sex") > 0 local found_sex 1
-        if strpos(`"`macval(line)'"', "bmi") > 0 local found_bmi 1
-        if strpos(`"`macval(line)'"', "region") > 0 local found_region 1
-        if strpos(`"`macval(line)'"', "entry_dt") > 0 local found_entry 1
-        if strpos(`"`macval(line)'"', "name") > 0 local found_name 1
-        file read `fh' line
+    qa_md_rows using "`tmp_dir'/_val_content.md"
+    assert r(n) == 7
+    foreach v in id age sex bmi region entry_dt name {
+        qa_md_rows using "`tmp_dir'/_val_content.md", var(`v')
+        assert r(n) == 1
     }
-    file close `fh'
-
-    assert `found_id' == 1
-    assert `found_age' == 1
-    assert `found_sex' == 1
-    assert `found_bmi' == 1
-    assert `found_region' == 1
-    assert `found_entry' == 1
-    assert `found_name' == 1
+    * order: the row lines appear in dataset order (the first row is id, the last name)
+    mata: _vd_L = cat(st_local("tmp_dir") + "/_val_content.md"); _vd_R = select(_vd_L, substr(_vd_L, 1, 3) :== "| " + char(96)); ///
+        st_numscalar("__vd_ok", substr(_vd_R[1], 1, 6) == "| " + char(96) + "id" + char(96) & substr(_vd_R[rows(_vd_R)], 1, 8) == "| " + char(96) + "name" + char(96) & rows(_vd_R) == 7)
+    assert scalar(__vd_ok) == 1
+    scalar drop __vd_ok
+    capture mata: mata drop _vd_L _vd_R
 }
 if _rc == 0 {
-    display as result "  PASS: V4.2 - Output contains all 7 variable names"
+    display as result "  PASS: V4.2 - Output contains one row per variable, in dataset order"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V4.2 - Variable names in output (error `=_rc')"
+    display as error "  FAIL: V4.2 - Output contains one row per variable, in dataset order (error `=_rc')"
     local ++fail_count
 }
 
 * V4.3: Output contains value labels for categorical vars
 local ++test_count
 capture noisily {
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_content.txt", read text
-    local found_female 0
-    local found_male 0
-    local found_north 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Female") > 0 local found_female 1
-        if strpos(`"`macval(line)'"', "Male") > 0 local found_male 1
-        if strpos(`"`macval(line)'"', "North") > 0 local found_north 1
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_female' == 1
-    assert `found_male' == 1
-    assert `found_north' == 1
+    qa_md_rows using "`tmp_dir'/_val_content.md", var(sex)
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_content.md", needle("0 Female: ")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_content.md", needle("1 Male: ")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_content.md", needle("1 North: ")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V4.3 - Output contains value labels (Female, Male, North)"
+    display as result "  PASS: V4.3 - Output contains value labels for categorical vars"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V4.3 - Value labels in output (error `=_rc')"
+    display as error "  FAIL: V4.3 - Output contains value labels for categorical vars (error `=_rc')"
     local ++fail_count
 }
 
-* V4.4: nostats suppresses percentile statistics
+* V4.4: nostats suppresses the statistics (mean, SD, percentiles, range)
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/val_classify") nostats ///
-        output("`tmp_dir'/_val_nostats.txt")
-
-    * With nostats, percentile lines (p25/p50/p75/Min/Max) should not appear
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_nostats.txt", read text
-    local found_percentile 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Percentile") > 0 | ///
-           strpos(`"`macval(line)'"', "25%") > 0 | ///
-           strpos(`"`macval(line)'"', "75%") > 0 {
-            local found_percentile 1
-        }
-        file read `fh' line
+        output("`tmp_dir'/_val_nostats.md")
+    * the default document carries them (control: the claim is not vacuous)
+    qa_md_contains using "`tmp_dir'/_val_content.md", needle("mean=")
+    assert !missing(r(n))
+    assert r(n) >= 2
+    * (a date variable keeps its span "range <start> to <end>", which is structure, so only the
+    * statistic forms are tested)
+    foreach t in "mean=" "SD=" "median=" "IQR=" "range=" {
+        qa_md_contains using "`tmp_dir'/_val_nostats.md", needle("`t'")
+        assert r(n) == 0
     }
-    file close `fh'
-
-    assert `found_percentile' == 0
+    * the rows are still there with their N
+    qa_md_rows using "`tmp_dir'/_val_nostats.md", var(age) cell("N=50")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V4.4 - nostats suppresses percentile statistics"
+    display as result "  PASS: V4.4 - nostats suppresses the statistics (mean, SD, percentiles, range)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V4.4 - nostats suppression (error `=_rc')"
+    display as error "  FAIL: V4.4 - nostats suppresses the statistics (mean, SD, percentiles, range) (error `=_rc')"
     local ++fail_count
 }
 
-* V4.5: exclude removes variable from detailed output
+* V4.5: exclude removes variable detail from the output
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/val_classify") exclude(id name) ///
-        output("`tmp_dir'/_val_excl.txt")
-
-    * Excluded vars should still appear but without detailed stats/values
-    * The key check: no statistics or frequency for id should appear
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_excl.txt", read text
-    local found_excluded 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "xcluded") > 0 | ///
-           strpos(`"`macval(line)'"', "EXCLUDED") > 0 | ///
-           strpos(`"`macval(line)'"', "excluded") > 0 {
-            local found_excluded 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    * The exclude option should mark variables as excluded in some way
-    assert `found_excluded' == 1
+        output("`tmp_dir'/_val_excl.md")
+    qa_md_rows using "`tmp_dir'/_val_excl.md", var(id) cell("excluded (structure only)")
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_val_excl.md", var(name) cell("excluded (structure only)")
+    assert r(n) == 1
+    * no statistic, no value of the excluded variables; the others keep theirs
+    qa_md_contains using "`tmp_dir'/_val_excl.md", needle("max length")
+    assert r(n) == 0
+    qa_md_contains using "`tmp_dir'/_val_excl.md", needle("N=50; mean=")
+    assert r(n) == 2
+    qa_md_contains using "`tmp_dir'/_val_excl.md", needle("2 excluded")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V4.5 - exclude marks variables as excluded"
+    display as result "  PASS: V4.5 - exclude removes variable detail from the output"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V4.5 - exclude content verification (error `=_rc')"
+    display as error "  FAIL: V4.5 - exclude removes variable detail from the output (error `=_rc')"
     local ++fail_count
 }
 
-* V4.6: Observation count (N=50) appears in output
+* V4.6: Observation count (N=50) and variable count appear in the dataset block
 local ++test_count
 capture noisily {
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_content.txt", read text
-    local found_n50 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "50") > 0 {
-            local found_n50 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_n50' == 1
+    qa_md_contains using "`tmp_dir'/_val_content.md", needle("- Observations: 50") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_content.md", needle("- Variables: 7") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V4.6 - Observation count (50) appears in output"
+    display as result "  PASS: V4.6 - Observation count (N=50) and variable count appear in the dataset block"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V4.6 - Observation count in output (error `=_rc')"
+    display as error "  FAIL: V4.6 - Observation count (N=50) and variable count appear in the dataset block (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* V5: Output Content Verification - datadict
+* V5: Output Content Verification - (was datadict) document options
 * ============================================================
 
 * V5.1: Markdown output contains title
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd.md") ///
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd.md") ///
         title("Validation Test Title")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_dd.md", read text
-    local found_title 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Validation Test Title") > 0 {
-            local found_title 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_title' == 1
+    qa_md_contains using "`tmp_dir'/_val_dd.md", needle("# Validation Test Title") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V5.1 - Markdown contains title"
+    display as result "  PASS: V5.1 - Markdown output contains title"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V5.1 - Title in markdown (error `=_rc')"
+    display as error "  FAIL: V5.1 - Markdown output contains title (error `=_rc')"
     local ++fail_count
 }
 
 * V5.2: Markdown output contains subtitle
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd2.md") ///
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd2.md") ///
         title("Test") subtitle("Validation Subtitle Text")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_dd2.md", read text
-    local found_sub 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Validation Subtitle Text") > 0 {
-            local found_sub 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_sub' == 1
+    qa_md_contains using "`tmp_dir'/_val_dd2.md", needle("Validation Subtitle Text") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V5.2 - Markdown contains subtitle"
+    display as result "  PASS: V5.2 - Markdown output contains subtitle"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V5.2 - Subtitle in markdown (error `=_rc')"
+    display as error "  FAIL: V5.2 - Markdown output contains subtitle (error `=_rc')"
     local ++fail_count
 }
 
 * V5.3: Markdown contains version string
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd3.md") ///
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd3.md") ///
         version("3.14")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_dd3.md", read text
-    local found_ver 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "3.14") > 0 {
-            local found_ver 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_ver' == 1
+    qa_md_contains using "`tmp_dir'/_val_dd3.md", needle("**Document Version:** 3.14") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "  PASS: V5.3 - Markdown contains version string"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V5.3 - Version in markdown (error `=_rc')"
+    display as error "  FAIL: V5.3 - Markdown contains version string (error `=_rc')"
     local ++fail_count
 }
 
 * V5.4: Markdown contains author
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd4.md") ///
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd4.md") ///
         author("Validation Test Author")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_dd4.md", read text
-    local found_auth 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Validation Test Author") > 0 {
-            local found_auth 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_auth' == 1
+    qa_md_contains using "`tmp_dir'/_val_dd4.md", needle("**Author:** Validation Test Author") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "  PASS: V5.4 - Markdown contains author"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V5.4 - Author in markdown (error `=_rc')"
+    display as error "  FAIL: V5.4 - Markdown contains author (error `=_rc')"
     local ++fail_count
 }
 
-* V5.5: Markdown contains all variable names in table
+* V5.5: Markdown contains all variable names in the table
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd5.md")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_dd5.md", read text
-    local found_vars 0
-    file read `fh' line
-    while r(eof) == 0 {
-        * Markdown tables use | to delimit columns
-        if strpos(`"`macval(line)'"', "age") > 0 & strpos(`"`macval(line)'"', "|") > 0 {
-            local ++found_vars
-        }
-        if strpos(`"`macval(line)'"', "sex") > 0 & strpos(`"`macval(line)'"', "|") > 0 {
-            local ++found_vars
-        }
-        if strpos(`"`macval(line)'"', "bmi") > 0 & strpos(`"`macval(line)'"', "|") > 0 {
-            local ++found_vars
-        }
-        if strpos(`"`macval(line)'"', "region") > 0 & strpos(`"`macval(line)'"', "|") > 0 {
-            local ++found_vars
-        }
-        file read `fh' line
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd5.md")
+    qa_md_rows using "`tmp_dir'/_val_dd5.md"
+    assert r(n) == 7
+    foreach v in id age sex bmi region entry_dt name {
+        qa_md_rows using "`tmp_dir'/_val_dd5.md", var(`v')
+        assert r(n) == 1
     }
-    file close `fh'
-
-    * Should find at least 4 variables in table rows
-    assert `found_vars' >= 4
 }
 if _rc == 0 {
-    display as result "  PASS: V5.5 - Markdown table contains variable names"
+    display as result "  PASS: V5.5 - Markdown contains all variable names in the table"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V5.5 - Variables in markdown table (error `=_rc')"
+    display as error "  FAIL: V5.5 - Markdown contains all variable names in the table (error `=_rc')"
     local ++fail_count
 }
 
-* V5.6: Markdown with missing option shows Missing column
+* V5.6: Markdown shows the Missing column (default) with exact counts
 local ++test_count
 capture noisily {
     * Create dataset with known missingness
@@ -725,32 +566,20 @@ capture noisily {
     replace x = . in 1/5
     gen y = _n * 2
     save "`tmp_dir'/val_miss_known.dta", replace
-
-    datadict, single("`tmp_dir'/val_miss_known") output("`tmp_dir'/_val_dd_miss.md") ///
-        missing
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_dd_miss.md", read text
-    local found_missing_col 0
-    file read `fh' line
-    while r(eof) == 0 {
-        * Header row should contain "Missing"
-        if strpos(`"`macval(line)'"', "Missing") > 0 | ///
-           strpos(`"`macval(line)'"', "missing") > 0 {
-            local found_missing_col 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_missing_col' == 1
+    datamap, single("`tmp_dir'/val_miss_known") output("`tmp_dir'/_val_dd_miss.md")
+    qa_md_contains using "`tmp_dir'/_val_dd_miss.md", needle("| Variable | Label | Type | Missing | Values/Statistics |") exact
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_val_dd_miss.md", var(x) miss("5 (25.0%)")
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_val_dd_miss.md", var(y) miss("0 (0.0%)")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V5.6 - Markdown with missing option shows Missing column"
+    display as result "  PASS: V5.6 - Markdown shows the Missing column (default) with exact counts"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V5.6 - Missing column in markdown (error `=_rc')"
+    display as error "  FAIL: V5.6 - Markdown shows the Missing column (default) with exact counts (error `=_rc')"
     local ++fail_count
 }
 
@@ -758,38 +587,44 @@ else {
 * V6: Missing Data Handling
 * ============================================================
 
-* V6.1: Missing data analysis detects missing values
+* V6.1: Missing data analysis reports the exact missing count and share
 local ++test_count
 capture noisily {
     * Dataset val_miss_known has 5 missing in x (25%), 0 in y
     datamap, single("`tmp_dir'/val_miss_known") missing(detail) ///
-        output("`tmp_dir'/_val_miss_det.txt")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_miss_det.txt", read text
-    local found_missing_info 0
-    file read `fh' line
-    while r(eof) == 0 {
-        * Should mention missing count or percentage for x
-        if strpos(`"`macval(line)'"', "5") > 0 & strpos(`"`macval(line)'"', "issing") > 0 {
-            local found_missing_info 1
-        }
-        if strpos(`"`macval(line)'"', "25") > 0 & strpos(`"`macval(line)'"', "issing") > 0 {
-            local found_missing_info 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    * At minimum, missing detail should report something about missingness
-    confirm file "`tmp_dir'/_val_miss_det.txt"
+        output("`tmp_dir'/_val_miss_det.md") saving("`tmp_dir'/_val_miss_meta.dta", replace)
+    confirm file "`tmp_dir'/_val_miss_det.md"
+    * the Missingness section (missing(detail)) names x and counts 5 of 20; y is not listed
+    qa_md_contains using "`tmp_dir'/_val_miss_det.md", needle("### Missingness") exact
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_val_miss_det.md", var(x) miss("5 (25.0%)")
+    assert r(n) == 1
+    * saving(): missing, missing_pct and N are the data's (independent count)
+    preserve
+    quietly use "`tmp_dir'/val_miss_known.dta", clear
+    quietly count if missing(x)
+    local truth = r(N)
+    restore
+    preserve
+    quietly use "`tmp_dir'/_val_miss_meta.dta", clear
+    assert `truth' == 5
+    assert missing == `truth' & N == 20 & abs(missing_pct - 25) < 1e-9 if variable == "x"
+    assert missing == 0 if variable == "y"
+    restore
+    * the section's own wording for the 25% variable
+    qa_md_contains using "`tmp_dir'/_val_miss_det.md", needle("- Complete rows: 15 (75.0%)") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_miss_det.md", needle("- Variables more than 10% missing: 1") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_miss_det.md", needle("- Variables more than 50% missing: 0") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V6.1 - Missing data analysis runs on dataset with known missingness"
+    display as result "  PASS: V6.1 - Missing data analysis reports the exact missing count and share"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V6.1 - Missing data analysis (error `=_rc')"
+    display as error "  FAIL: V6.1 - Missing data analysis reports the exact missing count and share (error `=_rc')"
     local ++fail_count
 }
 
@@ -797,82 +632,41 @@ else {
 * V7: Invariant Tests
 * ============================================================
 
-* V7.1: datamap output is deterministic (same input -> same output)
+* V7.1: datamap output is deterministic (same input -> same output, byte for byte)
 local ++test_count
 capture noisily {
-    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_det1.txt")
-
-    * Read file size via Stata
-    tempname fh1
-    file open `fh1' using "`tmp_dir'/_val_det1.txt", read text
-    local linecount1 0
-    file read `fh1' line
-    while r(eof) == 0 {
-        local ++linecount1
-        file read `fh1' line
-    }
-    file close `fh1'
-
-    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_det2.txt")
-
-    tempname fh2
-    file open `fh2' using "`tmp_dir'/_val_det2.txt", read text
-    local linecount2 0
-    file read `fh2' line
-    while r(eof) == 0 {
-        local ++linecount2
-        file read `fh2' line
-    }
-    file close `fh2'
-
-    assert `linecount1' == `linecount2'
-    assert `linecount1' > 0
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_det1.md")
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_det2.md")
+    _vd_same "`tmp_dir'/_val_det1.md" "`tmp_dir'/_val_det2.md"
+    assert r(same) == 1
+    assert !missing(r(n))
+    assert r(n) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: V7.1 - datamap output deterministic (same line count)"
+    display as result "  PASS: V7.1 - datamap output is deterministic (same input -> same output, byte for byte)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V7.1 - Output determinism (error `=_rc')"
+    display as error "  FAIL: V7.1 - datamap output is deterministic (same input -> same output, byte for byte) (error `=_rc')"
     local ++fail_count
 }
 
-* V7.2: datadict output is deterministic
+* V7.2: (was datadict) document-option output is deterministic
 local ++test_count
 capture noisily {
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_ddet1.md")
-
-    tempname fh1
-    file open `fh1' using "`tmp_dir'/_val_ddet1.md", read text
-    local lc1 0
-    file read `fh1' line
-    while r(eof) == 0 {
-        local ++lc1
-        file read `fh1' line
-    }
-    file close `fh1'
-
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_ddet2.md")
-
-    tempname fh2
-    file open `fh2' using "`tmp_dir'/_val_ddet2.md", read text
-    local lc2 0
-    file read `fh2' line
-    while r(eof) == 0 {
-        local ++lc2
-        file read `fh2' line
-    }
-    file close `fh2'
-
-    assert `lc1' == `lc2'
-    assert `lc1' > 0
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_ddet1.md") title("T") docdate("2026-01-01")
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_ddet2.md") title("T") docdate("2026-01-01")
+    _vd_same "`tmp_dir'/_val_ddet1.md" "`tmp_dir'/_val_ddet2.md"
+    assert r(same) == 1
+    assert !missing(r(n))
+    assert r(n) > 0
 }
 if _rc == 0 {
-    display as result "  PASS: V7.2 - datadict output deterministic (same line count)"
+    display as result "  PASS: V7.2 - (was datadict) document-option output is deterministic"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V7.2 - datadict determinism (error `=_rc')"
+    display as error "  FAIL: V7.2 - (was datadict) document-option output is deterministic (error `=_rc')"
     local ++fail_count
 }
 
@@ -882,39 +676,35 @@ capture noisily {
     sysuse auto, clear
     datasignature
     local sig_before "`r(datasignature)'"
-
-    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_pres.txt")
-
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_pres.md")
     datasignature
     assert "`r(datasignature)'" == "`sig_before'"
 }
 if _rc == 0 {
-    display as result "  PASS: V7.3 - datamap preserves data (datasignature match)"
+    display as result "  PASS: V7.3 - datamap preserves user data (datasignature)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V7.3 - Data preservation (error `=_rc')"
+    display as error "  FAIL: V7.3 - datamap preserves user data (datasignature) (error `=_rc')"
     local ++fail_count
 }
 
-* V7.4: datadict preserves user data (datasignature)
+* V7.4: (was datadict) datamap with document options preserves user data (datasignature)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     datasignature
     local sig_before "`r(datasignature)'"
-
-    datadict, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd_pres.md")
-
+    datamap, single("`tmp_dir'/val_classify") output("`tmp_dir'/_val_dd_pres.md") title("T") notes("n")
     datasignature
     assert "`r(datasignature)'" == "`sig_before'"
 }
 if _rc == 0 {
-    display as result "  PASS: V7.4 - datadict preserves data (datasignature match)"
+    display as result "  PASS: V7.4 - (was datadict) datamap with document options preserves user data (datasignature)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V7.4 - datadict data preservation (error `=_rc')"
+    display as error "  FAIL: V7.4 - (was datadict) datamap with document options preserves user data (datasignature) (error `=_rc')"
     local ++fail_count
 }
 
@@ -926,15 +716,17 @@ else {
 local ++test_count
 capture noisily {
     clear
-    capture datamap, output("`tmp_dir'/_err.txt")
+    capture datamap, output("`tmp_dir'/_err.md")
     assert _rc == 198
+    capture confirm file "`tmp_dir'/_err.md"
+    assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: V8.1 - datamap no-input error (rc 198)"
+    display as result "  PASS: V8.1 - datamap with no input returns rc 198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V8.1 - datamap no-input error (error `=_rc')"
+    display as error "  FAIL: V8.1 - datamap with no input returns rc 198 (error `=_rc')"
     local ++fail_count
 }
 
@@ -945,57 +737,57 @@ capture noisily {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: V8.2 - datamap dual-input error (rc 198)"
+    display as result "  PASS: V8.2 - datamap with dual inputs returns rc 198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V8.2 - datamap dual-input error (error `=_rc')"
+    display as error "  FAIL: V8.2 - datamap with dual inputs returns rc 198 (error `=_rc')"
     local ++fail_count
 }
 
-* V8.3: datamap with missing file returns nonzero rc
+* V8.3: datamap with missing file returns rc 601
 local ++test_count
 capture noisily {
     capture datamap, single("`tmp_dir'/totally_nonexistent_file")
     assert _rc == 601
 }
 if _rc == 0 {
-    display as result "  PASS: V8.3 - datamap missing-file error"
+    display as result "  PASS: V8.3 - datamap with missing file returns rc 601"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V8.3 - datamap missing-file error (error `=_rc')"
+    display as error "  FAIL: V8.3 - datamap with missing file returns rc 601 (error `=_rc')"
     local ++fail_count
 }
 
-* V8.4: datadict with no input returns rc 198
+* V8.4: (was datadict) datamap with document options and no input returns rc 198
 local ++test_count
 capture noisily {
     clear
-    capture datadict, output("`tmp_dir'/_err.md")
+    capture datamap, output("`tmp_dir'/_err2.md") title("T")
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: V8.4 - datadict no-input error (rc 198)"
+    display as result "  PASS: V8.4 - (was datadict) datamap with document options and no input returns rc 198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V8.4 - datadict no-input error (error `=_rc')"
+    display as error "  FAIL: V8.4 - (was datadict) datamap with document options and no input returns rc 198 (error `=_rc')"
     local ++fail_count
 }
 
-* V8.5: datadict with dual inputs returns rc 198
+* V8.5: (was datadict) datamap with dual inputs and a varlist returns rc 198
 local ++test_count
 capture noisily {
-    capture datadict, single("`tmp_dir'/val_classify") directory("`tmp_dir'")
+    capture datamap age, single("`tmp_dir'/val_classify") directory("`tmp_dir'")
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: V8.5 - datadict dual-input error (rc 198)"
+    display as result "  PASS: V8.5 - (was datadict) datamap with dual inputs and a varlist returns rc 198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V8.5 - datadict dual-input error (error `=_rc')"
+    display as error "  FAIL: V8.5 - (was datadict) datamap with dual inputs and a varlist returns rc 198 (error `=_rc')"
     local ++fail_count
 }
 
@@ -1006,26 +798,26 @@ capture noisily {
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: V8.6 - datamap maxfreq(0) error (rc 198)"
+    display as result "  PASS: V8.6 - datamap with maxfreq(0) returns rc 198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V8.6 - datamap maxfreq(0) error (error `=_rc')"
+    display as error "  FAIL: V8.6 - datamap with maxfreq(0) returns rc 198 (error `=_rc')"
     local ++fail_count
 }
 
-* V8.7: datadict with maxcat(0) returns rc 198
+* V8.7: (was datadict) datamap with maxcat(0) returns rc 198
 local ++test_count
 capture noisily {
-    capture datadict, single("`tmp_dir'/val_classify") maxcat(0)
+    capture datamap, single("`tmp_dir'/val_classify") maxcat(0)
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: V8.7 - datadict maxcat(0) error (rc 198)"
+    display as result "  PASS: V8.7 - (was datadict) datamap with maxcat(0) returns rc 198"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V8.7 - datadict maxcat(0) error (error `=_rc')"
+    display as error "  FAIL: V8.7 - (was datadict) datamap with maxcat(0) returns rc 198 (error `=_rc')"
     local ++fail_count
 }
 
@@ -1037,81 +829,56 @@ else {
 local ++test_count
 capture noisily {
     datamap, filelist("`tmp_dir'/val_classify" "`tmp_dir'/val_cardinality") ///
-        output("`tmp_dir'/_val_multi.txt")
-
-    * Output should contain both dataset filenames
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_multi.txt", read text
-    local found_ds1 0
-    local found_ds2 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "val_classify") > 0 {
-            local found_ds1 1
-        }
-        if strpos(`"`macval(line)'"', "val_cardinality") > 0 {
-            local found_ds2 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_ds1' == 1
-    assert `found_ds2' == 1
+        output("`tmp_dir'/_val_multi.md")
+    * one numbered dataset section per file, in the order given
+    qa_md_contains using "`tmp_dir'/_val_multi.md", needle("## 1. val_classify") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_multi.md", needle("## 2. val_cardinality") exact
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_val_multi.md"
+    assert r(n) == 9
 }
 if _rc == 0 {
-    display as result "  PASS: V9.1 - Filelist output contains both dataset names"
+    display as result "  PASS: V9.1 - filelist processes correct number of datasets"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V9.1 - Filelist content verification (error `=_rc')"
+    display as error "  FAIL: V9.1 - filelist processes correct number of datasets (error `=_rc')"
     local ++fail_count
 }
 
-* V9.2: datadict filelist includes both datasets in markdown
+* V9.2: (was datadict) filelist with a title lists both datasets in the table of contents
 local ++test_count
 capture noisily {
-    datadict, filelist("`tmp_dir'/val_classify" "`tmp_dir'/val_cardinality") ///
-        output("`tmp_dir'/_val_dd_multi.md")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_dd_multi.md", read text
-    local found_ds1 0
-    local found_ds2 0
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "val_classify") > 0 {
-            local found_ds1 1
-        }
-        if strpos(`"`macval(line)'"', "val_cardinality") > 0 {
-            local found_ds2 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
-
-    assert `found_ds1' == 1
-    assert `found_ds2' == 1
+    datamap, filelist("`tmp_dir'/val_classify" "`tmp_dir'/val_cardinality") ///
+        output("`tmp_dir'/_val_dd_multi.md") title("Two files")
+    qa_md_contains using "`tmp_dir'/_val_dd_multi.md", needle("1. [val_classify](#1-val_classify)") exact
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_dd_multi.md", needle("2. [val_cardinality](#2-val_cardinality)") exact
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V9.2 - datadict filelist contains both datasets"
+    display as result "  PASS: V9.2 - (was datadict) filelist with a title lists both datasets in the table of contents"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V9.2 - datadict filelist verification (error `=_rc')"
+    display as error "  FAIL: V9.2 - (was datadict) filelist with a title lists both datasets in the table of contents (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
 * V10: Value Label Bug Fix Verification
 * ============================================================
+
 * Regression test: value label word-indexing bug
 * Variables with value labels must be classified as categorical,
 * variables without must follow cardinality rules
 
+* V10.1: Value-labelled variables are categorical, unlabelled ones follow cardinality
 local ++test_count
 capture noisily {
     clear
+    set seed 99999
     set obs 100
     gen double id = _n
     gen double age = 20 + int(60*runiform())
@@ -1123,76 +890,41 @@ capture noisily {
     label define reglbl2 1 "North" 2 "South" 3 "East" 4 "West"
     label values region reglbl2
     save "`tmp_dir'/val_labelbug.dta", replace
-
-    datamap, single("`tmp_dir'/val_labelbug") output("`tmp_dir'/_val_labelbug.txt")
-
-    tempname fh
-    file open `fh' using "`tmp_dir'/_val_labelbug.txt", read text
-    local age_ok 0
-    local sex_ok 0
-    local bmi_ok 0
-    local region_ok 0
-    local current_var ""
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "  age") > 0 & "`current_var'" == "" {
-            local current_var "age"
-        }
-        if strpos(`"`macval(line)'"', "  sex") > 0 & "`current_var'" == "" {
-            local current_var "sex"
-        }
-        if strpos(`"`macval(line)'"', "  bmi") > 0 & "`current_var'" == "" {
-            local current_var "bmi"
-        }
-        if strpos(`"`macval(line)'"', "  region") > 0 & "`current_var'" == "" {
-            local current_var "region"
-        }
-        if strpos(`"`macval(line)'"', "Classification:") > 0 | ///
-           strpos(`"`macval(line)'"', "classification:") > 0 {
-            if "`current_var'" == "age" & strpos(`"`macval(line)'"', "ontinuous") > 0 {
-                local age_ok 1
-            }
-            if "`current_var'" == "sex" & strpos(`"`macval(line)'"', "ategorical") > 0 {
-                local sex_ok 1
-            }
-            if "`current_var'" == "bmi" & strpos(`"`macval(line)'"', "ontinuous") > 0 {
-                local bmi_ok 1
-            }
-            if "`current_var'" == "region" & strpos(`"`macval(line)'"', "ategorical") > 0 {
-                local region_ok 1
-            }
-            local current_var ""
-        }
-        file read `fh' line
+    datamap, single("`tmp_dir'/val_labelbug") output("`tmp_dir'/_val_labelbug.md") saving("`tmp_dir'/_val_labelbug_meta.dta", replace)
+    foreach pair in age:continuous sex:categorical bmi:continuous region:categorical {
+        local v = substr("`pair'", 1, strpos("`pair'", ":") - 1)
+        local c = substr("`pair'", strpos("`pair'", ":") + 1, .)
+        _vd_class "`tmp_dir'/_val_labelbug_meta.dta" `v'
+        assert r(n) == 1 & "`r(class)'" == "`c'"
     }
-    file close `fh'
-
-    assert `age_ok' == 1
-    assert `sex_ok' == 1
-    assert `bmi_ok' == 1
-    assert `region_ok' == 1
+    * the labels reach the right variable (the word-indexing bug attached them to the wrong one)
+    qa_md_contains using "`tmp_dir'/_val_labelbug.md", needle("0 Female: ")
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_labelbug.md", needle("4 West: ")
+    assert r(n) == 1
+    qa_md_rows using "`tmp_dir'/_val_labelbug.md", var(age)
+    assert r(n) == 1
+    qa_md_contains using "`tmp_dir'/_val_labelbug.md", needle("Female")
+    assert r(n) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V10 - Value label bug regression test (all 4 vars correct)"
+    display as result "  PASS: V10.1 - Value-labelled variables are categorical, unlabelled ones follow cardinality"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V10 - Value label bug regression (error `=_rc')"
+    display as error "  FAIL: V10.1 - Value-labelled variables are categorical, unlabelled ones follow cardinality (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
 * Cleanup
 * ============================================================
-
 * Remove all validation output files
-local txt_files : dir "`tmp_dir'" files "_val_*.txt"
-foreach f of local txt_files {
-    capture erase "`tmp_dir'/`f'"
-}
-local md_files : dir "`tmp_dir'" files "_val_*.md"
-foreach f of local md_files {
-    capture erase "`tmp_dir'/`f'"
+foreach pat in "_val_*.txt" "_val_*.md" "_val_*_meta.dta" {
+    local files : dir "`tmp_dir'" files "`pat'"
+    foreach f of local files {
+        capture erase "`tmp_dir'/`f'"
+    }
 }
 
 * Remove validation datasets
@@ -1204,15 +936,12 @@ capture erase "`tmp_dir'/val_labelbug.dta"
 * ============================================================
 * Summary
 * ============================================================
-
 display as text ""
-display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
-
 if `fail_count' > 0 {
-    display as error "SOME VALIDATIONS FAILED"
+    display as error "validation_datamap: `fail_count' of `test_count' FAILED"
 }
 else {
-    display as result "ALL VALIDATIONS PASSED"
+    display as result "validation_datamap: all `test_count' passed"
 }
 display "RESULT: validation_datamap tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 exit 1

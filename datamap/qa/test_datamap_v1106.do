@@ -26,12 +26,19 @@ set linesize 255
 *   G4  datamvp's all-numeric path equals the per-variable path
 *   G5  dataqa report's per-dataset counts and open rows against a
 *       hand count, with a call that has no seq
+*
+* 2026-11-10 (datamap 2.0.0): datadict is removed.  D1/D4/D2/D7/G3 run on
+* datamap's Markdown writer.  D5 and D7 called the private datadict
+* helpers _datadict_FormatStatNumber and _datadict_GetUnlabeledStats, which are
+* deleted: the same promises (values of 1e15 and more in %21.0g, below with every
+* digit; exact level counts at 20,000 levels) are asserted on the document cells.
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
 discard
+do "`qa_dir'/_qa_md.do"
 
 local test_count = 0
 local pass_count = 0
@@ -111,9 +118,9 @@ capture noisily {
     quietly save "`D'/plain.dta", replace
     capture log close m6
     log using "`W'/d1.log", text replace name(m6)
-    capture noisily datamap, directory("`D'") output("`W'/d1.txt")
+    capture noisily datamap, directory("`D'") output("`W'/d1.md")
     local rc1 = _rc
-    capture noisily datadict, directory("`D'") output("`W'/d1.md")
+    capture noisily datamap, directory("`D'") output("`W'/d1_doc.md") title("T")
     local rc2 = _rc
     log close m6
     assert `rc1' == 198
@@ -123,17 +130,17 @@ capture noisily {
     _m6_count "`W'/d1.log" `"`macval(nd)'"'
     assert r(n) == 2
     * nothing was written
-    capture confirm file "`W'/d1.txt"
-    assert _rc
     capture confirm file "`W'/d1.md"
+    assert _rc
+    capture confirm file "`W'/d1_doc.md"
     assert _rc
     erase `"`macval(bad)'"'
     * guard: without it the directory is documented
-    datamap, directory("`D'") output("`W'/d1b.txt")
-    datadict, directory("`D'") output("`W'/d1b.md")
+    datamap, directory("`D'") output("`W'/d1b.md")
+    datamap, directory("`D'") output("`W'/d1b_doc.md") title("T")
     erase "`D'/plain.dta"
-    erase "`W'/d1b.txt"
     erase "`W'/d1b.md"
+    erase "`W'/d1b_doc.md"
     rmdir "`D'"
 }
 if _rc == 0 {
@@ -146,7 +153,7 @@ else {
 }
 capture log close m6
 
-**# D2 datadict prints large values in full
+**# D2 datamap prints large values in full
 
 local ++test_count
 capture noisily {
@@ -154,25 +161,25 @@ capture noisily {
     quietly set obs 40
     gen double v = 10012345 + _n * 1000
     gen double w = -2.5e9 - _n
-    datadict, output("`W'/d2.md") stats mincell(0)
+    datamap, output("`W'/d2.md") mincell(0)
     _m6_count "`W'/d2.md" "e+0"
     assert r(n) == 0
     * median of v: 10,012,345 + 20.5 * 1000
-    _m6_count "`W'/d2.md" "Median=10,032,845"
+    _m6_count "`W'/d2.md" "median=10,032,845"
     assert r(n) == 1
-    _m6_count "`W'/d2.md" "Range=10,013,345-10,052,345"
+    _m6_count "`W'/d2.md" "range=10,013,345-10,052,345"
     assert r(n) == 1
     * a negative range is written "a to b"
-    _m6_count "`W'/d2.md" "Range=-2,500,000,040 to -2,500,000,001"
+    _m6_count "`W'/d2.md" "range=-2,500,000,040 to -2,500,000,001"
     assert r(n) == 1
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: D2 datadict prints values of 1e6 and more with every digit"
+    display as result "  PASS: D2 datamap prints values of 1e6 and more with every digit"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: D2 datadict prints values of 1e6 and more with every digit"
+    display as error "  FAIL: D2 datamap prints values of 1e6 and more with every digit"
 }
 
 **# D3 dataqa compare agrees with report and assert after a (modified) rerun
@@ -222,16 +229,16 @@ capture noisily {
     quietly save `"`macval(sub)'/a.dta"', replace
     capture log close m6
     log using "`W'/d4.log", text replace name(m6)
-    capture noisily datamap, directory("`D'") recursive output("`W'/d4.txt")
+    capture noisily datamap, directory("`D'") recursive output("`W'/d4.md")
     local rc1 = _rc
-    capture noisily datadict, directory("`D'") recursive output("`W'/d4.md")
+    capture noisily datamap, directory("`D'") recursive output("`W'/d4_doc.md") title("T")
     local rc2 = _rc
     log close m6
     assert `rc1' == 198 & `rc2' == 198
     local nd = "cannot scan subdirectory s" + char(36) + "x"
     _m6_count "`W'/d4.log" `"`macval(nd)'"'
     assert r(n) == 2
-    capture confirm file "`W'/d4.txt"
+    capture confirm file "`W'/d4.md"
     assert _rc
     erase `"`macval(sub)'/a.dta"'
     mata: rmdir(st_local("sub"))
@@ -248,35 +255,36 @@ else {
 }
 capture log close m6
 
-**# D5 datadict values of 1e15 and more
+**# D5 datamap values of 1e15 and more
 
+* 2026-11-10: was the private helper _datadict_FormatStatNumber; the same rule is
+* asserted on the document cell (1e15 and more in %21.0g, below with every digit)
 local ++test_count
 capture noisily {
-    * the file's subprograms are private: run it (dropping datadict, which
-    * has no -capture program drop- of its own)
-    capture program drop datadict
-    discard
-    quietly findfile datadict.ado
-    quietly run "`r(fn)'"
-    _datadict_FormatStatNumber 1e23
-    assert "`r(formatted)'" == "1.00000000000000e+23"
-    _datadict_FormatStatNumber -1e30
-    assert "`r(formatted)'" == "-1.00000000000000e+30"
-    _datadict_FormatStatNumber 999999999999999
-    assert "`r(formatted)'" == "999,999,999,999,999"
-    _datadict_FormatStatNumber 10012345
-    assert "`r(formatted)'" == "10,012,345"
+    clear
+    quietly set obs 40
+    gen double big = 1e23 * _n
+    gen double neg = -1e30 * _n
+    gen double mid = 999999999999999 + _n
+    gen double ten = 10012345 + _n
+    quietly datamap, output("`W'/d5.md") mincell(0)
+    _m6_count "`W'/d5.md" "range=1.00000000000000e+23-4.00000000000000e+24"
+    assert r(n) == 1
+    _m6_count "`W'/d5.md" "range=-4.00000000000000e+31 to -1.00000000000000e+30"
+    assert r(n) == 1
+    * below 1e15: every digit, with thousands separators only below 1e15
+    _m6_count "`W'/d5.md" "range=1000000000000000-1000000000000039"
+    assert r(n) == 1
+    _m6_count "`W'/d5.md" "range=10,012,346-10,012,385"
+    assert r(n) == 1
 }
-local _d5rc = _rc
-capture program drop datadict
-discard
-if `_d5rc' == 0 {
+if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: D5 datadict prints 1e15 and more in %21.0g, below with every digit"
+    display as result "  PASS: D5 datamap prints 1e15 and more in %21.0g, below with every digit"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: D5 datadict prints 1e15 and more in %21.0g, below with every digit"
+    display as error "  FAIL: D5 datamap prints 1e15 and more in %21.0g, below with every digit"
 }
 
 **# D6 dataqa compare reads a failing (modified) row that stands
@@ -313,40 +321,68 @@ else {
 }
 capture dataqa set, clear
 
-**# D7 guard: datadict level counts from matcell() at 20,000 levels
+**# D7 guard: datamap level counts at 20,000 levels
 
 * levelsof, hexadecimal fails with r(920) from about 40,000 levels with or
 * without matcell(), so the one-by-one fallback (any matcell() error) never
 * changes a result; this guard pins the counts at a level count both forms
 * still take (a guard: passes on 1.10.5 too)
+* 2026-11-10 (datamap 2.0.0): the cell is asserted on the document (the private
+* _datadict_GetUnlabeledStats helper is gone); the collector's levels frame
+* assertions are unchanged
 local ++test_count
 capture noisily {
-    * the file's subprograms are private: run it (dropping datadict, which
-    * has no -capture program drop- of its own)
-    capture program drop datadict
-    discard
-    quietly findfile datadict.ado
-    quietly run "`r(fn)'"
     clear
     quietly set obs 40000
     gen long v = ceil(_n / 2)
     quietly replace v = 1 in 1/9
-    _datadict_GetUnlabeledStats "v" 3 40000 0 ""
-    local vs `"`r(valstring)'"'
+    * 2026-11-10, datamap 2.0.0 Phase 1: the cell reads its levels from the
+    * collector's levels frame (_datamap_collect_levels); with more levels than
+    * maxfreq the collector posts none and the cell counts them, as before.
+    tempname L
+    _datamap_collect_levels, create frame(`L')
+    _datamap_collect_levels v, frame(`L') dsindex(1) maxlevels(3) mincell(0)
+    frame `L': assert _N == 0
+    quietly datamap, output("`W'/d7a.md") categorical(v) maxfreq(3) uniqcap(0) mincell(0)
     * 19,997 levels (1 holds 10 rows), more than maxfreq: the count of
     * levels, not All missing
-    assert `"`vs'"' == "Unique=19997"
+    _m6_count "`W'/d7a.md" "19997 distinct; frequencies not listed (more than maxfreq(3))"
+    assert r(n) == 1
+    * and listed when maxfreq allows: 19,997 levels are more rows than
+    * -tabulate- takes, so the collector counts them in Mata (rows 1-9 hold
+    * 1, row 10 holds 5, then two rows per value up to 20,000)
+    _datamap_collect_levels v, frame(`L') dsindex(2) maxlevels(25000) mincell(0)
+    frame `L' {
+        assert _N == 19997
+        quietly summarize count
+        assert r(sum) == 40000
+        assert value[1] == 1 & count[1] == 9 & value[2] == 5 & count[2] == 1
+        assert value[19997] == 20000 & count[19997] == 2
+    }
+    quietly datamap, output("`W'/d7b.md") categorical(v) maxfreq(25000) uniqcap(0) mincell(0)
+    _m6_count "`W'/d7b.md" "| 1: 9 (0.0%)<br>5: 1 (0.0%)<br>6: 2 (0.0%)"
+    assert r(n) == 1
+    _m6_count "`W'/d7b.md" "<br>20000: 2 (0.0%) |"
+    assert r(n) == 1
+    * every one of the 19,997 entries is in the one row (19,996 separators)
+    * the separators are counted in the raw bytes (fread), since fget() hands a line
+    * over 32,768 bytes back in chunks that can split a "<br>"; the file holds no
+    * other cell
+    mata: _d7_fh = fopen(st_local("W") + "/d7b.md", "r"); fseek(_d7_fh, 0, 1); _d7_n = ftell(_d7_fh); fseek(_d7_fh, 0, -1); ///
+        _d7_s = fread(_d7_fh, _d7_n); fclose(_d7_fh); ///
+        st_numscalar("__d7_br", (strlen(_d7_s) - strlen(subinstr(_d7_s, "<br>", "", .))) / 4)
+    assert scalar(__d7_br) == 19996
+    scalar drop __d7_br
+    capture mata: mata drop _d7_fh _d7_n _d7_s
 }
 local _d7rc = _rc
-capture program drop datadict
-discard
 if `_d7rc' == 0 {
     local ++pass_count
-    display as result "  PASS: D7 guard: datadict level counts at 20,000 levels"
+    display as result "  PASS: D7 guard: datamap level counts at 20,000 levels"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: D7 guard: datadict level counts at 20,000 levels"
+    display as error "  FAIL: D7 guard: datamap level counts at 20,000 levels"
 }
 
 **# D8 guard: the one-pass kernels at one row, one group, one variable
@@ -471,7 +507,7 @@ capture noisily {
     sysuse auto, clear
     gen double allmiss = .
     set seed 4242
-    datamap, output("`W'/g2.txt") continuous(allmiss) saving("`W'/g2.dta", replace)
+    datamap, output("`W'/g2.md") continuous(allmiss) saving("`W'/g2.dta", replace)
     local u1 = runiform()
     set seed 4242
     local u2 = runiform()
@@ -493,7 +529,7 @@ capture noisily {
     restore
     * the same call on a file gives the same rows
     quietly save "`W'/g2src.dta", replace
-    datamap, single("`W'/g2src.dta") output("`W'/g2f.txt") continuous(allmiss) ///
+    datamap, single("`W'/g2src.dta") output("`W'/g2f.md") continuous(allmiss) ///
         saving("`W'/g2f.dta", replace)
     use "`W'/g2f.dta", clear
     drop source dataset datasignature output
@@ -515,7 +551,7 @@ else {
     display as error "  FAIL: G2 saving() keeps the caller's RNG state, an all-missing variable, summarize's values"
 }
 
-**# G3 datadict saving() without a stats column
+**# G3 datamap saving() without a statistics column
 
 local ++test_count
 capture noisily {
@@ -523,8 +559,9 @@ capture noisily {
     quietly summarize weight, detail
     tempname m
     scalar `m' = r(mean)
-    datadict, output("`W'/g3.md") saving("`W'/g3.dta", replace)
-    _m6_count "`W'/g3.md" "Mean="
+    * columns() without the statistics: the table prints none, saving() still has them
+    datamap, output("`W'/g3.md") saving("`W'/g3.dta", replace) columns(variable type)
+    _m6_count "`W'/g3.md" "mean="
     assert r(n) == 0
     use "`W'/g3.dta", clear
     assert mean == scalar(`m') if variable == "weight"
@@ -534,11 +571,11 @@ capture noisily {
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: G3 datadict saves the summaries its table does not print"
+    display as result "  PASS: G3 datamap saves the summaries its table does not print"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: G3 datadict saves the summaries its table does not print"
+    display as error "  FAIL: G3 datamap saves the summaries its table does not print"
 }
 
 **# G4 datamvp all-numeric path against the per-variable path

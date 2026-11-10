@@ -1,5 +1,5 @@
-*! _datamap_classify Version 1.10.6  2026/10/21
-*! Shared classification engine for datamap and datadict
+*! _datamap_classify Version 2.0.0  2026/11/10
+*! Shared classification engine for datamap and dataprobe
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 // Builds the caller's local `dst' as a Stata string expression that evaluates
@@ -37,13 +37,33 @@ program define _datamap_classify, rclass
     set varabbrev off
     local _post_open = 0
     local _pfh_open = 0
+    local _tfh_open = 0
+    tempname _tfh
     capture noisily {
         syntax using/ , [SAVing(string) MAXCat(integer 25) OBS(integer -1) ///
             EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
             DETECT_binary(integer 0) QUality_level(string) LOADED ///
-            CAPacity(integer 1000) SRCname(string) PRECHECK MEMory DATEOPT(name)]
-        // the caller's name for date() in messages (datadict: datevars)
-        if "`dateopt'" == "" local dateopt "date"
+            CAPacity(integer 1000) SRCname(string) PRECHECK MEMory ///
+            DOCvars(string) TEXTsave(string) AUTOexclude]
+        // The likely-identifier name pattern: r(suggested_exclude) and, with
+        // autoexclude (datamap's exclude(auto), 2.0.0 U5), the variables it
+        // excludes.  One pattern for both, so what is suggested is what auto
+        // withholds.  The pattern lives in _datamap_idnames (2.0.0 U2), which
+        // safe in dataprobe and datamvp reads too: one rule everywhere.
+        _datamap_idnames
+        mata: st_local("_idre", st_global("r(pattern)"))
+        // textsave(): also write each variable's row as text, nine lines per
+        // variable (varname, classification, quality_flag, missing_n,
+        // missing_pct, unique_vals, unique_capped, orig_position,
+        // max_length), the numbers as the same macro text posted to
+        // saving().  _datamap_post_metadata_rows, classtext() reads it with
+        // Mata, so datamap needs no frame to read the classification back
+        // (2.0.0: one collector frame fewer at peak).
+        // docvars(): classify only these variables (datamap's varlist), in
+        // this order; orig_position stays the variable's place in the data
+        // the name of date() in messages (2026-11-10: the DATEOPT() option
+        // that renamed it had no caller once datadict was removed)
+        local dateopt "date"
 
         // precheck: `using' is a text file listing one dataset per line.
         // Before any output is written, check every exclude() token against
@@ -169,6 +189,16 @@ program define _datamap_classify, rclass
                     local _otok = substr(`"`_oent'"', strpos(`"`_oent'"', ":") + 1, .)
                     noisily display as error ///
                         `"`_o'(): `_otok' matches no variable in any dataset"'
+                    // 2.0.0 (2026-11-10): date() took the document date in
+                    // datadict ("10 Nov 2026"); read as a varlist it matches
+                    // nothing.  An unmatched date() token is an option
+                    // error (198) that points to docdate(); continuous()
+                    // and categorical() keep r(111).
+                    if "`_o'" == "date" {
+                        noisily display as error ///
+                            "date() names variables to classify as dates; the document date is docdate() since 2.0.0"
+                        exit 198
+                    }
                     exit 111
                 }
             }
@@ -248,6 +278,17 @@ program define _datamap_classify, rclass
             local _exclude_x : list _exclude_x | _eexp
         }
         local exclude `"`_exclude_x'"'
+        // autoexclude: every variable of the dataset whose name matches the
+        // identifier pattern, also outside docvars (the caller withholds a
+        // declared setting naming one); r(auto_excluded) lists them
+        local _autoex ""
+        if "`autoexclude'" != "" {
+            foreach _av of local all_vars {
+                if regexm(lower("`_av'"), "`_idre'") local _autoex "`_autoex' `_av'"
+            }
+            local _autoex : list retokenize _autoex
+            local exclude : list exclude | _autoex
+        }
 
         // Expanded token by token: one name absent from this file (normal
         // in a multi-file run) used to leave the whole list unexpanded, so
@@ -302,6 +343,10 @@ program define _datamap_classify, rclass
             byte is_binary str80 quality_flag int orig_position ///
             double max_length byte unique_capped using `"`saving'"', replace
         local _post_open = 1
+        if `"`textsave'"' != "" {
+            quietly file open `_tfh' using `"`textsave'"', write text replace
+            local _tfh_open = 1
+        }
 
         local categorical_vars ""
         local continuous_vars ""
@@ -316,9 +361,19 @@ program define _datamap_classify, rclass
         local n_excluded = 0
         local n_suggested_exclude = 0
 
+        local _loopvars `"`all_vars'"'
+        if `"`docvars'"' != "" {
+            local _loopvars `"`docvars'"'
+            local _bad : list _loopvars - all_vars
+            if `"`_bad'"' != "" {
+                noisily display as error `"docvars(): `_bad' not found"'
+                exit 111
+            }
+        }
         local i = 0
-        foreach vname of local all_vars {
-            local ++i
+        foreach vname of local _loopvars {
+            if `"`docvars'"' == "" local ++i
+            else local i : list posof "`vname'" in all_vars
             local vtype : type `vname'
             local vfmt : format `vname'
             local vlab : variable label `vname'
@@ -488,7 +543,7 @@ program define _datamap_classify, rclass
                 local excluded_vars "`excluded_vars' `vname'"
             }
 
-            if regexm(lower("`vname'"), "id$|_id$|^id_|patient|subject|person|lopnr|identifier") & !`isexcluded' {
+            if regexm(lower("`vname'"), "`_idre'") & !`isexcluded' {
                 local ++n_suggested_exclude
                 local suggested_exclude "`suggested_exclude' `vname'"
             }
@@ -507,10 +562,22 @@ program define _datamap_classify, rclass
                 (`_dmx_vlab') (`"`valab_post'"') (`nmiss') (`pctmiss') ///
                 (`"`class'"') (`nuniq') (`is_binary') (`"`qflag'"') (`i') ///
                 (`maxlen') (`ncapped')
+            // the posted macro texts: re-evaluated by the reader, they give
+            // the doubles saving() holds (varname, class and the flag are
+            // shorter than their str32/str16/str80 columns)
+            if `_tfh_open' {
+                file write `_tfh' `"`vname'"' _n `"`class'"' _n `"`qflag'"' _n ///
+                    `"`nmiss'"' _n `"`pctmiss'"' _n `"`nuniq'"' _n ///
+                    `"`ncapped'"' _n `"`i'"' _n `"`maxlen'"' _n
+            }
         }
 
         postclose `posth'
         local _post_open = 0
+        if `_tfh_open' {
+            file close `_tfh'
+            local _tfh_open = 0
+        }
 
         return scalar cap = `capacity'
         return scalar nvars = `nvars'
@@ -527,9 +594,11 @@ program define _datamap_classify, rclass
         return local string_vars "`string_vars'"
         return local excluded_vars "`excluded_vars'"
         return local suggested_exclude "`suggested_exclude'"
+        return local auto_excluded "`_autoex'"
     }
     local rc = _rc
     if `_pfh_open' capture file close `_pfh'
+    if `_tfh_open' capture file close `_tfh'
 	    if `_post_open' {
 	        capture postclose `posth'
 	        local _postclose_rc = _rc

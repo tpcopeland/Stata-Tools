@@ -5,7 +5,7 @@ set linesize 255
 
 * test_datamap_quoting_linebreaks.do - compound quotes and line breaks in
 * user text, across dataprobe, its call-error ledger row, dataqa, and the
-* datamap text map.
+* datamap Markdown document.
 * E  a failing dataprobe call writes its call-error row whatever the quoting
 *    (E5: a passing call keeps a compound-quoted run() label, once stored empty)
 *    of ledger(), run(), name() and the rest of the line (the writer stopped
@@ -16,7 +16,12 @@ set linesize 255
 * D  dataqa assert prints a stored message as text: no SMCL, macro or quote
 *    character in it is live
 * L  a line break in a variable, value or dataset label or a string value
-*    never breaks a line of the datamap text map
+*    never breaks a line of the datamap Markdown document
+* 2026-11-10 (datamap 2.0.0): the text map and the JSON writer are removed.
+* L1 now reads the Markdown document; its JSON half ("JSON keeps its own
+* escape, \n") tested a feature that no longer exists (the escaper
+* _datamap_json_escape is deleted) and is replaced by the saving() check: the
+* machine-readable table keeps the label's line break verbatim.
 * Oracles: count if on the fixture, the command text as typed (built in Mata
 * from char() codes), the plain-form result as the twin of each quoted form,
 * and the map of the same data with every line break written as a space.
@@ -55,15 +60,15 @@ program define _lb_rows, rclass
     restore
 end
 
-* the lines of a text file, skipping lines that start with a given prefix
+* the lines of a Markdown document, skipping the data-signature line (r(txt) is a hash of the rest)
 capture program drop _lb_lines
 program define _lb_lines, rclass
     args file
     mata: _lb_f = cat(st_local("file")); ///
-        _lb_k = !(strpos(_lb_f, "Generated:") :== 1 :| strpos(_lb_f, "Data Signature:") :== 1); ///
-        st_local("txt", invtokens(select(_lb_f, _lb_k)', char(10))); ///
+        _lb_k = !(strpos(_lb_f, "- Data signature:") :== 1); ///
+        st_local("txt", strofreal(hash1(invtokens(select(_lb_f, _lb_k)', char(10))), "%21.0f")); ///
         st_local("n", strofreal(rows(_lb_f)))
-    return local txt `"`macval(txt)'"'
+    return local txt "`txt'"
     return scalar n = `n'
 end
 
@@ -412,40 +417,42 @@ capture noisily {
         quietly generate str5 s = "a`br'b" if _n <= 6
         quietly replace s = "c`br'd" if _n > 6
         label data "data`br'set"
-        datamap, output("`W'/l1_`v'.txt") samples(3)
+        datamap, output("`W'/l1_`v'.md") samples(3)
     }
-    _lb_lines "`W'/l1_nl.txt"
-    local tnl `"`r(txt)'"'
+    _lb_lines "`W'/l1_nl.md"
+    local tnl "`r(txt)'"
     local nnl = r(n)
-    _lb_lines "`W'/l1_sp.txt"
-    local tsp `"`r(txt)'"'
+    _lb_lines "`W'/l1_sp.md"
+    local tsp "`r(txt)'"
     assert `nnl' == r(n)
-    * the map of the data with line breaks is the map with spaces, line for line
-    assert `"`macval(tnl)'"' == `"`macval(tsp)'"'
-    mata: _lb_t = cat(st_local("W") + "/l1_nl.txt"); ///
-        st_local("k1", strofreal(sum(strpos(_lb_t, "Label: first second") :> 0))); ///
+    * the document of the data with line breaks is the document with spaces, line for line
+    * (the data signature differs with the string bytes, so its line is skipped)
+    * (compared as a hash of the whole text: a document line may end in a backtick)
+    assert "`tnl'" == "`tsp'" & "`tnl'" != ""
+    mata: _lb_t = cat(st_local("W") + "/l1_nl.md"); ///
+        st_local("k1", strofreal(sum(strpos(_lb_t, "| first second |") :> 0))); ///
         st_local("k2", strofreal(sum(_lb_t :== "second" :| _lb_t :== "uno" :| _lb_t :== "dos"))); ///
-        st_local("k3", strofreal(sum(strpos(_lb_t, "1 = one uno") :> 0)))
-    assert `k1' >= 1 & `k2' == 0 & `k3' >= 1
-    * JSON keeps its own escape, \n
+        st_local("k3", strofreal(sum(strpos(_lb_t, "1 one uno: 6 (50.0%)<br>2 two dos: 6 (50.0%)") :> 0)))
+    assert `k2' == 0
+    assert `k1' == 1 & `k3' == 1
+    * saving() keeps the line break verbatim (the JSON escape it replaces is gone)
     clear
     quietly set obs 3
     quietly generate x = _n
     label variable x "first`=char(10)'second"
-    datamap, output("`W'/l1.json") format(json)
-    mata: _lb_t = cat(st_local("W") + "/l1.json"); ///
-        st_local("k4", strofreal(sum(strpos(_lb_t, "first" + char(92) + "nsecond") :> 0)))
-    assert `k4' >= 1
+    datamap, output("`W'/l1.md") saving("`W'/l1s.dta", replace)
+    quietly use "`W'/l1s.dta", clear
+    assert variable_label[1] == "first" + char(10) + "second"
 }
 local rc = _rc
 capture restore
 if `rc' {
     local ++fail
-    display as error "FAIL: L1 line breaks in labels and values in the text map rc=`rc'"
+    display as error "FAIL: L1 line breaks in labels and values in the Markdown document rc=`rc'"
 }
 else {
     local ++pass
-    display as result "PASS: L1 line breaks in labels and values in the text map"
+    display as result "PASS: L1 line breaks in labels and values in the Markdown document"
 }
 
 * tidy

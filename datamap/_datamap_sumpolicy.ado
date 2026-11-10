@@ -1,5 +1,5 @@
-*! _datamap_sumpolicy Version 1.10.6  2026/10/21
-*! Which summaries of one variable a datamap/datadict output may print
+*! _datamap_sumpolicy Version 2.0.0  2026/11/10
+*! Which summaries of one variable a datamap or dataprobe output may print
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 // One decision, read by every writer (text, JSON, sample rows, saving()):

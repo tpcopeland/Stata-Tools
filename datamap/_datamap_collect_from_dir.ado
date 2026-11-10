@@ -1,5 +1,5 @@
-*! _datamap_collect_from_dir Version 1.10.6  2026/10/21
-*! Shared datamap/datadict directory scanner
+*! _datamap_collect_from_dir Version 2.0.0  2026/11/10
+*! Shared datamap directory scanner
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _datamap_collect_from_dir, nclass
@@ -20,6 +20,9 @@ program define _datamap_collect_from_dir, nclass
 	local files : dir `"`directory'"' files "*.dta"
 	local _filesU : dir `"`directory'"' files "*.DTA"
 	local files : list files | _filesU
+	// name order, not file-system order (2.0.0): the dataset numbering and
+	// the Linkage block otherwise differ between ext4 and tmpfs
+	local files : list sort files
 		foreach f of local files {
 			_datamap_dirfile_ok `"`macval(f)'"'
 			if `"`directory'"' != "." {
@@ -63,6 +66,9 @@ program define _datamap_recursive_scan, nclass
 	local files : dir `"`directory'"' files "*.dta"
 	local _filesU : dir `"`directory'"' files "*.DTA"
 	local files : list files | _filesU
+	// name order, not file-system order (2.0.0): the dataset numbering and
+	// the Linkage block otherwise differ between ext4 and tmpfs
+	local files : list sort files
 	foreach f of local files {
 		_datamap_dirfile_ok `"`macval(f)'"'
 		if `"`directory'"' != "." {
@@ -74,6 +80,7 @@ program define _datamap_recursive_scan, nclass
 	}
 
 	local subdirs : dir `"`directory'"' dirs "*"
+	local subdirs : list sort subdirs
 	foreach subdir of local subdirs {
 		if substr(`"`subdir'"', 1, 1) != "." & `"`subdir'"' != "__pycache__" {
 			_datamap_dirfile_ok `"`macval(subdir)'"' directory

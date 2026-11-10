@@ -800,15 +800,22 @@ capture {
     clear
     set obs 3
     gen str4 id = "P1"
+    * 2026-11-10 (2.0.0, W1): a key that is string in memory and numeric in
+    * the file is a failed keyset() entry ("type conflict", rc 9, no count),
+    * reported by the preflight before any count; 1.x stopped with an error.
+    * The intent is kept: the mismatch never passes and no count is made.
+    capture dataprobe, gatesonly keyset(id using "`dg_ids'") violations(dg_ks, replace) warn
+    assert _rc == 0 & r(n_warnings) == 1 & missing(r(keyset_only_master))
+    frame dg_ks: assert _N == 1 & strpos(message[1], "type conflict: id str4 in memory, long in ") > 0
     capture dataprobe, gatesonly keyset(id using "`dg_ids'")
-    assert _rc != 0 & _rc != 9
+    assert _rc == 9
     capture dataprobe, gatesonly keyset(id using "`c(tmpdir)'/no_such_ids_file")
     assert _rc == 601
     gen long k = _n
     capture dataprobe, gatesonly keyset(k using "`dg_ids'", sideways)
     assert _rc == 198
 }
-_dg `=_rc' "keyset(): type mismatch, a missing file and a bad mode are errors, not violations"
+_dg `=_rc' "keyset(): a type mismatch is a failed entry (2.0.0 W1); a missing file and a bad mode are errors"
 capture frame drop dg_ks
 
 * ============================================================

@@ -80,7 +80,11 @@ _dme_record `block_rc' "dataprobe rejects an empty if-sample atomically; nonempt
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 
-**# datadict parameter error and legal output counterpart
+**# datamap parameter error and legal output counterpart
+* 2.0.0 (2026-11-10): datadict is removed; its Markdown writer is datamap's.
+* This block pinned datadict, maxfreq(0) (rc 198, data untouched) and its
+* legal counterpart; the same contract is now pinned on datamap (r(nobs) is
+* datamap's name for datadict's r(nobs_total)).
 
 local ++test_count
 capture noisily {
@@ -91,21 +95,23 @@ capture noisily {
     generate byte marker = 75
     tempfile dictionary
 
-    capture noisily datadict, maxfreq(0)
+    capture noisily datamap, maxfreq(0) output("`dictionary'")
     local call_rc = _rc
     assert `call_rc' == 198
     assert marker == 75
     assert id == _n
+    capture confirm file "`dictionary'"
+    assert _rc != 0
 
-    capture noisily datadict, maxfreq(1) output("`dictionary'")
+    capture noisily datamap, maxfreq(1) output("`dictionary'")
     local legal_rc = _rc
     assert `legal_rc' == 0
     confirm file "`dictionary'"
     assert r(nfiles) == 1
-    assert r(nobs_total) == 3
+    assert r(nobs) == 3
 }
 local block_rc = _rc
-_dme_record `block_rc' "datadict rejects maxfreq(0) without mutation; maxfreq(1) writes a dictionary"
+_dme_record `block_rc' "datamap rejects maxfreq(0) without mutation; maxfreq(1) writes a document"
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 
@@ -131,10 +137,12 @@ capture noisily {
     capture confirm file "`map_output'"
     assert _rc != 0
 
-    * nullcase: datadict
+    * nullcase: datadict.  2.0.0 (2026-11-10): datadict is removed (the
+    * datamap nullcase above is the same contract); the command must now be
+    * unrecognized, with the data and the output path untouched.
     capture noisily datadict, directory("`empty_dir'") output("`map_output'")
     local dict_rc = _rc
-    assert `dict_rc' == 601
+    assert `dict_rc' == 199
     assert _N == 3
     assert marker == 76
     capture confirm file "`map_output'"
@@ -150,6 +158,9 @@ capture noisily {
     capture rmdir "`empty_dir'"
 }
 local block_rc = _rc
+* also on failure: a directory left at a tempfile path collides with a later
+* tempfile of the same number (run_all's net install stopped r(602))
+capture rmdir "`empty_dir'"
 _dme_record `block_rc' "datamap errors on an empty directory and preserves memory; memory input works"
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count

@@ -8,12 +8,29 @@ set linesize 255
 *   A* datamap/_datamap_* (Sonnet A), P* dataprobe (Opus), B* datadict/
 *   datamvp/dataqa (Sonnet B), S*/SA* suspected items that reproduced.
 * Every test was red on 1.10.2 except where a comment says otherwise.
+*
+* 2026-11-10 (datamap 2.0.0): datadict, the text layout and its prose are
+* removed.  The datadict tests (B1-B5, B13-B16, A11, A14, SA3) run on datamap's
+* Markdown writer; text-layout needles became Markdown cells (see each test):
+*   A7  "Max Length: 29 characters" -> "max length 29"
+*   A8  "Earliest: 2021-02-04" -> "range 2021-02-04 to 2021-02-13"
+*   A9  "longitudinal data with 5 units" (DESCRIPTION) -> the Panel structure line
+*   A15 the stratification guidance is gone; the "All missing" cell remains
+*   B4  REMOVED FEATURE: datadict's generated descriptions ("Unique identifier",
+*       "Year of observation").  The test now asserts they never appear
+*   B5/B13 the "3=3" value-label list is the inline "<value> <label>" cells
+*   B16 "IQR=-224 to -73.50" -> "IQR=-223.50 to -73.50" (2026-11-10: both ends of
+*       a pair print with one number of decimals, so p25 = -223.5 is no longer
+*       rounded to -224 by the integer class; the " to " separator is unchanged)
+*       and "range=-297 to 0" -> "range=-297.00 to 0.00" (repair round 3: an
+*       exact zero prints with its statistics cell's decimals)
 
 local qa_dir  "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
 discard
+do "`qa_dir'/_qa_md.do"
 
 local test_count = 0
 local pass_count = 0
@@ -22,52 +39,32 @@ local fail_count = 0
 local W "`c(tmpdir)'/v1103"
 capture mkdir "`W'"
 
+* The three line counters below read through Mata (_qa_md.do's reader style): a
+* datamap 2.0.0 document has lines that end in a backtick, which a macro line
+* reader stops on with r(132).
 * number of lines of a text file that contain a string
 capture program drop _v13_count
 program define _v13_count, rclass
     args file needle
-    tempname fh
-    local n 0
-    file open `fh' using `"`file'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`needle'"') local ++n
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar n = `n'
+    qa_md_contains using `"`file'"', needle(`"`needle'"')
+    return scalar n = r(n)
 end
 
 * number of lines of a text file equal to a string after trimming blanks
 capture program drop _v13_eq
 program define _v13_eq, rclass
     args file needle
-    tempname fh
-    local n 0
-    file open `fh' using `"`file'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strtrim(`"`macval(line)'"') == `"`needle'"' local ++n
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar n = `n'
+    mata: st_numscalar("__v13_eq", sum(strtrim(cat(st_local("file"))) :== st_local("needle")))
+    return scalar n = scalar(__v13_eq)
+    scalar drop __v13_eq
 end
 
 * number of lines of a text file
 capture program drop _v13_lines
 program define _v13_lines, rclass
     args file
-    tempname fh
-    local n 0
-    file open `fh' using `"`file'"', read text
-    file read `fh' line
-    while r(eof) == 0 {
-        local ++n
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar n = `n'
+    qa_md_nlines using `"`file'"'
+    return scalar n = r(n)
 end
 
 * number of lines of a text file that contain the text in global V13_ND,
@@ -133,7 +130,7 @@ capture noisily {
     _datamap_nuniq arm
     assert r(n) == 2
     capture erase "`W'/a1.dta"
-    quietly datamap, output("`W'/a1.txt") saving("`W'/a1.dta", replace)
+    quietly datamap, output("`W'/a1.md") saving("`W'/a1.dta", replace)
     use "`W'/a1.dta", clear
     quietly count if inlist(variable, "x", "s", "arm") & unique == 2
     assert r(N) == 3
@@ -154,15 +151,15 @@ capture noisily {
     gen dob = mdy(3, 4, 1980) + 8 * (_n > 20)
     format dob %td
     gen x = _n
-    quietly datamap, output("`W'/a2.txt") detect(binary) datesafe
-    _v13_count "`W'/a2.txt" "7368"
+    quietly datamap, output("`W'/a2.md") detect(binary) datesafe
+    _v13_count "`W'/a2.md" "7368"
     assert r(n) == 0
-    _v13_count "`W'/a2.txt" "7376"
+    _v13_count "`W'/a2.md" "7376"
     assert r(n) == 0
-    quietly datamap, output("`W'/a2b.txt") datesafe categorical(dob)
-    _v13_count "`W'/a2b.txt" "7368"
+    quietly datamap, output("`W'/a2b.md") datesafe categorical(dob)
+    _v13_count "`W'/a2b.md" "7368"
     assert r(n) == 0
-    _v13_count "`W'/a2b.txt" "withheld (datesafe"
+    _v13_count "`W'/a2b.md" "withheld (datesafe"
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -180,7 +177,7 @@ capture noisily {
     local fn0 "`c(filename)'"
     quietly replace price = price + 1 in 1
     assert c(changed) == 1
-    quietly datamap, output("`W'/a4.txt")
+    quietly datamap, output("`W'/a4.md")
     assert c(changed) == 1
     assert "`c(filename)'" == "`fn0'"
     assert price[1] == 4100
@@ -199,17 +196,17 @@ capture noisily {
     sysuse auto, clear
     local fn0 "`c(filename)'"
     quietly replace price = price + 1 in 1
-    quietly datadict, output("`W'/b1.md")
+    quietly datamap, output("`W'/b1.md") title("T")
     assert c(changed) == 1
     assert "`c(filename)'" == "`fn0'"
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: B1 datadict in memory keeps c(changed) and c(filename)"
+    display as result "  PASS: B1 datamap document mode in memory keeps c(changed) and c(filename)"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: B1 datadict in memory keeps c(changed) and c(filename)"
+    display as error "  FAIL: B1 datamap document mode in memory keeps c(changed) and c(filename)"
 }
 
 local ++test_count
@@ -368,14 +365,14 @@ capture noisily {
     quietly set obs 40
     gen rare = _n <= 2
     gen double y = _n
-    quietly datamap, output("`W'/a3.txt") saving("`W'/a3.dta", replace)
+    quietly datamap, output("`W'/a3.md") saving("`W'/a3.dta", replace)
     use "`W'/a3.dta", clear
     assert missing(mean) & missing(min) & missing(max) if variable == "rare"
     assert !missing(mean) if variable == "y"
     clear
     quietly set obs 40
     gen double y = _n
-    quietly datamap, nostats output("`W'/a3b.txt") saving("`W'/a3b.dta", replace)
+    quietly datamap, nostats output("`W'/a3b.md") saving("`W'/a3b.dta", replace)
     use "`W'/a3b.dta", clear
     assert missing(mean) & missing(sd) & missing(max) if variable == "y"
 }
@@ -391,17 +388,23 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    capture datamap, output("`W'/a5.txt") continuous(make)
+    capture datamap, output("`W'/a5.md") continuous(make)
     assert _rc == 109
-    capture datamap, output("`W'/a5.txt") date(make)
+    capture datamap, output("`W'/a5.md") date(make)
     assert _rc == 109
-    capture datamap, output("`W'/a6.txt") continuous(nosuchvar)
+    capture datamap, output("`W'/a6.md") continuous(nosuchvar)
     assert _rc == 111
-    capture datamap, output("`W'/a6.txt") categorical(w* typo)
+    capture datamap, output("`W'/a6.md") categorical(w* typo)
     assert _rc == 111
-    capture datadict, output("`W'/a6.md") datevars(nosuch)
-    assert _rc == 111
-    quietly datamap, output("`W'/a6.txt") categorical(w* tu*) saving("`W'/a6.dta", replace)
+    * 2.0.0 (2026-11-10): datadict is removed and its datevars() is
+    * datamap's date().  An unmatched date() token is an option error (198,
+    * pointing to docdate(), the old datadict date(string)); continuous()
+    * and categorical() typos above stay 111.
+    capture datamap, output("`W'/a6.md") date(nosuch)
+    assert _rc == 198
+    capture datamap, output("`W'/a6.md") datevars(nosuch)
+    assert _rc == 198
+    quietly datamap, output("`W'/a6.md") categorical(w* tu*) saving("`W'/a6.dta", replace)
     use "`W'/a6.dta", clear
     assert class == "categorical" if inlist(variable, "weight", "turn")
 }
@@ -419,10 +422,10 @@ capture noisily {
     clear
     quietly set obs 6
     gen str40 t = "abcdefghijklmnop" + uchar(229) + uchar(228) + uchar(246) + "qrstuvwxyz"
-    quietly datamap, output("`W'/a7.txt") samples(3)
-    _v13_badutf "`W'/a7.txt"
+    quietly datamap, output("`W'/a7.md") samples(3)
+    _v13_badutf "`W'/a7.md"
     assert r(n) == 0
-    _v13_count "`W'/a7.txt" "Max Length: 29 characters"
+    _v13_count "`W'/a7.md" "N=6; 1 distinct; max length 29"
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -442,10 +445,10 @@ capture noisily {
     format t %tc
     gen double tC = Cofc(t)
     format tC %tC
-    quietly datamap, output("`W'/a8.txt") dateformat(%dCY-N-D)
-    _v13_count "`W'/a8.txt" "e+12"
+    quietly datamap, output("`W'/a8.md") dateformat(%dCY-N-D)
+    _v13_count "`W'/a8.md" "e+12"
     assert r(n) == 0
-    _v13_count "`W'/a8.txt" "Earliest: 2021-02-04"
+    _v13_count "`W'/a8.md" "range 2021-02-04 to 2021-02-13"
     assert r(n) == 2
 }
 if _rc == 0 {
@@ -460,12 +463,13 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly datamap, output("`W'/a9.txt") panelid(rep78)
-    _v13_count "`W'/a9.txt" "longitudinal data with 5 units"
+    quietly datamap, output("`W'/a9.md") panelid(rep78)
+    * (2026-11-10: the DESCRIPTION sentence is the Panel structure line)
+    qa_md_contains using "`W'/a9.md", needle("- Panel: identifier `=char(96)'rep78`=char(96)'; 5 units; 74 rows")
     assert r(n) == 1
     gen patient_id = ceil(_n / 2)
-    quietly datamap, output("`W'/a9b.txt") detect(panel)
-    _v13_count "`W'/a9b.txt" "longitudinal data with 37 units"
+    quietly datamap, output("`W'/a9b.md") detect(panel)
+    qa_md_contains using "`W'/a9b.md", needle("- Panel: identifier `=char(96)'patient_id`=char(96)'; 37 units; 74 rows; 2.0 rows per unit") exact
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -485,7 +489,7 @@ capture noisily {
     assert _rc == 198
     quietly datamap, filelist("`W'/sep_a") separate
     assert `"`r(output)'"' == ""
-    confirm file "`W'/sep_a_map.txt"
+    confirm file "`W'/sep_a_map.md"
 }
 if _rc == 0 {
     local ++pass_count
@@ -500,9 +504,16 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     quietly drop in 1/l
-    quietly datamap, output("`W'/a11.txt")
+    quietly datamap, output("`W'/a11.md")
     assert r(nobs) == 0
-    quietly datadict, output("`W'/a11.md")
+    * (was a datadict twin) every variable row reads "No observations"
+    qa_md_contains using "`W'/a11.md", needle("- Observations: 0") exact
+    assert r(n) == 1
+    qa_md_contains using "`W'/a11.md", needle(" | No observations |")
+    assert r(n) == 12
+    quietly datamap, output("`W'/a11b.md") title("T")
+    qa_md_contains using "`W'/a11b.md", needle(" | No observations |")
+    assert r(n) == 12
 }
 if _rc == 0 {
     local ++pass_count
@@ -516,7 +527,7 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    capture datamap, single("a;b") output("`W'/a12.txt")
+    capture datamap, single("a;b") output("`W'/a12.md")
     assert _rc == 198
 }
 if _rc == 0 {
@@ -533,17 +544,17 @@ capture noisily {
     capture mkdir "`W'/bad"
     sysuse auto, clear
     quietly save "`W'/bad/a.dta", replace
-    quietly datamap, single("`W'/bad/a.dta") output("`W'/a13.txt")
-    _v13_lines "`W'/a13.txt"
+    quietly datamap, single("`W'/bad/a.dta") output("`W'/a13.md")
+    _v13_lines "`W'/a13.md"
     local n0 = r(n)
-    assert `n0' > 50
+    assert `n0' > 20
     tempname fh
     file open `fh' using "`W'/bad/b.dta", write text replace
     file write `fh' "not a dta file" _n
     file close `fh'
-    capture datamap, directory("`W'/bad") output("`W'/a13.txt")
+    capture datamap, directory("`W'/bad") output("`W'/a13.md")
     assert _rc != 0
-    _v13_lines "`W'/a13.txt"
+    _v13_lines "`W'/a13.md"
     assert r(n) == `n0'
     erase "`W'/bad/b.dta"
     erase "`W'/bad/a.dta"
@@ -564,11 +575,11 @@ capture noisily {
     sysuse auto, clear
     quietly keep make price
     quietly save "`W'/`long'.dta", replace
-    quietly datamap, single("`W'/`long'.dta") output("`W'/a14.txt") saving("`W'/a14.dta", replace)
+    quietly datamap, single("`W'/`long'.dta") output("`W'/a14.md") saving("`W'/a14.dta", replace)
     use "`W'/a14.dta", clear
     assert dataset == "`long'"
     use "`W'/`long'.dta", clear
-    quietly datadict, single("`W'/`long'.dta") output("`W'/b14.md") saving("`W'/b14.dta", replace)
+    quietly datamap, single("`W'/`long'.dta") output("`W'/b14.md") saving("`W'/b14.dta", replace) title("T")
     use "`W'/b14.dta", clear
     assert dataset == "`long'"
     erase "`W'/`long'.dta"
@@ -588,10 +599,10 @@ capture noisily {
     quietly set obs 10
     gen x = .
     gen y = _n
-    quietly datamap, output("`W'/a15.txt")
-    _v13_count "`W'/a15.txt" "stratification"
+    quietly datamap, output("`W'/a15.md")
+    _v13_count "`W'/a15.md" "stratification"
     assert r(n) == 0
-    _v13_count "`W'/a15.txt" "No nonmissing values"
+    _v13_count "`W'/a15.md" " | All missing |"
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -609,17 +620,17 @@ capture noisily {
     quietly keep make price
     label data "Car file label B2"
     quietly save "`W'/b2.dta", replace
-    quietly datadict, single("`W'/b2.dta") output("`W'/b2.md")
-    _v13_count "`W'/b2.md" "Car file label B2"
-    assert !missing(r(n)) & r(n) >= 1
+    quietly datamap, single("`W'/b2.dta") output("`W'/b2.md")
+    _v13_count "`W'/b2.md" "- Label: Car file label B2"
+    assert r(n) == 1
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: B2 datadict file modes print the dataset label"
+    display as result "  PASS: B2 datamap file modes print the dataset label"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: B2 datadict file modes print the dataset label"
+    display as error "  FAIL: B2 datamap file modes print the dataset label"
 }
 
 local ++test_count
@@ -629,17 +640,20 @@ capture noisily {
     mata: st_global("price[note0]", "1")
     mata: st_global("mpg[note1]", "a " + char(34) + char(39) + " b")
     mata: st_global("mpg[note0]", "1")
-    quietly datadict, output("`W'/b3.md") detail
+    quietly datamap, output("`W'/b3.md") columns(variable notes)
     _v13_count "`W'/b3.md" "see code &#96;here"
     assert r(n) == 1
+    * no row broke: all twelve variables are still one row each
+    qa_md_rows using "`W'/b3.md"
+    assert r(n) == 12
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: B3 datadict prints a note holding a backtick and a closing compound quote"
+    display as result "  PASS: B3 datamap prints a note holding a backtick and a closing compound quote"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: B3 datadict prints a note holding a backtick and a closing compound quote"
+    display as error "  FAIL: B3 datamap prints a note holding a backtick and a closing compound quote"
 }
 
 local ++test_count
@@ -650,10 +664,20 @@ capture noisily {
     gen person_id = _n
     gen yr = 5
     gen year = 2000 + mod(_n, 3)
-    quietly datadict, output("`W'/b4.md")
+    * 2026-11-10 (datamap 2.0.0): REMOVED FEATURE.  datadict guessed descriptions
+    * from variable names ("Unique identifier" for a unique *_id, "Year of
+    * observation" for year) and 1.10.3 made that guess need confirming values.
+    * The generated descriptions are gone (plan O2): no guessed text appears,
+    * whatever the names, and the Label column holds only the user's labels.
+    quietly datamap, output("`W'/b4.md")
     _v13_count "`W'/b4.md" "Unique identifier"
-    assert r(n) == 1
+    assert r(n) == 0
     _v13_count "`W'/b4.md" "Year of observation"
+    assert r(n) == 0
+    qa_md_rows using "`W'/b4.md"
+    assert r(n) == 4
+    * the identifier hint is the one disclosure line (person_id is 40 distinct values)
+    qa_md_contains using "`W'/b4.md", needle("likely identifiers not excluded: ")
     assert r(n) == 1
 }
 if _rc == 0 {
@@ -675,7 +699,7 @@ capture noisily {
         if `i' != 3 label define kl `i' "`lab'", add
     }
     label values k kl
-    quietly datadict, output("`W'/b5.md")
+    quietly datamap, output("`W'/b5.md")
     _v13_badutf "`W'/b5.md"
     assert r(n) == 0
     clear
@@ -683,17 +707,20 @@ capture noisily {
     gen k = mod(_n, 4)
     label define kl2 0 "zero" 1 "one" 2 "two"
     label values k kl2
-    quietly datadict, output("`W'/b13.md")
+    quietly datamap, output("`W'/b13.md") mincell(0)
     _v13_count "`W'/b13.md" "3=3"
     assert r(n) == 0
+    * an unlabelled value prints as its bare value, labelled ones with their label
+    qa_md_rows using "`W'/b13.md", var(k) cell("0 zero: 2 (20.0%)<br>1 one: 3 (30.0%)<br>2 two: 3 (30.0%)<br>3: 2 (20.0%)")
+    assert r(n) == 1
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "  PASS: B5 B13 value-label list: valid UTF-8, no 3=3 for an unlabelled value"
+    display as result "  PASS: B5 B13 value-label cells: valid UTF-8, no 3=3 for an unlabelled value"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: B5 B13 value-label list: valid UTF-8, no 3=3 for an unlabelled value"
+    display as error "  FAIL: B5 B13 value-label cells: valid UTF-8, no 3=3 for an unlabelled value"
 }
 
 local ++test_count
@@ -877,11 +904,12 @@ capture noisily {
     quietly keep make price
     quietly drop in 1/l
     quietly save "`W'/b15.dta", replace
-    quietly datadict, single("`W'/b15.dta") output("`W'/b15.md") missing stats
+    quietly datamap, single("`W'/b15.dta") output("`W'/b15.md")
     _v13_count "`W'/b15.md" "All missing"
     assert r(n) == 0
+    * one "No observations" cell per variable (make and price)
     _v13_count "`W'/b15.md" "No observations"
-    assert r(n) == 1
+    assert r(n) == 2
 }
 if _rc == 0 {
     local ++pass_count
@@ -898,11 +926,21 @@ capture noisily {
     quietly set obs 100
     gen double neg = -300 + 3 * _n
     gen double near = 100 + _n / 250
-    quietly datadict, output("`W'/b16.md") stats
-    _v13_count "`W'/b16.md" "IQR=-224 to -73.50"
+    quietly datamap, output("`W'/b16.md")
+    * 2026-11-10: one decimal count per pair (was "IQR=-224 to -73.50"); the
+    * negative-end " to " separator is what B16 pins
+    _v13_count "`W'/b16.md" "IQR=-223.50 to -73.50"
     assert r(n) == 1
+    * 2026-11-10 (repair round 3): an exact zero takes the cell's decimals
+    * (two here, SD=87.03), and both ends of a pair print alike, so
+    * "range=-297 to 0" is now "range=-297.00 to 0.00"; " to " still pinned
+    _v13_count "`W'/b16.md" "range=-297.00 to 0.00"
+    assert r(n) == 1
+    * near-equal ends keep their digits, never "100-100"
     _v13_count "`W'/b16.md" "IQR=100-100"
     assert r(n) == 0
+    _v13_count "`W'/b16.md" "IQR=100.102-100.302"
+    assert r(n) == 1
 }
 if _rc == 0 {
     local ++pass_count
@@ -960,7 +998,7 @@ capture noisily {
     quietly keep make price
     quietly save "`W'/up/a.dta", replace
     quietly save "`W'/up/B.DTA", replace
-    quietly datamap, directory("`W'/up") output("`W'/sa1.txt")
+    quietly datamap, directory("`W'/up") output("`W'/sa1.md")
     assert r(nfiles) == 2
     erase "`W'/up/a.dta"
     erase "`W'/up/B.DTA"
@@ -978,9 +1016,9 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    capture datamap, recursive output("`W'/sa3.txt")
+    capture datamap, recursive output("`W'/sa3.md")
     assert _rc == 198
-    capture datadict, recursive output("`W'/sa3.md")
+    capture datamap, recursive output("`W'/sa3.md") title("T")
     assert _rc == 198
 }
 if _rc == 0 {

@@ -1,5 +1,5 @@
-*! _datamap_collect_filelist Version 1.10.6  2026/10/21
-*! Shared datamap/datadict filelist parser
+*! _datamap_collect_filelist Version 2.0.0  2026/11/10
+*! datamap filelist() parser
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _datamap_collect_filelist, nclass

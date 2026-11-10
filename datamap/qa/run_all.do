@@ -23,7 +23,8 @@ local pkg_dir "`qa_dir'/.."
 local quick_suites ///
     test_datamap.do ///
     test_datamap_errors.do ///
-    test_datadict_v14.do ///
+    test_datamap_markdown_dictionary.do ///
+    test_datamap_v200_removed.do ///
     test_dataprobe.do ///
     test_dataprobe_gates.do ///
     test_dataqa.do ///
@@ -59,7 +60,7 @@ local quick_suites ///
 
 local core_suites ///
     validation_datamap_precision.do validation_dataqa_writer_precision.do ///
-    validation_datamap_fixture_contract.do validation_datamap_fixture_primitives.do test_datamap_fixture_domains.do test_datamap_fixture_option_strings.do test_datamvp_fixture_groupgap.do test_datamvp_fixture_reshape_state.do test_datamap_fixture_files.do test_dataprobe_fixture_ledger_quotes.do validation_datadict_fixture_contract.do validation_dataqa_fixture_contract.do test_dataqa_fixture_state.do test_datamvp_fixture_state.do ///
+    validation_datamap_fixture_contract.do validation_datamap_fixture_primitives.do test_datamap_fixture_domains.do test_datamap_fixture_option_strings.do test_datamvp_fixture_groupgap.do test_datamvp_fixture_reshape_state.do test_datamap_fixture_files.do test_dataprobe_fixture_ledger_quotes.do validation_datamap_markdown_contract.do validation_dataqa_fixture_contract.do test_dataqa_fixture_state.do test_datamvp_fixture_state.do ///
     `quick_suites' ///
     test_datamap_bugfixes.do ///
     test_datamap_paths.do ///
@@ -76,6 +77,18 @@ local core_suites ///
     test_datamvp_oracle.do ///
     test_dataprobe_v1106.do ///
     test_datamap_v1106.do ///
+    test_datamap_v200_collector.do ///
+    test_datamap_v200_collector_limits.do ///
+    test_datamap_v200_render_fixes.do ///
+    test_datamap_v200_content.do ///
+    test_datamap_v200_link.do ///
+    test_datamap_v200_content_qa.do ///
+    test_datamap_v200_link_qa.do ///
+    test_datamap_v200_upgrade.do ///
+    test_dataprobe_v200_diff.do ///
+    test_dataprobe_v200.do ///
+    test_datamap_v200_safe.do ///
+    test_datamap_v200_leftovers.do ///
     validation_datamap.do ///
     validation_datamvp.do
 

@@ -1,4 +1,4 @@
-*! _dataprobe_groupmiss Version 1.10.6  2026/10/21
+*! _dataprobe_groupmiss Version 2.0.0  2026/11/10
 *! Group sizes, complete-case counts, and missing counts by group, one pass
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

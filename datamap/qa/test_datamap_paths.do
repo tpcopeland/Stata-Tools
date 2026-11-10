@@ -1,4 +1,10 @@
 * test_datamap_paths.do - Path parsing regressions for metadata writers.
+*
+* 2026-11-10 (datamap 2.0.0): datadict is removed, so T2 (datadict's path
+* contract) is ported to datamap's Markdown writer with a parenthesized
+* output() path as well as a parenthesized saving() path, i.e. the same
+* contract one level stricter than T1.  The map output is Markdown now
+* (_path_map.md, was .txt).
 
 clear all
 set more off
@@ -22,9 +28,9 @@ local pass_count = 0
 local fail_count = 0
 
 local input "`tmp_dir'/_path_input.dta"
-local map_output "`tmp_dir'/_path_map.txt"
+local map_output "`tmp_dir'/_path_map.md"
 local map_meta "`tmp_dir'/_path_map_(paren).dta"
-local dict_output "`tmp_dir'/_path_dict.md"
+local dict_output "`tmp_dir'/_path_dict_(paren).md"
 local dict_meta "`tmp_dir'/_path_dict_(paren).dta"
 local check_meta "`tmp_dir'/_path_check_(paren).dta"
 
@@ -56,21 +62,24 @@ else {
     local ++fail_count
 }
 
-* T2: datadict uses the same path contract.
+* T2: the Markdown writer honours the contract for output() and saving() both.
 local ++test_count
 capture noisily {
-    datadict, single("`input'") output("`dict_output'") saving("`dict_meta'", replace)
+    datamap, single("`input'") output("`dict_output'") saving("`dict_meta'", replace)
     assert r(metadata) == "`dict_meta'"
     confirm file "`dict_meta'"
+    confirm file "`dict_output'"
     capture confirm file "`tmp_dir'/_path_dict_paren.dta"
+    assert _rc != 0
+    capture confirm file "`tmp_dir'/_path_dict_paren.md"
     assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: T`test_count' - datadict preserves parenthesized saving path"
+    display as result "  PASS: T`test_count' - datamap preserves parenthesized output and saving paths"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T`test_count' - datadict parenthesized saving path (rc=`=_rc')"
+    display as error "  FAIL: T`test_count' - datamap parenthesized output/saving path (rc=`=_rc')"
     local ++fail_count
 }
 

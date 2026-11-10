@@ -1,5 +1,10 @@
 *! validation_datamap_fixture_contract.do -- canonical labelled designs and independent contents
 *! Author: Timothy P Copeland, Karolinska Institutet
+* 2026-11-10 (datamap 2.0.0): format(json) is removed.  The six "JSON metadata"
+* tests of the labelled design are now "Markdown metadata" tests on the same
+* fixtures and the same expected facts: the document is read through _qa_md.do
+* (observations, variable rows, Missing cells, the x statistics text, the group
+* level counts) and saving() carries the exact numbers (N, nvars, missing, mean).
 version 16.0
 clear all
 set more off
@@ -11,32 +16,78 @@ quietly net install datamap, from("`pkg_dir'") force
 discard
 do _qa_fx_a7.do
 do _qa_state.do
+do _qa_md.do
 local tests 0
 local pass 0
 local fail 0
 
-**# JSON metadata exact labelled friendly
+* 2026-11-10 (2.0.0 Phase 3, F3): the Missing cell of the all-missing
+* extended variable lists its codes ("40 (100.0%): . 14, .a 1, ..."); the
+* pins read miss("40 (100.0%)") before.  Oracle: -count- per code on the
+* fixture in memory (every run here is mincell(0), so every count prints).
+capture program drop _fxc_extcell
+program define _fxc_extcell, rclass
+    quietly count
+    local N = r(N)
+    quietly count if missing(extended)
+    assert r(N) == `N' & `N' > 0
+    local cell "`N' (100.0%):"
+    local sep ""
+    foreach c in . .a .b .c .d .e .f .g .h .i .j .k .l .m .n .o .p .q .r .s .t .u .v .w .x .y .z {
+        quietly count if extended == `c'
+        if r(N) > 0 {
+            local cell "`cell'`sep' `c' `r(N)'"
+            local sep ","
+        }
+    }
+    return local cell "`cell'"
+end
+
+**# Markdown metadata exact labelled friendly
 local ++tests
 capture noisily {
     qa_fx_a7_labelled, clear seed(37)
     tempfile output
     qa_state_snapshot, tag(dm_json)
-    quietly datamap, output(`"`output'"') format(json) continuous(x) mincell(0)
+    tempfile meta
+    quietly datamap, output(`"`output'"') saving(`"`meta'"', replace) continuous(x) mincell(0)
     assert r(nfiles)==1 & r(nobs)==40 & r(nvars)==10
     qa_state_compare, tag(dm_json)
-    python: _ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _ds["variable_metadata"]}; assert _ds["observations"]==40 and _ds["variables"]==10; assert _v["all_missing"]["missing_n"]==40 and _v["extended"]["missing_n"]==40; assert _v["x"]["missing_n"]==0; assert _v["x"]["summary"]=={} if 0>0 else _v["x"]["summary"]["mean"]==20.5
-    python: _g=_v["group"]["frequencies"]; assert {q["value"]:q["count"] for q in _g}==({"1":1} if 40==1 else {"1":10,"2":10,"5":10,"9":10})
+    * Markdown + saving() oracle (was the JSON parse): 40 observations, ten variable rows,
+    * all_missing and extended 40 missing, x complete with mean 20.5
+    qa_md_contains using `"`output'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_contains using `"`output'"', needle("- Variables: 10") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==10
+    qa_md_rows using `"`output'"', var(all_missing) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
+    _fxc_extcell
+    qa_md_rows using `"`output'"', var(extended) cell("All missing") miss(`"`r(cell)'"')
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(x) miss("0 (0.0%)") ///
+        cell("N=40; mean=20.50; SD=11.69; median=20.50; IQR=10.50-30.50; range=1.00-40.00")
+    assert r(n)==1
+    preserve
+    quietly use `"`meta'"', clear
+    assert _N==10 & N==40 & nvars==10
+    assert missing==40 if inlist(variable,"all_missing","extended")
+    assert missing==0 & mean==20.5 if variable=="x"
+    restore
+    qa_md_levels using `"`output'"', var(group) expect(1:10 2:10 5:10 9:10)
+    assert r(ok)==1
 
 }
 local outcome=_rc
 
 if `outcome' {
     local ++fail
-    display as error "FAIL: JSON metadata exact labelled friendly; rc=" `outcome'
+    display as error "FAIL: Markdown metadata exact labelled friendly; rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: JSON metadata exact labelled friendly"
+    display as result "PASS: Markdown metadata exact labelled friendly"
 }
 
 **# Missingness exact labelled friendly
@@ -86,29 +137,52 @@ else {
     display as result "PASS: QC exact labelled friendly"
 }
 
-**# JSON metadata exact labelled label_gaps
+**# Markdown metadata exact labelled label_gaps
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output
     qa_state_snapshot, tag(dm_json)
-    quietly datamap, output(`"`output'"') format(json) continuous(x) mincell(0)
+    tempfile meta
+    quietly datamap, output(`"`output'"') saving(`"`meta'"', replace) continuous(x) mincell(0)
     assert r(nfiles)==1 & r(nobs)==40 & r(nvars)==10
     qa_state_compare, tag(dm_json)
-    python: _ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _ds["variable_metadata"]}; assert _ds["observations"]==40 and _ds["variables"]==10; assert _v["all_missing"]["missing_n"]==40 and _v["extended"]["missing_n"]==40; assert _v["x"]["missing_n"]==0; assert _v["x"]["summary"]=={} if 0>0 else _v["x"]["summary"]["mean"]==20.5
-    python: _g=_v["group"]["frequencies"]; assert {q["value"]:q["count"] for q in _g}==({"1":1} if 40==1 else {"1":10,"2":10,"5":10,"9":10})
+    * Markdown + saving() oracle (was the JSON parse): 40 observations, ten variable rows,
+    * all_missing and extended 40 missing, x complete with mean 20.5
+    qa_md_contains using `"`output'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_contains using `"`output'"', needle("- Variables: 10") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==10
+    qa_md_rows using `"`output'"', var(all_missing) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
+    _fxc_extcell
+    qa_md_rows using `"`output'"', var(extended) cell("All missing") miss(`"`r(cell)'"')
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(x) miss("0 (0.0%)") ///
+        cell("N=40; mean=20.50; SD=11.69; median=20.50; IQR=10.50-30.50; range=1.00-40.00")
+    assert r(n)==1
+    preserve
+    quietly use `"`meta'"', clear
+    assert _N==10 & N==40 & nvars==10
+    assert missing==40 if inlist(variable,"all_missing","extended")
+    assert missing==0 & mean==20.5 if variable=="x"
+    restore
+    qa_md_levels using `"`output'"', var(group) expect(1:10 2:10 5:10 9:10)
+    assert r(ok)==1
 
 }
 local outcome=_rc
 
 if `outcome' {
     local ++fail
-    display as error "FAIL: JSON metadata exact labelled label_gaps; rc=" `outcome'
+    display as error "FAIL: Markdown metadata exact labelled label_gaps; rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: JSON metadata exact labelled label_gaps"
+    display as result "PASS: Markdown metadata exact labelled label_gaps"
 }
 
 **# Missingness exact labelled label_gaps
@@ -160,29 +234,51 @@ else {
     display as result "PASS: QC exact labelled label_gaps"
 }
 
-**# JSON metadata exact labelled miss_all_column
+**# Markdown metadata exact labelled miss_all_column
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(miss_all_column)
     tempfile output
     qa_state_snapshot, tag(dm_json)
-    quietly datamap, output(`"`output'"') format(json) continuous(x) mincell(0)
+    tempfile meta
+    quietly datamap, output(`"`output'"') saving(`"`meta'"', replace) continuous(x) mincell(0)
     assert r(nfiles)==1 & r(nobs)==40 & r(nvars)==10
     qa_state_compare, tag(dm_json)
-    python: _ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _ds["variable_metadata"]}; assert _ds["observations"]==40 and _ds["variables"]==10; assert _v["all_missing"]["missing_n"]==40 and _v["extended"]["missing_n"]==40; assert _v["x"]["missing_n"]==40; assert _v["x"]["summary"]=={} if 40>0 else _v["x"]["summary"]["mean"]==20.5
-    python: _g=_v["group"]["frequencies"]; assert {q["value"]:q["count"] for q in _g}==({"1":1} if 40==1 else {"1":10,"2":10,"5":10,"9":10})
+    * Markdown + saving() oracle (was the JSON parse): 40 observations, ten variable rows,
+    * all_missing and extended 40 missing, x all missing
+    qa_md_contains using `"`output'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_contains using `"`output'"', needle("- Variables: 10") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==10
+    qa_md_rows using `"`output'"', var(all_missing) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
+    _fxc_extcell
+    qa_md_rows using `"`output'"', var(extended) cell("All missing") miss(`"`r(cell)'"')
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(x) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
+    preserve
+    quietly use `"`meta'"', clear
+    assert _N==10 & N==40 & nvars==10
+    assert missing==40 if inlist(variable,"all_missing","extended")
+    assert missing==40 & mean==. if variable=="x"
+    restore
+    qa_md_levels using `"`output'"', var(group) expect(1:10 2:10 5:10 9:10)
+    assert r(ok)==1
 
 }
 local outcome=_rc
 
 if `outcome' {
     local ++fail
-    display as error "FAIL: JSON metadata exact labelled miss_all_column; rc=" `outcome'
+    display as error "FAIL: Markdown metadata exact labelled miss_all_column; rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: JSON metadata exact labelled miss_all_column"
+    display as result "PASS: Markdown metadata exact labelled miss_all_column"
 }
 
 **# Missingness exact labelled miss_all_column
@@ -234,29 +330,52 @@ else {
     display as result "PASS: QC exact labelled miss_all_column"
 }
 
-**# JSON metadata exact labelled single_row
+**# Markdown metadata exact labelled single_row
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(single_row)
     tempfile output
     qa_state_snapshot, tag(dm_json)
-    quietly datamap, output(`"`output'"') format(json) continuous(x) mincell(0)
+    tempfile meta
+    quietly datamap, output(`"`output'"') saving(`"`meta'"', replace) continuous(x) mincell(0)
     assert r(nfiles)==1 & r(nobs)==1 & r(nvars)==10
     qa_state_compare, tag(dm_json)
-    python: _ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _ds["variable_metadata"]}; assert _ds["observations"]==1 and _ds["variables"]==10; assert _v["all_missing"]["missing_n"]==1 and _v["extended"]["missing_n"]==1; assert _v["x"]["missing_n"]==0; assert _v["x"]["summary"]=={} if 0>0 else _v["x"]["summary"]["mean"]==1
-    python: _g=_v["group"]["frequencies"]; assert {q["value"]:q["count"] for q in _g}==({"1":1} if 1==1 else {"1":10,"2":10,"5":10,"9":10})
+    * Markdown + saving() oracle (was the JSON parse): 1 observations, ten variable rows,
+    * all_missing and extended 1 missing, x complete with mean 1
+    qa_md_contains using `"`output'"', needle("- Observations: 1") exact
+    assert r(n)==1
+    qa_md_contains using `"`output'"', needle("- Variables: 10") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==10
+    qa_md_rows using `"`output'"', var(all_missing) cell("All missing") miss("1 (100.0%)")
+    assert r(n)==1
+    _fxc_extcell
+    qa_md_rows using `"`output'"', var(extended) cell("All missing") miss(`"`r(cell)'"')
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(x) miss("0 (0.0%)") ///
+        cell("N=1; mean=1.00; SD=.; median=1.00; IQR=1.00-1.00; range=1.00-1.00")
+    assert r(n)==1
+    preserve
+    quietly use `"`meta'"', clear
+    assert _N==10 & N==1 & nvars==10
+    assert missing==1 if inlist(variable,"all_missing","extended")
+    assert missing==0 & mean==1 if variable=="x"
+    restore
+    qa_md_levels using `"`output'"', var(group) expect(1:1)
+    assert r(ok)==1
 
 }
 local outcome=_rc
 
 if `outcome' {
     local ++fail
-    display as error "FAIL: JSON metadata exact labelled single_row; rc=" `outcome'
+    display as error "FAIL: Markdown metadata exact labelled single_row; rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: JSON metadata exact labelled single_row"
+    display as result "PASS: Markdown metadata exact labelled single_row"
 }
 
 **# Missingness exact labelled single_row
@@ -309,29 +428,52 @@ else {
     display as result "PASS: QC exact labelled single_row"
 }
 
-**# JSON metadata exact labelled boundary_values
+**# Markdown metadata exact labelled boundary_values
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(boundary_values)
     tempfile output
     qa_state_snapshot, tag(dm_json)
-    quietly datamap, output(`"`output'"') format(json) continuous(x) mincell(0)
+    tempfile meta
+    quietly datamap, output(`"`output'"') saving(`"`meta'"', replace) continuous(x) mincell(0)
     assert r(nfiles)==1 & r(nobs)==40 & r(nvars)==10
     qa_state_compare, tag(dm_json)
-    python: _ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _ds["variable_metadata"]}; assert _ds["observations"]==40 and _ds["variables"]==10; assert _v["all_missing"]["missing_n"]==40 and _v["extended"]["missing_n"]==40; assert _v["x"]["missing_n"]==0; assert _v["x"]["summary"]=={} if 0>0 else _v["x"]["summary"]["mean"]==20.5
-    python: _g=_v["group"]["frequencies"]; assert {q["value"]:q["count"] for q in _g}==({"1":1} if 40==1 else {"1":10,"2":10,"5":10,"9":10})
+    * Markdown + saving() oracle (was the JSON parse): 40 observations, ten variable rows,
+    * all_missing and extended 40 missing, x complete with mean 20.5
+    qa_md_contains using `"`output'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_contains using `"`output'"', needle("- Variables: 10") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==10
+    qa_md_rows using `"`output'"', var(all_missing) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
+    _fxc_extcell
+    qa_md_rows using `"`output'"', var(extended) cell("All missing") miss(`"`r(cell)'"')
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(x) miss("0 (0.0%)") ///
+        cell("N=40; mean=20.50; SD=11.69; median=20.50; IQR=10.50-30.50; range=1.00-40.00")
+    assert r(n)==1
+    preserve
+    quietly use `"`meta'"', clear
+    assert _N==10 & N==40 & nvars==10
+    assert missing==40 if inlist(variable,"all_missing","extended")
+    assert missing==0 & mean==20.5 if variable=="x"
+    restore
+    qa_md_levels using `"`output'"', var(group) expect(1:10 2:10 5:10 9:10)
+    assert r(ok)==1
 
 }
 local outcome=_rc
 
 if `outcome' {
     local ++fail
-    display as error "FAIL: JSON metadata exact labelled boundary_values; rc=" `outcome'
+    display as error "FAIL: Markdown metadata exact labelled boundary_values; rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: JSON metadata exact labelled boundary_values"
+    display as result "PASS: Markdown metadata exact labelled boundary_values"
 }
 
 **# Missingness exact labelled boundary_values
@@ -383,29 +525,52 @@ else {
     display as result "PASS: QC exact labelled boundary_values"
 }
 
-**# JSON metadata exact labelled unsorted
+**# Markdown metadata exact labelled unsorted
 local ++tests
 capture noisily {
     * expect: INVARIANT
     qa_fx_a7_labelled, clear seed(37) perturb(unsorted)
     tempfile output
     qa_state_snapshot, tag(dm_json)
-    quietly datamap, output(`"`output'"') format(json) continuous(x) mincell(0)
+    tempfile meta
+    quietly datamap, output(`"`output'"') saving(`"`meta'"', replace) continuous(x) mincell(0)
     assert r(nfiles)==1 & r(nobs)==40 & r(nvars)==10
     qa_state_compare, tag(dm_json)
-    python: _ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _v={v["name"]:v for v in _ds["variable_metadata"]}; assert _ds["observations"]==40 and _ds["variables"]==10; assert _v["all_missing"]["missing_n"]==40 and _v["extended"]["missing_n"]==40; assert _v["x"]["missing_n"]==0; assert _v["x"]["summary"]=={} if 0>0 else _v["x"]["summary"]["mean"]==20.5
-    python: _g=_v["group"]["frequencies"]; assert {q["value"]:q["count"] for q in _g}==({"1":1} if 40==1 else {"1":10,"2":10,"5":10,"9":10})
+    * Markdown + saving() oracle (was the JSON parse): 40 observations, ten variable rows,
+    * all_missing and extended 40 missing, x complete with mean 20.5
+    qa_md_contains using `"`output'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_contains using `"`output'"', needle("- Variables: 10") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==10
+    qa_md_rows using `"`output'"', var(all_missing) cell("All missing") miss("40 (100.0%)")
+    assert r(n)==1
+    _fxc_extcell
+    qa_md_rows using `"`output'"', var(extended) cell("All missing") miss(`"`r(cell)'"')
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(x) miss("0 (0.0%)") ///
+        cell("N=40; mean=20.50; SD=11.69; median=20.50; IQR=10.50-30.50; range=1.00-40.00")
+    assert r(n)==1
+    preserve
+    quietly use `"`meta'"', clear
+    assert _N==10 & N==40 & nvars==10
+    assert missing==40 if inlist(variable,"all_missing","extended")
+    assert missing==0 & mean==20.5 if variable=="x"
+    restore
+    qa_md_levels using `"`output'"', var(group) expect(1:10 2:10 5:10 9:10)
+    assert r(ok)==1
 
 }
 local outcome=_rc
 
 if `outcome' {
     local ++fail
-    display as error "FAIL: JSON metadata exact labelled unsorted; rc=" `outcome'
+    display as error "FAIL: Markdown metadata exact labelled unsorted; rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: JSON metadata exact labelled unsorted"
+    display as result "PASS: Markdown metadata exact labelled unsorted"
 }
 
 **# Missingness exact labelled unsorted

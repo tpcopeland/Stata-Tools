@@ -1,5 +1,11 @@
 *! validation_datamap_fixture_primitives.do -- exact metadata/code/text and full caller contracts
 *! Author: Timothy P Copeland, Karolinska Institutet
+* 2026-11-10 (datamap 2.0.0): datadict and format(json) are removed.  The three
+* "JSON exact schema/values" tests now read datamap's Markdown (same fixtures,
+* same expected counts, through _qa_md.do); the three "Dictionary" tests run on
+* datamap's saving() table (r(nobs)/r(nvars) became r(nobs)/r(nvars),
+* the stats option is gone).  JSON-specific escaping is not asserted any
+* more: the writer no longer exists.
 version 16.0
 clear all
 set more off
@@ -12,45 +18,98 @@ discard
 do _qa_fx_a7.do
 do _qa_hostile.do
 do _qa_state.do
+do _qa_md.do
 local tests 0
 local pass 0
 local fail 0
 
-**# names JSON exact schema/values
+* strings test oracle (Mata: the corpus strings hold backticks and quotes that
+* a macro would mangle).  Finds the caption row, requires each corpus string,
+* escaped, as one `"<value>": 1 (2.5%)` entry, exactly nine entries, and the
+* Missing cell 31 (77.5%).
+mata:
+void _qa_prim_check(string scalar f, string scalar names)
+{
+    string colvector L
+    string rowvector nm
+    string scalar row, tok, v
+    real scalar i, ok, k
+    L = cat(f)
+    row = ""
+    for (i = 1; i <= rows(L); i++) {
+        if (substr(L[i], 1, 13) == "| " + char(96) + "caption" + char(96) + " |") row = L[i]
+    }
+    ok = (row != "")
+    nm = tokens(names)
+    for (k = 1; k <= cols(nm); k++) {
+        v = st_global(nm[k])
+        v = subinstr(v, char(92), char(92) + char(92))
+        v = subinstr(v, char(36), "&#36;")
+        v = subinstr(v, char(96), "&#96;")
+        tok = char(34) + v + char(34) + ": 1 (2.5%)"
+        ok = ok & strpos(row, tok) > 0
+    }
+    ok = ok & strpos(row, "| 31 (77.5%) |") > 0
+    ok = ok & ((ustrlen(row) - ustrlen(subinstr(row, "<br>", ""))) == 8 * 4)
+    st_numscalar("__qa_prim_ok", ok)
+}
+end
+
+**# names Markdown exact schema/values
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_hostile_names, clear
     tempfile output
     qa_state_snapshot, tag(dm_primitive)
-    quietly datamap, output(`"`output'"') format(json) mincell(0) maxcat(100) maxfreq(100)
+    quietly datamap, output(`"`output'"') mincell(0) maxcat(100) maxfreq(100)
     assert r(nfiles)==1 & r(nobs)==20 & r(nvars)==4
     qa_state_compare, tag(dm_primitive)
-    python: _dm_ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _dm_vars={v["name"]:v for v in _dm_ds["variable_metadata"]}; assert _dm_ds["observations"]==20 and set(_dm_vars)==set("y Y abcdefghijklmnopqrstuvwxyz_1234a abcdefghijklmnopqrstuvwxyz_1234b".split())
-    python: assert {z["value"]:z["count"] for z in _dm_vars["y"]["frequencies"]}=={"0":10,"2":10} and {z["value"]:z["count"] for z in _dm_vars["Y"]["frequencies"]}=={"-9":10,"11":10}; assert {z["value"]:z["count"] for z in _dm_vars["abcdefghijklmnopqrstuvwxyz_1234a"]["frequencies"]}=={str(i):1 for i in range(1,21)} and {z["value"]:z["count"] for z in _dm_vars["abcdefghijklmnopqrstuvwxyz_1234b"]["frequencies"]}=={str(-i):1 for i in range(1,21)}
-
+    * Markdown oracle: exactly the four variables, each with its two (or twenty)
+    * levels and counts as built into the fixture (y 0/2 x10, Y -9/11 x10,
+    * the 32-character names 1..20 and -20..-1 once each)
+    qa_md_contains using `"`output'"', needle("- Observations: 20") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==4
+    qa_md_rows using `"`output'"', var(y) cell("0: 10 (50.0%)<br>2: 10 (50.0%)")
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(Y) cell("-9: 10 (50.0%)<br>11: 10 (50.0%)")
+    assert r(n)==1
+    local cellA ""
+    local cellB ""
+    forvalues i = 1/20 {
+        local sep = cond(`i'==1, "", "<br>")
+        local cellA "`cellA'`sep'`i': 1 (5.0%)"
+        local j = 21 - `i'
+        local cellB "`cellB'`sep'-`j': 1 (5.0%)"
+    }
+    qa_md_rows using `"`output'"', var(abcdefghijklmnopqrstuvwxyz_1234a) cell("`cellA'")
+    assert r(n)==1
+    qa_md_rows using `"`output'"', var(abcdefghijklmnopqrstuvwxyz_1234b) cell("`cellB'")
+    assert r(n)==1
 }
 local outcome=_rc
 capture restore
 capture dataqa set clear
 if `outcome' {
     local ++fail
-    display as error "FAIL: names JSON exact schema/values rc=" `outcome'
+    display as error "FAIL: names Markdown exact schema/values rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: names JSON exact schema/values"
+    display as result "PASS: names Markdown exact schema/values"
 }
 
-**# names Dictionary exact row identities
+**# names saving() exact row identities
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_hostile_names, clear
     tempfile output metadata
     qa_state_snapshot, tag(dd_primitive)
-    quietly datadict, output(`"`output'"') saving(`"`metadata'"', replace) stats mincell(0) maxcat(100) maxfreq(100) uniqcap(0)
-    assert r(nfiles)==1 & r(nobs_total)==20 & r(nvars_total)==4
+    quietly datamap, output(`"`output'"') saving(`"`metadata'"', replace) mincell(0) maxcat(100) maxfreq(100) uniqcap(0)
+    assert r(nfiles)==1 & r(nobs)==20 & r(nvars)==4
     qa_state_compare, tag(dd_primitive)
     preserve
     quietly use `"`metadata'"', clear
@@ -67,11 +126,11 @@ capture restore
 capture dataqa set clear
 if `outcome' {
     local ++fail
-    display as error "FAIL: names Dictionary exact row identities rc=" `outcome'
+    display as error "FAIL: names saving() exact row identities rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: names Dictionary exact row identities"
+    display as result "PASS: names saving() exact row identities"
 }
 
 **# names QC exact schema gates
@@ -157,41 +216,54 @@ else {
     display as result "PASS: names Ledger actual assertion and release"
 }
 
-**# codes JSON exact schema/values
+**# codes Markdown exact schema/values
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_hostile_codes, clear
     tempfile output
     qa_state_snapshot, tag(dm_primitive)
-    quietly datamap, output(`"`output'"') format(json) mincell(0) maxcat(100) maxfreq(100)
+    quietly datamap, output(`"`output'"') mincell(0) maxcat(100) maxfreq(100)
     assert r(nfiles)==1 & r(nobs)==15 & r(nvars)==2
     qa_state_compare, tag(dm_primitive)
-    python: _dm_ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _dm_vars={v["name"]:v for v in _dm_ds["variable_metadata"]}; assert _dm_ds["observations"]==15 and set(_dm_vars)==set("code y".split())
-    python: assert {z["value"]:z["count"] for z in _dm_vars["code"]["frequencies"]}=={"3000000000":3,"3000000001":3,"-7":3,"2":3,"20":3}
-
+    * Markdown oracle: 3,000,000,000 and 3,000,000,001 stay two levels (a lossy
+    * display format would print both alike), three rows each; y is 1..15
+    qa_md_contains using `"`output'"', needle("- Observations: 15") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==2
+    qa_md_rows using `"`output'"', var(code) ///
+        cell("-7: 3 (20.0%)<br>2: 3 (20.0%)<br>20: 3 (20.0%)<br>3000000000: 3 (20.0%)<br>3000000001: 3 (20.0%)")
+    assert r(n)==1
+    local cellY ""
+    forvalues i = 1/15 {
+        local sep = cond(`i'==1, "", "<br>")
+        local cellY "`cellY'`sep'`i': 1 (6.7%)"
+    }
+    qa_md_rows using `"`output'"', var(y) cell("`cellY'")
+    assert r(n)==1
 }
 local outcome=_rc
 capture restore
 capture dataqa set clear
 if `outcome' {
     local ++fail
-    display as error "FAIL: codes JSON exact schema/values rc=" `outcome'
+    display as error "FAIL: codes Markdown exact schema/values rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: codes JSON exact schema/values"
+    display as result "PASS: codes Markdown exact schema/values"
 }
 
-**# codes Dictionary exact row identities
+**# codes saving() exact row identities
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_hostile_codes, clear
     tempfile output metadata
     qa_state_snapshot, tag(dd_primitive)
-    quietly datadict, output(`"`output'"') saving(`"`metadata'"', replace) stats mincell(0) maxcat(100) maxfreq(100) uniqcap(0)
-    assert r(nfiles)==1 & r(nobs_total)==15 & r(nvars_total)==2
+    quietly datamap, output(`"`output'"') saving(`"`metadata'"', replace) mincell(0) maxcat(100) maxfreq(100) uniqcap(0)
+    assert r(nfiles)==1 & r(nobs)==15 & r(nvars)==2
     qa_state_compare, tag(dd_primitive)
     preserve
     quietly use `"`metadata'"', clear
@@ -207,11 +279,11 @@ capture restore
 capture dataqa set clear
 if `outcome' {
     local ++fail
-    display as error "FAIL: codes Dictionary exact row identities rc=" `outcome'
+    display as error "FAIL: codes saving() exact row identities rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: codes Dictionary exact row identities"
+    display as result "PASS: codes saving() exact row identities"
 }
 
 **# codes QC exact schema gates
@@ -297,7 +369,7 @@ else {
     display as result "PASS: codes Ledger actual assertion and release"
 }
 
-**# strings JSON exact schema/values
+**# strings Markdown exact schema/values
 local ++tests
 capture noisily {
     * expect: EXACT
@@ -314,26 +386,37 @@ capture noisily {
 
     tempfile output
     qa_state_snapshot, tag(dm_primitive)
-    quietly datamap, output(`"`output'"') format(json) mincell(0) maxcat(100) maxfreq(100) categorical(caption)
+    quietly datamap, output(`"`output'"') mincell(0) maxcat(100) maxfreq(100) categorical(caption)
     assert r(nfiles)==1 & r(nobs)==40 & r(nvars)==11
     qa_state_compare, tag(dm_primitive)
-    python: _dm_ds=__import__("json").loads(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("output")).read_text())["datasets"][0]; _dm_vars={v["name"]:v for v in _dm_ds["variable_metadata"]}; assert _dm_ds["observations"]==40 and set(_dm_vars)==set("id group shared y x text date all_missing onelevel extended caption".split())
-    python: _dm_freq={z["value"]:z["count"] for z in _dm_vars["caption"]["frequencies"]}; assert all(_dm_freq[v]==1 for v in _dm_corpus) and _dm_vars["caption"]["missing_n"]==31 and "EXPANDED" not in _dm_freq
-
+    * Markdown oracle: eleven variable rows; caption (strL, forced categorical)
+    * lists the nine corpus strings once each, 31 missing, and the bait global
+    * ($QA_HS_GLB = "EXPANDED") appears nowhere in the file.  Expected cells
+    * are built from the corpus by the Markdown escapes the writer documents:
+    * a dollar sign is &#36;, a backtick &#96;, a backslash is doubled.
+    qa_md_contains using `"`output'"', needle("- Observations: 40") exact
+    assert r(n)==1
+    qa_md_rows using `"`output'"'
+    assert r(n)==11
+    qa_md_contains using `"`output'"', needle("EXPANDED")
+    assert r(n)==0
+    mata: _qa_prim_check(st_local("output"), st_local("corpus"))
+    assert scalar(__qa_prim_ok)==1
+    scalar drop __qa_prim_ok
 }
 local outcome=_rc
 capture restore
 capture dataqa set clear
 if `outcome' {
     local ++fail
-    display as error "FAIL: strings JSON exact schema/values rc=" `outcome'
+    display as error "FAIL: strings Markdown exact schema/values rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: strings JSON exact schema/values"
+    display as result "PASS: strings Markdown exact schema/values"
 }
 
-**# strings Dictionary exact row identities
+**# strings saving() exact row identities
 local ++tests
 capture noisily {
     * expect: EXACT
@@ -350,8 +433,8 @@ capture noisily {
 
     tempfile output metadata
     qa_state_snapshot, tag(dd_primitive)
-    quietly datadict, output(`"`output'"') saving(`"`metadata'"', replace) stats mincell(0) maxcat(100) maxfreq(100) uniqcap(0)
-    assert r(nfiles)==1 & r(nobs_total)==40 & r(nvars_total)==11
+    quietly datamap, output(`"`output'"') saving(`"`metadata'"', replace) mincell(0) maxcat(100) maxfreq(100) uniqcap(0)
+    assert r(nfiles)==1 & r(nobs)==40 & r(nvars)==11
     qa_state_compare, tag(dd_primitive)
     preserve
     quietly use `"`metadata'"', clear
@@ -366,11 +449,11 @@ capture restore
 capture dataqa set clear
 if `outcome' {
     local ++fail
-    display as error "FAIL: strings Dictionary exact row identities rc=" `outcome'
+    display as error "FAIL: strings saving() exact row identities rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: strings Dictionary exact row identities"
+    display as result "PASS: strings saving() exact row identities"
 }
 
 **# strings QC exact schema gates

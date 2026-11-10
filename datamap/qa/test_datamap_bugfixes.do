@@ -4,6 +4,24 @@ version 16.0
 
 * test_datamap_bugfixes.do - Regression tests for B1/B2/P2/C3/D2/D3 fixes
 * Tests: 26
+*
+* 2026-11-10 (datamap 2.0.0): datadict, the text layout and format(json) are
+* removed.  All 26 tests stay.  The documents are Markdown, read through
+* _qa_md.do's Mata reader (a datamap line may end in a backtick, which stopped
+* the macro line readers with r(132)).  Per test:
+*   T1/T2  the "6.8%" artifact check reads the Missing cell ("5 (6.8%)"); the
+*          QUICK REFERENCE-vs-detail comparison is one cell now (the block that
+*          repeated it is gone, plan O2) and is compared with saving()
+*   T3/T4  "74 unique values" -> "74 distinct"
+*   T5/T6  "spans from"/"suppressed for privacy" -> "(exact dates withheld)" / "range"
+*   T7-T10 datadict -> datamap with document options; T7's "---" rule is the
+*          Markdown table separator "|---|" only, never a line "---"
+*   T11/T12/T13/T14/T19  text lines -> the Markdown cells and Structure lines;
+*          the JSON halves of T13/T15/T24 are REMOVED FEATURE (no JSON writer)
+*   T18    REMOVED FEATURE: the VALUE LABEL DEFINITIONS section ("ab (used by: a b)")
+*          is gone; the levels of every user of the label are the inline cells
+*          of both variables (columns(vallabel) names the label)
+*   T24    the datadict half is a second datamap call (document option)
 
 * ============================================================
 * Setup
@@ -21,6 +39,7 @@ capture mkdir "`tmp_dir'"
 
 capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") force
+do "`qa_dir'/_qa_md.do"
 
 * ============================================================
 * B1: Floating-point display formatting
@@ -28,25 +47,15 @@ quietly net install datamap, from("`pkg_dir'") force
 
 * {{{ T1: Missing percentage has no floating-point artifacts
 local ++test_count
-capture {
+capture noisily {
 	sysuse auto, clear
-	datamap, output("`tmp_dir'/_b1.txt")
-	confirm file "`tmp_dir'/_b1.txt"
-	tempname fh
-	file open `fh' using "`tmp_dir'/_b1.txt", read text
-	local found_artifact 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if strpos(`"`macval(line)'"', "6.800000") > 0 {
-			local found_artifact 1
-		}
-		if strpos(`"`macval(line)'"', "6.8%") > 0 {
-			local found_clean 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_artifact' == 0
+	datamap, output("`tmp_dir'/_b1.md")
+	confirm file "`tmp_dir'/_b1.md"
+	qa_md_contains using "`tmp_dir'/_b1.md", needle("6.800000")
+	assert r(n) == 0
+	* rep78 has 5 missing of 74: the clean cell is "5 (6.8%)"
+	qa_md_contains using "`tmp_dir'/_b1.md", needle(" | 5 (6.8%) | ")
+	assert r(n) == 1
 }
 if _rc == 0 {
 	local ++pass_count
@@ -58,27 +67,19 @@ else {
 
 * {{{ T2: QUICK REFERENCE and detailed sections show same formatted percentage
 local ++test_count
-capture {
+capture noisily {
 	sysuse auto, clear
-	datamap, output("`tmp_dir'/_b1b.txt")
-	tempname fh
-	file open `fh' using "`tmp_dir'/_b1b.txt", read text
-	local qr_pct ""
-	local detail_pct ""
-	file read `fh' line
-	while r(eof) == 0 {
-		* QUICK REFERENCE line for rep78 shows formatted %
-		if strpos(`"`macval(line)'"', "rep78") > 0 & strpos(`"`macval(line)'"', "categorical") > 0 {
-			local qr_pct `"`macval(line)'"'
-		}
-		* Detailed section for rep78
-		if strpos(`"`macval(line)'"', "Missing:") > 0 & strpos(`"`macval(line)'"', "6.8%") > 0 {
-			local detail_pct "found"
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert "`detail_pct'" == "found"
+	datamap, output("`tmp_dir'/_b1b.md") saving("`tmp_dir'/_b1b_meta.dta", replace)
+	* one cell per variable now (the QUICK REFERENCE block that repeated it is gone):
+	* the document's percent equals the saving() table's, formatted at one decimal
+	qa_md_rows using "`tmp_dir'/_b1b.md", var(rep78) miss("5 (6.8%)")
+	assert r(n) == 1
+	preserve
+	quietly use "`tmp_dir'/_b1b_meta.dta", clear
+	quietly summarize missing_pct if variable == "rep78"
+	assert abs(r(mean) - 6.8) < 0.05
+	assert missing == 5 if variable == "rep78"
+	restore
 }
 if _rc == 0 {
 	local ++pass_count
@@ -94,24 +95,14 @@ else {
 
 * {{{ T3: String variables show correct unique count
 local ++test_count
-capture {
+capture noisily {
 	sysuse auto, clear
 	save "`tmp_dir'/_b2_auto.dta", replace
-	datadict, single("`tmp_dir'/_b2_auto.dta") output("`tmp_dir'/_b2.md") stats missing
+	datamap, single("`tmp_dir'/_b2_auto.dta") output("`tmp_dir'/_b2.md")
 	confirm file "`tmp_dir'/_b2.md"
-	tempname fh
-	file open `fh' using "`tmp_dir'/_b2.md", read text
-	local found_unique 0
-	file read `fh' line
-	while r(eof) == 0 {
-		* make should show "N=74; 74 unique values"
-		if strpos(`"`macval(line)'"', "make") > 0 & strpos(`"`macval(line)'"', "74 unique") > 0 {
-			local found_unique 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_unique' == 1
+	* make should show "N=74; 74 distinct; max length 17"
+	qa_md_rows using "`tmp_dir'/_b2.md", var(make) cell("N=74; 74 distinct; max length 17")
+	assert r(n) == 1
 }
 if _rc == 0 {
 	local ++pass_count
@@ -123,29 +114,20 @@ else {
 
 * {{{ T4: String vars don't show "N=.; . unique values"
 local ++test_count
-capture {
-	tempname fh
-	file open `fh' using "`tmp_dir'/_b2.md", read text
-	local found_dot 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if strpos(`"`macval(line)'"', "N=.;") > 0 {
-			local found_dot 1
-		}
-		if strpos(`"`macval(line)'"', ". unique") > 0 {
-			local found_dot 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_dot' == 0
+capture noisily {
+	qa_md_contains using "`tmp_dir'/_b2.md", needle("N=.;")
+	assert r(n) == 0
+	qa_md_contains using "`tmp_dir'/_b2.md", needle(". distinct")
+	assert r(n) == 0
+	qa_md_contains using "`tmp_dir'/_b2.md", needle("N=. ")
+	assert r(n) == 0
 }
 if _rc == 0 {
 	local ++pass_count
-	di as result "  T`test_count': PASSED - No N=. or '. unique' in datadict output"
+	di as result "  T`test_count': PASSED - No N=. or '. unique' in datamap output"
 }
 else {
-	di as error "  T`test_count': FAILED - Found N=. or '. unique' in datadict output"
+	di as error "  T`test_count': FAILED - Found N=. or '. unique' in datamap output"
 }
 
 * ============================================================
@@ -154,7 +136,7 @@ else {
 
 * {{{ T5: datesafe hides exact date range
 local ++test_count
-capture {
+capture noisily {
 	clear
 	set obs 100
 	* Seed: 271828
@@ -165,25 +147,13 @@ capture {
 	gen exit = entry + int(runiform()*730)
 	format exit %td
 	save "`tmp_dir'/_p2_dates.dta", replace
-	datamap, single("`tmp_dir'/_p2_dates") output("`tmp_dir'/_p2.txt") datesafe
-	confirm file "`tmp_dir'/_p2.txt"
-	tempname fh
-	file open `fh' using "`tmp_dir'/_p2.txt", read text
-	local found_exact_date 0
-	local found_suppressed 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if strpos(`"`macval(line)'"', "spans from") > 0 {
-			local found_exact_date 1
-		}
-		if strpos(`"`macval(line)'"', "suppressed for privacy") > 0 {
-			local found_suppressed 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_exact_date' == 0
-	assert `found_suppressed' == 1
+	datamap, single("`tmp_dir'/_p2_dates") output("`tmp_dir'/_p2.md") datesafe
+	confirm file "`tmp_dir'/_p2.md"
+	* no range of dates, a span instead for each of the two date variables
+	qa_md_contains using "`tmp_dir'/_p2.md", needle("range 20")
+	assert r(n) == 0
+	qa_md_contains using "`tmp_dir'/_p2.md", needle("(exact dates withheld)")
+	assert r(n) == 2
 }
 if _rc == 0 {
 	local ++pass_count
@@ -195,20 +165,12 @@ else {
 
 * {{{ T6: Without datesafe, date range is shown
 local ++test_count
-capture {
-	datamap, single("`tmp_dir'/_p2_dates") output("`tmp_dir'/_p2_nodatesafe.txt")
-	tempname fh
-	file open `fh' using "`tmp_dir'/_p2_nodatesafe.txt", read text
-	local found_spans 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if strpos(`"`macval(line)'"', "spans from") > 0 {
-			local found_spans 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_spans' == 1
+capture noisily {
+	datamap, single("`tmp_dir'/_p2_dates") output("`tmp_dir'/_p2_nodatesafe.md")
+	qa_md_contains using "`tmp_dir'/_p2_nodatesafe.md", needle("range 20")
+	assert r(n) == 2
+	qa_md_contains using "`tmp_dir'/_p2_nodatesafe.md", needle("withheld")
+	assert r(n) == 0
 }
 if _rc == 0 {
 	local ++pass_count
@@ -224,7 +186,7 @@ else {
 
 * {{{ T7: datadict output contains no --- separators
 local ++test_count
-capture {
+capture noisily {
 	clear
 	set obs 50
 	gen id = _n
@@ -235,28 +197,24 @@ capture {
 	gen id = _n
 	gen y = runiform()
 	save "`tmp_dir'/_c3_data2.dta", replace
-	datadict, filelist("`tmp_dir'/_c3_data1 `tmp_dir'/_c3_data2") ///
+	datamap, filelist("`tmp_dir'/_c3_data1 `tmp_dir'/_c3_data2") ///
 		output("`tmp_dir'/_c3.md") notes("Test notes") changelog("v1.0: initial")
 	confirm file "`tmp_dir'/_c3.md"
-	tempname fh
-	file open `fh' using "`tmp_dir'/_c3.md", read text
-	local found_hr 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if ustrregexm(`"`macval(line)'"', "^---$") {
-			local found_hr 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_hr' == 0
+	* no line is a horizontal rule; the only "---" are the table separators "|---|"
+	qa_md_contains using "`tmp_dir'/_c3.md", needle("---") exact
+	assert r(n) == 0
+	qa_md_contains using "`tmp_dir'/_c3.md", needle("|---|---|---|---|---|") exact
+	assert r(n) == 2
+	* the document parts are all there (a rule would only have separated them)
+	qa_md_contains using "`tmp_dir'/_c3.md", needle("## Notes") exact
+	assert r(n) == 1
 }
 if _rc == 0 {
 	local ++pass_count
-	di as result "  T`test_count': PASSED - No --- horizontal rules in datadict output"
+	di as result "  T`test_count': PASSED - No --- horizontal rules in datamap output"
 }
 else {
-	di as error "  T`test_count': FAILED - Found --- in datadict output"
+	di as error "  T`test_count': FAILED - Found --- in datamap output"
 }
 
 * ============================================================
@@ -266,30 +224,17 @@ else {
 * {{{ T8: notes() with inline string writes the text
 local ++test_count
 * Use filelist mode which writes notes section
-capture {
+capture noisily {
 	sysuse auto, clear
 	save "`tmp_dir'/_d2_auto.dta", replace
-	datadict, filelist("`tmp_dir'/_d2_auto") ///
+	datamap, filelist("`tmp_dir'/_d2_auto") ///
 		output("`tmp_dir'/_d2_multi.md") ///
 		notes("These are inline test notes for the data dictionary.")
 	confirm file "`tmp_dir'/_d2_multi.md"
-	tempname fh
-	file open `fh' using "`tmp_dir'/_d2_multi.md", read text
-	local found_inline 0
-	local found_notfound 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if strpos(`"`macval(line)'"', "inline test notes") > 0 {
-			local found_inline 1
-		}
-		if strpos(`"`macval(line)'"', "not found") > 0 {
-			local found_notfound 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_inline' == 1
-	assert `found_notfound' == 0
+	qa_md_contains using "`tmp_dir'/_d2_multi.md", needle("These are inline test notes for the data dictionary.") exact
+	assert r(n) == 1
+	qa_md_contains using "`tmp_dir'/_d2_multi.md", needle("not found")
+	assert r(n) == 0
 }
 if _rc == 0 {
 	local ++pass_count
@@ -301,28 +246,15 @@ else {
 
 * {{{ T9: changelog() with inline string writes the text
 local ++test_count
-capture {
-	datadict, filelist("`tmp_dir'/_d2_auto") ///
+capture noisily {
+	datamap, filelist("`tmp_dir'/_d2_auto") ///
 		output("`tmp_dir'/_d3.md") ///
 		changelog("v1.0.0: Initial release of the data dictionary.")
 	confirm file "`tmp_dir'/_d3.md"
-	tempname fh
-	file open `fh' using "`tmp_dir'/_d3.md", read text
-	local found_inline 0
-	local found_notfound 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if strpos(`"`macval(line)'"', "Initial release") > 0 {
-			local found_inline 1
-		}
-		if strpos(`"`macval(line)'"', "not found") > 0 {
-			local found_notfound 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_inline' == 1
-	assert `found_notfound' == 0
+	qa_md_contains using "`tmp_dir'/_d3.md", needle("v1.0.0: Initial release of the data dictionary.") exact
+	assert r(n) == 1
+	qa_md_contains using "`tmp_dir'/_d3.md", needle("not found")
+	assert r(n) == 0
 }
 if _rc == 0 {
 	local ++pass_count
@@ -334,28 +266,20 @@ else {
 
 * {{{ T10: notes() with actual file still works
 local ++test_count
-capture {
+capture noisily {
 	tempname fh_n
 	file open `fh_n' using "`tmp_dir'/_notes_file.txt", write text replace
 	file write `fh_n' "These notes came from a file." _n
 	file write `fh_n' "Second line of file notes." _n
 	file close `fh_n'
-	datadict, filelist("`tmp_dir'/_d2_auto") ///
+	datamap, filelist("`tmp_dir'/_d2_auto") ///
 		output("`tmp_dir'/_d2_file.md") ///
 		notes("`tmp_dir'/_notes_file.txt")
 	confirm file "`tmp_dir'/_d2_file.md"
-	tempname fh
-	file open `fh' using "`tmp_dir'/_d2_file.md", read text
-	local found_file 0
-	file read `fh' line
-	while r(eof) == 0 {
-		if strpos(`"`macval(line)'"', "notes came from a file") > 0 {
-			local found_file 1
-		}
-		file read `fh' line
-	}
-	file close `fh'
-	assert `found_file' == 1
+	qa_md_contains using "`tmp_dir'/_d2_file.md", needle("These notes came from a file.") exact
+	assert r(n) == 1
+	qa_md_contains using "`tmp_dir'/_d2_file.md", needle("Second line of file notes.") exact
+	assert r(n) == 1
 }
 if _rc == 0 {
 	local ++pass_count
@@ -373,19 +297,8 @@ capture program drop _bf_has
 program define _bf_has, rclass
 	version 16.0
 	syntax using/ , NEEDLE(string) [EXACT]
-	tempname fh
-	local found 0
-	file open `fh' using `"`using'"', read text
-	file read `fh' line
-	while r(eof) == 0 {
-		if "`exact'" != "" {
-			if `"`macval(line)'"' == `"`needle'"' local found 1
-		}
-		else if strpos(`"`macval(line)'"', `"`needle'"') > 0 local found 1
-		file read `fh' line
-	}
-	file close `fh'
-	return scalar found = `found'
+	qa_md_contains using `"`using'"', needle(`"`needle'"') `exact'
+	return scalar found = r(found)
 end
 
 * {{{ T11: survival event rate honours mincell() (2 events in 1000 rows)
@@ -395,16 +308,18 @@ capture noisily {
 	set obs 1000
 	gen byte died = _n <= 2
 	gen double survtime = _n
-	datamap, output("`tmp_dir'/_c11.txt") detect(survival)
+	datamap, output("`tmp_dir'/_c11.md") detect(survival)
 	* 0.2% of the printed 1000 observations is the 2-event count
-	_bf_has using "`tmp_dir'/_c11.txt", needle("died rate: .2%")
+	_bf_has using "`tmp_dir'/_c11.md", needle("rate: 0.2%")
 	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c11.txt", needle("died rate: suppressed")
+	_bf_has using "`tmp_dir'/_c11.md", needle("rate: .2%")
+	assert r(found) == 0
+	_bf_has using "`tmp_dir'/_c11.md", needle("rate: suppressed")
 	assert r(found) == 1
 	* above the threshold in both cells the rate still prints
 	replace died = _n <= 100
-	datamap, output("`tmp_dir'/_c11b.txt") detect(survival)
-	_bf_has using "`tmp_dir'/_c11b.txt", needle("died rate: 10%")
+	datamap, output("`tmp_dir'/_c11b.md") detect(survival)
+	qa_md_contains using "`tmp_dir'/_c11b.md", needle("`=char(96)'died`=char(96)' rate: 10.0%")
 	assert r(found) == 1
 }
 if _rc == 0 {
@@ -423,15 +338,17 @@ capture noisily {
 	gen double followup_time = td(01jan2020) + _n
 	format followup_time %td
 	gen byte died = _n > 20
-	datamap, output("`tmp_dir'/_c12.txt") detect(survival) datesafe
+	datamap, output("`tmp_dir'/_c12.md") detect(survival) datesafe
 	* 21916 = 01jan2020 + 1: the raw day number is an exact date
-	_bf_has using "`tmp_dir'/_c12.txt", needle("21916")
+	_bf_has using "`tmp_dir'/_c12.md", needle("21916")
 	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c12.txt", needle("followup_time range")
+	qa_md_contains using "`tmp_dir'/_c12.md", needle("followup_time`=char(96)' range")
+	assert r(found) == 0
+	_bf_has using "`tmp_dir'/_c12.md", needle("2020/")
 	assert r(found) == 0
 	* without datesafe the range prints as dates, not day counts
-	datamap, output("`tmp_dir'/_c12b.txt") detect(survival)
-	_bf_has using "`tmp_dir'/_c12b.txt", needle("followup_time range: 2020/01/02 to 2020/01/31")
+	datamap, output("`tmp_dir'/_c12b.md") detect(survival)
+	qa_md_contains using "`tmp_dir'/_c12b.md", needle("followup_time`=char(96)' range: 2020/01/02 to 2020/01/31")
 	assert r(found) == 1
 }
 if _rc == 0 {
@@ -450,30 +367,26 @@ capture noisily {
 	gen byte flag = _n <= 2
 	gen str3 s = cond(_n <= 3, "b", "a")
 	gen byte three = cond(_n <= 3, 1, cond(_n <= 6, 2, 3))
-	datamap, output("`tmp_dir'/_c13.txt") detect(binary) categorical(s)
+	datamap, output("`tmp_dir'/_c13.md") detect(binary) categorical(s)
 	* 998 = 1000 - 0 missing - 2: printing it discloses the suppressed cell
-	_bf_has using "`tmp_dir'/_c13.txt", needle("0 = 0: 998")
+	_bf_has using "`tmp_dir'/_c13.md", needle("998")
 	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c13.txt", needle("0 = 0: suppressed (complementary)")
-	assert r(found) == 1
-	_bf_has using "`tmp_dir'/_c13.txt", needle("0 (0): suppressed (complementary)")
-	assert r(found) == 1
-	_bf_has using "`tmp_dir'/_c13.txt", needle(`""a": suppressed (complementary)"')
-	assert r(found) == 1
+	_bf_has using "`tmp_dir'/_c13.md", needle("997")
+	assert r(found) == 0
+	qa_md_rows using "`tmp_dir'/_c13.md", var(flag) cell("0: suppressed (complementary)<br>1: suppressed (<5)")
+	assert r(n) == 1
+	* (a string level reads quoted, as the text form did)
+	qa_md_rows using "`tmp_dir'/_c13.md", var(s) cell(`""a": suppressed (complementary)<br>"b": suppressed (<5)"')
+	assert r(n) == 1
 	* two small cells that pool to >= mincell need no complement
-	_bf_has using "`tmp_dir'/_c13.txt", needle("3 = 3: 994 (99.4%)")
-	assert r(found) == 1
-	datamap, output("`tmp_dir'/_c13.json") format(json) categorical(s)
-	_bf_has using "`tmp_dir'/_c13.json", needle(`""count": 998"')
-	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c13.json", needle(`""count": 997"')
-	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c13.json", needle(`""count": 994"')
-	assert r(found) == 1
+	qa_md_rows using "`tmp_dir'/_c13.md", var(three) cell("1: suppressed (<5)<br>2: suppressed (<5)<br>3: 994 (99.4%)")
+	assert r(n) == 1
+	* (the JSON half, "count": 998 absent, is removed with format(json); the
+	* document is the disclosure surface that remains)
 	* mincell(0) still shows every cell
-	datamap, output("`tmp_dir'/_c13z.txt") mincell(0)
-	_bf_has using "`tmp_dir'/_c13z.txt", needle("0 = 0: 998 (99.8%)")
-	assert r(found) == 1
+	datamap, output("`tmp_dir'/_c13z.md") mincell(0)
+	qa_md_rows using "`tmp_dir'/_c13z.md", var(flag) cell("0: 998 (99.8%)<br>1: 2 (0.2%)")
+	assert r(n) == 1
 }
 if _rc == 0 {
 	local ++pass_count
@@ -490,13 +403,13 @@ capture noisily {
 	set obs 100
 	gen a = cond(_n <= 4, ., 1)
 	gen b = cond(_n > 4 & _n <= 10, ., 1)
-	datamap, output("`tmp_dir'/_c14.txt") missing(pattern)
+	datamap, output("`tmp_dir'/_c14.md") missing(pattern)
 	* patterns: ++ 90, +. 6, .+ 4; 100 - 90 - 6 recovers the 4
-	_bf_has using "`tmp_dir'/_c14.txt", needle(".+: suppressed (<5)")
+	qa_md_contains using "`tmp_dir'/_c14.md", needle("  - `=char(96)'.+`=char(96)': suppressed (<5)") exact
 	assert r(found) == 1
-	_bf_has using "`tmp_dir'/_c14.txt", needle("+.: suppressed (complementary)")
+	qa_md_contains using "`tmp_dir'/_c14.md", needle("  - `=char(96)'+.`=char(96)': suppressed (complementary)") exact
 	assert r(found) == 1
-	_bf_has using "`tmp_dir'/_c14.txt", needle("++: 90 (90%)")
+	qa_md_contains using "`tmp_dir'/_c14.md", needle("  - `=char(96)'++`=char(96)': 90 (90.0%)") exact
 	assert r(found) == 1
 }
 if _rc == 0 {
@@ -518,15 +431,17 @@ capture noisily {
 	gen byte k = .
 	quietly save "`tmp_dir'/_c15_zero.dta", replace
 	sysuse auto, clear
-	datamap, single("`tmp_dir'/_c15_zero") output("`tmp_dir'/_c15.txt") ///
+	datamap, single("`tmp_dir'/_c15_zero") output("`tmp_dir'/_c15.md") ///
 		autodetect missing(pattern) quality
 	assert r(nobs) == 0
 	assert r(nvars) == 3
-	_bf_has using "`tmp_dir'/_c15.txt", needle("Observations: 0")
+	_bf_has using "`tmp_dir'/_c15.md", needle("- Observations: 0") exact
 	assert r(found) == 1
-	datamap, single("`tmp_dir'/_c15_zero") output("`tmp_dir'/_c15.json") format(json)
-	_bf_has using "`tmp_dir'/_c15.json", needle(`""observations": 0,"')
+	_bf_has using "`tmp_dir'/_c15.md", needle(" | No observations |")
 	assert r(found) == 1
+	_bf_has using "`tmp_dir'/_c15.md", needle("- Complete rows: 0 (no observations)") exact
+	assert r(found) == 1
+	* (the JSON "observations": 0 half is removed with format(json))
 	* the caller's data came back
 	assert _N == 74
 	confirm variable make
@@ -547,15 +462,15 @@ capture noisily {
 	sysuse auto, clear
 	quietly save "`sdir'/one.dta", replace
 	quietly save "`sdir'/two.dta", replace
-	datamap, filelist("`sdir'/one" "`sdir'/two") output("`tmp_dir'/_c16.txt")
+	datamap, filelist("`sdir'/one" "`sdir'/two") output("`tmp_dir'/_c16.md")
 	assert r(nfiles) == 2
 	assert "`r(input_source)'" == "filelist"
-	_bf_has using "`tmp_dir'/_c16.txt", needle("DATASET: two.dta")
+	_bf_has using "`tmp_dir'/_c16.md", needle("## 2. two") exact
 	assert r(found) == 1
 	* an unquoted list still splits on spaces
 	quietly save "`tmp_dir'/_c16a.dta", replace
 	quietly save "`tmp_dir'/_c16b.dta", replace
-	datamap, filelist(`tmp_dir'/_c16a `tmp_dir'/_c16b) output("`tmp_dir'/_c16u.txt")
+	datamap, filelist(`tmp_dir'/_c16a `tmp_dir'/_c16b) output("`tmp_dir'/_c16u.md")
 	assert r(nfiles) == 2
 }
 if _rc == 0 {
@@ -575,23 +490,23 @@ capture noisily {
 	gen long patient_no = 5000 + _n
 	gen byte age = 20 + _n
 	gen byte grp = mod(_n, 2)
-	datamap, output("`tmp_dir'/_c17.txt") exclude(patient_*) samples(3)
+	datamap, output("`tmp_dir'/_c17.md") exclude(patient_*) samples(3)
 	assert r(n_excluded) == 2
 	assert "`r(excluded_vars)'" == "patient_id patient_no"
-	_bf_has using "`tmp_dir'/_c17.txt", needle("1001")
+	_bf_has using "`tmp_dir'/_c17.md", needle("1001")
 	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c17.txt", needle("5001")
+	_bf_has using "`tmp_dir'/_c17.md", needle("5001")
 	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c17.txt", needle("[MASKED] | [MASKED] |")
+	_bf_has using "`tmp_dir'/_c17.md", needle("| [MASKED] | [MASKED] |")
 	assert r(found) == 1
 	* a range
-	datamap, output("`tmp_dir'/_c17b.txt") exclude(patient_id-patient_no)
+	datamap, output("`tmp_dir'/_c17b.md") exclude(patient_id-patient_no)
 	assert r(n_excluded) == 2
 	* names absent from the dataset are still ignored
-	datamap, output("`tmp_dir'/_c17c.txt") exclude(patient_id nosuchvar ssn*)
+	datamap, output("`tmp_dir'/_c17c.md") exclude(patient_id nosuchvar ssn*)
 	assert r(n_excluded) == 1
 	* abbreviations are not expanded
-	datamap, output("`tmp_dir'/_c17d.txt") exclude(patient)
+	datamap, output("`tmp_dir'/_c17d.md") exclude(patient)
 	assert r(n_excluded) == 0
 }
 if _rc == 0 {
@@ -612,14 +527,18 @@ capture noisily {
 	label define ab 0 "zero" 1 "one" 2 "two" 3 "three" 4 "four"
 	label values a ab
 	label values b ab
-	datamap, output("`tmp_dir'/_c18.txt") mincell(0)
-	_bf_has using "`tmp_dir'/_c18.txt", needle("ab (used by: a b)")
+	datamap, output("`tmp_dir'/_c18.md") mincell(0) columns(variable vallabel values)
+	* 2026-11-10: the section "ab (used by: a b)" is gone.  The levels of every user
+	* of the label are the inline cells of both variables, and the label name is
+	* shown once per user with columns(vallabel)
+	qa_md_rows using "`tmp_dir'/_c18.md", var(a) cell("0 zero: 6 (30.0%)<br>1 one: 7 (35.0%)<br>2 two: 7 (35.0%)")
+	assert r(n) == 1
+	qa_md_rows using "`tmp_dir'/_c18.md", var(b) cell("3 three: 10 (50.0%)<br>4 four: 10 (50.0%)")
+	assert r(n) == 1
+	_bf_has using "`tmp_dir'/_c18.md", needle(" | ab | ")
 	assert r(found) == 1
-	* whole-line match: the frequency tables also contain "4 = four: ..."
-	_bf_has using "`tmp_dir'/_c18.txt", needle("  0 = zero") exact
-	assert r(found) == 1
-	_bf_has using "`tmp_dir'/_c18.txt", needle("  4 = four") exact
-	assert r(found) == 1
+	_bf_has using "`tmp_dir'/_c18.md", needle("used by")
+	assert r(found) == 0
 }
 if _rc == 0 {
 	local ++pass_count
@@ -636,14 +555,14 @@ capture noisily {
 	set obs 1000
 	gen a = cond(_n <= 3, 1, .)
 	gen double k = _n
-	datamap, output("`tmp_dir'/_c19.txt") missing(pattern)
+	datamap, output("`tmp_dir'/_c19.md") missing(pattern)
 	* 3 complete rows: the +. pattern count, printed raw beside its suppression
-	_bf_has using "`tmp_dir'/_c19.txt", needle("Observations with complete data: 3")
+	_bf_has using "`tmp_dir'/_c19.md", needle("Complete rows: 3")
 	assert r(found) == 0
-	_bf_has using "`tmp_dir'/_c19.txt", needle("Observations with complete data: suppressed")
+	_bf_has using "`tmp_dir'/_c19.md", needle("- Complete rows: suppressed (<5 in a cell)") exact
 	assert r(found) == 1
-	datamap, output("`tmp_dir'/_c19b.txt") missing(detail) mincell(0)
-	_bf_has using "`tmp_dir'/_c19b.txt", needle("Observations with complete data: 3 (.3%)")
+	datamap, output("`tmp_dir'/_c19b.md") missing(detail) mincell(0)
+	_bf_has using "`tmp_dir'/_c19b.md", needle("- Complete rows: 3 (0.3%)") exact
 	assert r(found) == 1
 }
 if _rc == 0 {
@@ -669,7 +588,7 @@ capture noisily {
 	label values grp grpl
 	notes grp : kept note
 	char grp[origin] "kept char"
-	datamap, output("`tmp_dir'/_c20.txt") exclude(ssn) ///
+	datamap, output("`tmp_dir'/_c20.md") exclude(ssn) ///
 		saving("`tmp_dir'/_c20_meta.dta", replace)
 	dataprobe, exclude(ssn) saving("`tmp_dir'/_c20_dc.dta", replace)
 	foreach f in _c20_meta _c20_dc {
@@ -707,19 +626,19 @@ capture noisily {
 	quietly save "`tmp_dir'/_c21_f1.dta", replace
 	drop c
 	quietly save "`tmp_dir'/_c21_f2.dta", replace
-	capture erase "`tmp_dir'/_c21.txt"
+	capture erase "`tmp_dir'/_c21.md"
 	capture noisily datamap, filelist(`tmp_dir'/_c21_f1 `tmp_dir'/_c21_f2) ///
-		exclude(a-c) output("`tmp_dir'/_c21.txt")
+		exclude(a-c) output("`tmp_dir'/_c21.md")
 	assert _rc == 111
 	* nothing was written: the check runs before any output
-	capture confirm file "`tmp_dir'/_c21.txt"
+	capture confirm file "`tmp_dir'/_c21.md"
 	assert _rc == 601
 	* the same range where it resolves still excludes a, b, c
-	datamap, single("`tmp_dir'/_c21_f1") exclude(a-c) output("`tmp_dir'/_c21b.txt")
+	datamap, single("`tmp_dir'/_c21_f1") exclude(a-c) output("`tmp_dir'/_c21b.md")
 	assert r(n_excluded) == 3
 	* a plain name absent from one file stays ignored
 	datamap, filelist(`tmp_dir'/_c21_f1 `tmp_dir'/_c21_f2) exclude(a c) ///
-		output("`tmp_dir'/_c21c.txt")
+		output("`tmp_dir'/_c21c.md")
 	assert r(n_excluded) == 3
 }
 if _rc == 0 {
@@ -741,12 +660,12 @@ capture noisily {
 	quietly save "_c22my.dta", replace
 	quietly save "file.dta", replace
 	capture erase "_c22my file.dta"
-	capture datamap, filelist("_c22my file.dta") output("_c22.txt")
+	capture datamap, filelist("_c22my file.dta") output("_c22.md")
 	local rc1 = _rc
-	capture datamap, filelist("./_c22my file") output("_c22b.txt")
+	capture datamap, filelist("./_c22my file") output("_c22b.md")
 	local rc2 = _rc
 	* the bare whole-list form still reads as a list
-	capture datamap, filelist("_c22my file") output("_c22c.txt")
+	capture datamap, filelist("_c22my file") output("_c22c.md")
 	local rc3 = _rc
 	local n3 = r(nfiles)
 	capture erase "file.dta"
@@ -776,7 +695,7 @@ capture noisily {
 	tempfile c23log
 	capture log close _c23
 	quietly log using "`c23log'", text replace name(_c23)
-	datamap, output("`tmp_dir'/_c23.txt") exclude(ss k)
+	datamap, output("`tmp_dir'/_c23.md") exclude(ss k)
 	local n23 = r(n_excluded)
 	quietly log close _c23
 	assert `n23' == 1
@@ -788,7 +707,7 @@ capture noisily {
 	quietly save "`tmp_dir'/_c23_f2.dta", replace
 	quietly log using "`c23log'", text replace name(_c23)
 	datamap, filelist(`tmp_dir'/_c23_f1 `tmp_dir'/_c23_f2) exclude(ssn) ///
-		output("`tmp_dir'/_c23b.txt")
+		output("`tmp_dir'/_c23b.md")
 	quietly log close _c23
 	_bf_has using "`c23log'", needle("matches no variable")
 	assert r(found) == 0
@@ -803,7 +722,7 @@ else {
 	di as error "  T`test_count': FAILED - unmatched exclude() token not noted (rc=`rc23')"
 }
 
-* {{{ T24: string unique counts non-empty values; datamap and datadict agree
+* {{{ T24: string unique counts non-empty values; plain and document mode agree
 local ++test_count
 capture noisily {
 	clear
@@ -812,15 +731,19 @@ capture noisily {
 		cond(mod(_n, 4) == 2, "c", "")))
 	gen byte k = mod(_n, 2)
 	* hand count: three non-empty values a, b, c; "" is string missing
-	datamap, output("`tmp_dir'/_c24.txt") saving("`tmp_dir'/_c24_map.dta", replace)
-	datadict, output("`tmp_dir'/_c24.md") saving("`tmp_dir'/_c24_dict.dta", replace)
-	_bf_has using "`tmp_dir'/_c24.txt", needle("Unique Values: 3")
+	datamap, output("`tmp_dir'/_c24.md") saving("`tmp_dir'/_c24_map.dta", replace) ///
+		columns(variable type unique values)
+	datamap, output("`tmp_dir'/_c24d.md") saving("`tmp_dir'/_c24_dict.dta", replace) title("T")
+	* 2026-11-10 (2.0.0 Phase 3, F4): a text variable with few distinct values
+	* lists its values (each held by 10 rows); the distinct count stays 3
+	qa_md_rows using "`tmp_dir'/_c24.md", var(s) cell(`"N=30; 3 distinct; max length 1; values "a" 10, "b" 10, "c" 10"')
+	assert r(n) == 1
+	_bf_has using "`tmp_dir'/_c24.md", needle("| str3 | 3 | ")
 	assert r(found) == 1
-	_bf_has using "`tmp_dir'/_c24.txt", needle("Unique Values: 4")
+	_bf_has using "`tmp_dir'/_c24.md", needle("| str3 | 4 | ")
 	assert r(found) == 0
-	datamap, output("`tmp_dir'/_c24.json") format(json)
-	_bf_has using "`tmp_dir'/_c24.json", needle(`""unique_values": 3,"')
-	assert r(found) == 1
+	* (the JSON "unique_values": 3 half is removed with format(json); the document
+	* in document mode is the second writer path that datadict used to be)
 	foreach f in _c24_map _c24_dict {
 		preserve
 		use "`tmp_dir'/`f'.dta", clear
@@ -831,10 +754,10 @@ capture noisily {
 }
 if _rc == 0 {
 	local ++pass_count
-	di as result "  T`test_count': PASSED - string unique count excludes empty; datamap = datadict"
+	di as result "  T`test_count': PASSED - string unique count excludes empty; plain and document mode agree"
 }
 else {
-	di as error "  T`test_count': FAILED - string unique count differs between datamap and datadict (rc=`=_rc')"
+	di as error "  T`test_count': FAILED - string unique count differs between plain and document mode (rc=`=_rc')"
 }
 
 * {{{ T25: an exclude() range in reverse order in one file fails before output
@@ -849,17 +772,17 @@ capture noisily {
 	quietly save "`tmp_dir'/_c25_g1.dta", replace
 	order c b a y
 	quietly save "`tmp_dir'/_c25_g2.dta", replace
-	capture erase "`tmp_dir'/_c25.txt"
+	capture erase "`tmp_dir'/_c25.md"
 	capture erase "`tmp_dir'/_c25.md"
 	capture noisily datamap, filelist(`tmp_dir'/_c25_g1 `tmp_dir'/_c25_g2) ///
-		exclude(a-c) output("`tmp_dir'/_c25.txt")
-	assert _rc == 111
-	capture confirm file "`tmp_dir'/_c25.txt"
-	assert _rc == 601
-	capture noisily datadict, filelist(`tmp_dir'/_c25_g1 `tmp_dir'/_c25_g2) ///
 		exclude(a-c) output("`tmp_dir'/_c25.md")
 	assert _rc == 111
 	capture confirm file "`tmp_dir'/_c25.md"
+	assert _rc == 601
+	capture noisily datamap, filelist(`tmp_dir'/_c25_g1 `tmp_dir'/_c25_g2) ///
+		exclude(a-c) output("`tmp_dir'/_c25b.md") title("T")
+	assert _rc == 111
+	capture confirm file "`tmp_dir'/_c25b.md"
 	assert _rc == 601
 }
 if _rc == 0 {
@@ -881,7 +804,7 @@ capture noisily {
 	gen x = _n
 	quietly save "_c26sub/_c26a.dta", replace
 	quietly save "_c26b.dta", replace
-	capture datamap, filelist("_c26sub/_c26a.dta _c26b.dta") output("_c26.txt")
+	capture datamap, filelist("_c26sub/_c26a.dta _c26b.dta") output("_c26.md")
 	local rc26 = _rc
 	local n26 = r(nfiles)
 	quietly cd "`here'"

@@ -3,6 +3,10 @@
 *! deterministic frequency-table and pattern-graph ties, datadict reuse of
 *! classifier counts with gated percentiles, datamvp correlate on weighted
 *! patterns, legacy globals and saving() notes kept literally
+*! 2026-11-10 (datamap 2.0.0): datadict is removed.  D01 and D02 run on datamap's
+*! Markdown writer and saving(); S01 keeps its nine cases (cases 3 and 4 are
+*! datamap calls with document options, case 2 is a refused output path instead
+*! of the removed format(json)); the cell texts are datamap's.
 *! Author: Timothy P Copeland, Karolinska Institutet
 version 16.0
 clear all
@@ -26,6 +30,7 @@ capture ado uninstall datamap
 quietly net install datamap, from("`pkg_dir'") replace
 discard
 macro drop DATAMAP_DQ
+do "`c(pwd)'/_qa_md.do"
 local tests = 0
 local pass = 0
 local fail = 0
@@ -271,7 +276,7 @@ else {
     display as result "PASS: T01 tied counts list in level order across 5 row orders"
 }
 
-**# D01 datadict rows that reuse classifier counts and skip percentiles
+**# D01 (was datadict) rows that reuse classifier counts and skip percentiles
 
 * Oracle: missing, distinct, and range computed here by hand on the fixture.
 capture noisily {
@@ -286,44 +291,40 @@ capture noisily {
     label values arm _v182_arm
     gen double y = _n / 4
     local f "`work'/d01.md"
-    datadict, output("`f'") stats missing mincell(0)
-    * datadict's default date display is %tdCCYY/NN/DD
-    local want_hd = "N=18<br>Range: " + string(mdy(1, 1, 2000) + 1, "%tdCCYY/NN/DD") + ///
+    datamap, output("`f'") mincell(0)
+    * datamap's date display is %tdCCYY/NN/DD; the span cell is "N=18; range a to b"
+    local want_hd = "N=18; range " + string(mdy(1, 1, 2000) + 1, "%tdCCYY/NN/DD") + ///
         " to " + string(mdy(1, 1, 2000) + 20, "%tdCCYY/NN/DD")
     * nm: 14 non-empty values over 4 distinct strings n0..n3; "" is missing
     quietly count if nm != ""
     local nvalid = r(N)
-    tempname fh
-    local ok_hd = 0
-    local ok_nm = 0
-    local ok_arm = 0
-    file open `fh' using "`f'", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "| `hd` |") {
-            if strpos(`"`macval(line)'"', "2 (10.0%)") & strpos(`"`macval(line)'"', "`want_hd'") local ok_hd = 1
-        }
-        if strpos(`"`macval(line)'"', "| `nm` |") {
-            if strpos(`"`macval(line)'"', "6 (30.0%)") & strpos(`"`macval(line)'"', "N=`nvalid'; 4 unique values") local ok_nm = 1
-        }
-        if strpos(`"`macval(line)'"', "| `arm` |") {
-            if strpos(`"`macval(line)'"', "Control (10; 50.0%)") & strpos(`"`macval(line)'"', "Treated (10; 50.0%)") local ok_arm = 1
-        }
-        file read `fh' line
-    }
-    file close `fh'
     assert `nvalid' == 14
-    assert `ok_hd' & `ok_nm' & `ok_arm'
+    quietly count if nm == ""
+    local nmiss_nm = r(N)
+    assert `nmiss_nm' == 6
+    qa_md_rows using "`f'", var(hd) cell("`want_hd'") miss("2 (10.0%)")
+    assert r(n) == 1
+    * 2026-11-10 (2.0.0 Phase 3, F4): a text variable with few distinct values
+    * lists them, most frequent first, ties by value; counts by hand here
+    foreach _k in 0 1 2 3 {
+        quietly count if nm == "n`_k'"
+        local c`_k' = r(N)
+    }
+    assert `c0' == 4 & `c1' == 4 & `c2' == 3 & `c3' == 3
+    qa_md_rows using "`f'", var(nm) cell(`"N=`nvalid'; 4 distinct; max length 2; values "n0" `c0', "n1" `c1', "n2" `c2', "n3" `c3'"') miss("6 (30.0%)")
+    assert r(n) == 1
+    qa_md_rows using "`f'", var(arm) cell("1 Control: 10 (50.0%)<br>2 Treated: 10 (50.0%)")
+    assert r(n) == 1
 }
 local rc = _rc
 local ++tests
 if `rc' {
     local ++fail
-    display as error "FAIL: D01 datadict date, string, and labelled rows (rc=`rc')"
+    display as error "FAIL: D01 datamap date, string, and labelled rows (rc=`rc')"
 }
 else {
     local ++pass
-    display as result "PASS: D01 datadict date, string, and labelled rows"
+    display as result "PASS: D01 datamap date, string, and labelled rows"
 }
 
 **# D02 saving() still posts percentiles for every numeric row
@@ -341,7 +342,7 @@ capture noisily {
     local wmean : display %21x r(mean)
     local f "`work'/d02.md"
     local m "`work'/d02_meta.dta"
-    datadict, output("`f'") saving("`m'", replace) mincell(0)
+    datamap, output("`f'") saving("`m'", replace) mincell(0)
     use "`m'", clear
     quietly keep if variable == "arm"
     assert _N == 1
@@ -481,7 +482,7 @@ else {
 
 **# S01 the caller's S_1, S_FN, and S_FNDATE come back byte for byte
 
-* datamap, datadict, and dataprobe save these legacy globals and put them
+* datamap, and dataprobe save these legacy globals and put them
 * back on exit.  The put-back was a one-line -if- around -global-, which
 * expands its command a second time: a value holding $name or `name' came
 * back rewritten (here "$V182G" became "G182" and `vname' became "").  On
@@ -496,10 +497,10 @@ capture noisily {
     quietly save "`s01dta'", replace
     * the scratch path has no spaces, so the paths go unquoted inside the
     * stored command strings
-    local c1 "datamap, single(`s01dta') output(`work'/s01.txt)"
-    local c2 "datamap, output(`work'/s01|bad.txt) format(json)"
-    local c3 "datadict, single(`s01dta') output(`work'/s01.md)"
-    local c4 "datadict, single(`work'/s01_none) output(`work'/s01_b.md)"
+    local c1 "datamap, single(`s01dta') output(`work'/s01.md)"
+    local c2 "datamap, output(`work'/s01|bad.md)"
+    local c3 "datamap, single(`s01dta') output(`work'/s01_doc.md) title(T)"
+    local c4 "datamap, single(`work'/s01_none) output(`work'/s01_b.md)"
     local c5 "dataprobe price mpg"
     local c6 "dataprobe price, expectn(1)"
     local c7 "dataprobe s01_no_such_var"
@@ -549,7 +550,7 @@ capture noisily {
     mata: st_global("price[src]", st_local("lit"))
     local s02dta "`work'/s02_auto.dta"
     quietly save "`s02dta'", replace
-    quietly datamap, single("`s02dta'") output("`work'/s02.txt") saving("`work'/s02_dm.dta", replace)
+    quietly datamap, single("`s02dta'") output("`work'/s02.md") saving("`work'/s02_dm.dta", replace)
     use "`s02dta'", clear
     quietly dataprobe price mpg, saving("`work'/s02_dc.dta", replace)
     foreach m in s02_dm s02_dc {
