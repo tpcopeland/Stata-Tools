@@ -41,6 +41,24 @@ except ImportError:
           file=sys.stderr)
     sys.exit(2)
 
+try:  # packaged (python -m stata_dev_cli.xlsx.X) or deployed beside _widths.py
+    from ._widths import effective_column_width
+except ImportError:
+    # Deployed copy: load the sibling _widths.py by path, so the import works
+    # whether this file runs as a script or is loaded by file path through
+    # importlib from another working directory (no package, dir not on path).
+    import importlib.util as _ilu
+    _wpath = Path(__file__).resolve().with_name("_widths.py")
+    if _wpath.is_file():
+        _wspec = _ilu.spec_from_file_location("_check_xlsx_widths", _wpath)
+        _wmod = _ilu.module_from_spec(_wspec)
+        _wspec.loader.exec_module(_wmod)
+        effective_column_width = _wmod.effective_column_width
+        del _wspec, _wmod
+    else:
+        from _widths import effective_column_width
+    del _ilu, _wpath
+
 
 # =============================================================================
 # Data Classes
@@ -708,8 +726,7 @@ def _column_width(ws, ref: str) -> float:
         letter = get_column_letter(int(ref))
     except ValueError:
         letter = get_column_letter(column_index_from_string(ref))
-    width = ws.column_dimensions[letter].width
-    return 8.43 if width is None else float(width)
+    return effective_column_width(ws, column_index_from_string(letter))
 
 
 def _merged_range_for_cell(ws, row: int, col_idx: int):
