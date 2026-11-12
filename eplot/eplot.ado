@@ -1,4 +1,4 @@
-*! eplot Version 1.0.0  2026/10/20
+*! eplot Version 1.1.0  2026/11/12
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -491,6 +491,7 @@ program define _eplot_data, rclass
             EFFect(string) ///
             VALues ///
             VFormat(string) ///
+            VSEP(string asis) ///
             VGap(real 0.15) ///
             VSize(string) ///
             VColor(string) ///
@@ -1241,7 +1242,7 @@ program define _eplot_data, rclass
         tempvar val_text val_x
         _eplot_value_text `val_text' if inlist(`rowtype', 1, 3, 5) & ///
             !missing(`es'), vars(`es' `lci' `uci') format(`vformat') ///
-            suffix(`_dm_star')
+            suffix(`_dm_star') sep(`vsep')
 
         // Type 2 (missing/excluded) rows state that no estimate exists.  A
         // string type of "reference" also maps to 2 but is a reference
@@ -1759,6 +1760,7 @@ program define _eplot_estimates, rclass
             EFFect(string) ///
             VALues ///
             VFormat(string) ///
+            VSEP(string asis) ///
             VGap(real 0.15) ///
             VSize(string) ///
             VColor(string) ///
@@ -1915,6 +1917,7 @@ program define _eplot_estimates, rclass
         local _mm_invalid ""
         if `_values_supplied' local _mm_invalid "`_mm_invalid' values"
         if `vgap' != 0.15 local _mm_invalid "`_mm_invalid' vgap()"
+        if `"`vsep'"' != "" local _mm_invalid "`_mm_invalid' vsep()"
         if `"`vsize'"' != "" local _mm_invalid "`_mm_invalid' vsize()"
         if `"`vcolor'"' != "" local _mm_invalid "`_mm_invalid' vcolor()"
         if `"`vtitle'"' != "" local _mm_invalid "`_mm_invalid' vtitle()"
@@ -2965,7 +2968,7 @@ program define _eplot_estimates, rclass
         local _star_suf ""
         if "`stars'" != "" local _star_suf "suffix(_star)"
         _eplot_value_text _val_text if _rowtype == 1 & !missing(es), ///
-            vars(es lci uci) format(`vformat') `_star_suf'
+            vars(es lci uci) format(`vformat') `_star_suf' sep(`vsep')
         if "`baselevels'" != "" {
             local _vref `"`vreference'"'
             if `"`_vref'"' == "" {
@@ -3405,6 +3408,7 @@ program define _eplot_matrix, rclass
             EFFect(string) ///
             VALues ///
             VFormat(string) ///
+            VSEP(string asis) ///
             VGap(real 0.15) ///
             VSize(string) ///
             VColor(string) ///
@@ -3879,7 +3883,7 @@ program define _eplot_matrix, rclass
         local _star_suf ""
         if "`stars'" != "" local _star_suf "suffix(_star)"
         _eplot_value_text _val_text, vars(es lci uci) format(`vformat') ///
-            `_star_suf'
+            `_star_suf' sep(`vsep')
 
         _eplot_value_anchor, min(`data_xmin') max(`data_xmax') null(`null') gap(`vgap') ///
             axisopts(`"`_effect_axis_opts'"') xline(`_xline_pos') `nonull' `logscale'
@@ -6477,7 +6481,29 @@ program define _eplot_value_text, nclass
         // switches it to exponent notation) all three cells of that row use
         // exponent notation.  Other formats (%g, %e) go to string() as given.
         syntax newvarname [if], Vars(varlist numeric min=3 max=3) ///
-            Format(string) [SUFfix(varname string)]
+            Format(string) [SUFfix(varname string) SEP(string asis)]
+        // sep() is the text between the two limits, ", " unless vsep() sets
+        // it ("-" gives the "b (ll-ul)" style of JAMA and others); it is
+        // taken as written, quoted or not.  One layer of simple or compound
+        // quotes is stripped; empty text or text holding a double quote is
+        // refused, since the quote would end the string literal below and
+        // silently truncate the drawn text at rc 0.
+        local _sep ", "
+        if `"`sep'"' != "" {
+            if substr(`"`sep'"', 1, 1) == char(34) | ///
+                substr(`"`sep'"', 1, 2) == char(96) + char(34) {
+                gettoken _sep _rest : sep
+                if `"`_rest'"' != "" local _sep `"`sep'"'
+            }
+            else local _sep `"`sep'"'
+            if `"`_sep'"' == "" | strpos(`"`_sep'"', char(34)) {
+                noisily display as error ///
+                    "vsep() must be nonempty text without double quotes"
+                exit 198
+            }
+        }
+        local sep `""`_sep'""'
+
         marksample touse, novarlist
         tokenize `vars'
         local _d ""
@@ -6521,7 +6547,7 @@ program define _eplot_value_text, nclass
         }
         local _suf ""
         if "`suffix'" != "" local _suf "+ `suffix'"
-        quietly gen str `varlist' = `_c1' + " (" + `_c2' + ", " + `_c3' + ")" ///
+        quietly gen str `varlist' = `_c1' + " (" + `_c2' + `sep' + `_c3' + ")" ///
             `_suf' if `touse'
     }
     local rc = _rc

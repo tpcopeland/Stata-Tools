@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  20oct2026}{...}
+{* *! version 1.1.0  12nov2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -98,6 +98,7 @@ Plot from a graph-ready frame:
 {synopt:{opt eff:ect(string[, atnull])}}effect-axis title{p_end}
 {synopt:{opt val:ues}}annotate rows with formatted effects{p_end}
 {synopt:{opt vf:ormat(fmt)}}format for values; default {cmd:%24.2f}{p_end}
+{synopt:{opt vsep(string)}}text between the two limits in values; default a comma and a space{p_end}
 {synopt:{opt vg:ap(#)}}values-column gap; default 0.15{p_end}
 {synopt:{opt vs:ize(textsizestyle)}}values text size; default {cmd:vsmall}{p_end}
 {synopt:{opt vc:olor(colorstyle)}}values text color; default {cmd:gs4}{p_end}
@@ -719,6 +720,15 @@ there, may be cut off at the right edge, and a note suggests a smaller
 {cmd:xsize()}. {it:fmt} must be
 a {cmd:%f}, {cmd:%g}, or {cmd:%e} display format; {cmd:eplot} exits with
 {cmd:r(198)} otherwise, including for date, time, and hexadecimal formats.
+
+{phang}
+{opt vsep(string)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the text
+printed between the lower and upper limit in the {opt values} annotation. The
+default, a comma and a space, gives 1.13 (1.05, 1.21); {cmd:vsep(-)} gives
+1.13 (1.05-1.21), the style of journals that write intervals with a hyphen or
+en dash; with negative limits a hyphen reads as a minus sign, so {cmd:vsep(" to ")}
+is clearer there. The text may be quoted or not; empty text or text holding a
+double quote exits with {cmd:r(198)}. Not allowed with several models.
 
 {phang}
 {opt vgap(#)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the gap between the
@@ -1404,7 +1414,7 @@ alone.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-10-20{p_end}
+{pstd}Version 1.1.0, 2026-11-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

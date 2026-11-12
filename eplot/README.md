@@ -2,9 +2,9 @@
 
 # eplot — Forest and coefficient plots from any source
 
-**Version 1.0.0** | 2026-10-28
+**Version 1.1.0** | 2026-11-12
 
-[![version](https://img.shields.io/badge/version-1.0.0-1a5f91?style=flat-square) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Gallery](#gallery)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -322,6 +322,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `effect(string[, atnull])` | D, E, M, F | Effect-axis title, and the `values` header unless `vtitle()` is set; `atnull` centres the title under the null on its own row (size and color from `xtitle()`); data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
 | `values` | D, E single, M, F | Annotate rows with estimate and interval text; requires horizontal layout |
 | `vformat(fmt)` | D, E, M, F | Numeric `values` format; default is `%24.2f`, or `%`*w*`.`*dp*`f` with *w* = *dp* + 22; fixed formats round half away from zero on the decimal value, never print `-0.00`, and show a row in exponent notation when any of its numbers is too wide |
+| `vsep(string)` | D, E single, M, F | Text between the two limits in `values`; default is `, ` (`1.13 (1.05, 1.21)`); `vsep(-)` gives `1.13 (1.05-1.21)`; quoted or not; empty text or a double quote exits `r(198)` |
 | `vsize(textsizestyle)`, `vcolor(colorstyle)` | D, E single, M, F | `values` text size and color; defaults are `vsmall` and `gs4`; `vsize(small)` matches the row labels |
 | `vtitle(string)` | D, E single, M, F | Header above the `values` column; default is the `effect()` text |
 | `vgap(#)` | D, E single, M, F | Nonmissing, nonnegative gap between the effect axis and the `values` column, as a fraction of the axis span (of its log span under `logscale`); default is `0.15`. The column starts right of the widest interval, the null line when drawn, and the last labelled tick |
