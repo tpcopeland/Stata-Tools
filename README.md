@@ -31,13 +31,13 @@ Cohort building, time-varying exposures, causal inference, and survival analysis
   </tr>
 </table>
 
-<p align="center"><sub>Each figure is the package's own graphic. All but the kmplot panel (Stata's <code>cancer.dta</code>) use the synthetic SSRI vs SNRI cohort in <a href="_data"><code>_data/</code></a>; the scripts are in <a href="_resources/gallery"><code>_resources/gallery/</code></a>.</sub></p>
+<p align="center"><sub>Each figure is the package's own graphic. All but the kmplot panel (Stata's <code>cancer.dta</code>) use the synthetic SSRI vs SNRI cohort in <a href="_data"><code>_data/</code></a>; the scripts are in <a href="_resources/gallery"><code>_resources/gallery/</code></a>, and the kmplot panel comes from <code>kmplot/demo/demo_kmplot.do</code>.</sub></p>
 
 ## Why Stata-Tools
 
 - **Registry-scale data preparation.** Scan wide ICD, ATC, and procedure fields by regex or prefix within time windows, join measurements "as of" an anchor date, match records to intervals, and build time-varying exposure episodes.
 - **Causal inference, end to end.** Marginal structural models with IPTW, parametric g-computation, inverse-intensity weighting for irregular visits, Fine-Gray competing risks, and quantitative bias analysis, each with its own diagnostics.
-- **Checked, not just tested.** 17 packages ship cross-validation suites, and 14 of them compare results against reference implementations in R (`survival`, `cmprsk`, and others) or Python (`statsmodels`, `scikit-survival`, `pandas`).
+- **Checked, not just tested.** 17 packages ship cross-validation suites, and 15 of them check results against R or Python: established implementations in R (`survival`, `cmprsk`, and others) or Python (`statsmodels`, `scikit-survival`, `pandas`), or independently coded Python oracles.
 - **Manuscript-ready output.** Table 1, regression, treatment-effect, and survival tables go straight to Excel or Markdown, with small-cell suppression when a registry requires it. Forest plots, KM curves with risk tables, and balance plots follow from the same estimates.
 - **Try it on realistic data first.** 19 fully synthetic datasets that simulate a Swedish-registry antidepressant cohort load straight from GitHub. No real patients.
 - **Plain Stata.** `net install` and `help <package>`; no compiled plugins. Only `consort` and `logdoc` call Python.
@@ -186,7 +186,7 @@ Swap `tvtools` for any package below. Run the same lines again to update, or `ad
 | Package | Needs |
 | --- | --- |
 | diagtab, simtab, tabtools | Stata 17+ |
-| iivw | Stata 17+ for mixed-effects outcome models only |
+| iivw | Stata 17+ for the `collect` option of `iivw_fit` only |
 | rangematch | Stata 16.1+ |
 | massdesas | Stata 14+, plus `ssc install filelist` and `ssc install fs` |
 | comorbidity | `codescan` from this repo |
@@ -216,7 +216,7 @@ use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.
 | `comorbidities.dta`, `cci.dta` | Comorbidity flags and Charlson scores at entry |
 | `lisa.dta` | Socioeconomic register: education, income, employment |
 | `migrations.dta`, `migrations_wide.dta` | Migration and residence history |
-| `relapses.dta`, `relapses_only.dta` | Relapse and recurrence events |
+| `relapses.dta`, `relapses_only.dta` | Relapse dates, with EDSS measurements in `relapses.dta` |
 | `calendar.dta` | Calendar-time covariates |
 | `tv_antidep.dta`, `tv_antidep_episodes.dta`, `tv_benzo_episodes.dta`, `tv_events.dta`, `tv_merged.dta` | Time-varying exposure episodes and events for `tvtools` |
 
@@ -224,7 +224,7 @@ use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.
 
 ## Resources
 
-[`_resources/`](_resources) holds the logos (the Stata-Tools hex and one per package), the scripts behind every figure on this page, and [`stata_docs.py`](_resources/stata-docs), a standalone tool that turns your own Stata PDF manuals into an offline, searchable library for you or a coding assistant.
+[`_resources/`](_resources) holds the logos (the Stata-Tools hex and one per package), the scripts behind the gallery and quickstart figures, and [`stata_docs.py`](_resources/stata-docs), a standalone tool that turns your own Stata PDF manuals into an offline, searchable library for you or a coding assistant.
 
 ## Contributing and support
 
