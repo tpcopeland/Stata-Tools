@@ -4,7 +4,8 @@ Excel assertion validator for Stata-generated tables.
 
 CANONICAL SOURCE: Stata development CLI xlsx tool.
 This is the single source of truth. Per-package qa/tools/check_xlsx.py copies
-are byte-identical, self-contained deployments of this file.
+are byte-identical deployments of this file; each needs the canonical
+_widths.py beside it (the only non-stdlib, non-openpyxl dependency).
 
 Runs assertion checks against .xlsx files and reports PASS/FAIL results.
 Designed for automated testing: Stata test scripts call this via shell,
@@ -16,7 +17,12 @@ Usage:
 Exit codes:
     0 = all checks passed
     1 = one or more checks failed
-    2 = error (file not found, bad arguments)
+    2 = error (file not found, bad arguments, bad assertion value, or no
+        checks specified)
+
+--result-file holds PASS only when at least one check ran and all passed;
+every other outcome that names a result file (including each exit-2 path)
+writes FAIL, so a PASS left by an earlier run is never read as this run's.
 
 Requirements:
     openpyxl>=3.1.0
@@ -25,6 +31,8 @@ Author: Timothy P Copeland, Karolinska Institutet
 """
 
 import argparse
+import contextlib
+import io
 import re
 import sys
 from dataclasses import dataclass
@@ -51,12 +59,16 @@ except ImportError:
     _wpath = Path(__file__).resolve().with_name("_widths.py")
     if _wpath.is_file():
         _wspec = _ilu.spec_from_file_location("_check_xlsx_widths", _wpath)
+        if _wspec is None or _wspec.loader is None:
+            raise ImportError(f"cannot load {_wpath}")
         _wmod = _ilu.module_from_spec(_wspec)
         _wspec.loader.exec_module(_wmod)
         effective_column_width = _wmod.effective_column_width
         del _wspec, _wmod
     else:
-        from _widths import effective_column_width
+        import _widths as _wsibling
+        effective_column_width = _wsibling.effective_column_width
+        del _wsibling
     del _ilu, _wpath
 
 
@@ -613,6 +625,47 @@ def _stringify(value) -> str:
     return str(value).strip()
 
 
+_NUMFMT_SECTION = re.compile(
+    r"^(?P<int>[#0,]*[#0])?(?:\.(?P<dec>0*#*))?(?P<pct>%)?$")
+
+
+def _display_text(cell) -> str:
+    """Estimate the text a cell DISPLAYS, for width-fit measurement.
+
+    A number carrying a plain numeric format (digit placeholders ``0``/``#``,
+    an optional thousands separator, decimals, an optional ``%``) is rendered
+    through that format, so 0.123456789 under ``0.00`` measures as "0.12"
+    and 1234567.891 under ``#,##0.00`` as "1,234,567.89".  Everything else
+    -- text, General, dates, scientific, sectioned or literal-bearing formats
+    -- is measured as the stored value, exactly as before.
+    """
+    value = cell.value
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return _stringify(value)
+    fmt = getattr(cell, "number_format", None) or "General"
+    match = _NUMFMT_SECTION.match(fmt)
+    if fmt == "General" or match is None or not (match["int"] or match["dec"]):
+        return _stringify(value)
+    if value != value or value in (float("inf"), float("-inf")):
+        return _stringify(value)
+    int_part, dec_part = match["int"] or "", match["dec"] or ""
+    if match["pct"]:
+        value = value * 100
+    text = f"{abs(value):,.{len(dec_part)}f}" if "," in int_part \
+        else f"{abs(value):.{len(dec_part)}f}"
+    whole, _, frac = text.partition(".")
+    # Optional (#) decimal places drop their trailing zeros.
+    frac = frac[:dec_part.count("0")] + frac[dec_part.count("0"):].rstrip("0")
+    min_int = int_part.count("0")
+    if min_int == 0 and whole == "0":
+        whole = ""
+    elif "," not in int_part:
+        whole = whole.zfill(min_int)
+    text = whole + ("." + frac if "." in fmt else "")
+    # Excel keeps the sign of a negative that rounds to zero ("-0.00").
+    return ("-" if value < 0 else "") + text + ("%" if match["pct"] else "")
+
+
 def _hex_to_rgb_string(hex_color: str) -> Optional[str]:
     if not hex_color:
         return None
@@ -755,7 +808,7 @@ def _cell_width_fit_failures(ws, col_indices: list[int], start_row: int,
     for row in range(max(start_row, 1), ws.max_row + 1):
         for col_idx in col_indices:
             cell = ws.cell(row=row, column=col_idx)
-            value = _stringify(cell.value)
+            value = _display_text(cell)
             if not value:
                 continue
             if getattr(getattr(cell, "alignment", None), "wrap_text", False):
@@ -1437,14 +1490,19 @@ Available patterns for --has-pattern:
                        metavar=("COL", "W"), help="Column COL width <= W")
     style.add_argument("--col-width-fits-content", nargs=2, action=CellPairAction,
                        metavar=("COL", "STARTROW"),
-                       help="Column COL width fits unwrapped content from STARTROW")
+                       help="Column COL width fits unwrapped content from STARTROW "
+                            "(numbers measured as displayed under a plain "
+                            "numeric format such as 0.00 or #,##0.0%%)")
     style.add_argument("--all-col-widths-fit", nargs=2, action=CellPairAction,
                        metavar=("STARTROW", "SLACK"),
-                       help="Every used unwrapped cell width plus SLACK fits content from STARTROW")
+                       help="Every used unwrapped cell width plus SLACK fits content "
+                            "from STARTROW (numbers measured as displayed under "
+                            "a plain numeric format)")
     # Output options
     out = parser.add_argument_group("Output options")
     out.add_argument("--result-file", metavar="PATH",
-                     help="Write PASS/FAIL to file for Stata integration")
+                     help="Write PASS/FAIL to file for Stata integration "
+                          "(FAIL on every error path and when no checks ran)")
     out.add_argument("--quiet", "-q", action="store_true",
                      help="Only show failures")
     out.add_argument("--verbose", "-v", action="store_true",
@@ -1453,26 +1511,80 @@ Available patterns for --has-pattern:
     return parser
 
 
+def _requested_result_file(argv: list[str]) -> Optional[str]:
+    """The --result-file path in raw argv, read without the full parser.
+
+    Used only when the full parser rejects the command line, so a rejected
+    flag can still overwrite a stale PASS.
+    """
+    probe = argparse.ArgumentParser(add_help=False)
+    probe.add_argument("--result-file")
+    try:
+        known, _ = probe.parse_known_args(argv)
+    except SystemExit:
+        return None
+    return known.result_file or None
+
+
+def _stamp_fail(path: Optional[str]) -> None:
+    if not path:
+        return
+    try:
+        Path(path).write_text("FAIL")
+    except OSError as exc:
+        print(f"Error: could not write result file {path}: {exc}",
+              file=sys.stderr)
+
+
 def main():
     parser = build_parser()
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except SystemExit as exc:
+        # argparse exits 0 for --help; any other exit is a rejected command
+        # line, which must not leave an earlier run's PASS behind.
+        if exc.code not in (0, None):
+            with contextlib.redirect_stderr(io.StringIO()):
+                requested = _requested_result_file(sys.argv[1:])
+            _stamp_fail(requested)
+        raise
 
     # Validate file extension
     if not args.file.lower().endswith(".xlsx"):
         print("Warning: File does not have .xlsx extension.", file=sys.stderr)
 
+    # A caller that reads only the result file must never see a PASS left by
+    # an earlier run: every path that ends without a verdict stamps FAIL.
+    def stamp_fail() -> None:
+        _stamp_fail(args.result_file)
+
     # Load workbook
     runner = CheckRunner(args.file, args.sheet)
     if not runner.load():
+        stamp_fail()
         sys.exit(2)
 
     # Run checks
-    results = runner.run(args)
+    try:
+        results = runner.run(args)
+    except (ValueError, TypeError, AttributeError, KeyError, IndexError) as exc:
+        # A malformed assertion VALUE (`--cell ZZ 5`, `--cell-not-empty 1A`)
+        # passes argparse and raises in the runner: a usage error (exit 2),
+        # not a failed check (exit 1) and not a traceback.
+        stamp_fail()
+        print(f"Error: invalid assertion value: {exc}", file=sys.stderr)
+        sys.exit(2)
+    except Exception:
+        stamp_fail()
+        raise
 
     if not results:
+        # Nothing asserted is an error, never a pass: exit 2 and FAIL.
         print(f"XLSX CHECK: {args.file} ({runner.sheet_name})")
-        print("  No checks specified. Use --help to see available checks.")
-        sys.exit(0)
+        print("Error: no checks specified. Use --help to see available checks.",
+              file=sys.stderr)
+        stamp_fail()
+        sys.exit(2)
 
     # Output
     print_report(args.file, runner.sheet_name, results,
