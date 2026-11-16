@@ -1,4 +1,4 @@
-*! _datamap_collect_from_dir Version 2.0.0  2026/11/10
+*! _datamap_collect_from_dir Version 2.1.0  2026/11/16
 *! Shared datamap directory scanner
 *! Author: Timothy P Copeland, Karolinska Institutet
 

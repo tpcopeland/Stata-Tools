@@ -1,4 +1,4 @@
-*! _dataprobe_constant Version 2.0.0  2026/11/10
+*! _dataprobe_constant Version 2.1.0  2026/11/16
 *! dataprobe constant(): time-fixed values within a key
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

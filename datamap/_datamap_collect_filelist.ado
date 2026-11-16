@@ -1,4 +1,4 @@
-*! _datamap_collect_filelist Version 2.0.0  2026/11/10
+*! _datamap_collect_filelist Version 2.1.0  2026/11/16
 *! datamap filelist() parser
 *! Author: Timothy P Copeland, Karolinska Institutet
 

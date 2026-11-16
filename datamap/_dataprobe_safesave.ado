@@ -1,4 +1,4 @@
-*! _dataprobe_safesave Version 2.0.0  2026/11/10
+*! _dataprobe_safesave Version 2.1.0  2026/11/16
 *! dataprobe saving() under safe: the written rows carry the printed masks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

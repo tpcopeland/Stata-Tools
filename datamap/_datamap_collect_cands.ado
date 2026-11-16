@@ -1,4 +1,4 @@
-*! _datamap_collect_cands Version 2.0.0  2026/11/10
+*! _datamap_collect_cands Version 2.1.0  2026/11/16
 *! Placeholder candidates of each variable, for datamap's quality section
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

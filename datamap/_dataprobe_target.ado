@@ -1,4 +1,4 @@
-*! _dataprobe_target Version 2.0.0  2026/11/10
+*! _dataprobe_target Version 2.1.0  2026/11/16
 *! Resolve and validate a dataprobe frame-or-file target before profiling
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

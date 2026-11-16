@@ -1,4 +1,4 @@
-*! dataqa Version 2.0.0  2026/11/10
+*! dataqa Version 2.1.0  2026/11/16
 *! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -612,6 +612,11 @@ program define _dataqa_report, rclass
         _dataqa_load `lf', file(`"`using'"') run(`"`macval(run)'"') who(report) `_pho'
         local file `"`r(file)'"'
         mata: st_local("run", st_global("r(run)"))
+        // unmerged worker shards (final review M2): reported, not refused
+        _dataqa_unmerged, file(`"`file'"') run(`"`macval(run)'"')
+        local _ush = r(n_shards)
+        local _usr = r(n_rows)
+        local _usw "`r(workers)'"
         frame `lf': _dataqa_latest
         local nsup = r(n_superseded)
         frame `lf': local N = _N
@@ -623,6 +628,9 @@ program define _dataqa_report, rclass
         display ""
         display as text "dataqa report: " as result `"`macval(_fileshow)'"' as text `", `macval(runtxt)'"'
         if "`phase'" != "" display as text "  phase(s): " as result "`phase'" as text " (call error rows of any phase are kept)"
+        if `_ush' > 0 {
+            display as error `"  WARNING: `_ush' worker shard(s) (worker(s) `_usw') hold `_usr' row(s) of `macval(runtxt)' not merged into the ledger; this report leaves them out (dataqa merge, into() folds them in)"'
+        }
         if `N' == 0 {
             display as text "  no ledger rows"
         }
@@ -825,6 +833,7 @@ program define _dataqa_report, rclass
         if "`phase'" != "" return local phase "`phase'"
         return scalar N = `N'
         return scalar n_superseded = `nsup'
+        return scalar n_unmerged = `_ush'
         return scalar n_datasets = `nds'
         return scalar n_failed = `tot_f'
         return scalar n_warned = `tot_w'
@@ -894,6 +903,13 @@ program define _dataqa_assert, rclass
         _dataqa_load `lf', file(`"`using'"') run(`"`macval(run)'"') needrun who(assert) `_pho'
         local file `"`r(file)'"'
         mata: st_local("run", st_global("r(run)"))
+        // worker shards of the ledger holding rows of the run that the
+        // ledger does not (final review M2): the run is not all here, and
+        // a worker's failure must not pass unseen (any phase counts)
+        _dataqa_unmerged, file(`"`file'"') run(`"`macval(run)'"')
+        local _ush = r(n_shards)
+        local _usr = r(n_rows)
+        local _usw "`r(workers)'"
         frame `lf': _dataqa_latest
         local nsup = r(n_superseded)
         frame `lf': local N = _N
@@ -904,6 +920,10 @@ program define _dataqa_assert, rclass
         display ""
         display as text "dataqa assert: " as result `"`macval(_fileshow)'"' as text ", run " as result `"`macval(_runshow)'"'
         if "`phase'" != "" display as text "  phase(s): " as result "`phase'" as text " (call error rows of any phase are kept)"
+        if `_ush' > 0 {
+            display as error `"  `_ush' worker shard(s) (worker(s) `_usw') hold `_usr' row(s) of run `macval(_runshow)' not merged into the ledger; fold them in with dataqa merge, into() and assert again"'
+            local _halt = 1
+        }
         if `nsup' > 0 display as text "  `nsup' row(s) superseded by a later call of the same gate"
         if `_optign' display as text "  note: optional() ignored; no baseline set (baseline() or dataqa set baseline())"
         if `_pendign' display as text "  note: pending() ignored; no baseline set (baseline() or dataqa set baseline())"
@@ -1012,6 +1032,7 @@ program define _dataqa_assert, rclass
         return scalar n_superseded = `nsup'
         return scalar n_failed = `nbad'
         return scalar n_errors = `nerr'
+        return scalar n_unmerged = `_ush'
         return local missing `"`macval(missing)'"'
         return local run `"`macval(run)'"'
         return local baseline `"`macval(baseline)'"'
@@ -1057,6 +1078,13 @@ program define _dataqa_export, rclass
         // names as text in every message (R1)
         foreach _v in run sfile {
             mata: st_local("_`_v'show", _dataqa_show(st_local("`_v'")))
+        }
+        // the release copy of a run whose worker shards are not merged
+        // would leave their rows out (final review M2): refused
+        _dataqa_unmerged, file(`"`file'"') run(`"`macval(run)'"')
+        if r(n_shards) > 0 {
+            display as error `"dataqa export: refused; "' r(n_shards) `" worker shard(s) (worker(s) `r(workers)') hold "' r(n_rows) `" row(s) of run `macval(_runshow)' not merged into the ledger; fold them in with dataqa merge, into() first"'
+            exit 459
         }
         local _phtxt = cond("`phase'" != "", " in phase(s) `phase'", "")
         // the release copy may never be written over the ledger it is read

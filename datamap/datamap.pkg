@@ -16,7 +16,7 @@ d - dataqa: Session defaults and a structured QA ledger over dataprobe
 d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
-d Distribution-Date: 20261110
+d Distribution-Date: 20261116
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -101,4 +101,8 @@ f _dataprobe_exprarg.ado
 f _dataprobe_byagg.ado
 f _dataqa_shardpath.ado
 f _dataqa_merge.ado
+f _dataqa_unmerged.ado
 f _dataqa_flow.ado
+f _dataprobe_kwindow.ado
+f _dataprobe_reconcile.ado
+f _dataprobe_ckmacro.ado

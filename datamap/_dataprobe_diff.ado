@@ -1,4 +1,4 @@
-*! _dataprobe_diff Version 2.0.0  2026/11/10
+*! _dataprobe_diff Version 2.1.0  2026/11/16
 *! dataprobe compare() and diff(): the profile against a baseline, line by line
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

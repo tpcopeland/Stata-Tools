@@ -1,4 +1,4 @@
-*! _dataprobe_byrule Version 2.0.0  2026/11/10
+*! _dataprobe_byrule Version 2.1.0  2026/11/16
 *! dataprobe byrule(): a row-level rule evaluated under Stata's by byvars (sortvars): semantics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,17 +36,25 @@ program define _dataprobe_byrule, rclass
     local _ordmade = 0
     capture noisily {
         syntax , SPEC(string) IND(varname) [PARSEonly GID(name)]
-        local part = strtrim(`"`spec'"')
-        local cp = strpos(`"`part'"', ":")
+        // R1 (2.1.0): the spec text is moved with Mata and macval() only, so
+        // a $ or backtick in the expression reaches Stata literally (in
+        // 2.0.0 s != "a$b" was evaluated as s != "a"); the byspec and the
+        // label, which are expanded as names and messages, refuse them
+        mata: st_local("part", strtrim(st_local("spec")))
+        local cp = strpos(`"`macval(part)'"', ":")
         if `cp' == 0 {
-            display as error `"byrule() spec must be "byvars (sortvars): label: expression": `part'"'
+            display as error `"byrule() spec must be "byvars (sortvars): label: expression": `macval(part)'"'
             exit 198
         }
-        local bspec = strtrim(substr(`"`part'"', 1, `cp' - 1))
-        local rest = strtrim(substr(`"`part'"', `cp' + 1, .))
+        local bspec = strtrim(substr(`"`macval(part)'"', 1, `cp' - 1))
+        local rest = strtrim(substr(`"`macval(part)'"', `cp' + 1, .))
         // only the label may be quoted: "id (t): ..." quoted whole is not a byspec
-        if strpos(`"`bspec'"', char(34)) | strpos(`"`bspec'"', char(96)) {
+        if strpos(`"`macval(bspec)'"', char(34)) | strpos(`"`macval(bspec)'"', char(96)) {
             display as error `"byrule() spec must be byvars (sortvars): "label": expression, with only the label in quotes"'
+            exit 198
+        }
+        if strpos(`"`macval(bspec)'"', char(36)) {
+            display as error "byrule() byspec must name variables; it cannot hold " char(36)
             exit 198
         }
         // ---- byspec: byvars (sortvars) | byvars | (sortvars) ----
@@ -72,32 +80,36 @@ program define _dataprobe_byrule, rclass
         if "`byv'" != "" unab byv : `byv'
         if "`srt'" != "" unab srt : `srt'
         // ---- label: expression ----
-        if substr(`"`rest'"', 1, 1) == char(34) {
-            local qe = strpos(substr(`"`rest'"', 2, .), char(34))
-            local rlab = substr(`"`rest'"', 2, `qe' - 1)
-            local rexp = strtrim(substr(`"`rest'"', `qe' + 2, .))
-            if `qe' == 0 | substr(`"`rexp'"', 1, 1) != ":" {
-                display as error `"byrule() spec must be "byvars (sortvars): label: expression": `part'"'
+        if substr(`"`macval(rest)'"', 1, 1) == char(34) {
+            local qe = strpos(substr(`"`macval(rest)'"', 2, .), char(34))
+            local rlab = substr(`"`macval(rest)'"', 2, `qe' - 1)
+            local rexp = strtrim(substr(`"`macval(rest)'"', `qe' + 2, .))
+            if `qe' == 0 | substr(`"`macval(rexp)'"', 1, 1) != ":" {
+                display as error `"byrule() spec must be "byvars (sortvars): label: expression": `macval(part)'"'
                 exit 198
             }
-            local rexp = strtrim(substr(`"`rexp'"', 2, .))
+            local rexp = strtrim(substr(`"`macval(rexp)'"', 2, .))
         }
         else {
-            local lp = strpos(`"`rest'"', ":")
+            local lp = strpos(`"`macval(rest)'"', ":")
             if `lp' == 0 {
-                display as error `"byrule() spec must be "byvars (sortvars): label: expression": `part'"'
+                display as error `"byrule() spec must be "byvars (sortvars): label: expression": `macval(part)'"'
                 exit 198
             }
-            local rlab = strtrim(substr(`"`rest'"', 1, `lp' - 1))
-            local rexp = strtrim(substr(`"`rest'"', `lp' + 1, .))
+            local rlab = strtrim(substr(`"`macval(rest)'"', 1, `lp' - 1))
+            local rexp = strtrim(substr(`"`macval(rest)'"', `lp' + 1, .))
         }
-        local rlab = strtrim(`"`rlab'"')
-        if `"`rlab'"' == "" | `"`rexp'"' == "" {
-            display as error `"byrule() spec must be "byvars (sortvars): label: expression": `part'"'
+        local rlab = strtrim(`"`macval(rlab)'"')
+        if `"`macval(rlab)'"' == "" | `"`macval(rexp)'"' == "" {
+            display as error `"byrule() spec must be "byvars (sortvars): label: expression": `macval(part)'"'
             exit 198
         }
-        if strpos(`"`rlab'"', char(34)) | strpos(`"`rlab'"', char(96)) {
+        if strpos(`"`macval(rlab)'"', char(34)) | strpos(`"`macval(rlab)'"', char(96)) {
             display as error "byrule() label must not contain quotes or backticks"
+            exit 198
+        }
+        if strpos(`"`macval(rlab)'"', char(36)) {
+            display as error "byrule() label must not contain " char(36)
             exit 198
         }
         local ties = 0
@@ -134,11 +146,18 @@ program define _dataprobe_byrule, rclass
                 quietly sort `ord'
             }
             quietly sort `byv' `srt', stable
-            if "`byv'" != "" capture quietly by `byv': replace `ind' = 1 if !(`rexp2')
-            else capture quietly replace `ind' = 1 if !(`rexp2')
-            local erc = _rc
+            // blocks, not one-line ifs: a one-line if expands its command
+            // a second time, which turned "a$b" into "a" (R1)
+            if "`byv'" != "" {
+                capture quietly by `byv': replace `ind' = 1 if !(`macval(rexp2)')
+                local erc = _rc
+            }
+            else {
+                capture quietly replace `ind' = 1 if !(`macval(rexp2)')
+                local erc = _rc
+            }
             if !`erc' & "`_agmiss'" != "" quietly replace `ind' = 1 if `_agmiss'
-            if !`erc' & "`srt'" != "" & ustrregexm(`"`rexp'"', "(\w\[|\b_n\b|\b_N\b)") {
+            if !`erc' & "`srt'" != "" & ustrregexm(`"`macval(rexp)'"', "(\w\[|\b_n\b|\b_N\b)") {
                 quietly by `byv' `srt': generate byte `tie' = _N > 1
                 quietly count if `tie'
                 if r(N) > 0 {
@@ -149,7 +168,7 @@ program define _dataprobe_byrule, rclass
             quietly sort `ord'
             local _ordmade = 0
             if `erc' {
-                display as error `"byrule(`rlab'): cannot evaluate expression `rexp'"'
+                display as error `"byrule(`rlab'): cannot evaluate expression `macval(rexp)'"'
                 exit `erc'
             }
         }

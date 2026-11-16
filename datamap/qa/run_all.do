@@ -95,6 +95,10 @@ local core_suites ///
     test_datamap_v210_disclosure.do ///
     test_datamap_v210_groupexpr.do ///
     test_datamap_v210_flowshards.do ///
+    test_datamap_v210_keyset_window.do ///
+    test_datamap_v210_safety.do ///
+    test_datamap_v210_final.do ///
+    test_datamap_v210_final_fixes.do ///
     validation_datamap.do ///
     validation_datamvp.do
 

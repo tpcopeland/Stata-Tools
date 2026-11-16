@@ -1,4 +1,4 @@
-*! _datamap_md_sections Version 2.0.0  2026/11/10
+*! _datamap_md_sections Version 2.1.0  2026/11/16
 *! datamap's Markdown fragments that need the data: structure, missingness, sample rows
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -125,6 +125,7 @@ string scalar _dms_esc(string scalar text)
 	text = subinstr(text, char(127), " ")
 	text = subinstr(text, "<", "&lt;")
 	text = subinstr(text, ">", "&gt;")
+	text = subinstr(text, "](", "]" + char(92) + "(")
 	return(text)
 }
 real scalar _dms_isdatefmt(string scalar f)

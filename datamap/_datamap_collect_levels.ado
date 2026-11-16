@@ -1,4 +1,4 @@
-*! _datamap_collect_levels Version 2.0.0  2026/11/10
+*! _datamap_collect_levels Version 2.1.0  2026/11/16
 *! The levels frame of the datamap collector: one row per dataset x variable x value
 *! Author: Timothy P Copeland, Karolinska Institutet
 

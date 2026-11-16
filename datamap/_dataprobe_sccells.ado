@@ -1,4 +1,4 @@
-*! _dataprobe_sccells
+*! _dataprobe_sccells Version 2.1.0  2026/11/16
 *! smallcells() on microdata: cell counts in rows and distinct ids, and the margins audit
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal helper)

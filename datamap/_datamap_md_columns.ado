@@ -1,4 +1,4 @@
-*! _datamap_md_columns Version 2.0.0  2026/11/10
+*! _datamap_md_columns Version 2.1.0  2026/11/16
 *! Validate and expand datamap's columns() and compact choices
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

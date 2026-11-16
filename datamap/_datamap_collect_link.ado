@@ -1,4 +1,4 @@
-*! _datamap_collect_link Version 2.0.0  2026/11/10
+*! _datamap_collect_link Version 2.1.0  2026/11/16
 *! The key flag of each variable and the value-label definitions of a dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0  10nov2026}{...}
+{* *! version 2.1.0  16nov2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -189,6 +189,8 @@ spaces unambiguous.
 {opt man:ifest(filename)} documents the datasets named in a text file, one path
 per line. A blank line, a line starting with {cmd:#}, and a leading byte-order
 mark are skipped, and a path without {opt .dta} gets it. Each path must exist.
+A line holding {cmd:$}, a backtick, or a double quote is refused with r(198); it
+is never expanded into another path.
 
 {phang}
 {opt rec:ursive} makes {opt directory()} descend into subfolders. Hidden
@@ -289,6 +291,23 @@ is the old {cmd:datadict} {cmd:date()}.
 {opt note:s(string)} adds a Notes section and {opt change:log(string)} a Change
 Log section. Each is either text or the name of an existing text file, whose
 lines are written; Markdown special characters are escaped.
+
+{pstd}
+Text taken from the data or the options (titles, notes, dataset, variable and
+value labels, dataset notes, string values, and file names) is written
+literally: a pipe as {cmd:\|}, {cmd:$} and backticks as HTML entities, {cmd:<}
+and {cmd:>} as entities, line breaks and other control characters as spaces,
+and {cmd:](} as {cmd:]\(}, so no inline link or image forms. A dataset note,
+and a line of {opt subtitle()}, {opt notes()} or {opt changelog()}, that starts
+with {cmd:[} has it written {cmd:\[}, so none of them can define a link target
+that a label elsewhere (such as {cmd:[a][b]}) would then point at; a dataset
+note that starts with {cmd:#}, {cmd:>}, {cmd:-}, {cmd:+}, {cmd:*}, {cmd:=},
+{cmd:~}, {cmd:_} or a number and a period or {cmd:)} has that marker escaped too, so it
+reads as text, not as a heading or list (the user's own {opt notes()} and
+{opt changelog()} lines keep their lists and headings). A renderer that turns a
+bare URL ({cmd:http://...}) into a link still does so. A
+dataset name whose brackets do not pair up has them escaped in the Contents
+list, so its link still works.
 
 {dlgtab:Content}
 
@@ -933,7 +952,7 @@ without the {bf:_recursive} form: {bf:memory}, {bf:single}, {bf:filelist},
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.0.0, 2026-11-10{p_end}
+{pstd}Version 2.1.0, 2026-11-16{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -43,7 +43,7 @@
 {cmd:dataqa flow step} {it:name} [{cmd:,} {opt led:ger(filename)} {opt run(string)} {opt flow(name)} {opt id(varname)} {opt lab:el(string)}]
 
 {p 8 17 2}
-{cmd:dataqa flow report} [{cmd:,} {opt led:ger(filename)} {opt run(string)} {opt flow(name)} {opt min:cell(#)} {opt pool:small}
+{cmd:dataqa flow report} [{cmd:,} {opt led:ger(filename)} {opt run(string)} {opt flow(name)} {opt phase(name)} {opt min:cell(#)} {opt pool:small}
 {opt count(ids|rows)} {opt exp:ort(filename)} {opt replace}]
 
 {p 8 17 2}
@@ -246,6 +246,15 @@ name in {opt expect()} matches a dataset recorded under exactly that name, with 
 without {bf:(modified)}; {cmd:expect(cohort)} is not met by {bf:cohort (2019)}.
 
 {pstd}
+It also exits with return code 9 when worker shards of the ledger hold rows
+of the run that the ledger does not, so a worker's failed gate or error row
+cannot pass unseen before {cmd:dataqa merge}: the message names the number of
+shards and their workers and says to run {cmd:dataqa merge}; see
+{help dataqa##subcommands:dataqa merge}. {cmd:dataqa report} prints the same
+finding as a {bf:WARNING} line and reads the ledger as it is;
+{cmd:dataqa export} refuses with r(459).
+
+{pstd}
 With {opt baseline()}, {cmd:dataqa assert} also exits with return code 9 when a
 named dataset has rows in the baseline run but none in the run asserted,
 unless the dataset is listed in {opt optional()}. It names every such dataset. This
@@ -428,6 +437,29 @@ cleared with {opt replace} and not rewritten) is skipped with a note;
 when every shard is empty the call is r(2000). A ledger written by datamap 2.0.0 can be the
 target; its rows read as phase and worker empty. Shards are kept.
 
+{pstd}
+Until a shard is merged the ledger does not hold its rows. Outside a worker
+session, {cmd:dataqa assert}, {cmd:report}, and {cmd:export} of a run look
+for the shards of the ledger in its directory ({it:stem}{cmd:.shard-}{it:id}{cmd:.dta},
+the files {cmd:merge} reads without {opt from()}) and compare each with the
+ledger: a shard row of the run (of any phase) is merged when the ledger
+holds a row of the same worker equal to it in every column but {cmd:seq},
+which {cmd:merge} renumbers, one ledger row for each shard row. Shards are
+not deleted or marked; the comparison is made every time, so a merged shard
+is not counted again, and is counted again once its worker writes new rows
+to it (a rerun, which {cmd:merge, replace} then folds in) or the ledger
+loses them ({cmd:dataqa set ... replace} starts the run afresh: merge the
+shards again, or delete the stale files). A file with a shard's name that
+cannot be read as a shard counts as unmerged. With a shard unmerged,
+{cmd:assert} exits 9 naming the shards, {cmd:report} warns, and {cmd:export}
+refuses (r(459)); a shard holding rows of other runs only does not count.
+Shards written to another directory with {opt sharddir()} are not found
+this way: merge them with {opt from()} before asserting. Before the merge a
+worker's failure therefore halts {cmd:assert} as an unmerged shard, and
+after it as a failed row that no other worker's pass of the same gate
+supersedes. A worker session's own {cmd:assert} reads its shard as
+before.
+
 {dlgtab:dataqa compare}
 
 {pstd}
@@ -550,8 +582,10 @@ prints one line saying the failures were recorded and that {cmd:dataqa assert}
 will halt; {cmd:dataqa assert} stays the single halting point. Without a ledger
 ({cmd:dataqa set ledger()} or {opt ledger()} on the call) {opt collect} has no
 effect and a failed gate exits 9, with a note. If the ledger append fails, the
-call exits nonzero as before. An error that is not a gate failure always halts,
-and leaves an error row (see below). Without {opt collect} a failed gate exits 9
+call exits nonzero as before. An error that is not a gate failure halts and
+leaves an error row (see below), unless the call also gives {cmd:dataprobe}'s
+{opt softcollect}, which records the error row and continues; {cmd:dataqa assert}
+still fails on that row. Without {opt collect} a failed gate exits 9
 everywhere. {cmd:dataqa set clear} removes it with the other defaults.
 
 {phang}
@@ -629,6 +663,13 @@ ledger. {opt run(string)} is the run, default the session run.
 
 {phang}
 {opt flow(name)} names the flow, default {cmd:main}; a run can hold several.
+
+{phang}
+{opt phase(name)} ({cmd:report}) is the phase of the flow gate row written
+to the ledger, as {cmd:dataprobe}'s {opt phase()} is for its rows; without
+it the row takes the session phase ({cmd:dataqa set phase()}), else none.
+{cmd:dataqa flow step} takes no phase: the steps go to the flow file, not
+the ledger.
 
 {phang}
 {opt all} ({cmd:clear}) clears every flow of the run; it cannot be combined
@@ -792,7 +833,9 @@ blanks it:{p_end}
 {opt replace} {cmd:r(n_removed)}, the rows removed. {cmd:dataqa report},
 {cmd:dataqa assert}, and {cmd:dataqa export} store {cmd:r(n_superseded)}, the
 rows left out because a later call of the same gate replaced
-them. {cmd:dataqa report}
+them. {cmd:dataqa report} and {cmd:dataqa assert} store {cmd:r(n_unmerged)},
+the worker shards holding rows of the run that the ledger does not (0 in a
+worker session). {cmd:dataqa report}
 stores {cmd:r(N)} (rows read after that), {cmd:r(n_datasets)}, {cmd:r(n_failed)},
 {cmd:r(n_warned)}, {cmd:r(ledger)}, {cmd:r(run)}, with {opt markdown()}
 {cmd:r(markdown)} and {cmd:r(n_rows)}, and with {opt bands} {cmd:r(n_bands)}. {cmd:dataqa assert}

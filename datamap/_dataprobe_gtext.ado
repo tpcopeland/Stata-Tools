@@ -1,4 +1,4 @@
-*! _dataprobe_gtext Version 2.0.0  2026/11/10
+*! _dataprobe_gtext Version 2.1.0  2026/11/16
 *! Group-value text for a by() group or one row: the ledger form and the display form
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal helper)

@@ -1,4 +1,4 @@
-*! _datamap_md_document Version 2.0.0  2026/11/10
+*! _datamap_md_document Version 2.1.0  2026/11/16
 *! datamap's Markdown document, rendered from the collector frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -46,6 +46,7 @@
 // (_datamap_transport_encode) and are decoded and escaped here, in Mata.
 
 capture mata: mata drop _dmd_esc()
+capture mata: mata drop _dmd_lead()
 capture mata: mata drop _dmd_codespan()
 capture mata: mata drop _dmd_unquote()
 capture mata: mata drop _dmd_decode()
@@ -79,6 +80,37 @@ string scalar _dmd_esc(string scalar text)
 	text = subinstr(text, char(127), " ")
 	text = subinstr(text, "<", "&lt;")
 	text = subinstr(text, ">", "&gt;")
+	text = subinstr(text, "](", "]" + char(92) + "(")
+	return(text)
+}
+// 2.1.0 (R1): text written where a Markdown block starts has its first
+// marker escaped.  Always a [ : it could open a link reference definition,
+// which would turn a label's [a][b] or [b] anywhere in the document into a
+// hidden link.  With full (text from the data: a dataset note bullet) also
+// # > - + * = ~ _ (heading, quote, list, rule, setext underline, fence) and
+// the . or ) after 1-9 leading digits (an ordered list); without it (the
+// user's own subtitle(), notes() and changelog() lines) a list or heading
+// written there still renders as one.  A backslash before the marker reads
+// as the marker itself; text that starts any other way is unchanged.
+string scalar _dmd_lead(string scalar text, real scalar full)
+{
+	real scalar i, j, n
+	n = strlen(text)
+	for (i = 1; i <= n; i++) {
+		if (substr(text, i, 1) != " ") break
+	}
+	if (i > n) return(text)
+	if (strpos(full ? "[#>-+*=~_" : "[", substr(text, i, 1))) {
+		return(substr(text, 1, i - 1) + char(92) + substr(text, i, .))
+	}
+	if (!full) return(text)
+	for (j = i; j <= n; j++) {
+		if (!strpos("0123456789", substr(text, j, 1))) break
+	}
+	if (j > i & j - i <= 9 & j <= n & strpos(".)", substr(text, j, 1)) &
+		(j == n | substr(text, j + 1, 1) == " ")) {
+		return(substr(text, 1, j - 1) + char(92) + substr(text, j, .))
+	}
 	return(text)
 }
 // text as a code span, verbatim (a code span decodes no escape); a backtick
@@ -172,14 +204,28 @@ void _dmd_title(string scalar path, real scalar sep)
 	if (t == "") t = "Data Dictionary"
 	if (sep > 0) t = t + ": " + _dmd_esc(_dmd_dsname(sep))
 	L = ("# " + t) \ ""
-	if (_dmd_opt("subtitle") != "") L = L \ _dmd_opt("subtitle") \ ""
+	if (_dmd_opt("subtitle") != "") L = L \ _dmd_lead(_dmd_opt("subtitle"), 0) \ ""
 	if (_dmd_opt("version") != "") L = L \ ("Version " + _dmd_opt("version")) \ ""
 	_dmd_put(path, L, "a")
 }
 // one Contents line: dataset row r at position i, anchor in local anc
+// 2.1.0 (R1): a name whose [ and ] do not pair up would end the link text
+// early, so then every bracket is escaped (\[ reads as [); a name with
+// paired brackets, or none, is written as before
 void _dmd_tocline(string scalar path, real scalar r, real scalar i, string scalar anc)
 {
-	_dmd_put(path, strofreal(i, "%20.0f") + ". [" + _dmd_esc(_dmd_dsname(r)) +
+	string scalar t
+	real scalar k, d
+	t = _dmd_esc(_dmd_dsname(r))
+	d = 0
+	for (k = 1; k <= strlen(t); k++) {
+		if (substr(t, k, 1) == "[") d++
+		else if (substr(t, k, 1) == "]") {
+			if (--d < 0) break
+		}
+	}
+	if (d != 0) t = subinstr(subinstr(t, "[", char(92) + "["), "]", char(92) + "]")
+	_dmd_put(path, strofreal(i, "%20.0f") + ". [" + t +
 		"](#" + st_local(anc) + ")", "a")
 }
 // names (space-separated) as code spans joined by ", "
@@ -278,7 +324,7 @@ string colvector _dmd_state(real scalar r)
 		L = L \ "- Dataset notes:"
 		nt = tokens(x, char(10))
 		for (j = 1; j <= cols(nt); j++) {
-			if (nt[j] != char(10)) L = L \ ("  - " + _dmd_esc(nt[j]))
+			if (nt[j] != char(10)) L = L \ ("  - " + _dmd_lead(_dmd_esc(nt[j]), 1))
 		}
 	}
 	return(L)

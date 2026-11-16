@@ -1,16 +1,21 @@
-*! _dataprobe_topvalues
+*! _dataprobe_topvalues Version 2.1.0  2026/11/16
 *! dataprobe topvalues(): a disclosure-safe frequency view of a variable
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal helper)
 
 // Syntax: _dataprobe_topvalues, spec(varlist [, mincell(#) max(#) id(varname)])
-//             mcell(#) maxfreq(#) [safe(0|1) excluded(varlist) parseonly header]
+//             mcell(#) maxfreq(#) [safe(0|1) floor(#) excluded(varlist)
+//             parseonly header]
 //
 // For each variable: its levels (every distinct value; a missing value, ".",
 // ".a" or "", is a level too, so the levels add up to the rows), most
 // frequent first, ties in value order.  m is mincell(#), else the call's
 // threshold (mcell(): mincell(), the dataqa set default or the maskrare
-// default), else 5; max(#) defaults to the call's maxfreq().
+// default), else 5; max(#) defaults to the call's maxfreq().  floor(#) is
+// the call's masking threshold (dataprobe's _gm: the resolved threshold
+// under maskrare, safe or the agent preset, else 0): an entry's mincell()
+// below it is raised to it, with a note in the parse pass, so an entry can
+// never list a level the call's mask withholds (2.1.0 final review M1).
 //
 // A level is listed when its rows, and with id() its distinct ids (a missing
 // id is one value), are m or more, and it is among the first max() levels.
@@ -245,7 +250,7 @@ program define _dataprobe_topvalues, rclass
     // loops stay out of dataprobe's main program (Stata's per-program limit)
     version 16.0
     syntax , SPECS(string) MCELL(integer) MAXFREQ(integer) [SAFE(integer 0) ///
-        EXCLuded(string) PARSEonly]
+        FLOOR(integer 0) EXCLuded(string) PARSEonly]
     local vars ""
     local n = 0
     tempname TV
@@ -259,7 +264,7 @@ program define _dataprobe_topvalues, rclass
         local hdr ""
         if "`parseonly'" == "" & `n' == 1 local hdr "header"
         _dataprobe_topvalues_one, spec(`"`part'"') mcell(`mcell') maxfreq(`maxfreq') ///
-            safe(`safe') excluded(`excluded') `parseonly' `hdr'
+            safe(`safe') floor(`floor') excluded(`excluded') `parseonly' `hdr'
         local vars "`vars' `r(vars)'"
         if "`parseonly'" == "" matrix `TV' = nullmat(`TV') \ r(topvalues)
     }
@@ -276,7 +281,7 @@ program define _dataprobe_topvalues_one, rclass
     tempname TV
     capture noisily {
         syntax , SPEC(string) MCELL(integer) MAXFREQ(integer) [SAFE(integer 0) ///
-            EXCLuded(string) PARSEonly HEADer]
+            FLOOR(integer 0) EXCLuded(string) PARSEonly HEADer]
         local 0 `"`spec'"'
         capture noisily syntax varlist [, MINcell(integer -1) MAX(integer -1) ID(varname)]
         if _rc {
@@ -288,6 +293,13 @@ program define _dataprobe_topvalues_one, rclass
         local m = `mcell'
         if `mincell' != -1 local m = `mincell'
         else if `m' <= 0 local m = 5
+        // the call's mask is a floor: an entry's mincell() below it would
+        // list levels that safe, maskrare mincell() or the agent preset
+        // withhold (noted once, in the parse pass)
+        if `floor' > 0 & `m' < `floor' {
+            if "`parseonly'" != "" display as text "note: `=cond(`safe', "safe", "maskrare")' raises topvalues() mincell(`m') to `floor'"
+            local m = `floor'
+        }
         if `m' < 2 | missing(`m') {
             display as error "topvalues() needs a threshold of 2 or more (m is `m'): a level of 1 row would be listed"
             exit 198

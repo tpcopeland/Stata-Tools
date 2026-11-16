@@ -2,9 +2,9 @@
 
 # datamap — Describe and check data you can't share
 
-**Version 2.0.0** | 2026-11-10
+**Version 2.1.0** | 2026-11-16
 
-[![version](https://img.shields.io/badge/version-2.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-2.1.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Migrating from 1.x](#migrating-from-1x)** · **[Using datamap with a coding agent](#using-datamap-with-a-coding-agent)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -399,10 +399,14 @@ See [dataprobe.sthlp](dataprobe.sthlp) for profile fields, gate syntax, reusable
 
 ```stata
 dataqa set [agent] [options | clear]
-dataqa report [using ledger] [, run() markdown() replace bands]
-dataqa assert [using ledger] [, run() expect() baseline() baseledger() optional()]
-dataqa export [using ledger], saving() [run() replace threshold()]
-dataqa compare [using ledger] [, run() baseline() baseledger() ntol() stattol()]
+dataqa report [using ledger] [, run() markdown() replace bands phase()]
+dataqa assert [using ledger] [, run() expect() baseline() baseledger() optional() phase() pending()]
+dataqa export [using ledger], saving() [run() replace threshold() phase()]
+dataqa compare [using ledger] [, run() baseline() baseledger() ntol() stattol() phase()]
+dataqa flow step <name> [, ledger() run() flow() id() label()]
+dataqa flow report [, ledger() run() flow() mincell() poolsmall count() export() replace]
+dataqa flow clear [, ledger() run() flow() all]
+dataqa merge, into() [from() run() replace]
 ```
 
 See [dataqa.sthlp](dataqa.sthlp) for the session defaults, the register grammar, and the dispositions each kind allows; the ledger columns are listed under `ledger()` in [dataprobe.sthlp](dataprobe.sthlp).
@@ -445,6 +449,9 @@ See [datamvp.sthlp](datamvp.sthlp) for pattern filters, monotone tests, generate
 | `warn`, `gatesonly`, `onlyflagged`, `show(flagged)`, `minversion()` | Halting behavior, display filters, and a version probe. |
 | `snapshot()`, `diff()`, `tol()` | Store a profile in a frame; print what changed against a frame or file; the tolerances (default relative 1e-8 for moments, 0 for counts). |
 | `by()`, `byfreq`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `ledger()`, `name()`, `signature`, `config()` | Grouped checks, reusable specs (`.dta`, or `.do` for `makespec()`), comparisons, artifacts, the QA ledger, and settings. |
+| `topvalues()` | Disclosure-safe frequency view of a string or categorical variable: levels with at least m rows (and ids), the rest pooled, nothing recoverable by subtraction. |
+| `reconcile()` | Row, distinct-id and total conservation against a saved checkpoint, overall or by group, with `expect(eq/le/ge)` and `tol()`. |
+| `phase()`, `softcollect` | Tag ledger rows with a phase; record a data or spec error as an ERROR row and continue (`dataqa assert` still fails on it). |
 
 `brief` runs the full profile quietly and prints one line per variable (name, class, type, missing share, distinct count, flag), flagged variables first, the top five levels of a categorical variable (a level held by fewer than the mask is not listed), and `all distinct, maxlen #` for text whose values are all distinct; the stored results are those of the full profile, and `brief` cannot be combined with `gatesonly`, `patterns`, or `byfreq`. `safe` is `maskrare` with `mincell(5)` or more, the likely identifiers excluded, no date printed (a date's p1 and p99 read `[withheld]`), and no levels for text above `maxcat()` distinct values, text holding a digit, or a date-formatted variable; it refuses `makespec()`, `nomaskrare`, and a `by()` or `over()` variable that is an identifier, a date, or text holding a digit.
 
@@ -540,6 +547,42 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 2.1.0 (2026-11-16)
+
+Every new option is opt-in; calls that do not use one print, return and record what 2.0.0 did, except where noted below (the `inrange()` message, labels holding `$` or a backtick, and Markdown notes that start with a block marker). The ledger gains a `phase` column (a 2.0.0 ledger without it loads unchanged).
+
+Speed:
+
+- `dataprobe ..., by()` evaluates every gate in one pass over the groups instead of rescanning the data once per group: at 1M rows and 300 groups one gate went from 13 s to 1.2 s and three gates from 36 s to 1.6 s, with identical output.
+- `dataqa report`, `assert`, `compare` and `export` read the ledger in Mata (`compare` on a 20,000-row ledger: 1.9 s to 0.6 s), and `coverage()` tallies years in one pass.
+
+Disclosure control (rules from Hundepool et al. 2026 where the handbook states them; datamap's own conservative rules are documented as such in the help):
+
+- `topvalues()`: a frequency view that never prints a level below the threshold and withholds the pool, k and totals whenever one could be recovered by subtraction. Use it in place of `tabulate` or `levelsof` on sensitive variables.
+- `smallcells()` entries take `id()` (the threshold applies to distinct persons as well as rows), `by()` strata, and `margins`, an audit that fails when a small cell could be recovered from a margin (single small cell, two singletons, small sum, pinned or narrowed ranges).
+- `stat()` on an expression gets the same `by()` complementary suppression as a variable, and a `groupstat()` or `stat()` sum (or pmiss) is withheld where, beside a printed mean (or n), it would give back a withheld count (also true of 2.0.0 output).
+
+New checks:
+
+- `coverage()`: `sides` (counts before and after the window, never a date), `dropoff(#)` (tail years below #% of the prior-years median), and `unit(year|yyyymmdd)` for integer years and YYYYMMDD numbers without changing the display format.
+- `inrange()` reports how many values fall below and above the range (`r(inrange_n_below)`, `r(inrange_n_above)`); the failure line and the ledger `message` now end in `(N below, M above)` for every `inrange()` failure, under the same masking as the total (the ledger `observed` column is unchanged).
+- `groupstat()` takes several variables and any number of statistics; `stat()` takes a parenthesised expression (`stat(mean (dx == 1) 0.1 0.3)`, the share among rows where the operands are known); `byrule()` takes group aggregates such as `total(w) == 1` and `spread(x) <= tol`.
+- `keyset()` takes `asof()` and `window()` (rows with no, one or several matching file rows, as-of ties, `maxlag()` staleness, and the pairs a `joinby` would create, without running it) and fails a strL key the way it fails a type conflict; `reconcile()` checks row, id and total conservation against a checkpoint.
+
+QA ledger:
+
+- `phase()` on `dataqa set` and on a `dataprobe` call; `phase()` filters on `report`, `assert`, `compare` and `export`; `pending()` on `assert` reports gates of a later phase as pending instead of failing.
+- `dataqa flow`: a cohort attrition tracker that checks rows and ids never increase, masks small steps, and with `poolsmall` merges small exclusions so no count can be recovered by differencing. The flow file beside the ledger holds exact counts for the report to work from; do not share it.
+- Parallel workers: `dataqa set, worker()` writes each worker's rows to its own shard, and `dataqa merge` folds the shards into the ledger; a failure on one worker is never hidden by a pass on another. Until the shards in the ledger's folder are merged, `dataqa assert` fails, `report` warns and `export` refuses (shards written elsewhere with `sharddir()` are merged with `dataqa merge, from()`).
+- `dataprobe ..., softcollect` records a data or spec error (missing variable, empty sample, bad gate spec) as an ERROR row and continues; `dataqa assert` still fails on it. Error rows carry the call's own `phase()` and go to the worker's shard.
+
+Fixes:
+
+- `dataqa compare` no longer fails on a gate label holding a quotation mark; labels, groups, expected values and run names holding `"`, `'`, `$`, a backtick or braces print and export literally in every `dataqa` subcommand.
+- `rule()`, `review()` and `byrule()` expressions holding `$` or a backtick are evaluated literally (they were silently macro-expanded, which could turn a failing rule into a pass). A `rule()`, `review()` or `byrule()` label holding `$` or a backtick is now refused with r(198) instead of being expanded. `name()` and a data file name holding macro characters reach the ledger intact.
+- `datamap` Markdown: table pipes, reference-style link definitions and leading block markers in labels, notes and titles are escaped, so a label can no longer break a table or form a link. A note starting with `#`, `>`, `-` and similar now carries a backslash before the marker (it renders the same).
+- The Hundepool et al. citation is corrected from 2025 to 2026 (the second edition is dated June 2026).
 
 ### 2.0.0 (2026-11-10)
 

@@ -1,4 +1,4 @@
-*! _dataqa_shardpath
+*! _dataqa_shardpath Version 2.1.0  2026/11/16
 *! The per-worker shard file that stands in for a QA ledger (dataqa set worker())
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

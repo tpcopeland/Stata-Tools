@@ -1,4 +1,4 @@
-*! _datamap_sumpolicy Version 2.0.0  2026/11/10
+*! _datamap_sumpolicy Version 2.1.0  2026/11/16
 *! Which summaries of one variable a datamap or dataprobe output may print
 *! Author: Timothy P Copeland, Karolinska Institutet
 

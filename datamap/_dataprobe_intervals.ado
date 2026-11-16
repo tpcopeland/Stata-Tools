@@ -1,4 +1,4 @@
-*! _dataprobe_intervals Version 2.0.0  2026/11/10
+*! _dataprobe_intervals Version 2.1.0  2026/11/16
 *! dataprobe intervals(): interval-file structure checked on its own sort
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! _datamap_idnames Version 2.0.0  2026/11/10
+*! _datamap_idnames Version 2.1.0  2026/11/16
 *! The likely-identifier name rule shared by datamap, dataprobe and datamvp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,11 +1,11 @@
-*! _dataqa_flow
+*! _dataqa_flow Version 2.1.0  2026/11/16
 *! dataqa flow: cohort attrition (CONSORT) steps with disclosure-safe reporting
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 // 2.1.0 (F10).
 //   dataqa flow step <name> [, ledger() run() flow() id() label()]
-//   dataqa flow report [, ledger() run() flow() mincell() poolsmall count() export() replace]
+//   dataqa flow report [, ledger() run() flow() phase() mincell() poolsmall count() export() replace]
 //   dataqa flow clear [, ledger() run() flow() all]
 //
 // step records, at the point in the do-file where it is typed, the rows of
@@ -290,7 +290,7 @@ program define _dataqa_flow_report, rclass
     tempname F rf T
     capture noisily {
         syntax [, LEDger(string) RUN(string) FLOW(name) MINcell(integer -999999999) POOLsmall ///
-            COUNT(string) EXPort(string) REPLACE]
+            COUNT(string) EXPort(string) REPLACE PHASE(name)]
         local rungiven = (`"`macval(run)'"' != "")
         if "`flow'" == "" local flow "main"
         _dataqa_flow_where, who(report) ledger(`"`ledger'"') run(`"`macval(run)'"') rungiven(`rungiven')
@@ -378,8 +378,12 @@ program define _dataqa_flow_report, rclass
         if "`status'" == "fail" local msg "flow `flow': step `_upname' has more `_upwhat' than step `_upprev'"
         frame post `rf' ("flow") ("invariant") (`=("`status'" == "pass")') ("`flow'") ("") ("") ///
             ("`obs'") (.) ("non-increasing `_chk'") (.) ("") ("`msg'") (.) (0) ("`status'")
+        // phase() (final review S5): the flow gate row's own phase, as
+        // dataprobe phase() gives a call's rows; without it the session
+        // phase (dataqa set phase()), as before
         capture noisily _dataprobe_ledger, rf(`rf') file(`"`ledger'"') run(`"`macval(run)'"') ///
-            dataset("flow_`flow'") version(`pkgver') maskrare(`=(`mincell' > 0)') mask(`mincell')
+            dataset("flow_`flow'") version(`pkgver') maskrare(`=(`mincell' > 0)') mask(`mincell') ///
+            phase(`phase')
         local _lrc = _rc
         if `_lrc' {
             display as error "dataqa flow report: could not write the flow gate row to the ledger (rc `_lrc')"

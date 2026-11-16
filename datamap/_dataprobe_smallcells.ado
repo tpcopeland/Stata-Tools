@@ -1,4 +1,4 @@
-*! _dataprobe_smallcells Version 2.0.0  2026/11/10
+*! _dataprobe_smallcells Version 2.1.0  2026/11/16
 *! dataprobe smallcells(): no released count of 1 to m-1 in a results dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -379,6 +379,12 @@ program define _dataprobe_smallcells, rclass
                 local xp ""
                 forvalues k = 1/`nxl' {
                     local pn : word `x`k'_p' of single singletons smallsum pinned narrowed
+                    // under the mask a pattern beyond single tells what the
+                    // hidden cells hold (singletons: each is 1; pinned: each
+                    // is fixed; smallsum, narrowed: their total or range),
+                    // so it prints as exposed; single says only that one
+                    // cell is small, which the floor record says already
+                    if `mask' > 0 & `x`k'_p' > 1 local pn "exposed"
                     local cs ""
                     if `x`k'_t' == 1 {
                         if "`by'" == "" local rel "total"

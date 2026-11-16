@@ -1,4 +1,4 @@
-*! _dataprobe_keyset Version 2.0.0  2026/11/10
+*! _dataprobe_keyset Version 2.1.0  2026/11/16
 *! dataprobe keyset(): the same distinct keys as a saved dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -33,6 +33,16 @@
 // key with r(106) on either side (frlink, which keyset uses, would not);
 // the message names the variable and suggests recast str# or compress.
 // r(strl) is 1 then.
+//
+// 2.1.0 (F11): asof(mdate udate) or window(mstart mend udate) after the
+// comma adds a linkage diagnostic by key and date (_dataprobe_kwindow):
+// per master row, the using rows of its key on or before mdate (asof) or
+// inside [mstart, mend] (window), counted 0, 1, more than 1, with as-of ties
+// and maxlag() staleness, or the pairs a -joinby- would create.  The file
+// is read once (key and using date); nothing is joined.  maxnone(),
+// maxmulti(), maxties(), maxstale() (shares) add gate records; without them
+// the diagnostic is a review record.  With asof()/window() the key-set
+// verdict runs only when equal, subset or superset is named.
 program define _dataprobe_keyset, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -51,6 +61,10 @@ program define _dataprobe_keyset, rclass
     local vars ""
     local file ""
     local mode ""
+    local link ""
+    local ldates ""
+    local ludate ""
+    local jpairs = 0
     local _kf_made = 0
     local _mf_made = 0
     tempname kf mf
@@ -94,7 +108,57 @@ program define _dataprobe_keyset, rclass
         unab vars : `vars'
         local mode = lower(`"`opts'"')
         if "`mode'" == "" local mode "equal"
-        if !inlist("`mode'", "equal", "subset", "superset") {
+        if !inlist("`mode'", "equal", "subset", "superset") & strpos(`"`opts'"', "(") {
+            // 2.1.0 (F11): asof()/window() and their thresholds
+            local 0 `", `opts'"'
+            local _u = -999999999
+            capture syntax [, EQUAL SUBSET SUPERSET ASOF(string) WINDOW(string) MAXLag(real `_u') ///
+                MAXNone(real `_u') MAXMulti(real `_u') MAXTies(real `_u') MAXStale(real `_u')]
+            if _rc {
+                display as error "keyset(): after the comma: equal|subset|superset, asof(), window(), maxlag(), maxnone(), maxmulti(), maxties(), maxstale(); got `opts'"
+                exit 198
+            }
+            local mode = strtrim("`equal' `subset' `superset'")
+            local link = cond(`"`asof'"' != "", "asof", cond(`"`window'"' != "", "window", ""))
+            local _nw : word count `asof' `window'
+            local _want = cond("`link'" == "asof", 2, 3)
+            if `: word count `mode'' > 1 | "`link'" == "" | (`"`asof'"' != "" & `"`window'"' != "") | `_nw' != `_want' {
+                display as error "keyset(): give asof(mdate udate) or window(mstart mend udate), and at most one of equal, subset, superset; got `opts'"
+                exit 198
+            }
+            local _lw `asof' `window'
+            local ludate : word `_want' of `_lw'
+            // by position: the file's date may share a master date's name
+            local ldates : word 1 of `_lw'
+            if `_want' == 3 local ldates "`ldates' `: word 2 of `_lw''"
+            unab ldates : `ldates'
+            capture confirm numeric variable `ldates'
+            if _rc {
+                display as error "keyset(): `link'() needs numeric (date) variables in memory: `ldates'"
+                exit 109
+            }
+            confirm name `ludate'
+            local _dk : list ldates & vars
+            if `: list ludate in vars' | "`_dk'" != "" {
+                display as error "keyset(): a date in `link'() is also a key variable"
+                exit 198
+            }
+            if "`link'" == "window" & (`maxlag' != `_u' | `maxties' != `_u' | `maxstale' != `_u') {
+                display as error "keyset(): maxlag(), maxties() and maxstale() go with asof()"
+                exit 198
+            }
+            if (`maxstale' != `_u' & `maxlag' == `_u') | (`maxlag' != `_u' & `maxlag' < 0) {
+                display as error "keyset(): maxstale() needs maxlag(#), a lag of 0 or more"
+                exit 198
+            }
+            foreach _t in maxnone maxmulti maxties maxstale {
+                if ``_t'' != `_u' & (``_t'' < 0 | ``_t'' > 1) {
+                    display as error "keyset(): `_t'() must be a share between 0 and 1"
+                    exit 198
+                }
+            }
+        }
+        else if !inlist("`mode'", "equal", "subset", "superset") {
             display as error "keyset(): option must be equal, subset, or superset; got `opts'"
             exit 198
         }
@@ -113,11 +177,18 @@ program define _dataprobe_keyset, rclass
             frame create `kf'
             local _kf_made = 1
             frame `kf' {
-                capture use `vars' using `"`file'"', clear
+                capture use `vars' `ludate' using `"`file'"', clear
                 if _rc {
                     local _urc = _rc
-                    display as error `"keyset(): cannot read `vars' from `file'"'
+                    display as error `"keyset(): cannot read `vars' `ludate' from `file'"'
                     exit `_urc'
+                }
+                if "`ludate'" != "" {
+                    capture confirm numeric variable `ludate'
+                    if _rc {
+                        display as error `"keyset(): `ludate' in `file' is not numeric; `link'() needs a date"'
+                        exit 109
+                    }
                 }
             }
             // ---- preflight: types first; a conflict is a failure, no count ----
@@ -153,14 +224,23 @@ program define _dataprobe_keyset, rclass
                 local obs ""
                 if `conflict' local obs "type conflict: `ctext'"
                 if `strl' local obs "`obs'`=cond("`obs'" == "", "", "; ")'strL key: `ltext'; recast str# before merging"
-                local msg `"`pfx'keyset(`vars'): `mode' — `obs'"'
+                local _mt = cond("`mode'" == "", "`link'", "`mode'")
+                if "`link'" != "" display as text "  `link'(): not run; the keys cannot be joined"
+                local msg `"`pfx'keyset(`vars'): `_mt' — `obs'"'
                 local ++nfail
                 frame post `rf' ("keyset") ("`kind'") (0) ("`vars'") ("`vars'") ///
-                    (`"`macval(grp)'"') (`"`obs'"') (.) ("`mode' `fbase'") ///
+                    (`"`macval(grp)'"') (`"`obs'"') (.) ("`_mt' `fbase'") ///
                     (`nscope') ("") (`"`macval(msg)'"') (.) (0)
             }
             else {
-            tempvar nk lk lm nu
+            tempvar nk lk lm nu jp
+            tempname KW
+            // F11: the linkage counts need the file's rows, before the
+            // preflight reduces them to one per key
+            if "`link'" != "" {
+                _dataprobe_kwindow, vars(`vars') link(`link') dates(`ldates') ///
+                    udate(`ludate') uframe(`kf') res(`KW') maxlag(`maxlag')
+            }
             // generate, then by-replace: on zero rows -by: generate- makes
             // no variable at all (2.1.0, R2: an empty sample or file was
             // r(111) here)
@@ -202,6 +282,10 @@ program define _dataprobe_keyset, rclass
                 quietly generate double `mx' = max(`nk', `nu') if !missing(`lk')
                 quietly summarize `mx', meanonly
                 local rmt = r(sum)
+                // F11: the pairs -joinby- makes, before any date condition
+                quietly generate double `jp' = `nk' * `nu' if !missing(`lk')
+                quietly summarize `jp', meanonly
+                local jpairs = r(sum)
             }
             frame `kf' {
                 quietly frlink 1:1 `vars', frame(`mf') generate(`lm')
@@ -276,6 +360,16 @@ program define _dataprobe_keyset, rclass
                 as result "`_s_ruo'" as text " using only"
             if "`shared'" == "" display as text "  shared non-key variables: " as result "(none)"
             else display as text "  shared non-key variables: " as result "`shared'"
+            if "`link'" != "" {
+                _dataprobe_kwindow, vars(`vars') link(`link') dates(`ldates') udate(`ludate') ///
+                    res(`KW') show maxlag(`maxlag') maxnone(`maxnone') maxmulti(`maxmulti') ///
+                    maxties(`maxties') maxstale(`maxstale') jpairs(`jpairs') pmask(`anymask') ///
+                    rf(`rf') kind(`kind') grp(`"`macval(grp)'"') pfx(`"`pfx'"') mask(`mask') ///
+                    nscope(`nscope') fbase(`fbase')
+                local nfail = `nfail' + r(nfail)
+                if r(masked) local anymask = 1
+                return add
+            }
             local om = (`m1' | `m2')
             if `om' local anymask = 1
             local mins = .
@@ -289,11 +383,14 @@ program define _dataprobe_keyset, rclass
             if "`mode'" == "subset" & !`m1' local onum = `om_n'
             else if "`mode'" == "superset" & !`m2' local onum = `ou_n'
             else if "`mode'" == "equal" & !`om' local onum = `om_n' + `ou_n'
-            if !`ok' local ++nfail
-            local msg `"`pfx'keyset(`vars'): `mode' — `obs'"'
-            frame post `rf' ("keyset") ("`kind'") (`ok') ("`vars'") ("`vars'") ///
-                (`"`macval(grp)'"') (`"`obs'"') (`onum') ("`mode' `fbase'") ///
-                (`nscope') ("") (`"`macval(msg)'"') (`mins') (`om')
+            // with asof()/window() and no mode word, no key-set verdict
+            if "`mode'" != "" {
+                if !`ok' local ++nfail
+                local msg `"`pfx'keyset(`vars'): `mode' — `obs'"'
+                frame post `rf' ("keyset") ("`kind'") (`ok') ("`vars'") ("`vars'") ///
+                    (`"`macval(grp)'"') (`"`obs'"') (`onum') ("`mode' `fbase'") ///
+                    (`nscope') ("") (`"`macval(msg)'"') (`mins') (`om')
+            }
             }
         }
     }
@@ -302,9 +399,12 @@ program define _dataprobe_keyset, rclass
     if `_kf_made' capture frame drop `kf'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+    // parseonly: the master dates of asof()/window() are columns to keep
+    if "`parseonly'" != "" local vars "`vars' `ldates'"
     return local vars "`vars'"
     return local file `"`file'"'
     return local mode "`mode'"
+    return local link "`link'"
     return scalar nfail = `nfail'
     return scalar masked = `anymask'
     return scalar only_master = `om_n'

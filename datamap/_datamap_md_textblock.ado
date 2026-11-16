@@ -1,4 +1,4 @@
-*! _datamap_md_textblock Version 2.0.0  2026/11/10
+*! _datamap_md_textblock Version 2.1.0  2026/11/16
 *! A Markdown text block (notes(), changelog()) from text or a text file
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -11,6 +11,7 @@
 // otherwise the text itself is (a line break in it becomes a space).  Written
 // in Mata, appended to `file'.
 capture mata: mata drop _dmtb_esc()
+capture mata: mata drop _dmtb_lead()
 capture mata: mata drop _dmtb_unquote()
 capture mata: mata drop _dmtb_decode()
 capture mata: mata drop _dmtb_put()
@@ -30,7 +31,24 @@ string scalar _dmtb_esc(string scalar text)
 	text = subinstr(text, char(127), " ")
 	text = subinstr(text, "<", "&lt;")
 	text = subinstr(text, ">", "&gt;")
+	text = subinstr(text, "](", "]" + char(92) + "(")
 	return(text)
+}
+// 2.1.0 (R1): a notes() or changelog() line that starts with [ (after
+// any spaces) has it escaped as \[ : it could open a link reference
+// definition, which would turn a label's [a][b] or [b] anywhere in the
+// document into a hidden link.  It reads the same; the user's own lists
+// and headings in these lines still render as before (_dmd_lead, without
+// full, in _datamap_md_document).
+string scalar _dmtb_lead(string scalar text)
+{
+	real scalar i, n
+	n = strlen(text)
+	for (i = 1; i <= n; i++) {
+		if (substr(text, i, 1) != " ") break
+	}
+	if (i > n | substr(text, i, 1) != "[") return(text)
+	return(substr(text, 1, i - 1) + char(92) + substr(text, i, .))
 }
 string scalar _dmtb_unquote(string scalar value)
 {
@@ -64,7 +82,7 @@ void _dmtb_put(string scalar path, string scalar enc)
 	if (t == "") return
 	if (fileexists(t)) L = cat(t)
 	else L = t
-	for (i = 1; i <= rows(L); i++) L[i] = _dmtb_esc(L[i])
+	for (i = 1; i <= rows(L); i++) L[i] = _dmtb_lead(_dmtb_esc(L[i]))
 	fh = _fopen(path, "a")
 	if (fh < 0) {
 		errprintf("_datamap_md_textblock: cannot open %s (error %g)\n", path, fh)

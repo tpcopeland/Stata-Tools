@@ -1,4 +1,4 @@
-*! _dataprobe_errrow Version 2.0.0  2026/11/10
+*! _dataprobe_errrow Version 2.1.0  2026/11/16
 *! Append one error row to the QA ledger for a dataprobe call that failed
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -13,11 +13,24 @@
 // the one ledger writer: family call, kind invariant, status error, observed
 // "rc N", observed_num N, message = the command text.  It never changes the
 // exit code of the failed call: a failed write prints a note and returns.
+//
+// 2.1.0: the row carries the call's own phase() when the raw line gives a
+// valid one (else the session phase, as before), and in a dataqa set
+// worker() session it goes to that worker's shard (_dataprobe_ledger).
+// softcollect (U7): sets the caller's local _errrow_soft to 1 when the raw
+// line has the softcollect option, the row was written, and the rc is a
+// data or specification problem (100-199, 400-499, 601, 2000-2999); then
+// it prints the one-line note and the caller returns 0.  Any other rc, or
+// a row that could not be written, leaves _errrow_soft at 0: the call
+// halts with its rc as before.
 program define _dataprobe_errrow, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _rf_made = 0
+    local _wrote = 0
+    local rsoft = 0
+    local rp ""
     tempname rf
     capture noisily {
         gettoken erc 0 : 0
@@ -27,28 +40,30 @@ program define _dataprobe_errrow, nclass
         // the raw line is read in Mata only: it can hold compound quotes
         // and backticks, which break any local that expands a piece of it
         // inside quotes.  Sets rl (1 when ledger() was typed), rl_file,
-        // rl_run, rn (name() as typed, quotes removed), and _msg.
+        // rl_run, rn (name() as typed, quotes removed), rp (phase() as
+        // typed, when a valid name), rsoft (1 when softcollect was typed),
+        // and _msg.
         mata: _dataprobe_errrow_scan(st_local("0"), st_local("erc"))
         // the ledger: what the body resolved, else ledger() as typed, else
         // the session default
         local lrun ""
         if `"`ledfile'"' == "" & `rl' {
             local ledfile `"`rl_file'"'
-            local lrun `"`rl_run'"'
+            local lrun `"`macval(rl_run)'"'
         }
-        else if `"`ledfile'"' != "" local lrun `"`ledrun'"'
+        else if `"`ledfile'"' != "" mata: st_local("lrun", st_local("ledrun"))
         local sess_run ""
-        if `"`ledfile'"' == "" | `"`lrun'"' == "" {
+        if `"`ledfile'"' == "" | `"`macval(lrun)'"' == "" {
             if `"$DATAMAP_DQ"' != "" {
                 capture _datamap_dqdefaults
                 if !_rc {
                     if `"`ledfile'"' == "" local ledfile `"`r(ledger)'"'
-                    if `"`lrun'"' == "" local lrun `"`r(run)'"'
+                    if `"`macval(lrun)'"' == "" mata: st_local("lrun", st_global("r(run)"))
                 }
             }
         }
         local skip = (`"`ledfile'"' == "")
-        local lrun = subinstr(`"`lrun'"', char(34), "", .)
+        local lrun = subinstr(`"`macval(lrun)'"', char(34), "", .)
         if !`skip' {
             capture _datamap_validate_path `"`ledfile'"', option(ledger())
             if _rc {
@@ -61,11 +76,14 @@ program define _dataprobe_errrow, nclass
             if `"`ext'"' == "" local ledfile `"`ledfile'.dta"'
             // the dataset name: the body's, else name() as typed, else the file
             // in memory, as dataprobe names it
-            if `"`dsname'"' == "" {
-                if `"`rn'"' != "" local dsname `"`rn'"'
-                else if `"`c(filename)'"' != "" {
+            // (R1: names are moved with macval(), never re-expanded)
+            if `"`macval(dsname)'"' == "" {
+                // (a one-line if expands its command twice: Mata moves it)
+                if `"`macval(rn)'"' != "" mata: st_local("dsname", st_local("rn"))
+                else {
+                    // c(filename) is read in Mata only (a name holding ` broke an if)
                     mata: st_local("dsname", pathrmsuffix(pathbasename(st_global("c(filename)"))))
-                    if c(changed) local dsname "`dsname' (modified)"
+                    if `"`macval(dsname)'"' != "" & c(changed) mata: st_local("dsname", st_local("dsname") + " (modified)")
                 }
             }
             capture _datamap_version dataprobe
@@ -78,8 +96,9 @@ program define _dataprobe_errrow, nclass
                 ("rc `erc'") (`erc') ("rc 0") (.) ("") ("") (.) (0) ("error")
             // the message holds the command text, stored without expansion
             frame `rf': mata: st_sstore(1, "msg", st_local("_msg"))
-            _dataprobe_ledger, rf(`rf') file(`"`ledfile'"') run(`"`lrun'"') ///
-                dataset(`"`dsname'"') version(`pkgver')
+            _dataprobe_ledger, rf(`rf') file(`"`ledfile'"') run(`"`macval(lrun)'"') ///
+                dataset(`"`macval(dsname)'"') version(`pkgver') phase(`rp')
+            local _wrote = 1
         }
     }
     local rc = _rc
@@ -87,6 +106,23 @@ program define _dataprobe_errrow, nclass
     set varabbrev `_orig_varabbrev'
     if `rc' {
         display as error "dataprobe: the ledger error row could not be written (rc `rc'); the call's own rc is returned"
+    }
+    // softcollect (U7): only a data or specification error whose row is in
+    // the ledger continues; an I/O, memory, system-limit or Mata error, a
+    // Break, or a row that was not written still halts
+    local soft = 0
+    if !`rc' & `_wrote' & `rsoft' {
+        local soft = inrange(`erc', 100, 199) | inrange(`erc', 400, 499) | ///
+            `erc' == 601 | inrange(`erc', 2000, 2999)
+    }
+    c_local _errrow_soft `soft'
+    if `soft' {
+        local what = cond(`erc' == 111, "variable not found", cond(`erc' == 2000, ///
+            "no observations", cond(`erc' == 109, "type mismatch", cond(`erc' == 601, ///
+            "file not found", cond(inrange(`erc', 100, 199), "invalid syntax or specification", ///
+            "data error")))))
+        display as text "dataprobe: softcollect: the call failed with rc " as result "`erc'" ///
+            as text " (`what'); its error row is in the ledger, so dataqa assert will halt; continuing with rc 0"
     }
 end
 
@@ -152,7 +188,7 @@ string scalar _dataprobe_errrow_unq(string scalar s0)
 
 void _dataprobe_errrow_scan(string scalar raw, string scalar erc)
 {
-	real scalar i, L, cq, inq, d, j, k, gotl, gotn
+	real scalar i, L, cq, inq, d, j, k, gotl, gotn, gotp, seenc, soft
 	string scalar c, c2, prev, tail, key, content, s, rest, file, run, cmd
 	L = strlen(raw)
 	cq = 0
@@ -160,6 +196,9 @@ void _dataprobe_errrow_scan(string scalar raw, string scalar erc)
 	d = 0
 	gotl = 0
 	gotn = 0
+	gotp = 0
+	seenc = 0
+	soft = 0
 	content = ""
 	file = ""
 	run = ""
@@ -192,10 +231,14 @@ void _dataprobe_errrow_scan(string scalar raw, string scalar erc)
 		if (c == "(") d++
 		else if (c == ")") d--
 		else if (d == 0) {
+			if (c == ",") seenc = 1
 			prev = (i == 1 ? " " : substr(raw, i - 1, 1))
 			if (prev == " " | prev == ",") {
+				// softcollect (U7), typed as an option (after the comma),
+				// case as syntax reads it
+				if (seenc & regexm(substr(raw, i, 12), "^soft(c|co|col|coll|colle|collec|collect)?([ ,]|$)")) soft = 1
 				tail = strlower(substr(raw, i, 12))
-				if (regexm(tail, "^(ledger|ledge|led|name)[ ]*\(")) {
+				if (regexm(tail, "^(ledger|ledge|led|name|phase)[ ]*\(")) {
 					key = regexs(1)
 					k = i + strlen(regexs(0))
 					j = _dataprobe_errrow_close(raw, k)
@@ -204,6 +247,13 @@ void _dataprobe_errrow_scan(string scalar raw, string scalar erc)
 						if (key == "name") {
 							if (!gotn) st_local("rn", _dataprobe_errrow_unq(content))
 							gotn = 1
+						}
+						else if (key == "phase") {
+							// phase(name) as typed; a token that is not a
+							// name leaves the session phase in force
+							s = strtrim(content)
+							if (!gotp & st_isname(s)) st_local("rp", s)
+							gotp = 1
 						}
 						else if (!gotl) {
 							gotl = 1
@@ -258,6 +308,7 @@ void _dataprobe_errrow_scan(string scalar raw, string scalar erc)
 		i++
 	}
 	st_local("rl", strofreal(gotl))
+	st_local("rsoft", strofreal(soft))
 	st_local("rl_file", file)
 	st_local("rl_run", run)
 	if (!gotn) st_local("rn", "")

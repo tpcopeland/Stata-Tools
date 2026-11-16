@@ -1,4 +1,4 @@
-*! _dataprobe_groupstat Version 2.0.0  2026/11/10
+*! _dataprobe_groupstat Version 2.1.0  2026/11/16
 *! dataprobe groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -40,13 +40,16 @@ program define _dataprobe_groupstat, rclass
     local isgate = 0
     local _fr_made = 0
     local _cf_made = 0
+    local _ndn = 0
+    local _rst ""
+    local _rby ""
     tempname fr
     capture noisily {
         syntax , SPEC(string) [PARSEonly RF(name) KIND(string) GRP(string) ///
             PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) SCOPE(string) ///
             CELLFRAME(name) CELLIDX(integer 0) EXCLuded(string) NPRINT(integer 1) ///
             PROFile(string) PCAT(string) BYVARS(string) MHIDE(string) FHIDE(string) ///
-            PHIDE(string) CAPped SAFE]
+            PHIDE(string) CAPped SAFE NLINK(string) PLINK(string) MLINK(string) NDECIDE]
         local head `"`spec'"'
         local opts ""
         local cp = strpos(`"`spec'"', ",")
@@ -125,6 +128,9 @@ program define _dataprobe_groupstat, rclass
                     }
                 }
                 local vars "`hvars' `by'"
+                local _rst "`stnorm'"
+                local _rvs "`hvars'"
+                local _rby "`by'"
                 if "`parseonly'" == "" {
                     if `"`cond'"' == "" local cond "1"
                     tempname cf
@@ -141,7 +147,7 @@ program define _dataprobe_groupstat, rclass
                             scope(`"`macval(scope)'"') cellframe(`cf') cellidx(`si') ///
                             excluded(`excluded') nprint(`nprint') profile(`profile') ///
                             pcat(`pcat') byvars(`byvars') mhide(`mhide') fhide(`fhide') ///
-                            phide(`phide') `capped' `safe'
+                            phide(`phide') `capped' `safe' nlink(`nlink') plink(`plink') mlink(`mlink')
                         local _m1 = r(masked)
                         local _f1 = r(nfail)
                         if `_m1' local anymask = 1
@@ -185,13 +191,15 @@ program define _dataprobe_groupstat, rclass
                                 }
                                 display as text "  " %-16s "Group" `hdr'
                                 forvalues k = 1/`nrow' {
-                                    if `"`t_0_0_`k''"' == "" continue
+                                    if `"`macval(t_0_0_`k')'"' == "" continue
                                     local line ""
                                     forvalues j = `c0'/`c1' {
                                         local line `"`line' as result %10s `"`t_`j'_`_vj'_`k''"'"'
                                     }
-                                    local gshow = substr(`"`t_0_0_`k''"', 1, 16)
-                                    display as text "  " as result %-16s `"`gshow'"' `line'
+                                    // R1: a group label prints literally (_dpgs_show)
+                                    local gshow = substr(`"`macval(t_0_0_`k')'"', 1, 16)
+                                    mata: st_local("gshow", _dpgs_show(st_local("gshow"), 16))
+                                    display as text "  " as result %-16s `"`macval(gshow)'"' `line'
                                 }
                                 local line ""
                                 forvalues j = `c0'/`c1' {
@@ -248,6 +256,9 @@ program define _dataprobe_groupstat, rclass
         }
         local isgate = ("`band'" != "")
         local vars "`gvars' `byv'"
+        local _rst "`st'"
+        local _rvs "`gvars'"
+        local _rby "`byv'"
         if "`parseonly'" == "" {
             if `"`cond'"' == "" local cond "1"
             local gmin = `min'
@@ -268,6 +279,7 @@ program define _dataprobe_groupstat, rclass
                 display as text "GROUPSTAT " as result "`sname'" as text " by(" as result "`byv'" ///
                     as text ")"
                 foreach v of local gvars {
+                    if "`ndecide'" != "" continue
                     local rmsg `"`pfx'groupstat(`sname' `v', by(`byv')): no rows in scope"'
                     display as text "  " as result `"`macval(rmsg)'"'
                     frame post `rf' ("groupstat") ("review") (2) ("`sname' `v'") ("`v'") ///
@@ -506,9 +518,10 @@ program define _dataprobe_groupstat, rclass
                     local gl "`k'"
                     if "`glab'" != "" {
                         local _t : label `glab' `k'
-                        if `"`_t'"' != "" local gl `"`_t'"'
+                        // R1: Mata, as a one-line if expands its command twice
+                        if `"`macval(_t)'"' != "" mata: st_local("gl", st_local("_t"))
                     }
-                    local gl_`k' `"`gl'"'
+                    local gl_`k' `"`macval(gl)'"'
                     local sup_`k' = 0
                     local tst_`k' = (`n_`k'' >= `bmin')
                     if `n_`k'' < `gmin' | `ph_`k'' {
@@ -671,6 +684,79 @@ program define _dataprobe_groupstat, rclass
                         }
                     }
                 }
+                // Linked statistics (2.1.0 final review S3).  A sum beside a
+                // mean of the same variable over the same groups gives back
+                // the group's nonmissing count (sum / mean), and a pmiss
+                // beside an n its rows and missing count.  dataprobe lists
+                // in nlink() the variables of this entry whose mean the call
+                // prints over the same by() and if (this entry or another
+                // groupstat() entry, or stat() with the call's by()), and in
+                // plink() those whose n it prints there.  Their sum or pmiss
+                // cell is withheld in every group where the n cell of the
+                // variable is withheld (the n column's own rules, computed
+                // by an ndecide pass of this program), so the pair never
+                // gives back what the n column withholds (a sum of 0 stays:
+                // with a mean of 0 it gives no count).  A pmiss beside
+                // an n gives the group's rows too: it is withheld in the
+                // group with the fewest rows while the rows of the groups
+                // whose pmiss shows fall 1 to mask-1 short of the entry's
+                // rows or of the call's N, as an n cell is.
+                if `mask' > 0 & inlist("`st'", "sum", "pmiss") {
+                    local _lk = cond("`st'" == "sum", "`nlink'", "`plink'")
+                    local _lkv : list gvars & _lk
+                    if "`_lkv'" != "" {
+                        local _mo = cond(`min' >= 0, " min(`min')", "")
+                        quietly _dataprobe_groupstat, spec(`"n `_lkv', by(`byv')`_mo'"') ndecide ///
+                            rf(`rf') kind(review) mask(`mask') nscope(`nscope') cond(`"`cond'"') ///
+                            excluded(`excluded') nprint(`nprint') profile(`profile') pcat(`pcat') ///
+                            byvars(`byvars') mhide(`mhide') fhide(`fhide') phide(`phide') `capped' `safe'
+                        local _li = 0
+                        foreach _lv of local _lkv {
+                            local ++_li
+                            local _lh "`r(nh`_li')'"
+                            local j : list posof "`_lv'" in gvars
+                            foreach k of local _lh {
+                                if `sup_`k'' | !`sh_`k'_`j'' continue
+                                // a sum of 0 (mean 0) gives no count back
+                                if "`st'" == "sum" & `val_`k'_`j'' == 0 continue
+                                local sh_`k'_`j' = 0
+                                local s_`k'_`j' "[suppr.]"
+                                local cm_`j' = 1
+                                local anymask = 1
+                            }
+                        }
+                        if "`st'" == "pmiss" {
+                            foreach _lv of local _lkv {
+                                local j : list posof "`_lv'" in gvars
+                                local _tots = 0
+                                forvalues k = 1/`G' {
+                                    local _tots = `_tots' + `n_`k''
+                                }
+                                if `nprint' & `nscope' > 0 & `nscope' < . local _tots "`_tots' `nscope'"
+                                foreach _T of local _tots {
+                                    while 1 {
+                                        local _rem = `_T'
+                                        local _kmin = 0
+                                        local _xmin = .
+                                        forvalues k = 1/`G' {
+                                            if `sup_`k'' | !`sh_`k'_`j'' continue
+                                            local _rem = `_rem' - `n_`k''
+                                            if `n_`k'' < `_xmin' {
+                                                local _xmin = `n_`k''
+                                                local _kmin = `k'
+                                            }
+                                        }
+                                        if !(`_rem' >= 1 & `_rem' < `mask') | !`_kmin' continue, break
+                                        local sh_`_kmin'_`j' = 0
+                                        local s_`_kmin'_`j' "[suppr.]"
+                                        local cm_`j' = 1
+                                        local anymask = 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 // Pooled remainders of a count column (n, or the sum of a
                 // 0/1 variable in profile mode).  A total of the column
                 // minus its shown cells is the share of the pooled-away
@@ -774,6 +860,34 @@ program define _dataprobe_groupstat, rclass
                     }
                     if `exc_`j'' & !missing(`pool_`j'') local pools_`j' "`xtxt_`j''"
                 }
+                // The pooled mean of a variable whose sum the call prints
+                // (2.1.0 final_fixes): the groups' sums of any groupstat()
+                // entry (or stat() by group) over the same if add up to the
+                // pooled sum, and pooled sum / pooled mean is the pooled
+                // nonmissing count.  dataprobe lists those variables in
+                // mlink(); their pooled mean is withheld when the pooled n
+                // of the variable is (the n column's rules, by an ndecide
+                // pass), a pooled mean of 0 aside (it gives no count).
+                if `mask' > 0 & "`st'" == "mean" {
+                    local _mlv : list gvars & mlink
+                    if "`_mlv'" != "" {
+                        local _mo = cond(`min' >= 0, " min(`min')", "")
+                        quietly _dataprobe_groupstat, spec(`"n `_mlv', by(`byv')`_mo'"') ndecide ///
+                            rf(`rf') kind(review) mask(`mask') nscope(`nscope') cond(`"`cond'"') ///
+                            excluded(`excluded') nprint(`nprint') profile(`profile') pcat(`pcat') ///
+                            byvars(`byvars') mhide(`mhide') fhide(`fhide') phide(`phide') `capped' `safe'
+                        local _li = 0
+                        foreach _lv of local _mlv {
+                            local ++_li
+                            local j : list posof "`_lv'" in gvars
+                            if "`r(np`_li')'" != "1" | !`pshown_`j'' | `exc_`j'' continue
+                            if missing(`pool_`j'') | `pool_`j'' == 0 continue
+                            local pools_`j' "[suppr.]"
+                            local pshown_`j' = 0
+                            local anymask = 1
+                        }
+                    }
+                }
                 // With relative, a group's cell is its ratio to the pooled
                 // value, the number band() tests; the pooled row stays raw.
                 // A withheld pooled value withholds the ratios too, since a
@@ -799,10 +913,16 @@ program define _dataprobe_groupstat, rclass
                         if `exc_`j'' & !missing(`val_`k'_`j'') local s_`k'_`j' "`xcell_`j''"
                         local line `"`line' as result %13s "`s_`k'_`j''""'
                     }
-                    local gshow = substr(`"`gl_`k''"', 1, 24)
-                    if "`cellframe'" == "" display as text "  " as result %-24s `"`gshow'"' `line'
+                    // R1: a group label prints literally (_dpgs_show)
+                    local gshow = substr(`"`macval(gl_`k')'"', 1, 24)
+                    if "`cellframe'" == "" mata: st_local("gshow", _dpgs_show(st_local("gshow"), 24))
+                    if "`cellframe'" == "" display as text "  " as result %-24s `"`macval(gshow)'"' `line'
                     else {
-                        if `cellidx' == 1 frame post `cellframe' (0) (0) (`k') (`"`macval(gl_`k')'"')
+                        if `cellidx' == 1 {
+                            // R1: frame post expands its arguments again
+                            frame post `cellframe' (0) (0) (`k') ("")
+                            frame `cellframe': mata: st_sstore(st_nobs(), "txt", substr(st_local("gl_`k'"), 1, 244))
+                        }
                         forvalues j = 1/`nv' {
                             frame post `cellframe' (`cellidx') (`j') (`k') (`"`s_`k'_`j''"')
                         }
@@ -843,10 +963,24 @@ program define _dataprobe_groupstat, rclass
                     else if `cellidx' == 1 frame post `cellframe' (0) (0) (0) (`"`smtxt'"')
                 }
 
+                // ndecide (S3): the groups whose n cell is withheld, per
+                // variable, for a linked sum or pmiss; no record is written
+                if "`ndecide'" != "" {
+                    local _ndn = `nv'
+                    forvalues j = 1/`nv' {
+                        local nh_`j' ""
+                        // 1 when the pooled n is withheld (mlink)
+                        local np_`j' = !`pshown_`j''
+                        forvalues k = 1/`G' {
+                            if !`sup_`k'' & !`sh_`k'_`j'' local nh_`j' "`nh_`j'' `k'"
+                        }
+                    }
+                }
                 // records
                 local j = 0
                 foreach v of local gvars {
                     local ++j
+                    if "`ndecide'" != "" continue
                     local shownG = `G' - `nsmall'
                     local rmsg `"`pfx'groupstat(`sname' `v', by(`byv')): `shownG' group(s) shown, pooled `pools_`j''"'
                     // the record is masked when its table withheld anything:
@@ -993,15 +1127,18 @@ program define _dataprobe_groupstat, rclass
                         // a group withheld from the table is named by its
                         // number, never its values (as by() names a withheld
                         // group)
-                        local gname `"`gl_`k''"'
+                        local gname `"`macval(gl_`k')'"'
                         if `sup_`k'' & `mask' > 0 local gname "#`k'"
-                        local g2 `"by(`byv') = `gname'"'
+                        local g2 `"by(`byv') = `macval(gname)'"'
                         if `sup_`k'' & `mask' > 0 local g2 "by(`byv' group `k')"
-                        if `"`grp'"' != "" local g2 `"`grp'; `g2'"'
-                        local fmsg `"`pfx'groupstat(`sname' `v'): `what' `xs' in group `gname', expected `etxt' [`dsum']"'
+                        if `"`macval(grp)'"' != "" mata: st_local("g2", st_local("grp") + "; " + st_local("g2"))
+                        local fmsg `"`macval(pfx)'groupstat(`sname' `v'): `what' `xs' in group `macval(gname)', expected `etxt' [`dsum']"'
+                        // R1: frame post expands its arguments again, so
+                        // the group and message are stored from Mata
                         frame post `rf' ("groupstat") ("`kind'") (0) ("`sname' `v'") ("`v'") ///
-                            (`"`macval(g2)'"') ("`what' `xs'; `dsum'") (`onum') ("`etxt'") ///
-                            (`nscope') (`"`macval(scope)'"') (`"`macval(fmsg)'"') (.) (`om')
+                            ("") ("`what' `xs'; `dsum'") (`onum') ("`etxt'") ///
+                            (`nscope') (`"`macval(scope)'"') ("") (.) (`om')
+                        frame `rf': mata: st_sstore(st_nobs(), ("grp", "msg"), (st_local("g2"), st_local("fmsg")))
                     }
                     if `nf_v' == 0 {
                         local ntst = 0
@@ -1038,6 +1175,14 @@ program define _dataprobe_groupstat, rclass
     return scalar isgate = `isgate'
     return scalar nfail = `nfail'
     return scalar masked = `anymask'
+    // the parsed entry, for dataprobe's linked-statistics pass (S3)
+    return local gsst "`_rst'"
+    return local gsvars "`_rvs'"
+    return local gsby "`_rby'"
+    forvalues j = 1/`_ndn' {
+        return local nh`j' "`nh_`j''"
+        return local np`j' "`np_`j''"
+    }
 end
 
 // A groupstat cell that would overrun its column (w characters: 13 in a
@@ -1056,4 +1201,33 @@ program define _dataprobe_gsfit, rclass
     }
     if ustrlen(`"`s'"') > `w' local s = strtrim(string(`x', "%10.4g"))
     return local s `"`s'"'
+end
+
+// R1 (2.1.0): a group label as printed in a %-ws column.  A label without
+// a brace, backtick, double quote, dollar sign or control character comes
+// back unchanged; any other prints its literal characters ({c -(},
+// {char 96}, ...; control characters as \n, \xHH, as dataprobe prints
+// values) and is padded to w columns measured before the substitution.
+capture mata: mata drop _dpgs_show()
+mata:
+string scalar _dpgs_show(string scalar s, real scalar w)
+{
+	real scalar i, n
+	string scalar out
+	if (!ustrregexm(s, "[{}" + char(96) + char(34) + char(36) + "\x00-\x1f]")) return(s)
+	out = subinstr(s, char(10), char(92) + "n")
+	out = subinstr(out, char(13), char(92) + "r")
+	out = subinstr(out, char(9), char(92) + "t")
+	for (i = 1; i <= 31; i++) {
+		if (i == 9 | i == 10 | i == 13) continue
+		out = subinstr(out, char(i), char(92) + "x" + substr("0123456789abcdef", floor(i / 16) + 1, 1) + substr("0123456789abcdef", mod(i, 16) + 1, 1))
+	}
+	n = ustrlen(out)
+	out = subinstr(out, "{", "{c -(}")
+	out = subinstr(out, char(96), "{char 96}")
+	out = subinstr(out, char(34), "{char 34}")
+	out = subinstr(out, char(36), "{char 36}")
+	if (w > n) out = out + (w - n) * " "
+	return(out)
+}
 end

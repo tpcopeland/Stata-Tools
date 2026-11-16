@@ -1,4 +1,4 @@
-*! _datamap_md_manifest Version 2.0.0  2026/11/10
+*! _datamap_md_manifest Version 2.1.0  2026/11/16
 *! Read a datamap manifest() file: one dataset path per line
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -29,9 +29,12 @@ program define _datamap_md_manifest, rclass
         while r(eof) == 0 {
             mata: st_local("line", ustrregexra(st_local("line"), "^\x{FEFF}", ""))
             local path = strtrim(`"`macval(line)'"')
-            if `"`path'"' != "" & substr(`"`path'"', 1, 1) != "#" {
-                local path = cond(regexm(lower(`"`path'"'), "\.dta$"), `"`path'"', `"`path'.dta"')
-                _datamap_validate_path `"`path'"', option("manifest() dataset path")
+            // R1 (2.1.0): the line is moved with macval(), so a $ or
+            // backtick in it reaches the path guard (which refuses it)
+            // instead of being expanded into another path
+            if `"`macval(path)'"' != "" & substr(`"`macval(path)'"', 1, 1) != "#" {
+                local path = cond(regexm(lower(`"`macval(path)'"'), "\.dta$"), `"`macval(path)'"', `"`macval(path)'.dta"')
+                _datamap_validate_path `"`macval(path)'"', option("manifest() dataset path")
                 confirm file `"`path'"'
                 file write `fh_out' `"`path'"' _n
                 local ++nfiles

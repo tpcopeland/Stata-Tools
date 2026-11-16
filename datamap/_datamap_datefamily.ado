@@ -1,4 +1,4 @@
-*! _datamap_datefamily Version 2.0.0  2026/11/10
+*! _datamap_datefamily Version 2.1.0  2026/11/16
 *! The date family of a display format: "%td daily", "%tc datetime", ...
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

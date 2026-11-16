@@ -1,4 +1,4 @@
-*! _dataqa_merge
+*! _dataqa_merge Version 2.1.0  2026/11/16
 *! dataqa merge: fold per-worker ledger shards into one QA ledger
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

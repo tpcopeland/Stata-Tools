@@ -90,6 +90,7 @@
 {synopt:{opt events(spec)}}require events at every covariate level{p_end}
 {synopt:{opt intervals(spec)}}check interval-file structure{p_end}
 {synopt:{opt keyset(spec)}}require the keys of a saved dataset{p_end}
+{synopt:{opt recon:cile(spec)}}check rows, ids, totals against a file{p_end}
 {synopt:{opt constant(spec)}}require time-fixed values within a key{p_end}
 {synopt:{opt sets(spec)}}check matched-set structure{p_end}
 {synopt:{opt smallcells(spec)}}small-cell gate on a table or microdata{p_end}
@@ -127,6 +128,7 @@
 {synopt:{opt viol:ations(name[, replace])}}save violations to {opt .dta}/frame{p_end}
 {synopt:{opt ledger(filename[, run()])}}append every gate result to a ledger{p_end}
 {synopt:{opt phase(name)}}phase that tags this call's ledger rows{p_end}
+{synopt:{opt soft:collect}}record a failed call and continue{p_end}
 {synopt:{opt sig:nature}}record the dataset's {help datasignature}{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -195,7 +197,8 @@ defaults set by {help dataqa:dataqa set}, which override config-file defaults.
 the name is the basename of {cmd:c(filename)}, followed by {bf:(modified)} when
 the data changed since they were last saved; data never saved have no name. Use
 {opt name()} for a dataset restricted after loading, for example
-{cmd:name(repop_intervals, repletion sample)}.
+{cmd:name(repop_intervals, repletion sample)}. The name is used as typed: a
+{cmd:$} or backtick in it is never expanded, and braces print literally.
 
 {dlgtab:Classification}
 
@@ -257,6 +260,13 @@ and is among the first {opt max(#)} levels; {opt max()} defaults to
 masking threshold ({opt mincell()} or the {cmd:dataqa set} default, then
 {opt rare()} under {opt maskrare}), otherwise 5; below 2 it is r(198).
 {opt topvalues()} masks at {it:m} whether or not {opt maskrare} is given.
+Under {opt maskrare}, and so under {opt safe} and {cmd:dataqa set agent},
+the call's masking threshold is a floor: an entry's {opt mincell()} below it
+is raised to it, with a note such as
+{bf:note: safe raises topvalues() mincell(2) to 5}
+({bf:maskrare raises} ... without {opt safe}), so an entry never lists a level
+the call's mask withholds. Without {opt maskrare} the entry's
+{opt mincell()} is used as given.
 
 {pmore}
 Every other level is pooled in one line, {bf:[}{it:k} {bf:levels suppressed]},
@@ -462,7 +472,10 @@ is an error, not a violation. When an expression uses a subscript, {cmd:_n} or
 {cmd:_N} and the data had no sort order at entry ({cmd:: sortedby} was empty),
 or were sorted by none of the variables it subscripts, {cmd:dataprobe} prints a
 note naming the rule and pointing to {opt byrule()}; the note never changes a
-verdict. {opt review()} gets the same note.
+verdict. {opt review()} gets the same note. As in {opt byrule()}, the expression
+reaches Stata exactly as written: a {cmd:$} or backtick inside it, such as
+{cmd:s != "a$b"} given through a compound-quoted local, is never expanded. A
+{opt rule()} or {opt review()} label cannot hold {cmd:$} (r(198)).
 
 {phang}
 {opt byrule(spec)} asserts row-level rules under Stata's own
@@ -487,7 +500,10 @@ families, written to {opt ledger()}, {opt violations()}, and {opt checks()} (a
 {cmd:byrule} row takes the label in {cmd:var}, the by spec in {cmd:values}, and the
 expression in {cmd:pattern}), masked under {opt maskrare}, and tallied by
 {opt by()} groups exactly as {opt rule()} is. {opt makespec()} does not write
-{opt rule()} or {opt byrule()} rows.
+{opt rule()} or {opt byrule()} rows. The expression reaches Stata exactly as
+written: a {cmd:$} or backtick inside it, such as {cmd:s != "a$b"} given through
+a compound-quoted local, is never expanded. The {it:byspec} and the label cannot
+hold {cmd:$} (r(198)).
 
 {pmore}
 {bf:Group aggregates.} The expression may state a rule per group with
@@ -542,8 +558,9 @@ every gate: no data rows and no group.
 {opt stat(spec)} asserts that a statistic falls within a declared inclusive
 band. Each {cmd:\}-separated entry is {it:statistic var lo hi} [{cmd:if} {it:exp}]
 or {cmd:ratio} {it:num den lo hi} [{cmd:if} {it:exp}]. The statistics are
-{cmd:mean}, {cmd:sd}, {cmd:median}, and {cmd:p1} to {cmd:p99} (as by
-{help summarize:summarize, detail}); {cmd:sum}; {cmd:n}, the nonmissing count; {cmd:distinct},
+{cmd:mean}, {cmd:sd}, {cmd:median}, and the percentiles {help summarize:summarize, detail}
+reports, {cmd:p1} {cmd:p5} {cmd:p10} {cmd:p25} {cmd:p50} {cmd:p75} {cmd:p90} {cmd:p95} {cmd:p99}
+(no other percentile, such as {cmd:p2} or {cmd:p37}, is accepted); {cmd:sum}; {cmd:n}, the nonmissing count; {cmd:distinct},
 the number of distinct nonmissing values; {cmd:pmiss}, the
 share missing over all rows in scope; {cmd:ess}, the Kish effective sample size
 (sum w)^2/sum(w^2) of a weight variable (Kish 1965); and {cmd:ratio}, sum
@@ -658,6 +675,54 @@ gained after a merge on the wrong key, fail. {opt keyset()} ignores
 {opt by()}. Before the verdict, {opt keyset()} prints a preflight report; see
 {help dataprobe##keyset:Keyset preflight}.
 
+{pmore}
+For a link by key and date, an entry may add {cmd:asof(}{it:mdate udate}{cmd:)}
+(the latest file row of the key dated on or before {it:mdate}) or
+{cmd:window(}{it:mstart mend udate}{cmd:)} (the file rows of the key dated in
+[{it:mstart}, {it:mend}], what {helpb joinby} followed by {cmd:keep if} would
+leave): {it:mdate}, {it:mstart} and {it:mend} are numeric variables in memory,
+{it:udate} a numeric variable in the file. The entry then reports, per row in
+memory, how many file rows link (none, one, more), and nothing is joined;
+see {help dataprobe##kwindow:Date linkage}. {cmd:maxlag(}{it:#}{cmd:)} (with
+{cmd:asof()}) counts the rows whose latest file date is more than {it:#}
+before {it:mdate}. The diagnostic is a review item unless a threshold, a share
+from 0 to 1 of the rows in memory, makes it a gate: {cmd:maxnone(}{it:#}{cmd:)}
+(rows with no link), {cmd:maxmulti(}{it:#}{cmd:)} (rows with more than one),
+and with {cmd:asof()} {cmd:maxties(}{it:#}{cmd:)} (rows whose latest file date
+holds more than one file row, so the as-of pick is arbitrary) and
+{cmd:maxstale(}{it:#}{cmd:)} (rows older than {cmd:maxlag()}). With
+{cmd:asof()} or {cmd:window()} the key-set verdict runs only when
+{cmd:equal}, {cmd:subset} or {cmd:superset} is named:
+{cmd:keyset(id using labs, asof(index labdate) maxlag(365) maxties(0))}.
+
+{phang}
+{opt recon:cile(spec)} compares the working sample with a saved checkpoint
+{cmd:.dta}, so that rows, persons and totals are conserved across a step
+without {cmd:count} into a local or {cmd:collapse} and {cmd:merge}. Each
+{cmd:\}-separated entry is {it:filename} [{cmd:,} {cmd:n}
+{cmd:ids(}{it:varname}{cmd:)} {cmd:sum(}{it:varlist}{cmd:)}
+{cmd:by(}{it:varlist}{cmd:)} {cmd:expect(eq}|{cmd:le}|{cmd:ge)}
+{cmd:tol(}{it:#}{cmd:)}]. {cmd:n} compares the row counts (the default when
+neither {cmd:ids()} nor {cmd:sum()} is given), {cmd:ids()} the distinct
+nonmissing values of an id, {cmd:sum()} the total of each variable (a missing
+value adds nothing). {cmd:expect()} is the relation memory must have to the
+file: {cmd:eq} (the default), {cmd:le} (memory at most the file, as after
+exclusions) or {cmd:ge}. Counts compare exactly; a total compares within
+{cmd:tol()} times the file's absolute total (default 1e-9, for the order of
+floating-point addition). With {cmd:by()} the same comparison runs in every
+group too, a group present on one side only counting zero on the other; the
+groups that fail print by their value labels. The file is read with a varlist
+(the {cmd:ids()}, {cmd:sum()} and {cmd:by()} variables only; with {cmd:n}
+alone only its header) into a temporary frame, from whatever frame is
+current, and the data in memory are not changed. A missing file is r(601), a
+variable missing from the file r(111), a {cmd:sum()} variable that is a string
+in the file r(109), and a {cmd:by()} variable that is a string on one side
+only, or a {cmd:strL}, r(106). Each measure is a gate record, and with
+{cmd:by()} one more per measure, failed when any group fails.
+{opt reconcile()} ignores {opt by()} (the option of {cmd:dataprobe}), runs on
+the {cmd:if}/{cmd:in} sample, and under {opt maskrare} masks as described in
+{help dataprobe##masking:Masking}.
+
 {phang}
 {opt constant(spec)} asserts that variables take one value within each key. Each
 {cmd:\}-separated entry is {it:keyvars}{cmd::} {it:varlist}
@@ -676,7 +741,13 @@ or 1 on every row ({bf:sets(values)}), each set has one exposed row
 
 {phang}
 {opt small:cells(spec)} is a publication gate for a results dataset, one row per
-released table cell or row. Each {cmd:\}-separated entry is
+released table cell or row. It audits counts: it reports cells that would
+disclose a small count and fails the call, but it never suppresses, rounds, or
+changes a table, so a failing table must be fixed (cells suppressed, groups
+merged) before release. For the complementary cells that let a withheld cell be
+recovered from row and column totals, use the {opt margins} audit below; to
+list the frequent levels of a variable without printing its rare values, use
+{opt topvalues()}. Each {cmd:\}-separated entry is
 {it:countexp} [{it:countexp} ...] [{cmd:if} {it:exp}]. On the rows in scope,
 none of the {it:countexp} may lie in 1 to {it:m}-1; the scope is the entry's
 {cmd:if} (typically the rows not marked as suppressed) within the call's
@@ -782,7 +853,14 @@ the feasibility interval of sec. 4.2.2 tighter than {bf:<}{it:m}).{p_end}
 {pmore}
 The record names up to eight exposed margins by stratum or condition, as in
 {bf:foreign=0: smallsum (rep78==1, rep78==5); rep78==3: single (foreign=1)},
-and fails the gate (exit 9). It is an audit: it does not mask or rewrite a
+and fails the gate (exit 9). Under {opt maskrare} (and {opt safe}) every
+pattern but {bf:single} is named {bf:exposed}, as in
+{bf:g=0: exposed (dx==1, dy==1)}: {bf:singletons} would say that each hidden
+cell is 1, {bf:pinned} that each is fixed, and {bf:smallsum} and
+{bf:narrowed} what their total or range is, which the message and the record
+never carry; {bf:single} says only that one cell of the margin is small, which
+the floor record says already. Without the mask the specific name is
+printed. It is an audit: it does not mask or rewrite a
 table. Each margin is checked on its own, as the minimum standard PS1
 considers the table equations separately (sec. 4.3.2); the joint system of a
 table's margins, and tables linked across outputs, are not checked.
@@ -1002,8 +1080,27 @@ complement, the cell with the smallest complement) then reads {bf:[suppr.]}. A
 count is 1 to {it:m}-1. An {cmd:sd} cell is masked when the group has fewer
 than {it:m} nonmissing rows or, for a variable with two or three values in the group,
 fewer than {it:m} rows of any value; an {cmd:ess} cell when the group's
-nonzero or zero weights number 1 to {it:m}-1. The pooled value, {cmd:pmiss} included, is withheld
-when any group cell is masked. A failing group that the table withholds is
+nonzero or zero weights number 1 to {it:m}-1. Two cells of one group can give
+back a count neither shows: a {cmd:sum} and a {cmd:mean} of one variable give
+its nonmissing count ({cmd:sum}/{cmd:mean}), an {cmd:n} and a {cmd:pmiss} its
+rows and missing count. When the call prints the {cmd:mean} of a variable over
+the same groups (the same {cmd:by()} and {cmd:if}: this entry, another
+{opt groupstat()} entry, or {opt stat()} with the call's {opt by()}), its
+{cmd:sum} cell reads {bf:[suppr.]} in every group where its {cmd:n} cell would
+be withheld by the rules above (a {cmd:sum} of 0 stays); when the call prints
+its {cmd:n} over the same groups, so does its {cmd:pmiss} cell, which is also
+withheld in the group with the fewest rows while the rows of the groups whose
+{cmd:pmiss} shows fall 1 to {it:m}-1 short of the entry's rows or of N. The
+{cmd:mean} and the {cmd:n} stay. Statistics over another {cmd:by()} or
+{cmd:if}, and a {opt stat()} expression set against a variable, are not
+linked. The pooled value, {cmd:pmiss} included, is withheld
+when any group cell is masked. The pooled row holds every group's rows
+whatever the {cmd:by()}, and the {cmd:sum} cells of any entry over the same
+{cmd:if} add up to its pooled {cmd:sum}: when the call prints a {cmd:sum} of a
+variable (any {opt groupstat()} entry over the same {cmd:if}, or {opt stat()}),
+the pooled {cmd:mean} of that variable reads {bf:[suppr.]} whenever its pooled
+{cmd:n} would be withheld by the rules above (a pooled {cmd:mean} of 0 stays),
+so {cmd:sum}/{cmd:mean} never gives back the pooled nonmissing count. A failing group that the table withholds is
 named by its number ({cmd:group #3}), never its values. The mean or a
 percentile of a date prints as a date, at month precision under the mask, as
 the pooled value does; a date format wider than the column prints as a
@@ -1084,7 +1181,12 @@ pooled tables as before; {opt gatesonly} ignores it, and it needs {opt by()} or
 {opt over()} (r(198) otherwise). Example: {cmd:dataprobe mc if cx, by(arm) byfreq maxfreq(15) maskrare}.
 
 {phang}
-{opt check:s(filename)} reads gate specifications from {it:filename}. Each row
+{opt check:s(filename)} reads gate specifications from {it:filename}. A row
+whose text holds a backtick, or a {cmd:$} followed by a letter, underscore or
+{cmd:{c -(}}, is refused with r(198) naming the row and column, because the text
+would otherwise be expanded as a macro; write such a character as
+{cmd:char(96)} or {cmd:char(36)} inside an expression. A {cmd:$} that does not
+start a name, as at the end of a {cmd:regex} pattern, is accepted. Each row
 names its gate in string variable {cmd:gate} (or {cmd:check}) and its arguments
 in {cmd:var}, {cmd:arg1}, {cmd:arg2}, {cmd:values}, and {cmd:pattern}; an
 optional string variable {cmd:kind} set to {cmd:band} places the row inside
@@ -1241,7 +1343,29 @@ empty. It requires a ledger, from {opt ledger()} or {cmd:dataqa set}
 with {opt phase()}, and {cmd:dataqa assert} {opt pending()} lets datasets of a
 later phase be absent. A ledger written before the column existed takes new
 rows as usual; its old rows read as phase empty. The error row of a call that
-fails is tagged with the session phase.
+fails is tagged with the call's own {opt phase()} when it is a valid name, else
+with the session phase. In a {help dataqa:dataqa set worker()} session the
+error row, like every other row, goes to that worker's shard.
+
+{phang}
+{opt soft:collect} lets a do-file continue past a {cmd:dataprobe} call that
+fails to run. It requires a ledger, from {opt ledger()} or {cmd:dataqa set}
+(r(198) otherwise). When the call fails with a data or specification error
+(return codes 100-199, such as a missing variable (111), a misspelled option or
+a gate spec that does not parse (198), or a type mismatch (109); 400-499; 601,
+a file such as a {opt checks()} spec not found; and 2000-2999, such as an
+{cmd:if}/{cmd:in} sample with no observations (2000)), the call writes its
+error row exactly as without the option, prints one line naming the return
+code, and returns 0 with {cmd:r(softfail)} = 1 and {cmd:r(softfail_rc)} set to
+the return code; every other {cmd:r()} result is cleared. The error row is a
+halting row: {help dataqa:dataqa assert} exits 9 on it and {cmd:dataqa report}
+lists it as a call error, so {opt softcollect} never turns a broken check into
+a pass. Any other error still halts with its own return code: Break, an error
+writing the ledger (the row could not be written, so nothing records the
+failure), I/O errors on other files (602, 603, 610), memory and system limits
+(900-999, 1000 and above, such as r(1000)), and Mata errors. A call that runs
+returns {cmd:r(softfail)} = 0. {opt softcollect} does not change gate
+failures, which exit 9 unless {help dataqa:dataqa set collect} is on.
 
 {phang}
 {opt sig:nature} records the {help datasignature} of the dataset, as loaded
@@ -1458,6 +1582,53 @@ reported before any count ({cmd:strL key}), since {helpb merge} refuses a
 An empty sample or an empty file is compared as an empty key set: every key
 on the other side is unmatched.
 
+{marker kwindow}{...}
+{pstd}
+{bf:Date linkage: asof() and window().} With {cmd:asof()} or {cmd:window()} the
+preflight goes on to the link by key and date:
+
+{phang2}{cmd:  asof(index labdate): 1000 rows in memory}{p_end}
+{phang2}{cmd:    labs rows with labdate on or before index: none 52 (5.2%), one 301 (30.1%), more 647 (64.7%)}{p_end}
+{phang2}{cmd:    latest labdate tied: 12 (1.2%); latest older than 365: 40 (4.0%)}{p_end}
+{phang2}{cmd:  window(start stop dispdate): 1000 rows in memory}{p_end}
+{phang2}{cmd:    rx rows with dispdate in [start, stop]: none 50 (5.0%), one 300 (30.0%), more 650 (65.0%)}{p_end}
+{phang2}{cmd:    joinby id would create 1,234,567 pairs; 2,345 inside the window}{p_end}
+
+{pstd}
+For each row in memory, {bf:none}, {bf:one} and {bf:more} count the file rows
+of its key dated on or before {it:mdate} ({cmd:asof()}), or in
+[{it:mstart}, {it:mend}] ({cmd:window()}); they add up to the rows in memory.
+Under {cmd:asof()}, {bf:more} is a history, and the as-of pick takes the latest;
+{bf:tied} counts the rows whose latest date holds two or more file rows, where
+the pick among them is arbitrary. Under {cmd:window()}, the first count of pairs
+is what {helpb joinby} on the key makes before any date condition (every row
+of a key in memory times every row of that key in the file), the second what
+{cmd:keep if} the window leaves, so a cartesian blow-up shows before it is
+run. A row in memory with a missing date (or start or stop) links nothing and
+counts as none; a file row with a missing date is never a candidate; an
+inverted window ({it:mstart} > {it:mend}) is empty. Both lines are printed
+when either count is not zero. Missing key values are keys, as in
+{helpb merge} and {helpb joinby}. No date is printed.
+
+{pstd}
+Nothing is joined: the keys and dates of memory are stacked once with the
+file's, and one sort by key, date and row type counts the file rows before
+each date ({it:O}(({it:N}+{it:M}) log({it:N}+{it:M}))). With one million rows on each
+side and 200,000 keys, {cmd:asof()} added about 3 seconds and {cmd:window()}
+about 4 seconds to a 2-second preflight, on one processor. A type conflict or
+a {cmd:strL} key stops the entry before the link, as before.
+
+{pstd}
+The entry posts one review record ({cmd:none ...; one ...; more ...}) and one
+gate record per threshold, each failing when its share of the rows in memory
+exceeds the threshold; on an empty sample a threshold fails. Under
+{opt maskrare} every count follows the mask; since none, one and more add up
+to the rows in memory, a single withheld count withholds the smallest other
+nonzero one ({bf:[suppressed]}); {bf:tied} and {bf:older than} are also tested
+against their parent counts; a share prints only beside a count that is
+shown; and the pair counts print as {bf:[suppressed]} when any other count of
+the entry, the preflight's included, is withheld.
+
 
 {marker masking}{...}
 {title:Masking}
@@ -1490,6 +1661,17 @@ counts a {opt by()} profile prints per group are protected together; see
 {bf:unique=} and a categorical variable's level count print as
 {bf:[masked]} when N, or the nonmissing N, minus that count is 1 to
 {it:m}-1.{p_end}
+{phang2}o  a {opt stat()} {cmd:sum} prints as {bf:[suppressed]} when the call
+also prints the {cmd:mean} of the same variable (or expression text) over the
+same scope (the same {cmd:if}, and with {opt by()} the same group, also from a
+{opt groupstat()} {cmd:mean} over the call's {opt by()}) and the scope's
+missing count is 1 to {it:m}-1, since {cmd:sum}/{cmd:mean} would give back
+the nonmissing count that {cmd:stat(n)} withholds; a {cmd:sum} of 0 stays; in a
+{opt by()} group whose size is withheld it follows the rule for {cmd:n}. Without
+{opt by()}, a {opt stat()} {cmd:mean} prints as {bf:[suppressed]} when the call
+also prints a {opt groupstat()} {cmd:sum} of the same variable over the same
+{cmd:if} (its groups add up to the sum) and the missing count is 1 to
+{it:m}-1; a {cmd:mean} of 0 stays.{p_end}
 {phang2}o  no minimum or maximum is printed. The continuous and date profiles and
 {opt inrange()} messages show p1 and p99, dates at month precision, and any
 percentile, mean, or {opt stat()} value is shown only when at least {it:m}
@@ -1509,6 +1691,22 @@ KEY STRUCTURE follows the same rule over the keys.{p_end}
 {opt diff()}, {opt compare()}, and the {opt keyset()} preflight follow the same
 rule; see {help dataprobe##snapdiff:Snapshot and diff} and
 {help dataprobe##keyset:Keyset preflight}.
+
+{pstd}
+{opt reconcile()} prints a count, the file's count and their difference as
+one triple: when any of them is 1 to {it:m}-1, every nonzero member prints as
+{bf:<}{it:m} or {bf:[suppressed]} and the difference as its direction only
+({cmd:rows: memory [suppressed], ck [suppressed]; fewer in memory}). A total
+of {cmd:sum()} is a value of its rows, so under the mask the totals are not
+printed, only their relative difference (the ledger's {cmd:observed_num} for
+that row is missing), which prints as {bf:[suppressed]}
+when the row or id difference, or either side's row count, is 1 to {it:m}-1.
+A {cmd:by()} group with 1 to {it:m}-1 rows on either side is not named but
+counted in one line, and when any group's difference in a measure is
+withheld, every group line prints that measure's direction only, since the
+group differences add up to the overall one. When a {cmd:by()} variable is in
+{opt exclude()}, and under {opt safe}, a failing group is named by its number
+({bf:group 3}), as {opt smallcells()} names a stratum.
 
 {pstd}
 {bf:Linked counts in a by() profile.} A profile with {opt by()} prints many
@@ -1625,6 +1823,9 @@ the log unless displayed.
 {pstd}Rates, sums, and distinct counts, each with its own condition:{p_end}
 {phang2}{cmd:. dataprobe, gatesonly stat(sum foreign 22 22 \ distinct rep78 5 5 \ mean mpg 20 30 if foreign)}{p_end}
 
+{pstd}The tail percentiles {cmd:p1}, {cmd:p5}, {cmd:p95} and {cmd:p99} (with {cmd:p10} {cmd:p25} {cmd:p50} {cmd:p75} {cmd:p90}, the set {cmd:summarize, detail} reports) work in {opt stat()} and {opt groupstat()}:{p_end}
+{phang2}{cmd:. dataprobe, gatesonly stat(p5 price 3000 4000 \ p95 price 12000 15000)}{p_end}
+
 {pstd}Rules within groups, with the data left in its order:{p_end}
 {phang2}{cmd:. dataprobe, gatesonly byrule(make (price): "order": _n >= 1)}{p_end}
 
@@ -1666,6 +1867,10 @@ the log unless displayed.
 {pstd}Tag a call's ledger rows with its phase:{p_end}
 {phang2}{cmd:. dataprobe, gatesonly isid(make) name(auto_cars) ledger("`ledger'", run(demo)) phase(analysis)}{p_end}
 
+{pstd}Continue past a call that fails to run; the error row makes {cmd:dataqa assert} halt later:{p_end}
+{phang2}{cmd:. dataprobe, gatesonly notmissing(no_such_var) ledger("`ledger'", run(demo)) softcollect}{p_end}
+{phang2}{cmd:. display r(softfail) " " r(softfail_rc)}{p_end}
+
 {pstd}Require a minimum installed version; a nonzero return code means reinstall:{p_end}
 {phang2}{cmd:. capture dataprobe, minversion(1.8.0)}{p_end}
 
@@ -1693,6 +1898,24 @@ the log unless displayed.
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. drop in 1/5}{p_end}
 {phang2}{cmd:. dataprobe, gatesonly keyset(make using auto_ids) warn}{p_end}
+
+{pstd}Link by key and date: the latest visit on or before an index date, and the visits inside a window:{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. keep make}{p_end}
+{phang2}{cmd:. expand 3}{p_end}
+{phang2}{cmd:. bysort make: generate visit = mdy(1, 1, 2020) + 30 * _n}{p_end}
+{phang2}{cmd:. save auto_visits, replace}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. generate index = mdy(2, 15, 2020)}{p_end}
+{phang2}{cmd:. generate start = index - 45}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly keyset(make using auto_visits, asof(index visit) maxlag(60) maxties(0))}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly keyset(make using auto_visits, window(start index visit) maxmulti(0.5))}{p_end}
+
+{pstd}Conserve rows, cars and a total across an exclusion step:{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. save auto_ckpt, replace}{p_end}
+{phang2}{cmd:. drop if missing(rep78)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly reconcile(auto_ckpt, n ids(make) sum(price) by(foreign) expect(le))}{p_end}
 
 {pstd}Write the starter gates as a do-file, then run it:{p_end}
 {phang2}{cmd:. dataprobe, gatesonly makespec(auto_gates.do, replace)}{p_end}
@@ -1753,6 +1976,15 @@ the log unless displayed.
 {synopt:{cmd:r(keyset_only_master)}}keys in memory absent from the {opt keyset()} file{p_end}
 {synopt:{cmd:r(keyset_only_using)}}keys of the {opt keyset()} file absent from memory{p_end}
 {synopt:{cmd:r(keyset_matched)}}keys present on both sides{p_end}
+{synopt:{cmd:r(keyset_link_none)}}{cmd:asof()}/{cmd:window()} rows with no file row{p_end}
+{synopt:{cmd:r(keyset_link_one)}}rows with exactly one{p_end}
+{synopt:{cmd:r(keyset_link_more)}}rows with more than one{p_end}
+{synopt:{cmd:r(keyset_link_ties)}}{cmd:asof()} rows whose latest file date is tied{p_end}
+{synopt:{cmd:r(keyset_link_stale)}}{cmd:asof()} rows older than {cmd:maxlag()}{p_end}
+{synopt:{cmd:r(keyset_link_pairs)}}{cmd:window()} pairs inside the window{p_end}
+{synopt:{cmd:r(keyset_link_joinby)}}pairs {helpb joinby} on the key would create{p_end}
+{synopt:{cmd:r(reconcile_rows_delta)}}{opt reconcile()} rows, memory minus file{p_end}
+{synopt:{cmd:r(reconcile_ids_delta)}}the same for distinct {cmd:ids()}{p_end}
 {synopt:{cmd:r(inrange_n_below)}}{opt inrange()} rows below {it:lo}; missing if masked{p_end}
 {synopt:{cmd:r(inrange_n_above)}}{opt inrange()} rows above {it:hi}; missing if masked{p_end}
 {synopt:{cmd:r(coverage_outside_low)}}dates before {it:lo} in {opt coverage()} entries with {cmd:sides}{p_end}
@@ -1771,6 +2003,8 @@ the log unless displayed.
 {synopt:{cmd:r(diff_tol)}}the relative tolerance used{p_end}
 {synopt:{cmd:r(diff_ctol)}}the absolute count tolerance used{p_end}
 {synopt:{cmd:r(ledger_seq)}}call number within the run, with {opt ledger()}{p_end}
+{synopt:{cmd:r(softfail)}}{opt softcollect}: 1 if the call failed, else 0{p_end}
+{synopt:{cmd:r(softfail_rc)}}{opt softcollect}: rc of the failed call{p_end}
 {synopt:{cmd:r(n_dup_}{it:key}{cmd:)}}keys with >1 record per {opt id()} key (profile only){p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}

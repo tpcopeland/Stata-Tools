@@ -1,4 +1,4 @@
-*! _datamap_md_varrows Version 2.0.0  2026/11/10
+*! _datamap_md_varrows Version 2.1.0  2026/11/16
 *! The Markdown variable-table rows of one dataset, read from the collector frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -83,8 +83,10 @@ mata:
 // no renderer reads math or a code span into a label; < and > as entities, so
 // a label is never raw HTML; line breaks as spaces, so a cell stays one line.
 // 2026-11-10: every other control byte (1-31, 127: tab, CHR(1) ...) is a
-// space too; they reached the cell verbatim.  The same body in all four
-// copies (_dms_esc, _dmd_esc, _dmtb_esc).
+// space too; they reached the cell verbatim.  2.1.0 (R1): "](" becomes
+// "]\(", so a label, value or note never forms a Markdown link or image
+// (it reads the same).  The same body in all four copies (_dms_esc,
+// _dmd_esc, _dmtb_esc).
 string scalar _dmv_esc(string scalar text)
 {
 	real scalar i
@@ -100,6 +102,7 @@ string scalar _dmv_esc(string scalar text)
 	text = subinstr(text, char(127), " ")
 	text = subinstr(text, "<", "&lt;")
 	text = subinstr(text, ">", "&gt;")
+	text = subinstr(text, "](", "]" + char(92) + "(")
 	return(text)
 }
 

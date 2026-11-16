@@ -1,4 +1,4 @@
-*! _dataprobe_exprarg
+*! _dataprobe_exprarg Version 2.1.0  2026/11/16
 *! Expression arguments for dataprobe stat() and byrule() aggregates
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass (internal helper; results by c_local)

@@ -1,4 +1,4 @@
-*! _dataprobe_spec2do Version 2.0.0  2026/11/10
+*! _dataprobe_spec2do Version 2.1.0  2026/11/16
 *! dataprobe makespec(file.do): the starter spec as one dataprobe command
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,4 +1,4 @@
-*! datamap Version 2.0.0  2026/11/10
+*! datamap Version 2.1.0  2026/11/16
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 

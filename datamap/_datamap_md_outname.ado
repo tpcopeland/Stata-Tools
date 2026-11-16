@@ -1,4 +1,4 @@
-*! _datamap_md_outname Version 2.0.0  2026/11/10
+*! _datamap_md_outname Version 2.1.0  2026/11/16
 *! The file a dataset is written to under datamap's separate option
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

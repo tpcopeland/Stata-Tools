@@ -1,4 +1,4 @@
-*! _dataprobe_coverage Version 2.0.0  2026/11/10
+*! _dataprobe_coverage Version 2.1.0  2026/11/16
 *! dataprobe coverage(): delivered-file date coverage (a band family)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

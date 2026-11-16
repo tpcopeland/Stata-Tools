@@ -1,4 +1,4 @@
-*! _dataprobe_byhits Version 2.0.0  2026/11/10
+*! _dataprobe_byhits Version 2.1.0  2026/11/16
 *! One-pass by() group blocks and per-group row counts for dataprobe
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal helper)

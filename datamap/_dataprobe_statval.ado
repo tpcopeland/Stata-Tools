@@ -1,11 +1,22 @@
-*! _dataprobe_statval Version 2.0.0  2026/11/10
+*! _dataprobe_statval Version 2.1.0  2026/11/16
 *! One summary statistic of a variable over a condition, raw and masked
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! ess: Kish effective sample size (sum w)^2 / sum w^2 (Kish 1965, Survey Sampling)
 
 // Syntax: _dataprobe_statval statistic var [den], cond(exp) [mask(#) fmt(%fmt)
-//         scopein(in a/b)]
+//         scopein(in a/b) nlink mlink]
+//
+// nlink (2.1.0 final review S3): the call also prints a mean of var over
+// this scope, and sum / mean is the nonmissing count; a sum is then also
+// withheld ([suppressed]) when that count could not be printed, its
+// complement in the rows in scope (the missing count) being 1..mask()-1;
+// a sum of 0 stays (with a mean of 0 it gives no count back).
+//
+// mlink (2.1.0 final_fixes): the call also prints a groupstat() sum of var
+// over the same if (any by(): the groups' sums add up to the sum in scope);
+// a mean is then withheld ([suppressed]) when the missing count in scope is
+// 1..mask()-1; a mean of 0 stays.
 //
 // scopein(): an "in a/b" qualifier, the rows of one by() group block
 // (dataprobe sorts the rows by group once); every command reads only those
@@ -43,7 +54,7 @@ program define _dataprobe_statval, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax anything(name=spec), COND(string) [MASK(integer 0) FMT(string) HIDE SCOPEIN(string)]
+        syntax anything(name=spec), COND(string) [MASK(integer 0) FMT(string) HIDE SCOPEIN(string) NLINK MLINK]
         gettoken st spec : spec
         gettoken v spec : spec
         gettoken den spec : spec
@@ -71,6 +82,17 @@ program define _dataprobe_statval, rclass
                     stat(`st') fmt(`fmt') scopein(`scopein')
                 local s `"`r(s)'"'
                 local shown = r(shown)
+                // a mean beside a groupstat() sum of var (mlink): the
+                // groups' sums add to the sum in scope, and sum / mean is
+                // the nonmissing count, withheld as stat(n) would withhold
+                // it (a mean of 0 gives no count back)
+                if `mask' > 0 & "`st'" == "mean" & "`mlink'" != "" & `shown' & scalar(`val') != 0 {
+                    quietly count if (`cond') & missing(`v') `scopein'
+                    if r(N) >= 1 & r(N) < `mask' {
+                        local s "[suppressed]"
+                        local shown = 0
+                    }
+                }
             }
             else local s "."
         }
@@ -222,6 +244,13 @@ program define _dataprobe_statval, rclass
                     local s "[suppressed]"
                     local shown = 0
                 }
+            }
+            // a sum beside a mean of var (nlink): sum / mean is the
+            // nonmissing count, withheld as stat(n) would withhold it
+            if `mask' > 0 & "`st'" == "sum" & "`nlink'" != "" & `shown' & `defined' & ///
+                !missing(scalar(`val')) & scalar(`val') != 0 & `nrow' - `nnm' >= 1 & `nrow' - `nnm' < `mask' {
+                local s "[suppressed]"
+                local shown = 0
             }
         }
     }

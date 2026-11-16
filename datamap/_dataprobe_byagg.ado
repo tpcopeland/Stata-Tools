@@ -1,4 +1,4 @@
-*! _dataprobe_byagg
+*! _dataprobe_byagg Version 2.1.0  2026/11/16
 *! Group aggregates inside a dataprobe byrule() expression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal helper; scan and rewrite answer by c_local)
@@ -258,9 +258,12 @@ program define _dataprobe_byagg, rclass
             local mins = cond(`om' | `nbad' < 1, ., `nbad')
             local gnoun = cond("`nbs'" == "1", "group fails", "groups fail")
             local msg `"`pfx'byrule(`lab'): `nbs' `gnoun' `macval(rule)'"'
+            // R1 (2.1.0): frame post expands its arguments again, so the
+            // rule text and message are stored from Mata
             frame post `rf' ("byrule") ("invariant") (`ok') (`"`lab'"') ///
                 (`"`lab'"') (`"`macval(grp)'"') ("`nbs' `gnoun'") (`onum') ///
-                (`"`macval(rule)'"') (`nscope') ("") (`"`macval(msg)'"') (`mins') (`om')
+                ("") (`nscope') ("") ("") (`mins') (`om')
+            frame `rf': mata: st_sstore(st_nobs(), ("expected", "msg"), (st_local("rule"), st_local("msg")))
             return scalar nbad = `nbad'
             return scalar ntot = `ntot'
         }

@@ -1,4 +1,4 @@
-*! dataprobe Version 2.0.0  2026/11/10
+*! dataprobe Version 2.1.0  2026/11/16
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -83,7 +83,8 @@ program define dataprobe, rclass
             ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
             RULE(string asis) STAT(string asis) BINary(string) ///
             BYRULE(string asis) ///
-            EVENTS(string asis) INTERVALS(string) KEYSET(string asis) CONSTANT(string) ///
+            EVENTS(string asis) INTERVALS(string) KEYSET(string asis) RECONcile(string asis) ///
+            CONSTANT(string) ///
             SETS(string) JUMPS(string) ///
             BANDS(string asis) BANDWARN ///
             REVIEW(string asis) HEAPING(string) GROUPSTAT(string asis) ///
@@ -94,7 +95,7 @@ program define dataprobe, rclass
             CHECKs(string) MAKESpec(string) VIOLations(string) ///
             SAVing(string) CONFig(string) COMPare(string asis) ///
             SNAPshot(string) DIFF(string asis) TOL(numlist min=1 max=2 >=0) ///
-            LEDGER(string asis) PHASE(name) NAME(string) MINVERsion(string) SIGnature ///
+            LEDGER(string asis) PHASE(name) SOFTcollect NAME(string) MINVERsion(string) SIGnature ///
             BRIEF SAFE ]
 
         // ---- ledger(filename [, run(string)]) ----
@@ -280,6 +281,10 @@ program define dataprobe, rclass
             display as error "phase() tags ledger rows; give ledger() or set one with dataqa set ledger()"
             exit 198
         }
+        if "`softcollect'" != "" & `"`_ledfile'"' == "" {
+            display as error "softcollect records a failed call as a ledger error row; give ledger() or set one with dataqa set ledger()"
+            exit 198
+        }
         if `"`_ledfile'"' != "" {
             _datamap_validate_path `"`_ledfile'"', option(ledger())
             // .dta is added only to a path without an extension, so a
@@ -368,10 +373,12 @@ program define dataprobe, rclass
         // c(filename), marked (modified) when the data changed since the
         // last save; name() overrides it.
         local _dsname ""
-        if `"`name'"' != "" local _dsname = strtrim(`"`name'"')
-        else if `"`c(filename)'"' != "" {
+        // R1: moved literally, so a name holding ` or $ is never expanded
+        if `"`macval(name)'"' != "" mata: st_local("_dsname", strtrim(st_local("name")))
+        else {
+            // c(filename) is read in Mata only: a file name holding ` broke an if
             mata: st_local("_dsname", pathrmsuffix(pathbasename(st_global("c(filename)"))))
-            if c(changed) local _dsname "`_dsname' (modified)"
+            if `"`macval(_dsname)'"' != "" & c(changed) mata: st_local("_dsname", st_local("_dsname") + " (modified)")
         }
         // the user's data as it stands: saving() writes this signature too,
         // not one of the working copy (if/in rows, kept variables, tempvars)
@@ -425,6 +432,9 @@ program define dataprobe, rclass
                     display as error "checks() variable check/gate must be string"
                     exit 198
                 }
+                // R1: a row's text is read as if typed, so a macro
+                // character in it would be expanded; refused instead
+                _dataprobe_ckmacro
                 capture confirm variable var
                 if _rc {
                     capture confirm variable variable
@@ -789,71 +799,81 @@ program define dataprobe, rclass
         local n_review = 0
         local rulevars ""
         foreach _fam in rule review {
-            if `"``_fam''"' == "" continue
-            local rest `"``_fam''"'
-            // a value written in compound quotes, `"..."', is unwrapped
-            mata: st_local("rest", _dataprobe_unwrap(st_local("rest")))
-            while `"`rest'"' != "" {
-                local bs = strpos(`"`rest'"', "\")
+            if `"`macval(`_fam')'"' == "" continue
+            // a value written in compound quotes, `"..."', is unwrapped;
+            // R1: the text is moved with macval() and Mata, never
+            // re-expanded, so "a$b" in an expression stays "a$b"
+            mata: st_local("rest", _dataprobe_unwrap(st_local(st_local("_fam"))))
+            while `"`macval(rest)'"' != "" {
+                local bs = strpos(`"`macval(rest)'"', "\")
                 if `bs' {
-                    local part = substr(`"`rest'"', 1, `bs' - 1)
-                    local rest = substr(`"`rest'"', `bs' + 1, .)
+                    local part = substr(`"`macval(rest)'"', 1, `bs' - 1)
+                    local rest = substr(`"`macval(rest)'"', `bs' + 1, .)
                 }
                 else {
-                    local part `"`rest'"'
+                    local part `"`macval(rest)'"'
                     local rest ""
                 }
                 mata: st_local("part", _dataprobe_unwrap(st_local("part")))
-                if `"`part'"' == "" continue
-                if substr(`"`part'"', 1, 1) == char(34) {
-                    local qe = strpos(substr(`"`part'"', 2, .), char(34))
-                    local rlab = substr(`"`part'"', 2, `qe' - 1)
-                    local rexp = strtrim(substr(`"`part'"', `qe' + 2, .))
-                    if `qe' == 0 | substr(`"`rexp'"', 1, 1) != ":" {
-                        display as error `"`_fam'() spec must be "label: expression": `part'"'
+                if `"`macval(part)'"' == "" continue
+                if substr(`"`macval(part)'"', 1, 1) == char(34) {
+                    local qe = strpos(substr(`"`macval(part)'"', 2, .), char(34))
+                    local rlab = substr(`"`macval(part)'"', 2, `qe' - 1)
+                    local rexp = strtrim(substr(`"`macval(part)'"', `qe' + 2, .))
+                    if `qe' == 0 | substr(`"`macval(rexp)'"', 1, 1) != ":" {
+                        display as error `"`_fam'() spec must be "label: expression": `macval(part)'"'
                         exit 198
                     }
-                    local rexp = strtrim(substr(`"`rexp'"', 2, .))
+                    local rexp = strtrim(substr(`"`macval(rexp)'"', 2, .))
                 }
                 else {
-                    local cp = strpos(`"`part'"', ":")
+                    local cp = strpos(`"`macval(part)'"', ":")
                     if `cp' == 0 {
-                        display as error `"`_fam'() spec must be "label: expression": `part'"'
+                        display as error `"`_fam'() spec must be "label: expression": `macval(part)'"'
                         exit 198
                     }
-                    local rlab = strtrim(substr(`"`part'"', 1, `cp' - 1))
-                    local rexp = strtrim(substr(`"`part'"', `cp' + 1, .))
+                    local rlab = strtrim(substr(`"`macval(part)'"', 1, `cp' - 1))
+                    local rexp = strtrim(substr(`"`macval(part)'"', `cp' + 1, .))
                 }
-                local rlab = strtrim(`"`rlab'"')
-                if `"`rlab'"' == "" | `"`rexp'"' == "" {
-                    display as error `"`_fam'() spec must be "label: expression": `part'"'
+                local rlab = strtrim(`"`macval(rlab)'"')
+                if `"`macval(rlab)'"' == "" | `"`macval(rexp)'"' == "" {
+                    display as error `"`_fam'() spec must be "label: expression": `macval(part)'"'
                     exit 198
                 }
-                if strpos(`"`rlab'"', char(34)) | strpos(`"`rlab'"', char(96)) {
+                if strpos(`"`macval(rlab)'"', char(34)) | strpos(`"`macval(rlab)'"', char(96)) {
                     display as error "`_fam'() label must not contain quotes or backticks"
+                    exit 198
+                }
+                if strpos(`"`macval(rlab)'"', char(36)) {
+                    display as error "`_fam'() label must not contain " char(36)
                     exit 198
                 }
                 local ++n_`_fam'
                 local _k = `n_`_fam''
                 tempvar `_fam'ind`_k'
                 quietly gen byte ``_fam'ind`_k'' = 0
-                if "`_fam'" == "rule" capture replace ``_fam'ind`_k'' = 1 if !(`rexp')
-                else capture replace ``_fam'ind`_k'' = 1 if (`rexp')
+                // (a one-line if expands its command twice: blocks keep it literal)
+                if "`_fam'" == "rule" {
+                    capture replace ``_fam'ind`_k'' = 1 if !(`macval(rexp)')
+                }
+                else {
+                    capture replace ``_fam'ind`_k'' = 1 if (`macval(rexp)')
+                }
                 if _rc {
                     local _rrc = _rc
-                    display as error `"`_fam'(`rlab'): cannot evaluate expression `rexp'"'
+                    display as error `"`_fam'(`rlab'): cannot evaluate expression `macval(rexp)'"'
                     exit `_rrc'
                 }
                 local `_fam'_lab`_k' `"`rlab'"'
-                local `_fam'_exp`_k' `"`rexp'"'
+                local `_fam'_exp`_k' `"`macval(rexp)'"'
                 local rulevars "`rulevars' ``_fam'ind`_k''"
                 // a note, never a verdict: subscripts read the rows as arranged
-                if ustrregexm(`"`rexp'"', "(\w\[|\b_n\b|\b_N\b)") {
+                if ustrregexm(`"`macval(rexp)'"', "(\w\[|\b_n\b|\b_N\b)") {
                     local _sv ""
-                    local _rest `"`rexp'"'
-                    while ustrregexm(`"`_rest'"', "([A-Za-z_][A-Za-z0-9_]*)\[") {
+                    local _rest `"`macval(rexp)'"'
+                    while ustrregexm(`"`macval(_rest)'"', "([A-Za-z_][A-Za-z0-9_]*)\[") {
                         local _sv "`_sv' `=ustrregexs(1)'"
-                        local _rest = subinstr(`"`_rest'"', ustrregexs(0), " ", 1)
+                        local _rest = subinstr(`"`macval(_rest)'"', ustrregexs(0), " ", 1)
                     }
                     local _shared : list _sortedby_entry & _sv
                     if "`_sortedby_entry'" == "" | ("`_sv'" != "" & "`_shared'" == "") {
@@ -866,28 +886,29 @@ program define dataprobe, rclass
 
         // ---- byrule(): "byvars (sortvars): label: expression" under by semantics ----
         local n_byrule = 0
-        if `"`byrule'"' != "" {
-            local rest `"`byrule'"'
-            mata: st_local("rest", _dataprobe_unwrap(st_local("rest")))
-            while `"`rest'"' != "" {
-                local bs = strpos(`"`rest'"', "\")
+        if `"`macval(byrule)'"' != "" {
+            // R1: the text is moved with macval() and Mata, never
+            // re-expanded, so "a$b" in an expression stays "a$b"
+            mata: st_local("rest", _dataprobe_unwrap(st_local("byrule")))
+            while `"`macval(rest)'"' != "" {
+                local bs = strpos(`"`macval(rest)'"', "\")
                 if `bs' {
-                    local part = substr(`"`rest'"', 1, `bs' - 1)
-                    local rest = substr(`"`rest'"', `bs' + 1, .)
+                    local part = substr(`"`macval(rest)'"', 1, `bs' - 1)
+                    local rest = substr(`"`macval(rest)'"', `bs' + 1, .)
                 }
                 else {
-                    local part `"`rest'"'
+                    local part `"`macval(rest)'"'
                     local rest ""
                 }
                 mata: st_local("part", _dataprobe_unwrap(st_local("part")))
-                if `"`part'"' == "" continue
+                if `"`macval(part)'"' == "" continue
                 local ++n_byrule
                 local _k = `n_byrule'
                 tempvar byruleind`_k' byrulegid`_k'
                 quietly gen byte `byruleind`_k'' = 0
-                _dataprobe_byrule, spec(`"`part'"') ind(`byruleind`_k'') gid(`byrulegid`_k'')
+                _dataprobe_byrule, spec(`"`macval(part)'"') ind(`byruleind`_k'') gid(`byrulegid`_k'')
                 local byrule_lab`_k' `"`r(lab)'"'
-                local byrule_exp`_k' `"`r(exp)'"'
+                mata: st_local("byrule_exp`_k'", st_global("r(exp)"))
                 local rulevars "`rulevars' `byruleind`_k''"
                 // 2.1.0 F9(c): a rule with a group aggregate counts groups
                 local byrule_agg`_k' = r(agg)
@@ -1383,13 +1404,18 @@ program define dataprobe, rclass
 
         // ---- whole-sample families: each helper validates its own spec ----
         local famvars ""
-        foreach _f in intervals keyset constant sets jumps {
+        foreach _f in intervals keyset constant sets jumps reconcile {
             local nf_`_f' = 0
             if `"``_f''"' == "" continue
             local rest `"``_f''"'
             while `"`rest'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
                 if `"`part'"' == "\" continue
+                // F11: a quoted lead (a reconcile() filename) runs on to the next separator
+                while `"`rest'"' != "" & substr(strtrim(`"`rest'"'), 1, 1) != "\" {
+                    gettoken _p2 rest : rest, parse("\") quotes
+                    local part `"`part'`_p2'"'
+                }
                 local part = strtrim(`"`part'"')
                 if `"`part'"' == "" continue
                 _dataprobe_`_f', spec(`"`part'"') parseonly
@@ -1424,7 +1450,7 @@ program define dataprobe, rclass
         local nf_topvalues = 0
         if `"`topvalues'"' != "" {
             _dataprobe_topvalues, specs(`"`topvalues'"') mcell(`_maskcell') maxfreq(`maxfreq') ///
-                safe(`_safe') excluded(`exclude') parseonly
+                safe(`_safe') floor(`_gm') excluded(`exclude') parseonly
             local famvars "`famvars' `r(vars)'"
             local nf_topvalues = r(n)
             if `"`varlistspec'"' == "" & "`gatesonly'" == "" {
@@ -1471,6 +1497,7 @@ program define dataprobe, rclass
                         }
                     }
                     _dataprobe_`_f', spec(`"`part'"') parseonly
+                    local _gsp "`r(gsst)'|`r(gsvars)'|`r(gsby)'"
                     local famvars "`famvars' `r(vars)'"
                     // the variables of a groupstat() entry (the linked-count
                     // audit reads its n and 0/1 sum cells)
@@ -1487,11 +1514,15 @@ program define dataprobe, rclass
                     local `_f'_spec`_k' `"`part'"'
                     local `_f'_cond`_k' "`gcond'"
                     local `_f'_if`_k' `"`eif'"'
+                    local `_f'_sv`_k' "`_gsp'"
                     if "`_f'" == "coverage" | "`_src'" == "band" local `_f'_kind`_k' "band"
                     else local `_f'_kind`_k' "invariant"
                 }
             }
         }
+
+        // linked statistics (S3): _snl# _sml# _gsnl# _gspl# _gsml# (_dataprobe_slink)
+        mata: _dataprobe_slink()
 
         // ---- parse id(): backslash-separated keys (each key = space-sep vars) ----
         local n_key = 0
@@ -2210,493 +2241,12 @@ program define dataprobe, rclass
             local _outq = 1
         }
         local nv : word count `profilevars'
-        if "`gatesonly'" == "" {
-            _dataprobe_mshare `n_complete' `nobs' `_xmask'
-            local _ccs "`r(cnt)'"
-            local _ccp "`r(pcttxt)'"
-            if r(masked) local _pmasked = 1
-            _dataprobe_mcount `nobs' `_xmask'
-            local _nobs_s "`r(s)'"
-            if r(masked) local _pmasked = 1
-            display ""
-            display as text "dataprobe: " as result "`_nobs_s'" as text " obs, " ///
-                as result "`nv'" as text " variables profiled" ///
-                as text "  (complete cases: " as result "`_ccs'" ///
-                as text " = " as result "`_ccp'" as text ")"
-            if `_aud_cap' _dataprobe_capnote, `byfreq'
-        }
-
-        // ---- QUICK REFERENCE ----
-        if "`gatesonly'" == "" {
-            display ""
-            if `showflagged' display as text "QUICK REFERENCE (FLAGGED)"
-            else display as text "QUICK REFERENCE"
-            display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
-                %11s "Miss%" %9s "Unique" "  " %-10s "Flag"
-            local n_shown = 0
-            local pj = 0
-            foreach v of local profilevars {
-                local ++pj
-                local flg "`flag`pj''"
-                if `showflagged' & "`flg'" == "" continue
-                local ++n_shown
-                local i : list posof "`v'" in pvars
-                local fc "`FC`pj''"
-                local vt "`m_type`i''"
-                local mp = `m_mp`i''
-                if missing(`mp') local mp = 0
-                local mps = strtrim(string(`mp', "%6.1f")) + "%"
-                // an excluded variable's missingness is contents, withheld
-                // as in MISSINGNESS
-                if "`fc'" == "excluded" local mps "[excluded]"
-                if `_xmask' {
-                    // a share of a published N recovers a small count
-                    local _mn = `m_mn`i''
-                    if missing(`_mn') local _mn = 0
-                    _dataprobe_mshare `_mn' `nobs' `_xmask'
-                    if r(masked) & "`fc'" != "excluded" {
-                        local mps "[masked]"
-                        local _pmasked = 1
-                    }
-                }
-                _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
-                local uq "`r(s)'"
-                if r(masked) local _pmasked = 1
-                local vshow = substr("`v'", 1, 21)
-                local _bmps`pj' "`mps'"
-                local _buq`pj' "`uq'"
-                display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
-                    %-9s "`vt'" %11s "`mps'" ///
-                    as result %9s "`uq'" "  " %-10s "`flg'"
-            }
-            if `showflagged' & `n_shown' == 0 {
-                display as text "  no flagged variables"
-            }
-        }
-
-        // ---- CONTINUOUS ----
-        if "`gatesonly'" == "" & "`f_continuous'" != "" {
-            display ""
-            display as text "CONTINUOUS"
-            foreach v of local f_continuous {
-                local pj : list posof "`v'" in profilevars
-                if `showflagged' & "`flag`pj''" == "" continue
-                local n = `cN`pj''
-                if `n' == 0 {
-                    display as text "  " as result "`v'" as text ": all missing"
-                    continue
-                }
-                if !`_xmask' {
-                    display as text "  " as result "`v'" as text ":  N=" ///
-                        as result `cN`pj'' as text "  mean=" as result %10.4g `cmean`pj'' ///
-                        as text "  sd=" as result %10.4g `csd`pj''
-                    display as text "    min=" as result %10.4g `cmin`pj'' ///
-                        as text "  p25=" as result %10.4g `cp25_`pj'' ///
-                        as text "  p50=" as result %10.4g `cp50_`pj'' ///
-                        as text "  p75=" as result %10.4g `cp75_`pj'' ///
-                        as text "  max=" as result %10.4g `cmax`pj''
-                    if "`detail'" != "" {
-                        display as text "    p1=" as result %10.4g `cp1_`pj'' ///
-                            as text "  p5=" as result %10.4g `cp5_`pj'' ///
-                            as text "  p10=" as result %10.4g `cp10_`pj'' ///
-                            as text "  p90=" as result %10.4g `cp90_`pj'' ///
-                            as text "  p95=" as result %10.4g `cp95_`pj'' ///
-                            as text "  p99=" as result %10.4g `cp99_`pj''
-                    }
-                }
-                else {
-                    // maskrare: p1/p99 replace min/max; each statistic is
-                    // shown only when enough observations lie on both sides.
-                    mata: st_local("_qsh", _dataprobe_qshowv(st_local("v"), `_xmask', st_matrix(st_local("_cs`pj'"))))
-                    local _c = 0
-                    foreach _st in mean sd p1 p5 p10 p25 p50 p75 p90 p95 p99 {
-                        local ++_c
-                        tempname _q`_st'
-                        scalar `_q`_st'' = `_cs`pj''[1, `_c']
-                        _dataprobe_qshow `v', value(`_q`_st'') mask(`_xmask') stat(`_st') known(`: word `_c' of `_qsh'')
-                        local _qs`_st' `"`r(s)'"'
-                        // safe: a date-formatted value is a date
-                        if `_safe' & regexm("`: format `v''", "^%-?(t|d)") local _qs`_st' "[withheld]"
-                    }
-                    _dataprobe_mshare `cN`pj'' `nobs' `_xmask'
-                    local _cns "`r(cnt)'"
-                    if r(masked) local _pmasked = 1
-                    display as text "  " as result "`v'" as text ":  N=" ///
-                        as result "`_cns'" as text "  mean=" as result %10s "`_qsmean'" ///
-                        as text "  sd=" as result %10s "`_qssd'"
-                    display as text "    p1=" as result %10s "`_qsp1'" ///
-                        as text "  p25=" as result %10s "`_qsp25'" ///
-                        as text "  p50=" as result %10s "`_qsp50'" ///
-                        as text "  p75=" as result %10s "`_qsp75'" ///
-                        as text "  p99=" as result %10s "`_qsp99'"
-                    if "`detail'" != "" {
-                        display as text "    p5=" as result %10s "`_qsp5'" ///
-                            as text "  p10=" as result %10s "`_qsp10'" ///
-                            as text "  p90=" as result %10s "`_qsp90'" ///
-                            as text "  p95=" as result %10s "`_qsp95'"
-                    }
-                }
-                if `cvar`pj'' == 0 {
-                    display as text "    " as `_em' "zero variance (constant)"
-                }
-                if `outliers' > 0 {
-                    local nout = `cnout`pj''
-                    if `nout' > 0 {
-                        _dataprobe_mshare `nout' `n' `_xmask'
-                        local _nos "`r(cnt)'"
-                        local _nop "`r(pcttxt)'"
-                        local _nom = r(masked)
-                        if `_nom' local _pmasked = 1
-                        // a masked share is left out rather than printed
-                        if `_nom' display as text "    " as `_em' "`_nos' outlier(s)" ///
-                            as text " beyond " as result `outliers' as text " IQR"
-                        else display as text "    " as `_em' "`_nos' outlier(s)" ///
-                            as text " (" as result "`_nop'" as text ") beyond " ///
-                            as result `outliers' as text " IQR"
-                    }
-                }
-            }
-        }
-
-        // ---- CATEGORICAL ----
-        if "`gatesonly'" == "" & "`f_categorical'" != "" {
-            display ""
-            display as text "CATEGORICAL"
-            foreach v of local f_categorical {
-                local pj : list posof "`v'" in profilevars
-                if `showflagged' & "`flag`pj''" == "" continue
-                local i : list posof "`v'" in pvars
-                local nlev = `m_uv`i''
-                _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
-                local _nlevs "`r(s)'"
-                if r(masked) local _pmasked = 1
-                display as text "  " as result "`v'" as text ":  " ///
-                    as result "`_nlevs'" as text " levels"
-                if `nlev' == 1 {
-                    display as text "    " as `_em' "single level (constant)"
-                }
-                if `nlev' > `maxcat' {
-                    display as text "    " as `_em' "level count exceeds maxcat(" ///
-                        "`maxcat')" as text " — possible free-text/misclassification"
-                }
-                local _fqmask 0
-                if `"`_sh`pj''"' != "" display as text "    levels withheld (safe: `_sh`pj'')"
-                else _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "" "" "" "`_fqmo'"
-                if "`_fqmask'" == "1" local _pmasked = 1
-            }
-        }
-
-        // ---- DATE ----
-        if "`gatesonly'" == "" & "`f_date'" != "" {
-            display ""
-            display as text "DATE"
-            foreach v of local f_date {
-                local pj : list posof "`v'" in profilevars
-                if `showflagged' & "`flag`pj''" == "" continue
-                local i : list posof "`v'" in pvars
-                local vfmt : format `v'
-                quietly summarize `v'
-                local n = r(N)
-                if `n' == 0 {
-                    display as text "  " as result "`v'" as text ": all missing"
-                    continue
-                }
-                local dmin : display `vfmt' r(min)
-                local dmax : display `vfmt' r(max)
-                local span = r(max) - r(min)
-                // The span is in the variable's own time unit, which is days
-                // only for %td; a %tm span of 19 is 19 months.
-                local _vf = subinstr("`vfmt'", "%-", "%", 1)
-                local span_unit "days"
-                if strpos("`_vf'", "%tc") | strpos("`_vf'", "%tC") local span_unit "milliseconds"
-                else if strpos("`_vf'", "%tw") local span_unit "weeks"
-                else if strpos("`_vf'", "%tm") local span_unit "months"
-                else if strpos("`_vf'", "%tq") local span_unit "quarters"
-                else if strpos("`_vf'", "%th") local span_unit "half-years"
-                else if strpos("`_vf'", "%ty") local span_unit "years"
-                else if strpos("`_vf'", "%tb") local span_unit "business days"
-                else if !(strpos("`_vf'", "%td") | strpos("`_vf'", "%d")) local span_unit "units"
-                if !`_xmask' {
-                    display as text "  " as result "`v'" as text ":  min=" ///
-                        as result "`dmin'" as text "  max=" as result "`dmax'" ///
-                        as text "  span=" as result `span' as text " `span_unit'  missing=" ///
-                        as result `m_mn`i''
-                }
-                else {
-                    // maskrare: p1/p99 at month precision instead of min/max
-                    quietly summarize `v', detail
-                    tempname _dq1 _dq99
-                    scalar `_dq1' = r(p1)
-                    scalar `_dq99' = r(p99)
-                    _dataprobe_qshow `v', value(`_dq1') mask(`_xmask') stat(p1)
-                    local _dp1 `"`r(s)'"'
-                    local _dok1 = r(shown)
-                    _dataprobe_qshow `v', value(`_dq99') mask(`_xmask') stat(p99)
-                    local _dp99 `"`r(s)'"'
-                    local _dspan "[suppressed]"
-                    if `_dok1' & r(shown) local _dspan = strtrim(string(`_dq99' - `_dq1', "%12.0g")) + " `span_unit'"
-                    // safe: no date is printed, only the span (datesafe)
-                    if `_safe' {
-                        local _dp1 "[withheld]"
-                        local _dp99 "[withheld]"
-                    }
-                    _dataprobe_mshare `m_mn`i'' `nobs' `_xmask'
-                    local _dms "`r(cnt)'"
-                    if r(masked) local _pmasked = 1
-                    display as text "  " as result "`v'" as text ":  p1=" ///
-                        as result "`_dp1'" as text "  p99=" as result "`_dp99'" ///
-                        as text "  p1-p99 span=" as result "`_dspan'" as text "  missing=" ///
-                        as result "`_dms'"
-                }
-                forvalues k = 1/`n_inr' {
-                    if "`inr_var`k''" == "`v'" {
-                        local _dlo "`inr_lo`k''"
-                        local _dhi "`inr_hi`k''"
-                        if "`: type `v''" == "float" {
-                            local _dlo "cond(missing(float(`_dlo')), `_dlo', float(`_dlo'))"
-                            local _dhi "cond(missing(float(`_dhi')), `_dhi', float(`_dhi'))"
-                        }
-                        local _doc ""
-                        if !`inr_loopen`k'' local _doc "`v' < `_dlo'"
-                        if !`inr_hiopen`k'' {
-                            if "`_doc'" == "" local _doc "`v' > `_dhi'"
-                            else local _doc "`_doc' | `v' > `_dhi'"
-                        }
-                        quietly count if (`_doc') & !missing(`v')
-                        // beside the printed missing count, the rows inside
-                        // the window are the complement of this count
-                        _dataprobe_mcount `r(N)' `_xmask' `n'
-                        local _dws "`r(s)'"
-                        if r(masked) local _pmasked = 1
-                        display as text "    " as result "`_dws'" ///
-                            as text " obs outside declared window"
-                    }
-                }
-            }
-        }
-
-        // ---- STRING ----
-        if "`gatesonly'" == "" & "`f_string'" != "" {
-            display ""
-            display as text "STRING"
-            foreach v of local f_string {
-                local pj : list posof "`v'" in profilevars
-                if `showflagged' & "`flag`pj''" == "" continue
-                local i : list posof "`v'" in pvars
-                quietly count if `v' == ""
-                local nblank = r(N)
-                local ml "."
-                if `m_ml`i'' < . local ml = string(`m_ml`i'', "%9.0f")
-                local ml = strtrim("`ml'")
-                _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
-                local uq "`r(s)'"
-                if r(masked) local _pmasked = 1
-                _dataprobe_mshare `nblank' `nobs' `_xmask'
-                local _nbs "`r(cnt)'"
-                if r(masked) local _pmasked = 1
-                display as text "  " as result "`v'" as text ":  unique=" ///
-                    as result "`uq'" as text "  blank=" as result "`_nbs'" ///
-                    as text "  maxlen=" as result "`ml'"
-                local _fqmask 0
-                if `"`_sh`pj''"' != "" display as text "    levels withheld (safe: `_sh`pj'')"
-                else _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "" "" "" "`_fqmo'"
-                if "`_fqmask'" == "1" local _pmasked = 1
-            }
-        }
-
-        // ---- EXCLUDED ----
-        if "`gatesonly'" == "" & "`f_excluded'" != "" & !`showflagged' {
-            display ""
-            display as text "EXCLUDED (listed, contents withheld)"
-            display as text "  " as result "`f_excluded'"
-        }
-
-        // ---- MISSINGNESS ----
-        if "`gatesonly'" == "" & "`nomissing'" == "" & !`showflagged' {
-            display ""
-            display as text "MISSINGNESS"
-            local any_miss = 0
-            local pj = 0
-            foreach v of local profilevars {
-                local ++pj
-                local i : list posof "`v'" in pvars
-                if "`FC`pj''" == "excluded" continue
-                if `m_mn`i'' > 0 & `m_mn`i'' < . {
-                    local any_miss = 1
-                    _dataprobe_mshare `m_mn`i'' `nobs' `_xmask'
-                    local _mms "`r(cnt)'"
-                    local _mmp = cond(r(masked), "[masked]", strtrim(string(`m_mp`i'', "%4.1f")) + "%")
-                    if r(masked) local _pmasked = 1
-                    display as text "  " as result %-22s "`v'" as text "  " ///
-                        as result "`_mms'" as text " missing  (" ///
-                        as result "`_mmp'" as text ")"
-                }
-            }
-            if !`any_miss' {
-                display as text "  no missing values in profiled variables"
-            }
-        }
-
-        // ---- MISSING-VALUE PATTERNS (independent of nomissing) ----
-        if "`gatesonly'" == "" & "`patterns'" != "" & !`showflagged' {
-            capture which datamvp
-            if _rc {
-                display ""
-                display as text "  " as `_em' ///
-                    "patterns: datamvp unavailable — skipping pattern table"
-            }
-            else {
-                display ""
-                display as text "MISSING-VALUE PATTERNS (datamvp)"
-                // Excluded variables stay out of the pattern table, as they
-                // stay out of MISSINGNESS.
-                local _mvpvars : list profilevars - f_excluded
-                // An empty varlist would make datamvp profile every variable.
-                if "`_mvpvars'" == "" {
-                    display as text "  (no non-excluded variables to pattern)"
-                }
-                else if `_xmask' capture noisily datamvp `_mvpvars', maskrare mincell(`_xmask')
-                else capture noisily datamvp `_mvpvars'
-                if "`_mvpvars'" != "" & _rc {
-                    display as text "  " as `_em' ///
-                        "patterns: datamvp could not render a table for these variables"
-                }
-            }
-        }
-
-        // ---- groups pooled under maskrare: the set built after by() ----
-        local _pooledg ""
-        if "`gatesonly'" == "" & `has_groups' & `_xmask' local _pooledg "`_hideg'"
-        local _npooledg : word count `_pooledg'
-        local _pgtxt "groups pooled (each <`_xmask' rows, or pooled with them): "
-        if `_aud_cap' local _pgtxt "groups pooled (the linked-count check ran out of budget): "
-
-        // ---- GROUPWISE SUMMARY ----
-        if "`gatesonly'" == "" & `has_groups' & (!`showflagged' | `n_group_missing_vars' > 0) {
-            display ""
-            display as text "GROUPWISE SUMMARY"
-            display as text "  by: " as result "`byvars'"
-            display as text "  " %-20s "Group" %9s "N" %12s "Complete" ///
-                %10s "Complete%" %9s "MissVars"
-            // Under maskrare a group smaller than the mask is not shown: its
-            // N, completeness and missing-variable count would describe
-            // fewer than the mask of persons.  Such groups are pooled into
-            // one line.
-            // the pooled-remainder test (see above) names the groups whose
-            // complete count is withheld
-            foreach gg of local group_levels {
-                local gn = _frval(`_gframe', n, `gg')
-                if `: list gg in _pooledg' continue
-                local gc = _frval(`_gframe', c, `gg')
-                _dataprobe_mshare `gc' `gn' `_xmask'
-                local gcs "`r(cnt)'"
-                local gpcts "`r(pcttxt)'"
-                local _gmk = r(masked)
-                if `_gmk' local _pmasked = 1
-                // a count already printed <m or all but <m keeps that text:
-                // [suppr.] stands for an exact count of the mask or more
-                if `_pfon' & `: list gg in _hc' & !`_gmk' {
-                    local gcs "[suppr.]"
-                    local gpcts "[masked]"
-                    local _pmasked = 1
-                }
-                local gmissvars ""
-                local gj = 0
-                foreach v of local _gvars {
-                    local ++gj
-                    if _frval(`_gframe', m`gj', `gg') > 0 local gmissvars "`gmissvars' `v'"
-                }
-                local gmissvars : list uniq gmissvars
-                local gmissct : word count `gmissvars'
-                if `showflagged' & `gmissct' == 0 continue
-                mata: st_local("gshow", _dataprobe_dshow(usubstr(st_local("group_label`gg'"), 1, 20), 20))
-                display as text "  " as result `"`macval(gshow)'"' ///
-                    as result %9.0f `gn' %12s "`gcs'" %10s "`gpcts'" ///
-                    as result %9.0f `gmissct'
-            }
-            if `_npooledg' > 0 {
-                display as text "  `_pgtxt'" as result `_npooledg'
-                local _pmasked = 1
-            }
-        }
-
-        if "`gatesonly'" == "" & `has_groups' & `n_group_missing_vars' > 0 {
-            display ""
-            display as text "GROUPWISE MISSINGNESS"
-            display as text "  " %-20s "Group" %-22s "Variable" ///
-                %9s "Missing" %10s "Missing%"
-            foreach gg of local group_levels {
-                local gn = _frval(`_gframe', n, `gg')
-                if `: list gg in _pooledg' continue
-                foreach v of local group_missing_vars {
-                    local gj : list posof "`v'" in _gvars
-                    local gm = _frval(`_gframe', m`gj', `gg')
-                    if `gm' == 0 continue
-                    _dataprobe_mshare `gm' `gn' `_xmask'
-                    local gms "`r(cnt)'"
-                    local gmpcts "`r(pcttxt)'"
-                    local _gmk = r(masked)
-                    if `_gmk' local _pmasked = 1
-                    local i : list posof "`v'" in pvars
-                    if `_pfon' & `: list gg in _hm`i'' & !`_gmk' {
-                        local gms "[suppr.]"
-                        local gmpcts "[masked]"
-                        local _pmasked = 1
-                    }
-                    mata: st_local("gshow", _dataprobe_dshow(usubstr(st_local("group_label`gg'"), 1, 20), 20))
-                    display as text "  " as result `"`macval(gshow)'"' ///
-                        as result %-22s "`v'" %9s "`gms'" %10s "`gmpcts'"
-                }
-            }
-            if `_npooledg' > 0 {
-                display as text "  `_pgtxt'" as result `_npooledg'
-            }
-        }
-
-        // ---- GROUPWISE FREQUENCIES (byfreq): the CATEGORICAL and STRING tables within each by() group ----
-        if "`gatesonly'" == "" & "`byfreq'" != "" & `has_groups' & !`showflagged' & ///
-            `"`f_categorical' `f_string'"' != " " {
-            display ""
-            display as text "GROUPWISE FREQUENCIES"
-            display as text "  by: " as result "`byvars'"
-            foreach v in `f_categorical' `f_string' {
-                local _pjv : list posof "`v'" in profilevars
-                if `_safe' & `"`_sh`_pjv''"' != "" {
-                    display as text "  " as result "`v'" as text ": levels withheld (safe: `_sh`_pjv'')"
-                    continue
-                }
-                display as text "  " as result "`v'" as text ":"
-                // Pooled remainder, per level: the pooled table's count
-                // minus the shown groups' exact cells is the pooled-away
-                // groups' and the suppressed cells' total; 1 to mask-1 of
-                // them gives a small cell back, so the level's smallest
-                // shown cell is withheld (and the group's table pools it)
-                local _bff ""
-                local i : list posof "`v'" in pvars
-                if `_pfon' local _bff "`_bffv`i''"
-                else if `_maskcell' > 0 {
-                    tempvar _bff
-                    _dataprobe_bfforce `v' `dc_group' `maxfreq' `_maskcell' ///
-                        `"`_pooledg'"' `_bff'
-                }
-                tempname _bfq
-                _dataprobe_freqprep `v' `dc_group' `_bfq' `_bff'
-                foreach gg of local group_levels {
-                    if `: list gg in _pooledg' continue
-                    mata: st_local("_gl", _dataprobe_dshow(st_local("group_label`gg'"), 0))
-                    display as text "    by group " as result `"`macval(_gl)'"' as text ":"
-                    local _fqmask 0
-                    _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "      " "`_bff'" "`_bfq' `_bfqf' `_bfl`gg'' `_bfh`gg''"
-                    if "`_fqmask'" == "1" local _pmasked = 1
-                }
-                capture frame drop `_bfq'
-                if "`_bff'" != "" & !`_pfon' capture drop `_bff'
-            }
-            if `_npooledg' > 0 {
-                display as text "  `_pgtxt'" as result `_npooledg'
-                local _pmasked = 1
-            }
-        }
+        // the profile sections, QUICK REFERENCE to GROUPWISE FREQUENCIES:
+        // _dataprobe_profshow (below), kept apart for the per-program size
+        // limit.  It starts from a copy of this program's locals and hands
+        // back the ones read after it (_pmasked and the brief line's text).
+        mata: _dataprobe_lenvput()
+        _dataprobe_profshow
 
         if `_outq' {
             set output proc
@@ -2707,39 +2257,8 @@ program define dataprobe, rclass
         // name, type, class, missing, distinct, flag; the top five levels of
         // a categorical; "all distinct, maxlen #" for all-distinct text
         if "`brief'" != "" {
-            display ""
-            display as text "dataprobe: " as result "`_nobs_s'" as text " obs, " ///
-                as result "`nv'" as text " variables profiled" ///
-                as text "  (complete cases: " as result "`_ccs'" ///
-                as text " = " as result "`_ccp'" as text ")"
-            display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
-                %11s "Miss%" %9s "Unique" "  " %-10s "Flag" "Levels"
-            local _bord ""
-            local _brest ""
-            local pj = 0
-            foreach v of local profilevars {
-                local ++pj
-                if "`flag`pj''" != "" local _bord "`_bord' `pj'"
-                else if !`showflagged' local _brest "`_brest' `pj'"
-            }
-            if "`_bord'`_brest'" == "" display as text "  no flagged variables"
-            foreach pj in `_bord' `_brest' {
-                local v : word `pj' of `profilevars'
-                local i : list posof "`v'" in pvars
-                local fc "`FC`pj''"
-                local _bl ""
-                if inlist("`fc'", "categorical", "string") {
-                    tempname _bls
-                    _dataprobe_brieflev `v', class(`fc') mask(`_xmask') into(`_bls') ///
-                        uv(`m_uv`i'') uc(`m_uc`i'') maxlen(`m_ml`i'') withheld(`"`_sh`pj''"')
-                    mata: st_local("_bl", _dataprobe_dshow(st_strscalar(st_local("_bls")), 0))
-                    scalar drop `_bls'
-                }
-                local vshow = substr("`v'", 1, 21)
-                display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
-                    %-9s "`m_type`i''" %11s "`_bmps`pj''" ///
-                    as result %9s "`_buq`pj''" "  " %-10s "`flag`pj''" as text `"`macval(_bl)'"'
-            }
+            mata: _dataprobe_lenvput()
+            _dataprobe_profbrief
         }
 
         // ---- KEY STRUCTURE / UNIQUENESS ----
@@ -2847,6 +2366,10 @@ program define dataprobe, rclass
         local _cv_lo = 0
         local _cv_hi = 0
         local _ks_mg ""
+        // F11 (2.1.0): keyset() asof()/window() counts and reconcile() deltas
+        foreach _s in none one more ties stale pairs joinby rdn rdi {
+            local _kw_`_s' = .
+        }
         local _rev_hdr = 0
 
         // require
@@ -3276,10 +2799,13 @@ program define dataprobe, rclass
                 local onum = r(num)
                 local om = r(masked)
                 local mins = cond(`om' | `nbad' < 1, ., `nbad')
-                local msg `"`PFX'rule(`rule_lab`k''): `nbs' obs fail `rule_exp`k''"'
+                local msg `"`PFX'rule(`rule_lab`k''): `nbs' obs fail `macval(rule_exp`k')'"'
+                // R1: frame post expands its arguments again, so the
+                // expression and message are stored from Mata
                 frame post `RF' ("rule") ("invariant") (`ok') (`"`rule_lab`k''"') ///
                     (`"`rule_lab`k''"') (`"`GP'"') ("`nbs' fail") (`onum') ///
-                    (`"`macval(rule_exp`k')'"') (`scope_npost') ("") (`"`macval(msg)'"') (`mins') (`om')
+                    ("") (`scope_npost') ("") ("") (`mins') (`om')
+                frame `RF': mata: st_sstore(st_nobs(), ("expected", "msg"), (st_local("rule_exp`k'"), st_local("msg")))
             }
 
             // byrule: indicators were evaluated at parse time, under by semantics
@@ -3301,10 +2827,13 @@ program define dataprobe, rclass
                 local onum = r(num)
                 local om = r(masked)
                 local mins = cond(`om' | `nbad' < 1, ., `nbad')
-                local msg `"`PFX'byrule(`byrule_lab`k''): `nbs' obs fail `byrule_exp`k''"'
+                local msg `"`PFX'byrule(`byrule_lab`k''): `nbs' obs fail `macval(byrule_exp`k')'"'
+                // R1: frame post expands its arguments again, so the
+                // expression and message are stored from Mata
                 frame post `RF' ("byrule") ("invariant") (`ok') (`"`byrule_lab`k''"') ///
                     (`"`byrule_lab`k''"') (`"`GP'"') ("`nbs' fail") (`onum') ///
-                    (`"`macval(byrule_exp`k')'"') (`scope_npost') ("") (`"`macval(msg)'"') (`mins') (`om')
+                    ("") (`scope_npost') ("") ("") (`mins') (`om')
+                frame `RF': mata: st_sstore(st_nobs(), ("expected", "msg"), (st_local("byrule_exp`k'"), st_local("msg")))
             }
 
             // stat: a summary statistic must fall inside a declared band
@@ -3316,7 +2845,7 @@ program define dataprobe, rclass
                 local hi "`stat_hi`k''"
                 local cnd "`IF'"
                 if "`stat_cond`k''" != "1" local cnd "(`IF') & `stat_cond`k''"
-                _dataprobe_statval `sst' `sv' `sden', cond(`"`cnd'"') mask(`_gm') `_hzopt' scopein(`IN')
+                _dataprobe_statval `sst' `sv' `sden', cond(`"`cnd'"') mask(`_gm') `_hzopt' scopein(`IN') `_snl`k'' `_sml`k''
                 local sn = r(n)
                 local sdef = r(defined)
                 local sshown = r(shown)
@@ -3352,7 +2881,7 @@ program define dataprobe, rclass
                 }
                 // the pooled-remainder test withholds this group's count
                 if `_pfx' & `sdef' & ("`_hs`k''" != "" | `_hz') {
-                    local _slk = `_hss`k'' | (inlist("`sst'", "n", "pmiss") & "`stat_cond`k''" == "1" & ///
+                    local _slk = `_hss`k'' | ((inlist("`sst'", "n", "pmiss") | "`_snl`k''" != "") & "`stat_cond`k''" == "1" & ///
                         (`: list sv in _gvars' | ("`_sxl`k''" != "" & strpos(" `_gvars' ", " `_sxl`k'' "))))
                     if (`: list _sgg in _hs`k'' & `sshown') | (`_hz' & `_slk' & scalar(`sval') != 0) {
                         local sshow "[suppressed]"
@@ -3495,8 +3024,9 @@ program define dataprobe, rclass
                 display as text "  " as result `"`macval(msg)'"'
                 frame post `RF' ("review") ("review") (2) (`"`review_lab`k''"') ///
                     (`"`review_lab`k''"') (`"`GP'"') ("`rc_' rows`rsh'") (`onum') ///
-                    (`"`macval(review_exp`k')'"') (`scope_npost') ("") (`"`macval(msg)'"') ///
+                    ("") (`scope_npost') ("") (`"`macval(msg)'"') ///
                     (`mins') (`om')
+                frame `RF': mata: st_sstore(st_nobs(), "expected", st_local("review_exp`k'"))
             }
 
             // complete(): complete cases, a review item unless min() is given
@@ -3536,6 +3066,16 @@ program define dataprobe, rclass
             // W1 (2.0.0): the preflight's matched keys and merge type
             local _ks_mt = `_ks_mt' + r(matched)
             local _ks_mg "`_ks_mg' `=cond("`r(merge)'" == "", "conflict", "`r(merge)'")'"
+            foreach _s in none one more ties stale pairs joinby {
+                if r(link_`_s') < . local _kw_`_s' = cond(missing(`_kw_`_s''), 0, `_kw_`_s'') + r(link_`_s')
+            }
+        }
+        forvalues k = 1/`nf_reconcile' {
+            _dataprobe_reconcile, spec(`"`reconcile_spec`k''"') rf(`RF') kind(invariant) ///
+                mask(`_gm') nscope(`nobs') safe(`_safe') excluded(`exclude')
+            foreach _s in rdn rdi {
+                if r(`_s') < . local _kw_`_s' = cond(missing(`_kw_`_s''), 0, `_kw_`_s'') + r(`_s')
+            }
         }
         forvalues k = 1/`nf_constant' {
             _dataprobe_constant, spec(`"`constant_spec`k''"') rf(`RF') kind(invariant) ///
@@ -3602,7 +3142,8 @@ program define dataprobe, rclass
             _dataprobe_groupstat, spec(`"`groupstat_spec`k''"') rf(`RF') nprint(`_nprint') ///
                 kind(`groupstat_kind`k'') mask(`_gm') nscope(`nobs') ///
                 cond(`groupstat_cond`k'') scope(`"`groupstat_if`k''"') ///
-                excluded(`exclude') `_gsopt' `=cond(`_safe', "safe", "")'
+                excluded(`exclude') `_gsopt' `=cond(`_safe', "safe", "")' ///
+                nlink(`_gsnl`k'') plink(`_gspl`k'') mlink(`_gsml`k'')
             // a printed <m or [suppr.] cell is a masked count (r(masked))
             if r(masked) local _pmasked = 1
         }
@@ -3616,7 +3157,7 @@ program define dataprobe, rclass
         if `nf_topvalues' > 0 {
             tempname _tvM
             _dataprobe_topvalues, specs(`"`topvalues'"') mcell(`_maskcell') maxfreq(`maxfreq') ///
-                safe(`_safe') excluded(`exclude')
+                safe(`_safe') floor(`_gm') excluded(`exclude')
             matrix `_tvM' = r(topvalues)
         }
 
@@ -3736,7 +3277,7 @@ program define dataprobe, rclass
             local checks_run ""
             local failed_checks ""
             foreach f in expectn isid nodups require notmissing inrange allowed forbid ///
-                regex notvalues rule byrule stat binary events intervals keyset constant sets ///
+                regex notvalues rule byrule stat binary events intervals keyset reconcile constant sets ///
                 coverage heaping groupstat complete smallcells compare {
                 quietly count if fam == "`f'" & kind != "review"
                 if r(N) > 0 local checks_run "`checks_run' `f'"
@@ -3946,7 +3487,7 @@ program define dataprobe, rclass
                 // I1 (2.0.0): the same gates as a dataprobe command
                 local _srep = cond(`sreplace', "replace", "")
                 _dataprobe_spec2do, frame(`sframe') file(`"`sdest'"') `_srep' ///
-                    dataset(`"`_dsname'"') scoped(`=(`"`if'`in'"' != "")')
+                    dataset(`"`macval(_dsname)'"') scoped(`=(`"`if'`in'"' != "")')
             }
             else if "`_tk_makespec'" == "file" {
                 if `sreplace' frame `sframe': quietly save `"`sdest'"', replace
@@ -4026,6 +3567,15 @@ program define dataprobe, rclass
             return scalar keyset_matched = `_ks_mt'
             return local keyset_merge = strtrim("`_ks_mg'")
         }
+        if `_kw_none' < . {
+            foreach _s in none one more ties stale pairs joinby {
+                return scalar keyset_link_`_s' = `_kw_`_s''
+            }
+        }
+        if `nf_reconcile' > 0 {
+            return scalar reconcile_rows_delta = `_kw_rdn'
+            return scalar reconcile_ids_delta = `_kw_rdi'
+        }
         if `n_inr' > 0 {
             return scalar inrange_n_below = cond(`_inr_nm', ., `_inr_nb')
             return scalar inrange_n_above = cond(`_inr_nm', ., `_inr_na')
@@ -4074,7 +3624,8 @@ program define dataprobe, rclass
         return local  compare_type_changed_vars "`compare_type_changed'"
         return local  compare_class_changed_vars "`compare_class_changed'"
         return local  version        "`_pkgver'"
-        return local  dataset        `"`_dsname'"'
+        return local  dataset        `"`macval(_dsname)'"'
+        if "`softcollect'" != "" return scalar softfail = 0
         if "`signature'" != "" return local signature "`_dsig'"
 
         // ---- optional saving() of the per-variable profile ----
@@ -4123,7 +3674,7 @@ program define dataprobe, rclass
         // it never hides a gate failure and never passes silently.
         if `"`_ledfile'"' != "" & `n_rec' > 0 {
             capture noisily _dataprobe_ledger, rf(`RF') file(`"`_ledfile'"') ///
-                run(`"`_ledrun'"') dataset(`"`_dsname'"') callscope(`"`_callscope'"') ///
+                run(`"`_ledrun'"') dataset(`"`macval(_dsname)'"') callscope(`"`_callscope'"') ///
                 version(`_pkgver') signature(`"`_dsig'"') ///
                 maskrare(`=("`maskrare'" != "")') mask(`_xmask') phase(`phase')
             local _ledger_rc = _rc
@@ -4141,16 +3692,20 @@ program define dataprobe, rclass
         local _masktag ""
         if `_xmask' local _masktag " [masked <`_xmask']"
         local _dstag ""
-        if `"`_dsname'"' != "" local _dstag `"`_dsname', "'
+        // R1: the name prints literally (_dataprobe_dshow), never as SMCL
         local _dshead ""
-        if `"`_dsname'"' != "" local _dshead `": `_dsname'"'
+        if `"`macval(_dsname)'"' != "" {
+            mata: st_local("_dstag", _dataprobe_dshow(st_local("_dsname"), 0))
+            local _dshead `": `macval(_dstag)'"'
+            local _dstag `"`macval(_dstag)', "'
+        }
         if `_sessnote' display as text "note: nomaskrare overrides the session default maskrare"
         if `n_err' == 0 & `n_warn' == 0 & `n_checks' > 0 {
             _dataprobe_mcount `nobs' `_xmask'
             local _Ns "`r(s)'"
             if !r(masked) local _Ns = strtrim(string(`nobs', "%20.0fc"))
             display ""
-            display as text "PASS: " as result `"`_dstag'"' as result "`n_checks'" ///
+            display as text "PASS: " as result `"`macval(_dstag)'"' as result "`n_checks'" ///
                 as text " gate(s) (" as result "`checks_run'" as text "), N = " ///
                 as result "`_Ns'" as text ", 0 violations`_masktag'"
         }
@@ -4159,8 +3714,8 @@ program define dataprobe, rclass
         }
         if `n_warn' > 0 {
             display ""
-            if `_ww' display as text `"WARNINGS (`n_warn')`_dshead'`_masktag'"'
-            else display as text `"BAND WARNINGS (`n_warn')`_dshead'`_masktag'"'
+            if `_ww' display as text `"WARNINGS (`n_warn')`macval(_dshead)'`_masktag'"'
+            else display as text `"BAND WARNINGS (`n_warn')`macval(_dshead)'`_masktag'"'
             frame `RF' {
                 forvalues j = 1/`n_rec' {
                     if status[`j'] != "warn" continue
@@ -4172,7 +3727,7 @@ program define dataprobe, rclass
         }
         if `n_err' > 0 {
             display ""
-            display as error `"EXPECTATION VIOLATIONS (`n_err')`_dshead'`_masktag'"'
+            display as error `"EXPECTATION VIOLATIONS (`n_err')`macval(_dshead)'`_masktag'"'
             frame `RF' {
                 forvalues j = 1/`n_rec' {
                     if status[`j'] != "fail" continue
@@ -4231,14 +3786,24 @@ program define dataprobe, rclass
         // R4: a call that exits for any reason other than a gate failure
         // (rc 9) or Break (rc 1) leaves one error row in the ledger, so
         // dataqa assert cannot pass over it
+        local _errrow_soft = 0
+        local errrow_rc = 0
         if `rc' != 9 & `rc' != 1 {
-            capture noisily _dataprobe_errrow `rc' `"`_dsname'"' `"`_ledfile'"' `"`_ledrun'"' `macval(_raw0)'
+            capture noisily _dataprobe_errrow `rc' `"`macval(_dsname)'"' `"`macval(_ledfile)'"' `"`macval(_ledrun)'"' `macval(_raw0)'
             local errrow_rc = _rc
             if `errrow_rc' {
                 // The call still exits with its own rc below; the ledger
                 // just lacks the error row, so say so rather than stay quiet
                 display as error "dataprobe: the error row could not be written to the ledger (rc `errrow_rc')"
             }
+        }
+        // softcollect (U7): _dataprobe_errrow wrote the row, judged the rc
+        // a data or specification error and printed the note
+        if `_errrow_soft' & !`errrow_rc' {
+            return clear
+            return scalar softfail = 1
+            return scalar softfail_rc = `rc'
+            exit
         }
         exit `rc'
     }
@@ -4262,6 +3827,564 @@ end
 // ---------------------------------------------------------------------------
 // Helpers (bundled; loaded with dataprobe.ado)
 // ---------------------------------------------------------------------------
+
+capture program drop _dataprobe_profshow
+local _drop_profshow_rc = _rc
+program define _dataprobe_profshow
+    // The profile sections of dataprobe's display, QUICK REFERENCE to
+    // GROUPWISE FREQUENCIES, moved out of dataprobe for the per-program
+    // size limit and unchanged.  dataprobe calls it right after
+    // mata: _dataprobe_lenvput(), so it starts from a copy of every
+    // dataprobe local and reads them as it did in place.  Tempnames made
+    // here (statistic scalars, the byfreq frame and indicator) end with
+    // it; none is read afterwards.  It hands back by c_local the locals
+    // dataprobe reads after it: _pmasked (r(masked)) and the brief
+    // line's text (_nobs_s, _ccs, _ccp, _bmps#, _buq#).
+    version 16.0
+    mata: _dataprobe_lenvget()
+
+    if "`gatesonly'" == "" {
+        _dataprobe_mshare `n_complete' `nobs' `_xmask'
+        local _ccs "`r(cnt)'"
+        local _ccp "`r(pcttxt)'"
+        if r(masked) local _pmasked = 1
+        _dataprobe_mcount `nobs' `_xmask'
+        local _nobs_s "`r(s)'"
+        if r(masked) local _pmasked = 1
+        display ""
+        display as text "dataprobe: " as result "`_nobs_s'" as text " obs, " ///
+            as result "`nv'" as text " variables profiled" ///
+            as text "  (complete cases: " as result "`_ccs'" ///
+            as text " = " as result "`_ccp'" as text ")"
+        if `_aud_cap' _dataprobe_capnote, `byfreq'
+    }
+
+    // ---- QUICK REFERENCE ----
+    if "`gatesonly'" == "" {
+        display ""
+        if `showflagged' display as text "QUICK REFERENCE (FLAGGED)"
+        else display as text "QUICK REFERENCE"
+        display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
+            %11s "Miss%" %9s "Unique" "  " %-10s "Flag"
+        local n_shown = 0
+        local pj = 0
+        foreach v of local profilevars {
+            local ++pj
+            local flg "`flag`pj''"
+            if `showflagged' & "`flg'" == "" continue
+            local ++n_shown
+            local i : list posof "`v'" in pvars
+            local fc "`FC`pj''"
+            local vt "`m_type`i''"
+            local mp = `m_mp`i''
+            if missing(`mp') local mp = 0
+            local mps = strtrim(string(`mp', "%6.1f")) + "%"
+            // an excluded variable's missingness is contents, withheld
+            // as in MISSINGNESS
+            if "`fc'" == "excluded" local mps "[excluded]"
+            if `_xmask' {
+                // a share of a published N recovers a small count
+                local _mn = `m_mn`i''
+                if missing(`_mn') local _mn = 0
+                _dataprobe_mshare `_mn' `nobs' `_xmask'
+                if r(masked) & "`fc'" != "excluded" {
+                    local mps "[masked]"
+                    local _pmasked = 1
+                }
+            }
+            _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
+            local uq "`r(s)'"
+            if r(masked) local _pmasked = 1
+            local vshow = substr("`v'", 1, 21)
+            local _bmps`pj' "`mps'"
+            local _buq`pj' "`uq'"
+            display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
+                %-9s "`vt'" %11s "`mps'" ///
+                as result %9s "`uq'" "  " %-10s "`flg'"
+        }
+        if `showflagged' & `n_shown' == 0 {
+            display as text "  no flagged variables"
+        }
+    }
+
+    // ---- CONTINUOUS ----
+    if "`gatesonly'" == "" & "`f_continuous'" != "" {
+        display ""
+        display as text "CONTINUOUS"
+        foreach v of local f_continuous {
+            local pj : list posof "`v'" in profilevars
+            if `showflagged' & "`flag`pj''" == "" continue
+            local n = `cN`pj''
+            if `n' == 0 {
+                display as text "  " as result "`v'" as text ": all missing"
+                continue
+            }
+            if !`_xmask' {
+                display as text "  " as result "`v'" as text ":  N=" ///
+                    as result `cN`pj'' as text "  mean=" as result %10.4g `cmean`pj'' ///
+                    as text "  sd=" as result %10.4g `csd`pj''
+                display as text "    min=" as result %10.4g `cmin`pj'' ///
+                    as text "  p25=" as result %10.4g `cp25_`pj'' ///
+                    as text "  p50=" as result %10.4g `cp50_`pj'' ///
+                    as text "  p75=" as result %10.4g `cp75_`pj'' ///
+                    as text "  max=" as result %10.4g `cmax`pj''
+                if "`detail'" != "" {
+                    display as text "    p1=" as result %10.4g `cp1_`pj'' ///
+                        as text "  p5=" as result %10.4g `cp5_`pj'' ///
+                        as text "  p10=" as result %10.4g `cp10_`pj'' ///
+                        as text "  p90=" as result %10.4g `cp90_`pj'' ///
+                        as text "  p95=" as result %10.4g `cp95_`pj'' ///
+                        as text "  p99=" as result %10.4g `cp99_`pj''
+                }
+            }
+            else {
+                // maskrare: p1/p99 replace min/max; each statistic is
+                // shown only when enough observations lie on both sides.
+                mata: st_local("_qsh", _dataprobe_qshowv(st_local("v"), `_xmask', st_matrix(st_local("_cs`pj'"))))
+                local _c = 0
+                foreach _st in mean sd p1 p5 p10 p25 p50 p75 p90 p95 p99 {
+                    local ++_c
+                    tempname _q`_st'
+                    scalar `_q`_st'' = `_cs`pj''[1, `_c']
+                    _dataprobe_qshow `v', value(`_q`_st'') mask(`_xmask') stat(`_st') known(`: word `_c' of `_qsh'')
+                    local _qs`_st' `"`r(s)'"'
+                    // safe: a date-formatted value is a date
+                    if `_safe' & regexm("`: format `v''", "^%-?(t|d)") local _qs`_st' "[withheld]"
+                }
+                _dataprobe_mshare `cN`pj'' `nobs' `_xmask'
+                local _cns "`r(cnt)'"
+                if r(masked) local _pmasked = 1
+                display as text "  " as result "`v'" as text ":  N=" ///
+                    as result "`_cns'" as text "  mean=" as result %10s "`_qsmean'" ///
+                    as text "  sd=" as result %10s "`_qssd'"
+                display as text "    p1=" as result %10s "`_qsp1'" ///
+                    as text "  p25=" as result %10s "`_qsp25'" ///
+                    as text "  p50=" as result %10s "`_qsp50'" ///
+                    as text "  p75=" as result %10s "`_qsp75'" ///
+                    as text "  p99=" as result %10s "`_qsp99'"
+                if "`detail'" != "" {
+                    display as text "    p5=" as result %10s "`_qsp5'" ///
+                        as text "  p10=" as result %10s "`_qsp10'" ///
+                        as text "  p90=" as result %10s "`_qsp90'" ///
+                        as text "  p95=" as result %10s "`_qsp95'"
+                }
+            }
+            if `cvar`pj'' == 0 {
+                display as text "    " as `_em' "zero variance (constant)"
+            }
+            if `outliers' > 0 {
+                local nout = `cnout`pj''
+                if `nout' > 0 {
+                    _dataprobe_mshare `nout' `n' `_xmask'
+                    local _nos "`r(cnt)'"
+                    local _nop "`r(pcttxt)'"
+                    local _nom = r(masked)
+                    if `_nom' local _pmasked = 1
+                    // a masked share is left out rather than printed
+                    if `_nom' display as text "    " as `_em' "`_nos' outlier(s)" ///
+                        as text " beyond " as result `outliers' as text " IQR"
+                    else display as text "    " as `_em' "`_nos' outlier(s)" ///
+                        as text " (" as result "`_nop'" as text ") beyond " ///
+                        as result `outliers' as text " IQR"
+                }
+            }
+        }
+    }
+
+    // ---- CATEGORICAL ----
+    if "`gatesonly'" == "" & "`f_categorical'" != "" {
+        display ""
+        display as text "CATEGORICAL"
+        foreach v of local f_categorical {
+            local pj : list posof "`v'" in profilevars
+            if `showflagged' & "`flag`pj''" == "" continue
+            local i : list posof "`v'" in pvars
+            local nlev = `m_uv`i''
+            _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
+            local _nlevs "`r(s)'"
+            if r(masked) local _pmasked = 1
+            display as text "  " as result "`v'" as text ":  " ///
+                as result "`_nlevs'" as text " levels"
+            if `nlev' == 1 {
+                display as text "    " as `_em' "single level (constant)"
+            }
+            if `nlev' > `maxcat' {
+                display as text "    " as `_em' "level count exceeds maxcat(" ///
+                    "`maxcat')" as text " — possible free-text/misclassification"
+            }
+            local _fqmask 0
+            if `"`_sh`pj''"' != "" display as text "    levels withheld (safe: `_sh`pj'')"
+            else _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "" "" "" "`_fqmo'"
+            if "`_fqmask'" == "1" local _pmasked = 1
+        }
+    }
+
+    // ---- DATE ----
+    if "`gatesonly'" == "" & "`f_date'" != "" {
+        display ""
+        display as text "DATE"
+        foreach v of local f_date {
+            local pj : list posof "`v'" in profilevars
+            if `showflagged' & "`flag`pj''" == "" continue
+            local i : list posof "`v'" in pvars
+            local vfmt : format `v'
+            quietly summarize `v'
+            local n = r(N)
+            if `n' == 0 {
+                display as text "  " as result "`v'" as text ": all missing"
+                continue
+            }
+            local dmin : display `vfmt' r(min)
+            local dmax : display `vfmt' r(max)
+            local span = r(max) - r(min)
+            // The span is in the variable's own time unit, which is days
+            // only for %td; a %tm span of 19 is 19 months.
+            local _vf = subinstr("`vfmt'", "%-", "%", 1)
+            local span_unit "days"
+            if strpos("`_vf'", "%tc") | strpos("`_vf'", "%tC") local span_unit "milliseconds"
+            else if strpos("`_vf'", "%tw") local span_unit "weeks"
+            else if strpos("`_vf'", "%tm") local span_unit "months"
+            else if strpos("`_vf'", "%tq") local span_unit "quarters"
+            else if strpos("`_vf'", "%th") local span_unit "half-years"
+            else if strpos("`_vf'", "%ty") local span_unit "years"
+            else if strpos("`_vf'", "%tb") local span_unit "business days"
+            else if !(strpos("`_vf'", "%td") | strpos("`_vf'", "%d")) local span_unit "units"
+            if !`_xmask' {
+                display as text "  " as result "`v'" as text ":  min=" ///
+                    as result "`dmin'" as text "  max=" as result "`dmax'" ///
+                    as text "  span=" as result `span' as text " `span_unit'  missing=" ///
+                    as result `m_mn`i''
+            }
+            else {
+                // maskrare: p1/p99 at month precision instead of min/max
+                quietly summarize `v', detail
+                tempname _dq1 _dq99
+                scalar `_dq1' = r(p1)
+                scalar `_dq99' = r(p99)
+                _dataprobe_qshow `v', value(`_dq1') mask(`_xmask') stat(p1)
+                local _dp1 `"`r(s)'"'
+                local _dok1 = r(shown)
+                _dataprobe_qshow `v', value(`_dq99') mask(`_xmask') stat(p99)
+                local _dp99 `"`r(s)'"'
+                local _dspan "[suppressed]"
+                if `_dok1' & r(shown) local _dspan = strtrim(string(`_dq99' - `_dq1', "%12.0g")) + " `span_unit'"
+                // safe: no date is printed, only the span (datesafe)
+                if `_safe' {
+                    local _dp1 "[withheld]"
+                    local _dp99 "[withheld]"
+                }
+                _dataprobe_mshare `m_mn`i'' `nobs' `_xmask'
+                local _dms "`r(cnt)'"
+                if r(masked) local _pmasked = 1
+                display as text "  " as result "`v'" as text ":  p1=" ///
+                    as result "`_dp1'" as text "  p99=" as result "`_dp99'" ///
+                    as text "  p1-p99 span=" as result "`_dspan'" as text "  missing=" ///
+                    as result "`_dms'"
+            }
+            forvalues k = 1/`n_inr' {
+                if "`inr_var`k''" == "`v'" {
+                    local _dlo "`inr_lo`k''"
+                    local _dhi "`inr_hi`k''"
+                    if "`: type `v''" == "float" {
+                        local _dlo "cond(missing(float(`_dlo')), `_dlo', float(`_dlo'))"
+                        local _dhi "cond(missing(float(`_dhi')), `_dhi', float(`_dhi'))"
+                    }
+                    local _doc ""
+                    if !`inr_loopen`k'' local _doc "`v' < `_dlo'"
+                    if !`inr_hiopen`k'' {
+                        if "`_doc'" == "" local _doc "`v' > `_dhi'"
+                        else local _doc "`_doc' | `v' > `_dhi'"
+                    }
+                    quietly count if (`_doc') & !missing(`v')
+                    // beside the printed missing count, the rows inside
+                    // the window are the complement of this count
+                    _dataprobe_mcount `r(N)' `_xmask' `n'
+                    local _dws "`r(s)'"
+                    if r(masked) local _pmasked = 1
+                    display as text "    " as result "`_dws'" ///
+                        as text " obs outside declared window"
+                }
+            }
+        }
+    }
+
+    // ---- STRING ----
+    if "`gatesonly'" == "" & "`f_string'" != "" {
+        display ""
+        display as text "STRING"
+        foreach v of local f_string {
+            local pj : list posof "`v'" in profilevars
+            if `showflagged' & "`flag`pj''" == "" continue
+            local i : list posof "`v'" in pvars
+            quietly count if `v' == ""
+            local nblank = r(N)
+            local ml "."
+            if `m_ml`i'' < . local ml = string(`m_ml`i'', "%9.0f")
+            local ml = strtrim("`ml'")
+            _dataprobe_uqmask `m_uv`i'' `m_uc`i'' `nobs' `m_mn`i'' `_xmask'
+            local uq "`r(s)'"
+            if r(masked) local _pmasked = 1
+            _dataprobe_mshare `nblank' `nobs' `_xmask'
+            local _nbs "`r(cnt)'"
+            if r(masked) local _pmasked = 1
+            display as text "  " as result "`v'" as text ":  unique=" ///
+                as result "`uq'" as text "  blank=" as result "`_nbs'" ///
+                as text "  maxlen=" as result "`ml'"
+            local _fqmask 0
+            if `"`_sh`pj''"' != "" display as text "    levels withheld (safe: `_sh`pj'')"
+            else _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "" "" "" "`_fqmo'"
+            if "`_fqmask'" == "1" local _pmasked = 1
+        }
+    }
+
+    // ---- EXCLUDED ----
+    if "`gatesonly'" == "" & "`f_excluded'" != "" & !`showflagged' {
+        display ""
+        display as text "EXCLUDED (listed, contents withheld)"
+        display as text "  " as result "`f_excluded'"
+    }
+
+    // ---- MISSINGNESS ----
+    if "`gatesonly'" == "" & "`nomissing'" == "" & !`showflagged' {
+        display ""
+        display as text "MISSINGNESS"
+        local any_miss = 0
+        local pj = 0
+        foreach v of local profilevars {
+            local ++pj
+            local i : list posof "`v'" in pvars
+            if "`FC`pj''" == "excluded" continue
+            if `m_mn`i'' > 0 & `m_mn`i'' < . {
+                local any_miss = 1
+                _dataprobe_mshare `m_mn`i'' `nobs' `_xmask'
+                local _mms "`r(cnt)'"
+                local _mmp = cond(r(masked), "[masked]", strtrim(string(`m_mp`i'', "%4.1f")) + "%")
+                if r(masked) local _pmasked = 1
+                display as text "  " as result %-22s "`v'" as text "  " ///
+                    as result "`_mms'" as text " missing  (" ///
+                    as result "`_mmp'" as text ")"
+            }
+        }
+        if !`any_miss' {
+            display as text "  no missing values in profiled variables"
+        }
+    }
+
+    // ---- MISSING-VALUE PATTERNS (independent of nomissing) ----
+    if "`gatesonly'" == "" & "`patterns'" != "" & !`showflagged' {
+        capture which datamvp
+        if _rc {
+            display ""
+            display as text "  " as `_em' ///
+                "patterns: datamvp unavailable — skipping pattern table"
+        }
+        else {
+            display ""
+            display as text "MISSING-VALUE PATTERNS (datamvp)"
+            // Excluded variables stay out of the pattern table, as they
+            // stay out of MISSINGNESS.
+            local _mvpvars : list profilevars - f_excluded
+            // An empty varlist would make datamvp profile every variable.
+            if "`_mvpvars'" == "" {
+                display as text "  (no non-excluded variables to pattern)"
+            }
+            else if `_xmask' capture noisily datamvp `_mvpvars', maskrare mincell(`_xmask')
+            else capture noisily datamvp `_mvpvars'
+            if "`_mvpvars'" != "" & _rc {
+                display as text "  " as `_em' ///
+                    "patterns: datamvp could not render a table for these variables"
+            }
+        }
+    }
+
+    // ---- groups pooled under maskrare: the set built after by() ----
+    local _pooledg ""
+    if "`gatesonly'" == "" & `has_groups' & `_xmask' local _pooledg "`_hideg'"
+    local _npooledg : word count `_pooledg'
+    local _pgtxt "groups pooled (each <`_xmask' rows, or pooled with them): "
+    if `_aud_cap' local _pgtxt "groups pooled (the linked-count check ran out of budget): "
+
+    // ---- GROUPWISE SUMMARY ----
+    if "`gatesonly'" == "" & `has_groups' & (!`showflagged' | `n_group_missing_vars' > 0) {
+        display ""
+        display as text "GROUPWISE SUMMARY"
+        display as text "  by: " as result "`byvars'"
+        display as text "  " %-20s "Group" %9s "N" %12s "Complete" ///
+            %10s "Complete%" %9s "MissVars"
+        // Under maskrare a group smaller than the mask is not shown: its
+        // N, completeness and missing-variable count would describe
+        // fewer than the mask of persons.  Such groups are pooled into
+        // one line.
+        // the pooled-remainder test (see above) names the groups whose
+        // complete count is withheld
+        foreach gg of local group_levels {
+            local gn = _frval(`_gframe', n, `gg')
+            if `: list gg in _pooledg' continue
+            local gc = _frval(`_gframe', c, `gg')
+            _dataprobe_mshare `gc' `gn' `_xmask'
+            local gcs "`r(cnt)'"
+            local gpcts "`r(pcttxt)'"
+            local _gmk = r(masked)
+            if `_gmk' local _pmasked = 1
+            // a count already printed <m or all but <m keeps that text:
+            // [suppr.] stands for an exact count of the mask or more
+            if `_pfon' & `: list gg in _hc' & !`_gmk' {
+                local gcs "[suppr.]"
+                local gpcts "[masked]"
+                local _pmasked = 1
+            }
+            local gmissvars ""
+            local gj = 0
+            foreach v of local _gvars {
+                local ++gj
+                if _frval(`_gframe', m`gj', `gg') > 0 local gmissvars "`gmissvars' `v'"
+            }
+            local gmissvars : list uniq gmissvars
+            local gmissct : word count `gmissvars'
+            if `showflagged' & `gmissct' == 0 continue
+            mata: st_local("gshow", _dataprobe_dshow(usubstr(st_local("group_label`gg'"), 1, 20), 20))
+            display as text "  " as result `"`macval(gshow)'"' ///
+                as result %9.0f `gn' %12s "`gcs'" %10s "`gpcts'" ///
+                as result %9.0f `gmissct'
+        }
+        if `_npooledg' > 0 {
+            display as text "  `_pgtxt'" as result `_npooledg'
+            local _pmasked = 1
+        }
+    }
+
+    if "`gatesonly'" == "" & `has_groups' & `n_group_missing_vars' > 0 {
+        display ""
+        display as text "GROUPWISE MISSINGNESS"
+        display as text "  " %-20s "Group" %-22s "Variable" ///
+            %9s "Missing" %10s "Missing%"
+        foreach gg of local group_levels {
+            local gn = _frval(`_gframe', n, `gg')
+            if `: list gg in _pooledg' continue
+            foreach v of local group_missing_vars {
+                local gj : list posof "`v'" in _gvars
+                local gm = _frval(`_gframe', m`gj', `gg')
+                if `gm' == 0 continue
+                _dataprobe_mshare `gm' `gn' `_xmask'
+                local gms "`r(cnt)'"
+                local gmpcts "`r(pcttxt)'"
+                local _gmk = r(masked)
+                if `_gmk' local _pmasked = 1
+                local i : list posof "`v'" in pvars
+                if `_pfon' & `: list gg in _hm`i'' & !`_gmk' {
+                    local gms "[suppr.]"
+                    local gmpcts "[masked]"
+                    local _pmasked = 1
+                }
+                mata: st_local("gshow", _dataprobe_dshow(usubstr(st_local("group_label`gg'"), 1, 20), 20))
+                display as text "  " as result `"`macval(gshow)'"' ///
+                    as result %-22s "`v'" %9s "`gms'" %10s "`gmpcts'"
+            }
+        }
+        if `_npooledg' > 0 {
+            display as text "  `_pgtxt'" as result `_npooledg'
+        }
+    }
+
+    // ---- GROUPWISE FREQUENCIES (byfreq): the CATEGORICAL and STRING tables within each by() group ----
+    if "`gatesonly'" == "" & "`byfreq'" != "" & `has_groups' & !`showflagged' & ///
+        `"`f_categorical' `f_string'"' != " " {
+        display ""
+        display as text "GROUPWISE FREQUENCIES"
+        display as text "  by: " as result "`byvars'"
+        foreach v in `f_categorical' `f_string' {
+            local _pjv : list posof "`v'" in profilevars
+            if `_safe' & `"`_sh`_pjv''"' != "" {
+                display as text "  " as result "`v'" as text ": levels withheld (safe: `_sh`_pjv'')"
+                continue
+            }
+            display as text "  " as result "`v'" as text ":"
+            // Pooled remainder, per level: the pooled table's count
+            // minus the shown groups' exact cells is the pooled-away
+            // groups' and the suppressed cells' total; 1 to mask-1 of
+            // them gives a small cell back, so the level's smallest
+            // shown cell is withheld (and the group's table pools it)
+            local _bff ""
+            local i : list posof "`v'" in pvars
+            if `_pfon' local _bff "`_bffv`i''"
+            else if `_maskcell' > 0 {
+                tempvar _bff
+                _dataprobe_bfforce `v' `dc_group' `maxfreq' `_maskcell' ///
+                    `"`_pooledg'"' `_bff'
+            }
+            tempname _bfq
+            _dataprobe_freqprep `v' `dc_group' `_bfq' `_bff'
+            foreach gg of local group_levels {
+                if `: list gg in _pooledg' continue
+                mata: st_local("_gl", _dataprobe_dshow(st_local("group_label`gg'"), 0))
+                display as text "    by group " as result `"`macval(_gl)'"' as text ":"
+                local _fqmask 0
+                _dataprobe_freq `v' `maxfreq' `rare' `_maskcell' "" "      " "`_bff'" "`_bfq' `_bfqf' `_bfl`gg'' `_bfh`gg''"
+                if "`_fqmask'" == "1" local _pmasked = 1
+            }
+            capture frame drop `_bfq'
+            if "`_bff'" != "" & !`_pfon' capture drop `_bff'
+        }
+        if `_npooledg' > 0 {
+            display as text "  `_pgtxt'" as result `_npooledg'
+            local _pmasked = 1
+        }
+    }
+
+    // the locals dataprobe reads after this block
+    c_local _pmasked `"`macval(_pmasked)'"'
+    c_local _nobs_s `"`macval(_nobs_s)'"'
+    c_local _ccs `"`macval(_ccs)'"'
+    c_local _ccp `"`macval(_ccp)'"'
+    forvalues pj = 1/`nv' {
+        c_local _bmps`pj' `"`macval(_bmps`pj')'"'
+        c_local _buq`pj' `"`macval(_buq`pj')'"'
+    }
+end
+
+capture program drop _dataprobe_profbrief
+local _drop_profbrief_rc = _rc
+program define _dataprobe_profbrief
+    // brief's lines (BRIEF in dataprobe), moved out of dataprobe for the
+    // per-program size limit and unchanged.  Like _dataprobe_profshow it
+    // starts from a copy of every dataprobe local; it hands nothing back,
+    // since dataprobe reads none of the locals it sets.
+    version 16.0
+    mata: _dataprobe_lenvget()
+    display ""
+    display as text "dataprobe: " as result "`_nobs_s'" as text " obs, " ///
+        as result "`nv'" as text " variables profiled" ///
+        as text "  (complete cases: " as result "`_ccs'" ///
+        as text " = " as result "`_ccp'" as text ")"
+    display as text "  " %-22s "Variable" %-12s "Class" %-9s "Type" ///
+        %11s "Miss%" %9s "Unique" "  " %-10s "Flag" "Levels"
+    local _bord ""
+    local _brest ""
+    local pj = 0
+    foreach v of local profilevars {
+        local ++pj
+        if "`flag`pj''" != "" local _bord "`_bord' `pj'"
+        else if !`showflagged' local _brest "`_brest' `pj'"
+    }
+    if "`_bord'`_brest'" == "" display as text "  no flagged variables"
+    foreach pj in `_bord' `_brest' {
+        local v : word `pj' of `profilevars'
+        local i : list posof "`v'" in pvars
+        local fc "`FC`pj''"
+        local _bl ""
+        if inlist("`fc'", "categorical", "string") {
+            tempname _bls
+            _dataprobe_brieflev `v', class(`fc') mask(`_xmask') into(`_bls') ///
+                uv(`m_uv`i'') uc(`m_uc`i'') maxlen(`m_ml`i'') withheld(`"`_sh`pj''"')
+            mata: st_local("_bl", _dataprobe_dshow(st_strscalar(st_local("_bls")), 0))
+            scalar drop `_bls'
+        }
+        local vshow = substr("`v'", 1, 21)
+        display as text "  " as result %-22s "`vshow'" %-12s "`fc'" ///
+            %-9s "`m_type`i''" %11s "`_bmps`pj''" ///
+            as result %9s "`_buq`pj''" "  " %-10s "`flag`pj''" as text `"`macval(_bl)'"'
+    }
+end
 
 capture program drop _dataprobe_pathok
 local _drop_pathok_rc = _rc
@@ -4382,7 +4505,44 @@ capture mata: mata drop _dataprobe_bfjoin()
 capture mata: mata drop _dataprobe_revlink()
 capture mata: mata drop _dataprobe_pmcount()
 capture mata: mata drop _dataprobe_qshowv()
+capture mata: mata drop _dataprobe_lenvput()
+capture mata: mata drop _dataprobe_lenvget()
 mata:
+// _dataprobe_lenvput() holds every local of the calling program (name and
+// contents) in the external _dataprobe_lenv; _dataprobe_lenvget(), run
+// first in the program called next, sets them there and drops the
+// external.  dataprobe uses the pair to run a block moved out of it for
+// the per-program size limit (_dataprobe_profshow, _dataprobe_profbrief)
+// on exactly the locals it read in place.
+void _dataprobe_lenvput()
+{
+	string colvector nm
+	string matrix env
+	pointer() scalar p
+	real scalar i
+	nm = st_dir("local", "macro", "*")
+	env = J(rows(nm), 2, "")
+	for (i = 1; i <= rows(nm); i++) {
+		env[i, 1] = nm[i]
+		env[i, 2] = st_local(nm[i])
+	}
+	if ((p = findexternal("_dataprobe_lenv")) == NULL) p = crexternal("_dataprobe_lenv")
+	*p = env
+}
+
+void _dataprobe_lenvget()
+{
+	string matrix env
+	pointer() scalar p
+	real scalar i
+	if ((p = findexternal("_dataprobe_lenv")) == NULL) {
+		_error(3499, "_dataprobe_lenv not found")
+	}
+	env = *p
+	rmexternal("_dataprobe_lenv")
+	for (i = 1; i <= rows(env); i++) st_local(env[i, 1], env[i, 2])
+}
+
 // _dataprobe_premask's per-group counts into new frame fr: group, rows
 // with ind == 1 (k1), rows (one); local tot = all rows with ind == 1.
 // ord is a permutation sorting grp; recomputed when it no longer does.
@@ -6904,5 +7064,123 @@ void _dpa_poolfill()
 		out = out, best
 	}
 	st_local("_dpa_out", invtokens(strofreal(out)))
+}
+end
+
+// Linked statistics (2.1.0 final review S3), from dataprobe's parse
+// locals.  Two statistics printed over one scope can give back a count the
+// mask withholds: a sum and a mean of one variable its nonmissing count
+// (sum / mean), an n and a pmiss its rows and missing count.  A scope is
+// the by() variables (sorted; a stat() entry takes the call's by(), none
+// without it) and the entry's if text; a stat() expression is keyed by its
+// text.  Sets, in the caller, _snl# ("nlink" for a stat() sum whose mean the
+// call prints in its scope), _gsnl# (the variables of groupstat() entry #
+// whose sum is so linked) and _gspl# (those whose pmiss is linked to an n).
+// A pooled row has every group's rows, whatever the by(): the sums of any
+// groupstat() entry or stat() by group over an if add up to the pooled sum
+// there.  _gsml# lists the variables of groupstat() entry # whose mean is
+// linked to such a sum (its pooled mean is then withheld with the pooled
+// n), and _sml# is "mlink" for a stat() mean without the call's by() whose
+// variable a groupstat() sum over the same if prints.
+capture mata: mata drop _dataprobe_slink()
+capture mata: mata drop _dataprobe_slsort()
+capture mata: mata drop _dataprobe_slsplit()
+mata:
+string scalar _dataprobe_slsort(string scalar s)
+{
+	string rowvector t
+	t = tokens(s)
+	if (cols(t) == 0) return("")
+	return(invtokens(sort(t', 1)'))
+}
+// "stats|vars|by" (groupstat()'s parse returns) as three strings
+string rowvector _dataprobe_slsplit(string scalar s)
+{
+	real scalar a, b
+	a = strpos(s, "|")
+	if (a == 0) return(J(1, 0, ""))
+	b = strpos(substr(s, a + 1, .), "|")
+	if (b == 0) return(J(1, 0, ""))
+	return((substr(s, 1, a - 1), substr(s, a + 1, b - 1), substr(s, a + b + 1, .)))
+}
+void _dataprobe_slink()
+{
+	real scalar ns, ng, k, j
+	string scalar by, key, sc, st, sk, gb, gs, gn, gp, gm
+	string rowvector p, sts, gv
+	transmorphic M, N, SA, SG
+	M = asarray_create()
+	N = asarray_create()
+	SA = asarray_create()
+	SG = asarray_create()
+	ns = strtoreal(st_local("n_stat"))
+	ng = strtoreal(st_local("nf_groupstat"))
+	if (ns >= .) ns = 0
+	if (ng >= .) ng = 0
+	if (ns + ng == 0) return
+	by = _dataprobe_slsort(st_local("byvars"))
+	for (k = 1; k <= ns; k++) {
+		sk = strofreal(k)
+		st = st_local("stat_st" + sk)
+		key = st_local("stat_xlab" + sk)
+		if (key == "") key = st_local("stat_var" + sk)
+		sc = key + char(0) + by + char(1) + st_local("stat_if" + sk)
+		if (st == "mean") asarray(M, sc, 1)
+		if (st == "n") asarray(N, sc, 1)
+		if (st == "sum") asarray(SA, key + char(1) + st_local("stat_if" + sk), 1)
+	}
+	for (k = 1; k <= ng; k++) {
+		p = _dataprobe_slsplit(st_local("groupstat_sv" + strofreal(k)))
+		if (cols(p) != 3) continue
+		sts = tokens(p[1])
+		gv = tokens(p[2])
+		gb = _dataprobe_slsort(p[3])
+		for (j = 1; j <= cols(gv); j++) {
+			sc = gv[j] + char(0) + gb + char(1) + st_local("groupstat_if" + strofreal(k))
+			if (anyof(sts, "mean")) asarray(M, sc, 1)
+			if (anyof(sts, "n")) asarray(N, sc, 1)
+			sc = gv[j] + char(1) + st_local("groupstat_if" + strofreal(k))
+			if (anyof(sts, "sum")) {
+				asarray(SA, sc, 1)
+				asarray(SG, sc, 1)
+			}
+		}
+	}
+	for (k = 1; k <= ns; k++) {
+		sk = strofreal(k)
+		if (st_local("stat_st" + sk) != "sum") continue
+		key = st_local("stat_xlab" + sk)
+		if (key == "") key = st_local("stat_var" + sk)
+		sc = key + char(0) + by + char(1) + st_local("stat_if" + sk)
+		if (asarray_contains(M, sc)) st_local("_snl" + sk, "nlink")
+	}
+	if (by == "") {
+		for (k = 1; k <= ns; k++) {
+			sk = strofreal(k)
+			if (st_local("stat_st" + sk) != "mean") continue
+			key = st_local("stat_xlab" + sk)
+			if (key == "") key = st_local("stat_var" + sk)
+			if (asarray_contains(SG, key + char(1) + st_local("stat_if" + sk))) st_local("_sml" + sk, "mlink")
+		}
+	}
+	for (k = 1; k <= ng; k++) {
+		p = _dataprobe_slsplit(st_local("groupstat_sv" + strofreal(k)))
+		if (cols(p) != 3) continue
+		sts = tokens(p[1])
+		gv = tokens(p[2])
+		gb = _dataprobe_slsort(p[3])
+		gs = ""
+		gn = ""
+		gm = ""
+		for (j = 1; j <= cols(gv); j++) {
+			if (anyof(sts, "mean") & asarray_contains(SA, gv[j] + char(1) + st_local("groupstat_if" + strofreal(k)))) gm = gm + " " + gv[j]
+			sc = gv[j] + char(0) + gb + char(1) + st_local("groupstat_if" + strofreal(k))
+			if (anyof(sts, "sum") & asarray_contains(M, sc)) gs = gs + " " + gv[j]
+			if (anyof(sts, "pmiss") & asarray_contains(N, sc)) gn = gn + " " + gv[j]
+		}
+		if (gs != "") st_local("_gsnl" + strofreal(k), strtrim(gs))
+		if (gn != "") st_local("_gspl" + strofreal(k), strtrim(gn))
+		if (gm != "") st_local("_gsml" + strofreal(k), strtrim(gm))
+	}
 }
 end
