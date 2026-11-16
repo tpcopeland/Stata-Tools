@@ -348,6 +348,19 @@ capture noisily {
             _gx_cell `"`L`i''"' 1
             local lv "`r(g)'"
             if "`lv'" == "pooled" | "`lv'" == "Group" continue, break
+            * 2.1.0: under the mask a listed group of 1 to 4 rows is named by
+            * its number (group k, the k-th sorted level), never by its value
+            if regexm("`lv'", "^group ([0-9]+)$") {
+                local _gk = real(regexs(1))
+                quietly levelsof g2, local(_glev)
+                local lv : word `_gk' of `_glev'
+                quietly count if g2 == "`lv'"
+                assert r(N) >= 1 & r(N) < 5
+            }
+            else {
+                quietly count if g2 == "`lv'"
+                assert r(N) >= 5
+            }
             quietly count if g2 == "`lv'" & !missing(`v')
             local cnt = r(N)
             quietly count if g2 == "`lv'"

@@ -582,6 +582,7 @@ Fixes:
 - `dataqa compare` no longer fails on a gate label holding a quotation mark; labels, groups, expected values and run names holding `"`, `'`, `$`, a backtick or braces print and export literally in every `dataqa` subcommand.
 - `rule()`, `review()` and `byrule()` expressions holding `$` or a backtick are evaluated literally (they were silently macro-expanded, which could turn a failing rule into a pass). A `rule()`, `review()` or `byrule()` label holding `$` or a backtick is now refused with r(198) instead of being expanded. `name()` and a data file name holding macro characters reach the ledger intact.
 - `datamap` Markdown: table pipes, reference-style link definitions and leading block markers in labels, notes and titles are escaped, so a label can no longer break a table or form a link. A note starting with `#`, `>`, `-` and similar now carries a backslash before the marker (it renders the same).
+- `groupstat()` with an explicit `min()` below the mask names a listed group of 1 to m-1 rows by its number (`group 3`), never by its value, which is a rare level (2.0.0 printed the value with the cells masked).
 - The Hundepool et al. citation is corrected from 2025 to 2026 (the second edition is dated June 2026).
 
 ### 2.0.0 (2026-11-10)

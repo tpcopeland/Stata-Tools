@@ -522,6 +522,10 @@ program define _dataprobe_groupstat, rclass
                         if `"`macval(_t)'"' != "" mata: st_local("gl", st_local("_t"))
                     }
                     local gl_`k' `"`macval(gl)'"'
+                    // an explicit min() below the mask lists a group of 1
+                    // to mask-1 rows: its value is a rare level, so under
+                    // the mask it is named by number, as smallcells() does
+                    if `mask' > 0 & `n_`k'' >= 1 & `n_`k'' < `mask' local gl_`k' "group `k'"
                     local sup_`k' = 0
                     local tst_`k' = (`n_`k'' >= `bmin')
                     if `n_`k'' < `gmin' | `ph_`k'' {

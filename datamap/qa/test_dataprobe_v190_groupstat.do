@@ -808,6 +808,19 @@ capture noisily {
         _u_cell `"`LL`i''"' 1
         local lv "`r(g)'"
         if "`lv'" == "pooled" continue
+        * 2.1.0: under the mask a listed group of 1 to 4 rows is named by its
+        * number (group k, the k-th sorted level), never by its value
+        if regexm("`lv'", "^group ([0-9]+)$") {
+            local _gk = real(regexs(1))
+            quietly levelsof g, local(_glev)
+            local lv : word `_gk' of `_glev'
+            quietly count if g == "`lv'"
+            assert r(N) >= 1 & r(N) < 5
+        }
+        else {
+            quietly count if g == "`lv'"
+            assert r(N) >= 5
+        }
         local cn1 = strtrim(substr(`"`LL`i''"', 19, 10))
         quietly count if g == "`lv'" & !missing(y)
         local cnt = r(N)

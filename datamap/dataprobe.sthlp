@@ -1024,7 +1024,10 @@ share prints as {bf:[masked]} when the 1sts of the other months number 1 to
 than {cmd:ratio}. A row whose {it:groupvars} value is missing belongs to no
 group and is left out of the groups and of the pooled value, so the pooled
 value always describes the rows of the groups. Groups with fewer than {cmd:min()} rows (default: the mask
-threshold, or 1 without masking) are pooled into one line. With {cmd:band()},
+threshold, or 1 without masking) are pooled into one line. Under masking, an
+explicit {cmd:min()} below the mask can list a group of 1 to {it:m}-1 rows;
+its cells are masked and it is named by its number ({cmd:group 3}), never by
+its value, which would be a rare level. With {cmd:band()},
 every group's statistic must lie in [lo, hi], including a group pooled away
 under the mask, which fails as {cmd:[suppressed]}; only an explicit
 {cmd:min()} leaves the groups below it out of the band. As in {opt stat()}, a
