@@ -17,7 +17,15 @@
 // rows the caller passes in (the if/in scope).  A missing byvars value is
 // its own group, as in by.
 //
-// Returns r(lab), r(exp), r(byvars), r(sortvars), r(ties) (1 when
+// The expression may hold group aggregates (2.1.0), total(exp) mean(exp)
+// gmin(exp) gmax(exp) spread(exp) count(exp), each the value over the rows
+// of the row's group (_dataprobe_byagg); a group where one of them has no
+// nonmissing value fails.  With gid(newvar) and an aggregate, newvar gets
+// the group number (egen group(byvars), missing), so the caller can count
+// failing groups.
+//
+// Returns r(lab), r(exp), r(byvars), r(sortvars), r(agg) (1 when the
+// expression holds an aggregate), r(ties) (1 when
 // (byvars sortvars) does not uniquely order the rows and the expression
 // uses _n, _N or a subscript; the note is printed here and carries no
 // count, so it needs no masking).
@@ -27,7 +35,7 @@ program define _dataprobe_byrule, rclass
     set varabbrev off
     local _ordmade = 0
     capture noisily {
-        syntax , SPEC(string) IND(varname) [PARSEonly]
+        syntax , SPEC(string) IND(varname) [PARSEonly GID(name)]
         local part = strtrim(`"`spec'"')
         local cp = strpos(`"`part'"', ":")
         if `cp' == 0 {
@@ -93,14 +101,43 @@ program define _dataprobe_byrule, rclass
             exit 198
         }
         local ties = 0
+        // 2.1.0 F9(c): group aggregates (total() spread() mean() count()
+        // gmin() gmax(), see _dataprobe_byagg) are computed per group before
+        // the rule and stand in the expression as variables
+        _dataprobe_byagg scan `"`macval(rexp)'"'
+        local _agn = `_ag_n'
+        local rexp2 `"`macval(rexp)'"'
+        local _agmiss ""
         if "`parseonly'" == "" {
             tempvar ord tie
             quietly generate long `ord' = _n
             local _ordmade = 1
+            if `_agn' {
+                local _agnames ""
+                forvalues i = 1/`_agn' {
+                    tempvar ag`i'
+                    _dataprobe_byagg make `_ag_k`i'' `ag`i'' `"`macval(_ag_a`i')'"', by(`byv')
+                    local _agnames "`_agnames' `ag`i''"
+                    // a group with no nonmissing value fails the rule
+                    if "`_ag_k`i''" != "count" local _agmiss = cond("`_agmiss'" == "", ///
+                        "missing(`ag`i'')", "`_agmiss' | missing(`ag`i'')")
+                }
+                _dataprobe_byagg rewrite `"`macval(rexp)'"', names(`_agnames')
+                local rexp2 `"`macval(_ag_exp)'"'
+                // the groups, for the count of failing groups
+                if "`gid'" != "" {
+                    if "`byv'" != "" quietly egen long `gid' = group(`byv'), missing
+                    else quietly generate long `gid' = 1
+                }
+                // the aggregates sorted the rows: back to the caller's order,
+                // so ties below keep it
+                quietly sort `ord'
+            }
             quietly sort `byv' `srt', stable
-            if "`byv'" != "" capture quietly by `byv': replace `ind' = 1 if !(`rexp')
-            else capture quietly replace `ind' = 1 if !(`rexp')
+            if "`byv'" != "" capture quietly by `byv': replace `ind' = 1 if !(`rexp2')
+            else capture quietly replace `ind' = 1 if !(`rexp2')
             local erc = _rc
+            if !`erc' & "`_agmiss'" != "" quietly replace `ind' = 1 if `_agmiss'
             if !`erc' & "`srt'" != "" & ustrregexm(`"`rexp'"', "(\w\[|\b_n\b|\b_N\b)") {
                 quietly by `byv' `srt': generate byte `tie' = _N > 1
                 quietly count if `tie'
@@ -121,6 +158,7 @@ program define _dataprobe_byrule, rclass
         return local byvars "`byv'"
         return local sortvars "`srt'"
         return scalar ties = `ties'
+        return scalar agg = (`_agn' > 0)
     }
     local rc = _rc
     if `_ordmade' {

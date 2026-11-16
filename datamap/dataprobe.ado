@@ -89,11 +89,12 @@ program define dataprobe, rclass
             REVIEW(string asis) HEAPING(string) GROUPSTAT(string asis) ///
             COVERAGE(string) COMPLETE(string) ///
             SMALLcells(string asis) ///
+            TOPValues(string asis) ///
             BY(string) OVER(string) ///
             CHECKs(string) MAKESpec(string) VIOLations(string) ///
             SAVing(string) CONFig(string) COMPare(string asis) ///
             SNAPshot(string) DIFF(string asis) TOL(numlist min=1 max=2 >=0) ///
-            LEDGER(string asis) NAME(string) MINVERsion(string) SIGnature ///
+            LEDGER(string asis) PHASE(name) NAME(string) MINVERsion(string) SIGnature ///
             BRIEF SAFE ]
 
         // ---- ledger(filename [, run(string)]) ----
@@ -156,6 +157,8 @@ program define dataprobe, rclass
             if `mincell' == -999999999 & r(mincell) >= 0 local mincell = r(mincell)
             if `"`_ledfile'"' == "" local _ledfile `"`r(ledger)'"'
             if `"`_ledrun'"' == "" local _ledrun `"`r(run)'"'
+            // phase (2.1.0, U6): the call's phase() beats the session's
+            if "`phase'" == "" local phase "`r(phase)'"
             if "`bandwarn'" == "" & r(bandwarn) local bandwarn "bandwarn"
             if "`signature'" == "" & r(signature) local signature "signature"
             local _collect = r(collect)
@@ -273,6 +276,10 @@ program define dataprobe, rclass
             exit 198
         }
 
+        if "`phase'" != "" & `"`_ledfile'"' == "" {
+            display as error "phase() tags ledger rows; give ledger() or set one with dataqa set ledger()"
+            exit 198
+        }
         if `"`_ledfile'"' != "" {
             _datamap_validate_path `"`_ledfile'"', option(ledger())
             // .dta is added only to a path without an extension, so a
@@ -876,12 +883,15 @@ program define dataprobe, rclass
                 if `"`part'"' == "" continue
                 local ++n_byrule
                 local _k = `n_byrule'
-                tempvar byruleind`_k'
+                tempvar byruleind`_k' byrulegid`_k'
                 quietly gen byte `byruleind`_k'' = 0
-                _dataprobe_byrule, spec(`"`part'"') ind(`byruleind`_k'')
+                _dataprobe_byrule, spec(`"`part'"') ind(`byruleind`_k'') gid(`byrulegid`_k'')
                 local byrule_lab`_k' `"`r(lab)'"'
                 local byrule_exp`_k' `"`r(exp)'"'
                 local rulevars "`rulevars' `byruleind`_k''"
+                // 2.1.0 F9(c): a rule with a group aggregate counts groups
+                local byrule_agg`_k' = r(agg)
+                if r(agg) local rulevars "`rulevars' `byrulegid`_k''"
             }
         }
 
@@ -1015,13 +1025,19 @@ program define dataprobe, rclass
         local n_stat = 0
         local statvars ""
         foreach _src in main band {
-            if "`_src'" == "main" local _spec `"`stat'"'
-            else local _spec `"`b_stat'"'
-            if `"`_spec'"' == "" continue
-            local rest `"`_spec'"'
-            while `"`rest'"' != "" {
+            // in Mata: an expression's text reaches its parser as typed (a
+            // one-line if expands the macros of its command a second time)
+            mata: st_local("_spec", st_local(st_local("_src") == "main" ? "stat" : "b_stat"))
+            if `"`macval(_spec)'"' == "" continue
+            local rest `"`macval(_spec)'"'
+            while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
-                if `"`part'"' == "\" continue
+                if `"`macval(part)'"' == "\" continue
+                // 2.1.0 F9(b): a "(expression)" in a variable slot is
+                // evaluated into a tempvar whose name replaces it (sets
+                // part and stat_xlab# stat_xvar# stat_xops# stat_xd#)
+                tempvar _sx1 _sx2
+                _dataprobe_exprarg split `"`macval(part)'"', v1(`_sx1') v2(`_sx2') k(`=`n_stat' + 1')
                 local part = strtrim(`"`part'"')
                 if `"`part'"' == "" continue
                 local eif ""
@@ -1102,7 +1118,7 @@ program define dataprobe, rclass
                 local stat_kind`n_stat' = cond("`_src'" == "main", "invariant", "band")
                 local stat_cond`n_stat' "`scond'"
                 local stat_if`n_stat' `"`eif'"'
-                local statvars "`statvars' `sv' `sden'"
+                local statvars "`statvars' `sv' `sden' `stat_xops`n_stat''"
             }
         }
 
@@ -1393,12 +1409,32 @@ program define dataprobe, rclass
                 if `"`part'"' == "\" continue
                 local part = strtrim(`"`part'"')
                 if `"`part'"' == "" continue
-                _dataprobe_smallcells, spec(`"`part'"') mcell(`_maskcell') parseonly
+                _dataprobe_smallcells, spec(`"`part'"') mcell(`_maskcell') parseonly ///
+                    safe(`_safe') excluded(`exclude')
                 local famvars "`famvars' `r(vars)'"
                 local ++nf_smallcells
                 local _k = `nf_smallcells'
                 local smallcells_spec`_k' `"`part'"'
             }
+        }
+        // topvalues() (2.1.0, O4): a frequency view under its own mask; it
+        // prints and returns r(topvalues), and records no gate.  With no
+        // varlist the call profiles nothing else (as under gatesonly), so
+        // the view never comes with an unmasked profile of every variable.
+        local nf_topvalues = 0
+        if `"`topvalues'"' != "" {
+            _dataprobe_topvalues, specs(`"`topvalues'"') mcell(`_maskcell') maxfreq(`maxfreq') ///
+                safe(`_safe') excluded(`exclude') parseonly
+            local famvars "`famvars' `r(vars)'"
+            local nf_topvalues = r(n)
+            if `"`varlistspec'"' == "" & "`gatesonly'" == "" {
+                local gatesonly "gatesonly"
+                local brief ""
+                local patterns ""
+                local byfreq ""
+                local showflagged = 0
+            }
+            local _gsk = 1
         }
         // band-capable families: kind from the declaration (coverage is
         // always a band); an entry with no threshold is a review item
@@ -1521,9 +1557,21 @@ program define dataprobe, rclass
         tempvar dc_group
         local has_groups = 0
         local group_levels ""
+        // P1 (2.1.0): on the gatesonly fast path one stable sort numbers the
+        // groups (as egen group(), missing) and leaves the rows in group
+        // order for the by() loop.  Nothing after it reads the row order
+        // (every whole-sample family sorts for itself or ignores the order)
+        // and preserve gives the user's data back on exit
         if "`byvars'" != "" {
-            quietly egen long `dc_group' = group(`byvars'), missing
-            quietly levelsof `dc_group', local(group_levels)
+            if `_fast' {
+                sort `byvars', stable
+                quietly by `byvars': generate long `dc_group' = (_n == 1)
+                quietly replace `dc_group' = sum(`dc_group')
+            }
+            else quietly egen long `dc_group' = group(`byvars'), missing
+            // the groups are 1..G
+            quietly summarize `dc_group', meanonly
+            if r(N) > 0 mata: st_local("group_levels", invtokens(strtrim(strofreal(1..st_numscalar("r(max)"), "%20.0f"))))
             local has_groups = 1
             // each group's values (ledger form) and display label, from its
             // first row.  A blank string is (blank) on screen and [] in the
@@ -1943,13 +1991,23 @@ program define dataprobe, rclass
                 _dataprobe_premask `dc_group' `_pind' `_xmask' "`_hideg'" `_gord'
                 local _hb`j' "`r(force)'"
             }
+            // 2.1.0 F9(b): an expression counted per group (a 0/1 sum, n,
+            // pmiss) whose rows are a profiled variable's level or missing
+            // rows is that variable's count (_sxl#; _dataprobe_exprarg)
+            forvalues k = 1/`n_stat' {
+                tempvar _sxi`k'
+                mata: st_local("_isx", strofreal(st_local("stat_xlab`k'") != "" & st_local("stat_cond`k'") == "1"))
+                _dataprobe_exprarg link `_isx' `stat_st`k'' `stat_var`k'' `_sxi`k'', lv(`f_categorical' `f_string') mv(`profilevars')
+                local _sxl`k' "`_xa_link'"
+                if "`_xa_link'" != "" local _aud_tv "`_aud_tv' `_sxi`k''"
+            }
             // stat(sum) of a 0/1 variable is the count of its ones
             forvalues k = 1/`n_stat' {
                 local _hs`k' ""
                 local _hss`k' = 0
                 local sv "`stat_var`k''"
                 if "`stat_st`k''" != "sum" | "`stat_cond`k''" != "1" continue
-                if !`: list sv in f_categorical' continue
+                if !`: list sv in f_categorical' & "`_sxl`k''" == "" continue
                 quietly count if !missing(`sv') & !inlist(`sv', 0, 1)
                 if r(N) > 0 continue
                 local _hss`k' = 1
@@ -1970,30 +2028,27 @@ program define dataprobe, rclass
                     local i : list posof "`v'" in pvars
                     capture drop `_bx'
                     quietly generate byte `_bx' = 0
-                    foreach gg of local _hm`i' {
-                        quietly replace `_bx' = 1 if missing(`v') & `dc_group' == `gg'
-                    }
+                    // each list in one pass over the rows (P1)
+                    if "`_hm`i''" != "" _dataprobe_byhits mark `dc_group' if missing(`v'), ///
+                        groups(`_hm`i'') replace(`_bx')
                     foreach _vg in allowed forbid notvalues {
                         forvalues k = 1/`n_`_vg'' {
                             if "``_vg'_var`k''" != "`v'" | "`_hv_`_vg'`k''" == "" continue
-                            foreach gg of local _hv_`_vg'`k' {
-                                quietly replace `_bx' = 1 if `_vhit_`_vg'`k'' == 1 & `dc_group' == `gg'
-                            }
+                            _dataprobe_byhits mark `dc_group' if `_vhit_`_vg'`k'' == 1, ///
+                                groups(`_hv_`_vg'`k'') replace(`_bx')
                         }
                     }
                     local j = 0
                     foreach bv of local binary {
                         local ++j
                         if "`bv'" != "`v'" | "`_hb`j''" == "" continue
-                        foreach gg of local _hb`j' {
-                            quietly replace `_bx' = 1 if !missing(`bv') & !inlist(`bv', 0, 1) & `dc_group' == `gg'
-                        }
+                        _dataprobe_byhits mark `dc_group' if !missing(`bv') & !inlist(`bv', 0, 1), ///
+                            groups(`_hb`j'') replace(`_bx')
                     }
                     forvalues k = 1/`n_stat' {
-                        if "`stat_var`k''" != "`v'" | "`_hs`k''" == "" continue
-                        foreach gg of local _hs`k' {
-                            quietly replace `_bx' = 1 if `v' == 1 & `dc_group' == `gg'
-                        }
+                        if ("`stat_var`k''" != "`v'" & "`_sxl`k''" != "`v'") | "`_hs`k''" == "" continue
+                        _dataprobe_byhits mark `dc_group' if `stat_var`k'' == 1, ///
+                            groups(`_hs`k'') replace(`_bx')
                     }
                     tempvar _bff
                     local _bffv`i' "`_bff'"
@@ -2018,8 +2073,8 @@ program define dataprobe, rclass
                         local _hb`j' : list _hb`j' | _gl
                     }
                     forvalues k = 1/`n_stat' {
-                        if "`stat_var`k''" != "`v'" | "`stat_st`k''" != "sum" | "`stat_cond`k''" != "1" continue
-                        quietly levelsof `dc_group' if `v' == 1 & `_bff' == 1, local(_gl)
+                        if ("`stat_var`k''" != "`v'" & "`_sxl`k''" != "`v'") | "`stat_st`k''" != "sum" | "`stat_cond`k''" != "1" continue
+                        quietly levelsof `dc_group' if `stat_var`k'' == 1 & `_bff' == 1, local(_gl)
                         local _hs`k' : list _hs`k' | _gl
                     }
                 }
@@ -2051,10 +2106,11 @@ program define dataprobe, rclass
             }
             forvalues k = 1/`n_stat' {
                 if !inlist("`stat_st`k''", "n", "pmiss") | "`stat_cond`k''" != "1" continue
-                local i : list posof "`stat_var`k''" in pvars
+                local _sv = cond("`_sxl`k''" != "", "`_sxl`k''", "`stat_var`k''")
+                local i : list posof "`_sv'" in pvars
                 if `i' > 0 local _hs`k' "`_hm`i''"
-                local _pmv "`_pmv' `stat_var`k''"
-                local _gmv "`_gmv' `stat_var`k''"
+                local _pmv "`_pmv' `_sv'"
+                local _gmv "`_gmv' `_sv'"
             }
             // groupstat() with the call's by(): its n and pmiss cells give
             // back the missing count beside the GROUPWISE N, and a sum of a
@@ -2068,9 +2124,7 @@ program define dataprobe, rclass
                     tempvar _mf
                     quietly generate byte `_mf' = 0
                     local _aud_tv "`_aud_tv' `_mf'"
-                    foreach gg of local _hm`i' {
-                        quietly replace `_mf' = 1 if `dc_group' == `gg'
-                    }
+                    _dataprobe_byhits mark `dc_group', groups(`_hm`i'') replace(`_mf')
                     local _gsmh "`_gsmh' `v' `_mf'"
                 }
                 if "`_bffv`i''" != "" local _gsfh "`_gsfh' `v' `_bffv`i''"
@@ -2121,7 +2175,8 @@ program define dataprobe, rclass
                 if `: list bv in f_categorical' local _asp "`_asp';N|`bv'||cg|`_hb`j'';V0|`bv'||zg|;V1|`bv'||zg|"
             }
             forvalues k = 1/`n_stat' {
-                if `_hss`k'' local _asp "`_asp';V1|`stat_var`k''||cg|`_hs`k''"
+                if `_hss`k'' & "`_sxl`k''" == "" local _asp "`_asp';V1|`stat_var`k''||cg|`_hs`k''"
+                if `_hss`k'' & "`_sxl`k''" != "" local _asp "`_asp';C|`_sxl`k''|`_sxi`k''|cg|`_hs`k''"
             }
             if "`byfreq'" != "" & `_maskcell' > 0 {
                 foreach v in `f_categorical' `f_string' {
@@ -2788,6 +2843,9 @@ program define dataprobe, rclass
         local _ks_om = 0
         local _ks_ou = 0
         local _ks_mt = 0
+        local _cv_sides = 0
+        local _cv_lo = 0
+        local _cv_hi = 0
         local _ks_mg ""
         local _rev_hdr = 0
 
@@ -2846,12 +2904,35 @@ program define dataprobe, rclass
             else quietly bysort `_dupvars': generate byte `_dfirst' = (_n == 1)
         }
 
+        // One pass for every by() group (P1, 2.1.0): the rows are put in
+        // group order once, each group keeping its rows' order, and every
+        // per-group command below reads only the group's block of rows
+        // ("in first/last") instead of every row once per group.  The rows
+        // stay in group order after the loop (see the fast path's note).
+        local _sbon = (`has_groups' & `n_scope' > 0)
+        if `_sbon' {
+            tempvar _sba _sbb _sbord
+            // the fast path's rows are in group order (the build's sort, or
+            // nodups' sort by group): no scan for the order is needed
+            local _sbin = cond(`_fast', "sorted", "")
+            _dataprobe_byhits blocks `dc_group', order(`_sbord') first(`_sba') last(`_sbb') `_sbin'
+        }
+        local IN ""
+        // inrange(): rows below lo and above hi over every entry and scope
+        // (r(inrange_n_below), r(inrange_n_above)); missing when a side
+        // was masked anywhere
+        local _inr_nb = 0
+        local _inr_na = 0
+        local _inr_nm = 0
+
         forvalues si = 1/`n_scope' {
             local IF "`scope_if`si''"
+            // the group's rows: group si is the si-th level of 1..G
+            if `_sbon' local IN "in `=`_sba'[`si']'/`=`_sbb'[`si']'"
             local GP "`scope_lab`si''"
             local PFX ""
             if "`GP'" != "" local PFX "`GP': "
-            quietly count if `IF'
+            quietly count if `IF' `IN'
             local scope_n = r(N)
             _dataprobe_mcount `scope_n' `_gm'
             local scope_ns "`r(s)'"
@@ -2900,7 +2981,7 @@ program define dataprobe, rclass
             // counts would itself be a small cell.
             forvalues k = 1/`n_isid' {
                 local isid "`isid_key`k''"
-                quietly count if `IF' & `_istag`k''
+                quietly count if `IF' & `_istag`k'' `IN'
                 local idist = r(N)
                 local ndup = `scope_n' - `idist'
                 local ok = (`ndup' == 0)
@@ -2930,7 +3011,7 @@ program define dataprobe, rclass
 
             // nodups
             if "`nodups'" != "" {
-                quietly count if `IF' & `_dfirst'
+                quietly count if `IF' & `_dfirst' `IN'
                 local ndup = `scope_n' - r(N)
                 local ok = (`ndup' == 0)
                 _dataprobe_mcount `ndup' `_gm' `scope_n' `_hz'
@@ -2946,7 +3027,7 @@ program define dataprobe, rclass
 
             // notmissing
             foreach v of local notmissing {
-                quietly count if `IF' & missing(`v')
+                quietly count if `IF' & missing(`v') `IN'
                 local nmiss = r(N)
                 local ok = (`nmiss' == 0)
                 _dataprobe_mcount `nmiss' `_gm' `scope_n' `_hz'
@@ -2989,7 +3070,7 @@ program define dataprobe, rclass
                     if "`oc'" == "" local oc "`iv' > `hi'"
                     else local oc "`oc' | `iv' > `hi'"
                 }
-                quietly count if `IF' & (`oc') & !missing(`iv')
+                quietly count if `IF' & (`oc') & !missing(`iv') `IN'
                 local noutr = r(N)
                 local ok = (`noutr' == 0)
                 local exp "[`inr_lolab`k'', `inr_hilab`k'']"
@@ -3006,6 +3087,53 @@ program define dataprobe, rclass
                         local mins = .
                     }
                 }
+                // F9(d): the rows outside, below lo and above hi (disjoint:
+                // lo <= hi).  Each side is masked as the count is.  Beside an
+                // exact total, one side's exact count gives back the other,
+                // so a masked side withholds the other; beside a masked or
+                // withheld total, a side prints only 0 or <m (a withheld
+                // total: only whether the side is zero).
+                local nbelow = 0
+                local nabove = 0
+                if `noutr' > 0 {
+                    if `inr_loopen`k'' local nabove = `noutr'
+                    else if `inr_hiopen`k'' local nbelow = `noutr'
+                    else {
+                        quietly count if `IF' & `iv' < `lo' & !missing(`iv') `IN'
+                        local nbelow = r(N)
+                        local nabove = `noutr' - `nbelow'
+                    }
+                }
+                _dataprobe_mcount `nbelow' `_gm' . `_hz'
+                local nbls "`r(s)'"
+                local nblm = r(masked)
+                _dataprobe_mcount `nabove' `_gm' . `_hz'
+                local nabs "`r(s)'"
+                local nabm = r(masked)
+                if `om' {
+                    if `nbelow' >= 1 & ("`nos'" == "[suppressed]" | `nbelow' >= max(`_gm', 1)) {
+                        local nbls "[suppressed]"
+                        local nblm = 1
+                    }
+                    if `nabove' >= 1 & ("`nos'" == "[suppressed]" | `nabove' >= max(`_gm', 1)) {
+                        local nabs "[suppressed]"
+                        local nabm = 1
+                    }
+                }
+                else if `nblm' & !`nabm' {
+                    local nabs "[suppressed]"
+                    local nabm = 1
+                }
+                else if `nabm' & !`nblm' {
+                    local nbls "[suppressed]"
+                    local nblm = 1
+                }
+                local _inr_nb = `_inr_nb' + `nbelow'
+                local _inr_na = `_inr_na' + `nabove'
+                if `om' | `nblm' | `nabm' local _inr_nm = 1
+                // both bounds closed: the split beside the count
+                local _isplit ""
+                if !`ok' & !`inr_loopen`k'' & !`inr_hiopen`k'' local _isplit " (`nbls' below, `nabs' above)"
                 if `ok' {
                     local obs "0 outside"
                     local msg "`PFX'inrange(`iv'): 0 obs outside `exp'"
@@ -3017,14 +3145,14 @@ program define dataprobe, rclass
                         // exclude() withholds contents: an extreme of an
                         // excluded identifier would print one person's value
                         local obs "`nos' outside"
-                        local msg "`PFX'inrange(`iv'): `nos' obs outside `exp'  (extremes withheld: excluded)"
+                        local msg "`PFX'inrange(`iv'): `nos' obs outside `exp'`_isplit'  (extremes withheld: excluded)"
                     }
                     else if !`_xmask' {
                         // a date prints in its own format, as the bounds do
                         local _ivf : format `iv'
                         local _ivf = subinstr("`_ivf'", "%-", "%", 1)
                         if !(substr("`_ivf'", 1, 2) == "%t" | substr("`_ivf'", 1, 2) == "%d") local _ivf "%14.0g"
-                        quietly summarize `iv' if `IF'
+                        quietly summarize `iv' if `IF' `IN'
                         local omin = strtrim(string(r(min), "`_ivf'"))
                         local omax = strtrim(string(r(max), "`_ivf'"))
                         // a date at full precision beside it (a value just
@@ -3044,20 +3172,20 @@ program define dataprobe, rclass
                         // persons; report guarded p1/p99 instead.
                         local xlo "p1"
                         local xhi "p99"
-                        quietly summarize `iv' if `IF', detail
+                        quietly summarize `iv' if `IF' `IN', detail
                         tempname _iq1 _iq99
                         scalar `_iq1' = r(p1)
                         scalar `_iq99' = r(p99)
                         _dataprobe_qshow `iv', value(`_iq1') mask(`_xmask') ///
-                            cond(`"`IF'"') stat(p1) fmt(%14.0g)
+                            cond(`"`IF'"') stat(p1) fmt(%14.0g) scopein(`IN')
                         local omin `"`r(s)'"'
                         _dataprobe_qshow `iv', value(`_iq99') mask(`_xmask') ///
-                            cond(`"`IF'"') stat(p99) fmt(%14.0g)
+                            cond(`"`IF'"') stat(p99) fmt(%14.0g) scopein(`IN')
                         local omax `"`r(s)'"'
                     }
                     if !`: list iv in exclude' {
                         local obs "`nos' outside; `xlo' `omin', `xhi' `omax'"
-                        local msg "`PFX'inrange(`iv'): `nos' obs outside `exp'  (`xlo' `omin', `xhi' `omax')"
+                        local msg "`PFX'inrange(`iv'): `nos' obs outside `exp'`_isplit'  (`xlo' `omin', `xhi' `omax')"
                     }
                 }
                 frame post `RF' ("inrange") ("`inr_kind`k''") (`ok') ("`iv'") ("`iv'") (`"`GP'"') ///
@@ -3070,7 +3198,7 @@ program define dataprobe, rclass
                     local av "``_vg'_var`k''"
                     local vals `"``_vg'_vals`k''"'
                     // the gate's rows were marked once over the call
-                    quietly count if `IF' & `_vhit_`_vg'`k'' == 1
+                    quietly count if `IF' & `_vhit_`_vg'`k'' == 1 `IN'
                     local nbad = r(N)
                     local ok = (`nbad' == 0)
                     _dataprobe_mcount `nbad' `_gm' `scope_n' `_hz'
@@ -3113,7 +3241,7 @@ program define dataprobe, rclass
                 local pat `"`regex_pat`k''"'
                 capture confirm string variable `rv'
                 if !_rc {
-                    quietly count if `IF' & !missing(`rv') & !regexm(`rv', `"`pat'"')
+                    quietly count if `IF' & !missing(`rv') & !regexm(`rv', `"`pat'"') `IN'
                 }
                 else {
                     // a numeric value is matched as written in full: an
@@ -3123,7 +3251,7 @@ program define dataprobe, rclass
                     local _rgf = cond("`: type `rv''" == "float", "%9.0g", "%16.0g")
                     quietly count if `IF' & !missing(`rv') & ///
                         !regexm(cond(`rv' == int(`rv'), string(`rv', "%21.0f"), ///
-                        string(`rv', "`_rgf'")), `"`pat'"')
+                        string(`rv', "`_rgf'")), `"`pat'"') `IN'
                 }
                 local nbad = r(N)
                 local ok = (`nbad' == 0)
@@ -3140,7 +3268,7 @@ program define dataprobe, rclass
 
             // rule: indicators were evaluated at parse time
             forvalues k = 1/`n_rule' {
-                quietly count if `IF' & `ruleind`k''
+                quietly count if `IF' & `ruleind`k'' `IN'
                 local nbad = r(N)
                 local ok = (`nbad' == 0)
                 _dataprobe_mcount `nbad' `_gm' `scope_n' `_hz'
@@ -3156,7 +3284,16 @@ program define dataprobe, rclass
 
             // byrule: indicators were evaluated at parse time, under by semantics
             forvalues k = 1/`n_byrule' {
-                quietly count if `IF' & `byruleind`k''
+                // a rule with a group aggregate: the failing groups (a group
+                // fails when the rule is false on any of its rows), masked
+                // against the groups in scope as a row count is against N
+                if `byrule_agg`k'' {
+                    _dataprobe_byagg post `"`macval(byrule_exp`k')'"' `byrulegid`k'' `byruleind`k'', ///
+                        cond(`IF') scopein(`IN') rf(`RF') mask(`_gm') hz(`_hz') nscope(`scope_npost') ///
+                        pfx(`"`PFX'"') grp(`"`GP'"') lab(`"`byrule_lab`k''"')
+                    continue
+                }
+                quietly count if `IF' & `byruleind`k'' `IN'
                 local nbad = r(N)
                 local ok = (`nbad' == 0)
                 _dataprobe_mcount `nbad' `_gm' `scope_n' `_hz'
@@ -3179,7 +3316,7 @@ program define dataprobe, rclass
                 local hi "`stat_hi`k''"
                 local cnd "`IF'"
                 if "`stat_cond`k''" != "1" local cnd "(`IF') & `stat_cond`k''"
-                _dataprobe_statval `sst' `sv' `sden', cond(`"`cnd'"') mask(`_gm') `_hzopt'
+                _dataprobe_statval `sst' `sv' `sden', cond(`"`cnd'"') mask(`_gm') `_hzopt' scopein(`IN')
                 local sn = r(n)
                 local sdef = r(defined)
                 local sshown = r(shown)
@@ -3216,7 +3353,7 @@ program define dataprobe, rclass
                 // the pooled-remainder test withholds this group's count
                 if `_pfx' & `sdef' & ("`_hs`k''" != "" | `_hz') {
                     local _slk = `_hss`k'' | (inlist("`sst'", "n", "pmiss") & "`stat_cond`k''" == "1" & ///
-                        `: list sv in _gvars')
+                        (`: list sv in _gvars' | ("`_sxl`k''" != "" & strpos(" `_gvars' ", " `_sxl`k'' "))))
                     if (`: list _sgg in _hs`k'' & `sshown') | (`_hz' & `_slk' & scalar(`sval') != 0) {
                         local sshow "[suppressed]"
                         local sshown = 0
@@ -3226,7 +3363,7 @@ program define dataprobe, rclass
                 // of a statistic of an excluded variable, never its value
                 local _sxc = 0
                 local _sxm = !`sshown'
-                foreach _sxv in `sv' `sden' {
+                foreach _sxv in `sv' `sden' `stat_xops`k'' {
                     if `: list _sxv in exclude' local _sxc = 1
                 }
                 if `_sxc' & `sdef' {
@@ -3236,7 +3373,7 @@ program define dataprobe, rclass
                 // safe: a date's mean or percentile is a date, withheld as
                 // the DATE block's p1/p99 are; the verdict stays (2.0.0 U2)
                 else if `_safe' & `sdef' & ("`sst'" == "mean" | `isorder') & ///
-                    regexm("`: format `sv''", "^%-?(t|d)") {
+                    (regexm("`: format `sv''", "^%-?(t|d)") | `stat_xd`k'') {
                     local sshow "[withheld]"
                     local sshown = 0
                     local _sxc = 1
@@ -3255,19 +3392,23 @@ program define dataprobe, rclass
                     (`"`GP'"') (`"`sname' `sshow'"') (`onum') ///
                     (`"[`stat_lolab`k'', `stat_hilab`k'']"') (`scope_npost') (`"`macval(stat_if`k')'"') ///
                     (`"`macval(msg)'"') (`mins') (`om')
+                // 2.1.0 F9(b): an expression's row, posted under its tempvar's
+                // name, gets the expression's text as typed (frame post
+                // would expand a macro inside it, or stop at a backtick)
+                _dataprobe_exprarg fix `RF' "stat(`slab')" `"`macval(stat_xlab`k')'"' `"`macval(stat_xvar`k')'"'
             }
 
             // binary: only 0 and 1, and both observed
             local _bj = 0
             foreach bv of local binary {
                 local ++_bj
-                quietly count if `IF' & !missing(`bv') & !inlist(`bv', 0, 1)
+                quietly count if `IF' & !missing(`bv') & !inlist(`bv', 0, 1) `IN'
                 local nnot = r(N)
-                quietly count if `IF' & `bv' == 0
+                quietly count if `IF' & `bv' == 0 `IN'
                 local n0 = r(N)
-                quietly count if `IF' & `bv' == 1
+                quietly count if `IF' & `bv' == 1 `IN'
                 local n1 = r(N)
-                quietly count if `IF' & missing(`bv')
+                quietly count if `IF' & missing(`bv') `IN'
                 local nmv = r(N)
                 _dataprobe_mcount `nnot' `_gm' `scope_n' `_hz'
                 local nnots "`r(s)'"
@@ -3319,12 +3460,12 @@ program define dataprobe, rclass
                 _dataprobe_events, rf(`RF') ev(`ev_var`k'') evcond(`ev_cond`k'') ///
                     vars(`ev_covs`k'') min(`ev_min`k'') cond(`IF') kind(invariant) ///
                     grp(`"`GP'"') scope(`"`ev_if`k''"') pfx(`"`PFX'"') mask(`_gm') ///
-                    nscope(`scope_npost') excluded(`exclude')
+                    nscope(`scope_npost') excluded(`exclude') scopein(`IN')
             }
 
             // review(): counted conditions, printed and never halting
             forvalues k = 1/`n_review' {
-                quietly count if `IF' & `reviewind`k''
+                quietly count if `IF' & `reviewind`k'' `IN'
                 local nr = r(N)
                 _dataprobe_mshare `nr' `scope_n' `_gm' `_hz'
                 local rc_ "`r(cnt)'"
@@ -3373,9 +3514,14 @@ program define dataprobe, rclass
                 if `_pfx' & `_hz' local _cf = 2
                 _dataprobe_complete, spec(`"`complete_spec`k''"') rf(`RF') ///
                     kind(`complete_kind`k'') grp(`"`GP'"') pfx(`"`PFX'"') mask(`_gm') ///
-                    nscope(`scope_npost') cond(`IF') force(`_cf')
+                    nscope(`scope_npost') cond(`IF') force(`_cf') scopein(`IN')
             }
         }
+        if `_sbon' {
+            capture drop `_sba' `_sbb'
+            capture drop `_sbord'
+        }
+        local IN ""
 
         // ---- whole-sample families: evaluated once on the if/in sample ----
         forvalues k = 1/`nf_intervals' {
@@ -3409,6 +3555,12 @@ program define dataprobe, rclass
             if `: list _cvv in exclude' local _cvx "excluded"
             _dataprobe_coverage, spec(`"`coverage_spec`k''"') rf(`RF') kind(band) ///
                 mask(`_gm') nscope(`nobs') `_cvx'
+            // 2.1.0 (F8): the directional outside counts of sides entries
+            if r(sides) == 1 {
+                local _cv_sides = 1
+                local _cv_lo = `_cv_lo' + r(outside_low)
+                local _cv_hi = `_cv_hi' + r(outside_high)
+            }
         }
         forvalues k = 1/`nf_jumps' {
             if !`_rev_hdr' {
@@ -3441,9 +3593,7 @@ program define dataprobe, rclass
                 // the rows of the pooled groups (pooled in groupstat() too)
                 tempvar _phv
                 quietly generate byte `_phv' = 0
-                foreach gg of local _hideg {
-                    quietly replace `_phv' = 1 if `dc_group' == `gg'
-                }
+                if "`_hideg'" != "" _dataprobe_byhits mark `dc_group', groups(`_hideg') replace(`_phv')
                 local _gsopt `"`_gsopt' byvars(`byvars') mhide(`_gsmh') fhide(`_gsfh') phide(`_phv')"'
                 if `_aud_cap' local _gsopt `"`_gsopt' capped"'
             }
@@ -3459,7 +3609,15 @@ program define dataprobe, rclass
 
         forvalues k = 1/`nf_smallcells' {
             _dataprobe_smallcells, spec(`"`smallcells_spec`k''"') rf(`RF') kind(invariant) ///
-                mask(`_gm') mcell(`_maskcell') nscope(`nobs')
+                mask(`_gm') mcell(`_maskcell') nscope(`nobs') safe(`_safe') excluded(`exclude')
+        }
+        // topvalues() (2.1.0, O4): one TOP VALUES block, r(topvalues) one
+        // row per variable
+        if `nf_topvalues' > 0 {
+            tempname _tvM
+            _dataprobe_topvalues, specs(`"`topvalues'"') mcell(`_maskcell') maxfreq(`maxfreq') ///
+                safe(`_safe') excluded(`exclude')
+            matrix `_tvM' = r(topvalues)
         }
 
         local compare_added ""
@@ -3543,6 +3701,11 @@ program define dataprobe, rclass
             local _snkt ""
             if "`_snkey'" != "" local _snkt = cond(r(key_unique) == 1, ", key `_snkey'", ", key `_snkey' (not unique)")
             display as text "snapshot: frame " as result "`_tt_snapshot'" as text "`_snkt'"
+            // 2.1.0 (R2): a strL never becomes the key, said, not skipped silently
+            if "`r(strl_skipped)'" != "" {
+                display as text "snapshot: strL not tried as key (merge refuses a strL key; recast str# first): " ///
+                    as result "`r(strl_skipped)'"
+            }
         }
 
         // ---- status of every record ----
@@ -3863,6 +4026,15 @@ program define dataprobe, rclass
             return scalar keyset_matched = `_ks_mt'
             return local keyset_merge = strtrim("`_ks_mg'")
         }
+        if `n_inr' > 0 {
+            return scalar inrange_n_below = cond(`_inr_nm', ., `_inr_nb')
+            return scalar inrange_n_above = cond(`_inr_nm', ., `_inr_na')
+        }
+        if "`_cv_sides'" == "1" {
+            return scalar coverage_outside_low = `_cv_lo'
+            return scalar coverage_outside_high = `_cv_hi'
+        }
+        if `nf_topvalues' > 0 return matrix topvalues = `_tvM'
         return local  violations     "`viol_names'"
         return local  failed_checks  "`failed_checks'"
         return local  checks_run     "`checks_run'"
@@ -3953,7 +4125,7 @@ program define dataprobe, rclass
             capture noisily _dataprobe_ledger, rf(`RF') file(`"`_ledfile'"') ///
                 run(`"`_ledrun'"') dataset(`"`_dsname'"') callscope(`"`_callscope'"') ///
                 version(`_pkgver') signature(`"`_dsig'"') ///
-                maskrare(`=("`maskrare'" != "")') mask(`_xmask')
+                maskrare(`=("`maskrare'" != "")') mask(`_xmask') phase(`phase')
             local _ledger_rc = _rc
             if !`_ledger_rc' {
                 return local ledger `"`_ledfile'"'
@@ -4783,9 +4955,7 @@ program define _dataprobe_bfforce, nclass
                 quietly generate byte `sup' = 0
             }
             quietly generate byte `hid' = 0
-            foreach gg of local pooledg {
-                quietly replace `hid' = 1 if `grp' == `gg'
-            }
+            if "`pooledg'" != "" _dataprobe_byhits mark `grp', groups(`pooledg') replace(`hid')
             gsort `grp' -`f' `v'
             quietly by `grp': generate long `rk' = _n
             _dataprobe_freqsup `grp' `f' `sup' `rk' `maxfreq' `maskcell'
@@ -5774,7 +5944,7 @@ real scalar _dpa_movewit(struct _dpa_st scalar S, real scalar qs, real scalar a,
 
 // ---- the exact check: the feasibility interval by linear programming ----
 // (Hundepool et al., Handbook on Statistical Disclosure Control, 2nd ed.,
-// 2025, sec. 4.2.2: the bounds a user can derive for a withheld cell from
+// 2026, sec. 4.2.2: the bounds a user can derive for a withheld cell from
 // the linear relations of the table).  Unknowns: each group's count of
 // each code of each variable, each group's incomplete count per set, and
 // each pooled group's size.  Constraints: everything the output prints, as

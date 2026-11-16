@@ -750,14 +750,18 @@ _u_tally `rc' "U4 colon with one statistic: identical output and ledger rows to 
 capture noisily {
     _u_fix
     set varabbrev on
-    local bad `""n mean: y, by(g) band(0 100)" "n mean: y, by(g) relative" "n mean: x y, by(g)" "n n: y, by(g)" "median p50: y, by(g)" "mean MEAN: y, by(g)" "n bogus: y, by(g)" "n mean sd p1 p5 p10 p25: y, by(g)" "n mean sd p1 p5 p10: y, by(g)""'
-    * the last one has six statistics: allowed; the one before has seven: refused
-    local nbad = 0
+    local bad `""n mean: y, by(g) band(0 100)" "n mean: y, by(g) relative" "n n: y, by(g)" "median p50: y, by(g)" "mean MEAN: y, by(g)" "n bogus: y, by(g)""'
     foreach e of local bad {
-        local ++nbad
         capture dataprobe, gatesonly groupstat(`e')
-        if `nbad' < 9 assert _rc == 198
-        else assert _rc == 0
+        assert _rc == 198
+        assert c(varabbrev) == "on"
+    }
+    * 2.1.0 lifted the 1.9.0 limits of one variable and six statistics
+    * (test_datamap_v210_groupexpr.do checks the tables these print)
+    local ok `""n mean: x y, by(g)" "n mean sd p1 p5 p10 p25: y, by(g)" "n mean sd p1 p5 p10: y, by(g)""'
+    foreach e of local ok {
+        capture dataprobe, gatesonly groupstat(`e')
+        assert _rc == 0
         assert c(varabbrev) == "on"
     }
     capture dataprobe, gatesonly groupstat(: y, by(g))
@@ -785,7 +789,7 @@ capture noisily {
 }
 local rc = _rc
 set varabbrev off
-_u_tally `rc' "U4 refusals: band/relative, several variables, duplicates, unknown, >6 statistics, bad grammar"
+_u_tally `rc' "U4 refusals: band/relative, duplicates, unknown, bad grammar; several variables and >6 statistics allowed"
 
 **# U4 masking cell by cell against count-if oracles
 capture noisily {

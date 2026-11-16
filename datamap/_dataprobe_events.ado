@@ -12,17 +12,28 @@
 // fam kind ok label variable grp observed obsnum expected nscope scope msg
 // minshown omasked.  One fail record per failing level; one pass record per
 // covariate when every level passes.  A covariate with no nonmissing level
-// in scope fails: nothing was tested.
+// in scope fails: nothing was tested.  scopein() ("in a/b", one by()
+// group's block of rows) counts on a copy of those rows, so the sort by
+// each covariate neither reads nor reorders the other groups' rows.
 program define _dataprobe_events, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local nfail = 0
     local anymask = 0
+    local _evf_made = 0
     capture noisily {
         syntax , RF(name) EV(varname) EVCOND(string) VARS(varlist) MIN(real) ///
             COND(string) KIND(string) [GRP(string) SCOPE(string) PFX(string) ///
-            MASK(integer 0) NSCOPE(real 0) EXCLuded(string)]
+            MASK(integer 0) NSCOPE(real 0) EXCLuded(string) SCOPEIN(string)]
+        local _evfr = c(frame)
+        if `"`scopein'"' != "" {
+            tempname _evf
+            frame put * `scopein', into(`_evf')
+            local _evf_made = 1
+            local _evfr "`_evf'"
+        }
+        frame `_evfr' {
         local mtxt = strtrim(string(`min', "%12.0g"))
         // a by() group whose size is withheld (missing nscope): an event
         // count of the mask or more bounds that size and is withheld too
@@ -108,8 +119,10 @@ program define _dataprobe_events, rclass
                     (`nscope') (`"`macval(scope)'"') (`"`macval(msg)'"') (`mins') (`km')
             }
         }
+        }
     }
     local rc = _rc
+    if `_evf_made' capture frame drop `_evf'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
     return scalar nfail = `nfail'

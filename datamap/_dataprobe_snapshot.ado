@@ -15,12 +15,16 @@
 //   _dta[dataprobe_keyuniq]  1 when the key identifies the rows, 0 when not
 //   _dta[dataprobe_N]        the rows profiled
 // The data in memory is the working sample; its row order is unchanged.
+// 2.1.0 (R2): a strL variable is never a key candidate (-merge- refuses a
+// strL key with r(106)); r(strl_skipped) names the strL variables that
+// would otherwise have qualified, and dataprobe prints them in a note.
 program define _dataprobe_snapshot, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local key ""
     local ku = .
+    local lskip ""
     capture noisily {
         syntax, CUR(name) NAME(name) NOBS(integer) [REPLACE KEY(string)]
         if "`key'" != "" {
@@ -36,7 +40,10 @@ program define _dataprobe_snapshot, rclass
                     if missing[`i'] != 0 continue
                     if !(unique_capped[`i'] == 1 | unique[`i'] == N[`i']) continue
                     local t = storage_type[`i']
-                    if "`t'" == "strL" continue
+                    if "`t'" == "strL" {
+                        local lskip "`lskip' `=variable[`i']'"
+                        continue
+                    }
                     local v = variable[`i']
                     if inlist("`t'", "byte", "int", "long") | substr("`t'", 1, 3) == "str" {
                         local c1 "`c1' `v'"
@@ -70,5 +77,6 @@ program define _dataprobe_snapshot, rclass
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
     return local key "`key'"
+    return local strl_skipped = strtrim("`lskip'")
     return scalar key_unique = `ku'
 end

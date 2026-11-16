@@ -8,12 +8,14 @@
 //   statistic statistic ...: varlist, by(groupvars) [min(#)]
 //
 // The colon form (one or more plain-word statistics, then a colon) prints
-// one table with a column per statistic.  Each statistic runs the
-// single-statistic code path below, so its ledger/record rows are exactly
-// those of the corresponding single-statistic entry; only the display is
-// merged.  A band() or relative is declared per statistic and is refused on
-// an entry with two or more statistics (rc 198), as is a varlist of more
-// than one variable with two or more statistics, and a statistic named twice.
+// one table per variable with a column per statistic.  Each statistic runs
+// the single-statistic code path below once for all the variables, so its
+// ledger/record rows are exactly those of the corresponding
+// single-statistic entry; only the display is merged.  More than six
+// statistics wrap onto further blocks of at most six columns (a 78-column
+// table), each with its own header, group rows and pooled row.  A band() or
+// relative is declared per statistic and is refused on an entry with two or
+// more statistics (rc 198), as is a statistic or a variable named twice.
 //
 // statistic: mean sd median p1 p5 p10 p25 p50 p75 p90 p95 p99 sum n distinct
 // pmiss ess, with the definitions of stat().  Prints one row per group and
@@ -84,10 +86,8 @@ program define _dataprobe_groupstat, rclass
             }
             else {
                 local multi = 1
-                if `nstat' > 6 {
-                    display as error "groupstat(): at most 6 statistics per entry (one table column each); got `nstat'"
-                    exit 198
-                }
+                // 2.1.0 F9(a): any number of statistics (the table wraps
+                // at six columns) and several variables (one table each)
                 local nhv : word count `head'
                 capture unab hvars : `head'
                 if _rc {
@@ -96,8 +96,9 @@ program define _dataprobe_groupstat, rclass
                     exit `_src'
                 }
                 local nhv : word count `hvars'
-                if `nhv' > 1 {
-                    display as error "groupstat(): several statistics take one variable per entry (columns are one per statistic); use one groupstat() entry per variable"
+                local hdup : list dups hvars
+                if "`hdup'" != "" {
+                    display as error "groupstat(): variable `: word 1 of `hdup'' is listed twice"
                     exit 198
                 }
                 local 0 `", `opts'"'
@@ -114,10 +115,12 @@ program define _dataprobe_groupstat, rclass
                 }
                 foreach s1 of local stnorm {
                     if !inlist("`s1'", "n", "distinct", "pmiss") {
-                        capture confirm numeric variable `hvars'
-                        if _rc {
-                            display as error "groupstat(): `hvars' is not numeric"
-                            exit 109
+                        foreach _hv of local hvars {
+                            capture confirm numeric variable `_hv'
+                            if _rc {
+                                display as error "groupstat(): `_hv' is not numeric"
+                                exit 109
+                            }
                         }
                     }
                 }
@@ -125,11 +128,13 @@ program define _dataprobe_groupstat, rclass
                 if "`parseonly'" == "" {
                     if `"`cond'"' == "" local cond "1"
                     tempname cf
-                    frame create `cf' int si int kk str244 txt
+                    // a cell per statistic (si), variable (vj) and group (kk)
+                    frame create `cf' int si int vj int kk str244 txt
                     local _cf_made = 1
                     local si = 0
                     foreach s1 of local stnorm {
                         local ++si
+                        // one call per statistic computes every variable
                         _dataprobe_groupstat, spec(`"`s1' `hvars', `opts'"') rf(`rf') ///
                             kind(`kind') grp(`"`macval(grp)'"') pfx(`"`macval(pfx)'"') ///
                             mask(`mask') nscope(`nscope') cond(`"`cond'"') ///
@@ -142,16 +147,20 @@ program define _dataprobe_groupstat, rclass
                         if `_m1' local anymask = 1
                         local nfail = `nfail' + `_f1'
                     }
-                    // one table: a column per statistic, the group labels and
-                    // the small-group line taken from the first statistic
+                    // one table per variable: a column per statistic, the
+                    // group labels and the small-group line taken from the
+                    // first statistic; more than six statistics wrap onto
+                    // further column blocks of six, each with its header,
+                    // group rows and pooled row
                     local nrow = 0
                     frame `cf' {
                         local ncf = _N
                         forvalues i = 1/`ncf' {
                             local _si = si[`i']
+                            local _vj = vj[`i']
                             local _kk = kk[`i']
                             local _tx = txt[`i']
-                            local t_`_si'_`_kk' `"`macval(_tx)'"'
+                            local t_`_si'_`_vj'_`_kk' `"`macval(_tx)'"'
                             if `_kk' > `nrow' local nrow = `_kk'
                         }
                     }
@@ -161,29 +170,37 @@ program define _dataprobe_groupstat, rclass
                             local sdisp "`sdisp' `=lower("`s1'")'"
                         }
                         local sdisp = strtrim("`sdisp'")
-                        display ""
-                        display as text "GROUPSTAT " as result "`sdisp'" as text ": " as result "`hvars'" ///
-                            as text " by(" as result "`by'" as text ")"
-                        local hdr ""
-                        foreach s1 of local sdisp {
-                            local hdr `"`hdr' as text %10s abbrev("`s1'", 9)"'
-                        }
-                        display as text "  " %-16s "Group" `hdr'
-                        forvalues k = 1/`nrow' {
-                            if `"`t_0_`k''"' == "" continue
-                            local line ""
-                            forvalues j = 1/`nstat' {
-                                local line `"`line' as result %10s `"`t_`j'_`k''"'"'
+                        local _vj = 0
+                        foreach _hv of local hvars {
+                            local ++_vj
+                            display ""
+                            display as text "GROUPSTAT " as result "`sdisp'" as text ": " as result "`_hv'" ///
+                                as text " by(" as result "`by'" as text ")"
+                            forvalues c0 = 1(6)`nstat' {
+                                local c1 = min(`c0' + 5, `nstat')
+                                local hdr ""
+                                forvalues j = `c0'/`c1' {
+                                    local s1 : word `j' of `sdisp'
+                                    local hdr `"`hdr' as text %10s abbrev("`s1'", 9)"'
+                                }
+                                display as text "  " %-16s "Group" `hdr'
+                                forvalues k = 1/`nrow' {
+                                    if `"`t_0_0_`k''"' == "" continue
+                                    local line ""
+                                    forvalues j = `c0'/`c1' {
+                                        local line `"`line' as result %10s `"`t_`j'_`_vj'_`k''"'"'
+                                    }
+                                    local gshow = substr(`"`t_0_0_`k''"', 1, 16)
+                                    display as text "  " as result %-16s `"`gshow'"' `line'
+                                }
+                                local line ""
+                                forvalues j = `c0'/`c1' {
+                                    local line `"`line' as result %10s `"`t_`j'_`_vj'_0'"'"'
+                                }
+                                display as text "  " as text %-16s "pooled" `line'
                             }
-                            local gshow = substr(`"`t_0_`k''"', 1, 16)
-                            display as text "  " as result %-16s `"`gshow'"' `line'
+                            if `"`t_0_0_0'"' != "" display as text `"  `macval(t_0_0_0)'"'
                         }
-                        local line ""
-                        forvalues j = 1/`nstat' {
-                            local line `"`line' as result %10s `"`t_`j'_0'"'"'
-                        }
-                        display as text "  " as text %-16s "pooled" `line'
-                        if `"`t_0_0'"' != "" display as text `"  `macval(t_0_0)'"'
                     }
                 }
             }
@@ -474,12 +491,16 @@ program define _dataprobe_groupstat, rclass
                 // group is pooled here too
                 local _phon = (`mask' > 0 & "`phide'" != "" & "`byvars'" != "")
                 if `_phon' local _phon : list byv === byvars
+                // the pooled rows of every group in one pass (P1)
+                if `_phon' {
+                    tempvar _phh _phc
+                    quietly generate byte `_phh' = (`phide' == 1)
+                    quietly generate long `_phc' = .
+                    _dataprobe_byhits count `g' `_phh', into(`_phc')
+                }
                 forvalues k = 1/`G' {
                     local ph_`k' = 0
-                    if `_phon' {
-                        quietly count if `g' == `k' & `phide' == 1
-                        local ph_`k' = (r(N) > 0)
-                    }
+                    if `_phon' local ph_`k' = (`_phc'[`k'] > 0)
                 }
                 forvalues k = 1/`G' {
                     local gl "`k'"
@@ -633,11 +654,15 @@ program define _dataprobe_groupstat, rclass
                         }
                     }
                     if "`_fl'" != "" {
+                        // the flagged rows of every group in one pass (P1)
+                        tempvar _flh _flk
+                        quietly generate byte `_flh' = (`_fl' == 1 & (`_flc'))
+                        quietly generate long `_flk' = .
+                        _dataprobe_byhits count `g' `_flh', into(`_flk')
                         forvalues k = 1/`G' {
                             if `sup_`k'' continue
                             if !`sh_`k'_`j'' continue
-                            quietly count if `g' == `k' & `_fl' == 1 & (`_flc')
-                            if r(N) > 0 {
+                            if `_flk'[`k'] > 0 {
                                 local sh_`k'_`j' = 0
                                 local s_`k'_`j' "[suppr.]"
                                 local cm_`j' = 1
@@ -777,8 +802,10 @@ program define _dataprobe_groupstat, rclass
                     local gshow = substr(`"`gl_`k''"', 1, 24)
                     if "`cellframe'" == "" display as text "  " as result %-24s `"`gshow'"' `line'
                     else {
-                        if `cellidx' == 1 frame post `cellframe' (0) (`k') (`"`macval(gl_`k')'"')
-                        frame post `cellframe' (`cellidx') (`k') (`"`s_`k'_1'"')
+                        if `cellidx' == 1 frame post `cellframe' (0) (0) (`k') (`"`macval(gl_`k')'"')
+                        forvalues j = 1/`nv' {
+                            frame post `cellframe' (`cellidx') (`j') (`k') (`"`s_`k'_`j''"')
+                        }
                     }
                 }
                 // the pooled cell as printed: a withheld value reads
@@ -801,7 +828,11 @@ program define _dataprobe_groupstat, rclass
                     local line `"`line' as result %13s "`pdisp_`j''""'
                 }
                 if "`cellframe'" == "" display as text "  " as text %-24s "pooled" `line'
-                else frame post `cellframe' (`cellidx') (0) (`"`pdisp_1'"')
+                else {
+                    forvalues j = 1/`nv' {
+                        frame post `cellframe' (`cellidx') (`j') (0) (`"`pdisp_`j''"')
+                    }
+                }
                 if `nsmall' > 0 {
                     local smtxt "groups with fewer than `gmin' rows: `nsmall'"
                     if `mask' > 0 local smtxt "groups with <`gmin' rows: `nsmall'"
@@ -809,7 +840,7 @@ program define _dataprobe_groupstat, rclass
                     // pooled every group, whatever its size
                     if `_phon' & "`capped'" != "" local smtxt "groups pooled (the linked-count check ran out of budget): `nsmall'"
                     if "`cellframe'" == "" display as text `"  `smtxt'"'
-                    else if `cellidx' == 1 frame post `cellframe' (0) (0) (`"`smtxt'"')
+                    else if `cellidx' == 1 frame post `cellframe' (0) (0) (0) (`"`smtxt'"')
                 }
 
                 // records

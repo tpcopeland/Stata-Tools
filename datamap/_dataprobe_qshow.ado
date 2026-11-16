@@ -9,12 +9,13 @@ program define _dataprobe_qshow, rclass
     // (within cond()) lie at or below it and at least # at or above it; sd
     // needs # nonmissing observations and, for a variable with two or three values,
     // # observations of each.  Dates print at month precision
-    // under masking and in their own format otherwise.
+    // under masking and in their own format otherwise.  scopein(): an
+    // "in a/b" qualifier (one by() group's block of rows) every count reads.
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, VALue(name) MASK(integer) [COND(string) STAT(string) FMT(string) KNOWN(integer -1)]
+        syntax varname, VALue(name) MASK(integer) [COND(string) STAT(string) FMT(string) KNOWN(integer -1) SCOPEIN(string)]
         if `"`cond'"' == "" local cond "1"
         if "`fmt'" == "" local fmt "%10.4g"
         local shown = 1
@@ -22,7 +23,7 @@ program define _dataprobe_qshow, rclass
         if `known' >= 0 local shown = `known'
         else if `mask' > 0 & !missing(scalar(`value')) {
             if "`stat'" == "sd" {
-                quietly count if (`cond') & !missing(`varlist')
+                quietly count if (`cond') & !missing(`varlist') `scopein'
                 local _n = r(N)
                 if `_n' < `mask' local shown = 0
                 // a variable with two values: sd and N give back the share,
@@ -30,12 +31,12 @@ program define _dataprobe_qshow, rclass
                 // printed sd .1714 beside N 100) must reach the mask
                 else {
                     tempname _lo _hi
-                    quietly summarize `varlist' if (`cond'), meanonly
+                    quietly summarize `varlist' if (`cond') `scopein', meanonly
                     scalar `_lo' = r(min)
                     scalar `_hi' = r(max)
-                    quietly count if (`cond') & `varlist' == scalar(`_lo')
+                    quietly count if (`cond') & `varlist' == scalar(`_lo') `scopein'
                     local _nlo = r(N)
-                    quietly count if (`cond') & `varlist' == scalar(`_hi')
+                    quietly count if (`cond') & `varlist' == scalar(`_hi') `scopein'
                     local _nhi = r(N)
                     if scalar(`_lo') < scalar(`_hi') & `_nlo' + `_nhi' == `_n' & ///
                         (`_nlo' < `mask' | `_nhi' < `mask') local shown = 0
@@ -45,16 +46,16 @@ program define _dataprobe_qshow, rclass
                     // so each value's rows must reach the mask as well
                     else if scalar(`_lo') < scalar(`_hi') {
                         quietly summarize `varlist' if (`cond') & `varlist' > scalar(`_lo') & ///
-                            `varlist' < scalar(`_hi'), meanonly
+                            `varlist' < scalar(`_hi') `scopein', meanonly
                         if r(N) > 0 & r(min) == r(max) & `_nlo' + `_nhi' + r(N) == `_n' & ///
                             (`_nlo' < `mask' | `_nhi' < `mask' | r(N) < `mask') local shown = 0
                     }
                 }
             }
             else {
-                quietly count if (`cond') & !missing(`varlist') & `varlist' <= scalar(`value')
+                quietly count if (`cond') & !missing(`varlist') & `varlist' <= scalar(`value') `scopein'
                 if r(N) < `mask' local shown = 0
-                quietly count if (`cond') & !missing(`varlist') & `varlist' >= scalar(`value')
+                quietly count if (`cond') & !missing(`varlist') & `varlist' >= scalar(`value') `scopein'
                 if r(N) < `mask' local shown = 0
             }
         }

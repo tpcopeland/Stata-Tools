@@ -6,7 +6,8 @@
 // Spec: varlist [, min(#)]
 //
 // Prints the masked complete-case count and share within the scope cond()
-// (dataprobe calls it once per by() group).  Without min() it is a review
+// (dataprobe calls it once per by() group, with scopein() the "in a/b"
+// block of the group's rows, which every count reads).  Without min() it is a review
 // item.  With min() the complete share must be at least min(), a gate whose
 // kind the caller sets (invariant, or band inside bands()).
 program define _dataprobe_complete, rclass
@@ -19,7 +20,8 @@ program define _dataprobe_complete, rclass
     local isgate = 0
     capture noisily {
         syntax , SPEC(string) [PARSEonly RF(name) KIND(string) GRP(string) ///
-            PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) FORCE(integer 0)]
+            PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) FORCE(integer 0) ///
+            SCOPEIN(string)]
         * nscope() may be passed as missing (.)
         local head `"`spec'"'
         local opts ""
@@ -40,13 +42,13 @@ program define _dataprobe_complete, rclass
         if "`parseonly'" == "" {
             if `"`cond'"' == "" local cond "1"
             tempvar cc
-            quietly generate byte `cc' = (`cond')
+            quietly generate byte `cc' = (`cond') `scopein'
             foreach v of local cvars {
-                quietly replace `cc' = 0 if missing(`v')
+                quietly replace `cc' = 0 if missing(`v') `scopein'
             }
-            quietly count if (`cond')
+            quietly count if (`cond') `scopein'
             local n = r(N)
-            quietly count if `cc'
+            quietly count if `cc' `scopein'
             local k = r(N)
             // a by() group whose size is withheld (missing nscope): a
             // complete count of the mask or more bounds that size

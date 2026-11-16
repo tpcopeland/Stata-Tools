@@ -27,6 +27,12 @@
 // counts are the ones -merge- reports for the implied merge type (a matched
 // key gives max(rows in memory, rows in the file) result rows).  Every
 // count obeys mask() as the verdict's counts do; r() is unmasked.
+//
+// 2.1.0 (R2): a strL key variable, in memory or in the file, is a failed
+// entry reported the same way ("strL key"), since -merge- refuses a strL
+// key with r(106) on either side (frlink, which keyset uses, would not);
+// the message names the variable and suggests recast str# or compress.
+// r(strl) is 1 then.
 program define _dataprobe_keyset, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -41,6 +47,7 @@ program define _dataprobe_keyset, rclass
     local ruo = .
     local mtype ""
     local conflict = 0
+    local strl = 0
     local vars ""
     local file ""
     local mode ""
@@ -116,6 +123,8 @@ program define _dataprobe_keyset, rclass
             // ---- preflight: types first; a conflict is a failure, no count ----
             local tline ""
             local ctext ""
+            local ltext ""
+            local lvars ""
             foreach v of local vars {
                 local tm : type `v'
                 frame `kf': local tu : type `v'
@@ -124,13 +133,26 @@ program define _dataprobe_keyset, rclass
                     local conflict = 1
                     local ctext "`ctext'`=cond("`ctext'" == "", "", "; ")'`v' `tm' in memory, `tu' in `fbase'"
                 }
+                if "`tm'" == "strL" | "`tu'" == "strL" {
+                    local strl = 1
+                    local lvars "`lvars' `v'"
+                    local _side = cond("`tm'" == "strL" & "`tu'" == "strL", "in memory and in `fbase'", ///
+                        cond("`tm'" == "strL", "in memory", "in `fbase'"))
+                    local ltext "`ltext'`=cond("`ltext'" == "", "", "; ")'`v' strL `_side'"
+                }
             }
+            local lvars = strtrim("`lvars'")
             display ""
             display as text "KEYSET PREFLIGHT: " as result `"`vars' using `fbase'"'
             display as text "  types: " as result "`tline'"
-            if `conflict' {
-                display as text "  " as error "type conflict (numeric and string): merge would stop with r(106)"
-                local obs "type conflict: `ctext'"
+            if `conflict' | `strl' {
+                if `conflict' display as text "  " as error "type conflict (numeric and string): merge would stop with r(106)"
+                if `strl' {
+                    display as text "  " as error "strL key (`lvars'): merge would stop with r(106); recast str# `lvars' (or compress) on that side first"
+                }
+                local obs ""
+                if `conflict' local obs "type conflict: `ctext'"
+                if `strl' local obs "`obs'`=cond("`obs'" == "", "", "; ")'strL key: `ltext'; recast str# before merging"
                 local msg `"`pfx'keyset(`vars'): `mode' — `obs'"'
                 local ++nfail
                 frame post `rf' ("keyset") ("`kind'") (0) ("`vars'") ("`vars'") ///
@@ -139,8 +161,12 @@ program define _dataprobe_keyset, rclass
             }
             else {
             tempvar nk lk lm nu
+            // generate, then by-replace: on zero rows -by: generate- makes
+            // no variable at all (2.1.0, R2: an empty sample or file was
+            // r(111) here)
             frame `kf' {
-                quietly bysort `vars': generate double `nu' = _N
+                quietly generate double `nu' = .
+                quietly bysort `vars': replace `nu' = _N
                 quietly by `vars': keep if _n == 1
                 quietly count if `nu' > 1
                 local uu = (r(N) == 0)
@@ -148,7 +174,8 @@ program define _dataprobe_keyset, rclass
             frame put `vars', into(`mf')
             local _mf_made = 1
             frame `mf' {
-                quietly bysort `vars': generate double `nk' = _N
+                quietly generate double `nk' = .
+                quietly bysort `vars': replace `nk' = _N
                 quietly by `vars': keep if _n == 1
                 quietly count if `nk' > 1
                 local um = (r(N) == 0)
@@ -287,5 +314,6 @@ program define _dataprobe_keyset, rclass
     return scalar rows_master = `rmo'
     return scalar rows_using = `ruo'
     return scalar conflict = `conflict'
+    return scalar strl = `strl'
     return local merge "`mtype'"
 end

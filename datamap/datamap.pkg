@@ -94,3 +94,11 @@ f _dataprobe_target.ado
 f _dataprobe_diff.ado
 f _dataprobe_snapshot.ado
 f _dataprobe_spec2do.ado
+f _dataprobe_byhits.ado
+f _dataprobe_sccells.ado
+f _dataprobe_topvalues.ado
+f _dataprobe_exprarg.ado
+f _dataprobe_byagg.ado
+f _dataqa_shardpath.ado
+f _dataqa_merge.ado
+f _dataqa_flow.ado

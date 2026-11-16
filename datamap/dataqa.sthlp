@@ -10,6 +10,7 @@
 {viewerjumpto "Dispositions" "dataqa##dispositions"}{...}
 {viewerjumpto "Examples" "dataqa##examples"}{...}
 {viewerjumpto "Stored results" "dataqa##results"}{...}
+{viewerjumpto "References" "dataqa##references"}{...}
 {viewerjumpto "Author" "dataqa##author"}{...}
 
 {title:Title}
@@ -25,18 +26,31 @@
 {cmd:dataqa set} [{opt agent}] [{it:options} | {cmd:clear}]
 
 {p 8 17 2}
-{cmd:dataqa report} [{cmd:using} {it:ledger}] [{cmd:,} {opt run(string)} {opt mark:down(filename)} {opt replace} {opt bands}]
+{cmd:dataqa report} [{cmd:using} {it:ledger}] [{cmd:,} {opt run(string)} {opt phase(names)} {opt mark:down(filename)} {opt replace} {opt bands}]
 
 {p 8 17 2}
 {cmd:dataqa assert} [{cmd:using} {it:ledger}] [{cmd:,} {opt run(string)} {opt exp:ect(names)}
-{opt base:line(string)} {opt baseled:ger(filename)} {opt opt:ional(names)}]
+{opt base:line(string)} {opt baseled:ger(filename)} {opt opt:ional(names)} {opt pend:ing(names)} {opt phase(names)}]
 
 {p 8 17 2}
-{cmd:dataqa export} [{cmd:using} {it:ledger}]{cmd:,} {opt sav:ing(filename)} [{opt run(string)} {opt replace} {opt thr:eshold(#)}]
+{cmd:dataqa export} [{cmd:using} {it:ledger}]{cmd:,} {opt sav:ing(filename)} [{opt run(string)} {opt phase(names)} {opt replace} {opt thr:eshold(#)}]
 
 {p 8 17 2}
 {cmd:dataqa compare} [{cmd:using} {it:ledger}] [{cmd:,} {opt run(string)} {opt base:line(string)}
-{opt baseled:ger(filename)} {opt ntol(#)} {opt stattol(#)}]
+{opt baseled:ger(filename)} {opt phase(names)} {opt ntol(#)} {opt stattol(#)}]
+
+{p 8 17 2}
+{cmd:dataqa flow step} {it:name} [{cmd:,} {opt led:ger(filename)} {opt run(string)} {opt flow(name)} {opt id(varname)} {opt lab:el(string)}]
+
+{p 8 17 2}
+{cmd:dataqa flow report} [{cmd:,} {opt led:ger(filename)} {opt run(string)} {opt flow(name)} {opt min:cell(#)} {opt pool:small}
+{opt count(ids|rows)} {opt exp:ort(filename)} {opt replace}]
+
+{p 8 17 2}
+{cmd:dataqa flow clear} [{cmd:,} {opt led:ger(filename)} {opt run(string)} {opt flow(name)} {opt all}]
+
+{p 8 17 2}
+{cmd:dataqa merge}{cmd:,} {opt into(ledger)} [{opt from(dir|pattern)} {opt run(string)} {opt replace}]
 
 {synoptset 24 tabbed}{...}
 {synopthdr:set options}
@@ -45,13 +59,16 @@
 {synopt:{opt mask:rare}}mask small cells in {cmd:dataprobe} and {cmd:datamvp}{p_end}
 {synopt:{opt min:cell(#)}}the mask threshold{p_end}
 {synopt:{opt led:ger(filename)}}ledger every gate call appends to{p_end}
+{synopt:{opt worker(id)}}this job writes its own shard of the ledger{p_end}
+{synopt:{opt shard:dir(dir)}}directory of the worker's shard{p_end}
 {synopt:{opt run(string)}}run label for ledger rows, such as the date{p_end}
+{synopt:{opt phase(name)}}phase that tags ledger rows, such as {cmd:build}{p_end}
 {synopt:{opt base:line(string)}}baseline run for compare, assert{p_end}
 {synopt:{opt baseled:ger(filename)}}ledger file of the baseline run{p_end}
 {synopt:{opt bandwarn}}make sanity bands warn (synthetic runs){p_end}
 {synopt:{opt sig:nature}}record each dataset's {help datasignature}{p_end}
 {synopt:{opt coll:ect}}failed gates are recorded, not halted on{p_end}
-{synopt:{opt replace}}clear the ledger's rows of {opt run()} first{p_end}
+{synopt:{opt replace}}clear the rows and flow steps of {opt run()} first{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -78,6 +95,31 @@ refuse a ledger whose {cmd:status} is not a string variable, or has a row whose
 status is not one of {bf:pass}, {bf:fail}, {bf:warn}, {bf:review}, or
 {bf:error}, with error 610.
 
+{pstd}
+Ledger text (dataset names, labels, groups, expectations, messages, run
+labels) is printed as text: a double or single quote, a dollar sign, a
+backtick, a brace, or SMCL markup in it prints as stored and is never read
+as a macro or as SMCL. The register draft and the release copy carry it as
+stored.
+
+{pstd}
+A ledger row carries the phase of its call in the column {cmd:phase}: the
+call's {opt phase()} in {cmd:dataprobe}, else the session's
+{cmd:dataqa set phase()}, else empty. {opt phase(names)} on {cmd:report},
+{cmd:assert}, {cmd:export}, and {cmd:compare} reads only the rows of those
+phases (both runs in {cmd:compare} and in the baseline check of
+{cmd:assert}), plus every call error row of the run, whatever its phase: a
+call that failed may have named another phase, so its error is never
+filtered away. A ledger written before the column existed reads as phase
+empty throughout, so a {opt phase()} selection keeps none of its rows; every
+other use of such a ledger is unchanged.
+
+{pstd}
+{cmd:dataqa flow} records a cohort's attrition step by step and prints it
+as a flow (CONSORT) table under the mask; {cmd:dataqa merge} folds the
+ledger shards of parallel jobs, set with {cmd:dataqa set worker()}, into
+one ledger. Both are described below.
+
 
 {marker subcommands}{...}
 {title:Subcommands}
@@ -101,7 +143,9 @@ if {opt safe} were typed (see each command's {opt safe}), and {cmd:nomaskrare}
 cannot turn it off. Other options may follow it, as in
 {cmd:dataqa set agent mincell(10) ledger("qa.dta") run(r1)}. The preset is
 {opt safe}, with the limits stated under {help datamap##safe:datamap's Safe output}: it
-covers printed output and written files only; stored results ({cmd:r()}), a
+covers printed output and written files only, and not the flow file of
+{cmd:dataqa flow}, a working file of exact counts (see
+{help dataqa##subcommands:dataqa flow}); stored results ({cmd:r()}), a
 {cmd:dataprobe} {opt snapshot()} frame, and differencing across outputs are not
 masked, identifiers are recognized by variable name only, and an integer date
 with no date format prints as a number.
@@ -162,7 +206,9 @@ part of its gate, so a rerun on {cmd:if} rows is a different gate. A call under
 {opt name()} carries no {bf:(modified)} marker, so give a subset its own
 {opt name()}. A call without a dataset name (no {opt name()} and no file in memory) is
 never superseded, since it cannot be told apart from another unnamed
-dataset. Ledger text (a dataset name, label, expectation, or observed value)
+dataset. In a ledger merged from worker shards ({cmd:dataqa merge}) a
+call supersedes only earlier rows of its own worker: when two workers ran
+the same gate, both rows stand and a failure in either is counted. Ledger text (a dataset name, label, expectation, or observed value)
 is printed as text in the console and the draft: no SMCL, quote, or macro
 character in it is live. {opt markdown(filename)} writes draft
 register rows in the column order Run | Dataset | Check | Observed |
@@ -217,6 +263,26 @@ without a baseline is r(198). A dataset name with a space goes in compound quote
 {opt expect()} and {opt optional()}, as in {cmd:optional(}{cmd:`"}{it:b c}{cmd:"'}
 {it:d}{cmd:)}.
 
+{pstd}
+{opt pending(names)} lists phases whose gates have not run yet, such as the
+analysis phase of a study whose build phase is asserted first. A baseline
+dataset with no rows in the run is reported as {bf:PENDING}, and does not
+halt, when every one of its baseline rows carries a phase in
+{opt pending()}; a dataset with a baseline row of any other phase is still
+missing. A name in {opt expect()} with no rows is pending by the same rule
+on its baseline rows. In a dataset that has rows in the run, a baseline gate
+of a pending phase with no row yet is listed as {bf:PENDING}
+({it:dataset}{cmd::} {it:family}{cmd:(}{it:label}{cmd:)}); a gate is matched on
+dataset, family, label, variable, scope, and kind, so a by() group or a
+changed declared range does not make it pending. Rows that are present are
+held to the usual rules whatever their phase: a failed gate of a pending
+phase still halts. This
+replaces a hand-kept {opt optional()} list of later-phase datasets. Like
+{opt optional()}, {opt pending()} needs a baseline and is ignored with a note
+without one, and a baseline whose ledger has no {cmd:phase} column has no
+pending dataset. A phase may not be both selected by {opt phase()} and listed
+in {opt pending()} (r(198)).
+
 {dlgtab:dataqa export}
 
 {pstd}
@@ -241,6 +307,126 @@ with r(602), even with {opt replace}. The comparison resolves a relative
 path against the working directory and folds {cmd:./} and
 {cmd:dir/..} segments; on Windows it treats {cmd:\} as {cmd:/} and, as on macOS,
 ignores case. It does not see through a symbolic link or a mapped drive.
+
+{dlgtab:dataqa flow}
+
+{pstd}
+{cmd:dataqa flow step} {it:name} records, where it is typed in the
+do-file, the number of rows of the data in memory and, with {opt id()}, the
+number of distinct ids, as the next step of the flow {opt flow()} (default
+{cmd:main}) of the run. It prints that the step was recorded and no count.
+A flow belongs to its run ({opt run()}, else the session run) and lives in
+the flow file next to the ledger: {it:stem}{cmd:.flow.dta}, where
+{it:stem} is the ledger's file name without {cmd:.dta}, so it survives
+across do-files as the ledger does (in a {opt worker()} session, the
+worker's own {it:stem}{cmd:.shard-}{it:id}{cmd:.flow.dta}). The flow file
+holds the exact counts, small ones included, without masking, since the
+report needs them to apply the rule below: it is a working file like the
+data, not an output. {cmd:dataqa set agent} and {opt safe} do not cover it
+(the first step of a flow under the preset prints a note saying so), so
+keep it where the data may be kept: a ledger that is to be shared should be
+exported with {cmd:dataqa export}, not copied with its directory.
+Recording a step name the flow already has replaces that step and every
+later one, so a rerun of the do-file rebuilds the flow rather than doubling
+it; {cmd:dataqa flow clear} removes the flow ({opt all}: every flow of the
+run), and {cmd:dataqa set ... ledger() run() replace}, which starts the run
+afresh, removes every flow step of the run too. A step with more rows or ids
+than the one before prints a note that the report will fail.
+
+{pstd}
+{cmd:dataqa flow report} prints each step's remaining count and the number
+excluded since the step before, as ids when every step has {opt id()} and
+as rows otherwise ({opt count()} chooses). It first checks that the steps
+are whole (numbered in order, each stored exclusion equal to the previous
+count less this one; r(610) otherwise) and that the remaining rows never
+increase, nor the ids where two consecutive steps have {opt id()}. Both are
+checked whatever {opt count()} prints, so a step that adds rows fails a
+flow reported as ids. A step with more than the step before fails the flow: the
+step is named, nothing of the flow is printed, and the call exits 9 (0
+under {cmd:dataqa set collect}). Either way one gate row, family
+{cmd:flow}, dataset {cmd:flow_}{it:name}, kind invariant, is written to
+the ledger, so {cmd:dataqa assert} halts on a broken flow and a passing
+rerun supersedes the failure.
+
+{pstd}
+{it:Disclosure.} A count is small when it is 1 to {opt mincell()}-1; zero
+is printed. Each pair of consecutive remaining counts describes nested
+populations, so the number excluded between them is a cell of its own, and
+a small cell can also be disclosed by subtracting two printed numbers
+(differencing; Hundepool et al. 2026, sections 4.2.1 and 5.2). Applying
+this to attrition steps is datamap's own choice; the handbook does not
+discuss flow charts. The rule:
+
+{phang2}1. Let L be the last step with at least {opt mincell()} remaining.
+The exclusions of steps 2 to L are pooled into blocks: a step that
+excludes 0 or at least {opt mincell()} is a block of its own; a step that
+excludes fewer is pooled with the {it:following} step(s) until the block
+excludes at least {opt mincell()}; a run of small steps at the end that
+cannot reach it is pooled with the block {it:before} it.{p_end}
+{phang2}2. If steps 2 to L together exclude 1 to {opt mincell()}-1, steps 2
+to the last form one block whose end count (unless it is 0) and exclusion
+are withheld.{p_end}
+{phang2}3. When the step after L leaves 1 to {opt mincell()}-1, the steps
+from there to the last form one block; its end count is withheld unless it
+is 0, and then its exclusion is withheld too. When it leaves 0, every later
+step is printed.{p_end}
+{phang2}4. When the first count is itself small, it is withheld and the
+other steps form one block, withheld but for a final 0.{p_end}
+
+{pstd}
+With {opt poolsmall} each block prints as one row naming its steps
+({cmd:a + b}) with the block's total exclusion. Without it every step has
+its own row, and inside a block of two or more steps every exclusion and
+every count but the block's end is withheld. Every printed number is
+therefore 0 or at least {opt mincell()}, and so is the difference of any
+two printed remaining counts; a withheld number cannot be computed from
+the printed ones. Every withheld number prints as {cmd:suppressed}, whether
+it is small or would reveal a small number: a mark meaning "below
+{it:m}" would narrow the values a reader has to consider (two exclusions
+marked <5 in a block that excludes 8 are both 4). {opt mincell(1)} and
+{opt mincell(2)} are refused, since a count withheld as small is then
+known to be 1.
+
+{dlgtab:dataqa merge}
+
+{pstd}
+In a do-file run as several parallel Stata jobs, each job types
+{cmd:dataqa set ledger(}{it:ledger}{cmd:) worker(}{it:id}{cmd:)} with its
+own {it:id}. Every ledger write of that job ({cmd:dataprobe}, its error
+rows, {cmd:dataqa flow report}) then goes to the job's shard
+{it:stem}{cmd:.shard-}{it:id}{cmd:.dta} beside the ledger (or in
+{opt sharddir()}), never to the shared file, and the rows carry the column
+{cmd:worker}. In that job {cmd:report}, {cmd:assert}, {cmd:export},
+{cmd:compare}, and {cmd:flow} read the shard when they are not given
+{cmd:using}. After the workers finish, one job types
+{cmd:dataqa merge, into(}{it:ledger}{cmd:)}.
+
+{pstd}
+{cmd:dataqa merge} reads the shards of {opt into()} from its directory, or
+from {opt from(dir)}; any other {opt from()} is a file pattern ({cmd:*},
+{cmd:?}) every match of which must be a shard. Every shard is checked
+before anything is written: its variables must be the ledger columns plus
+{cmd:worker}, of the ledger's types, with one valid id on every row, and
+that id must be the one its file name carries,
+{it:anything}{cmd:.shard-}{it:id}{cmd:.dta}, so a copied or renamed shard
+cannot pass as another worker's (r(610) otherwise); no two shards may hold the same worker (r(459)); and
+the ledger may not already hold rows of that worker in a run of the shard,
+which means it was merged before (r(459); {opt replace} drops those rows
+first). A column the ledger and the shards share must have the same type
+(r(610)). The ledger's rows stay first; the shards follow in worker-id
+order, sorted as text, each in the order its worker wrote it, and
+{cmd:seq} is renumbered within each run to follow that order. A call
+supersedes only earlier rows of its own worker, so when two workers ran the
+same gate (or the same flow) both rows stand: {cmd:report} and
+{cmd:assert} count a failure in either, and {cmd:compare} reads the worst
+status. Each shard gets one line naming its worker and the runs it holds,
+so a stale shard of an earlier run shows; {opt run()} folds in only that
+run's rows, counts the others as left out, and skips a shard with none. The merged ledger is
+built in a frame and written in one save; a failed check leaves
+{opt into()} as it was. A shard with no rows (a worker whose run was
+cleared with {opt replace} and not rewritten) is skipped with a note;
+when every shard is empty the call is r(2000). A ledger written by datamap 2.0.0 can be the
+target; its rows read as phase and worker empty. Shards are kept.
 
 {dlgtab:dataqa compare}
 
@@ -304,9 +490,28 @@ filename without a suffix, as {cmd:save} does; a name with any other suffix, suc
 file under this rule.
 
 {phang}
+{opt worker(id)} makes this Stata job one of several parallel workers: its
+ledger writes go to its own shard of the ledger
+({help dataqa##subcommands:dataqa merge}), so jobs never write one file at
+the same time. {it:id} is 1 to 32 letters, digits, underscores, or
+hyphens, different for every job (two jobs with one id share a shard). It
+requires {opt ledger()}. {opt replace} then clears the run's rows from the
+shard, not the ledger. {cmd:r(shard)} names the shard.
+
+{phang}
+{opt shard:dir(dir)} puts the shard in the existing directory {it:dir}
+rather than beside the ledger. It requires {opt worker()}.
+
+{phang}
 {opt run(string)} labels the ledger rows of this session, such as the date of
 the run. It requires {opt ledger()} and may not contain parentheses, quotes,
 backslashes, or the shell characters {cmd:; & | < > $} and the backtick.
+
+{phang}
+{opt phase(name)} tags the ledger rows of this session's {cmd:dataprobe}
+calls with a phase, such as {cmd:build} or {cmd:analysis}; a call's own
+{opt phase()} overrides it. It requires {opt ledger()} and must be a valid
+Stata name (r(198) otherwise).
 
 {phang}
 {opt base:line(string)} names the baseline run that {cmd:dataqa compare} and
@@ -354,7 +559,8 @@ everywhere. {cmd:dataqa set clear} removes it with the other defaults.
 defaults are set, so the run starts afresh; rows of other runs are kept. It
 requires both {opt ledger()} and {opt run()}, acts once, and is not stored
 with the defaults. A file that is not a dataprobe ledger is refused with
-r(610) and left untouched.
+r(610) and left untouched. The run's {cmd:dataqa flow} steps, every flow,
+are removed from the flow file too (the worker's own under {opt worker()}).
 
 {dlgtab:Options for report, assert, export, and compare}
 
@@ -362,6 +568,12 @@ r(610) and left untouched.
 {opt run(string)} selects the run to read. It defaults to the run set by
 {cmd:dataqa set}. {cmd:dataqa report} reads every run when neither is given; {cmd:dataqa assert},
 {cmd:dataqa export}, and {cmd:dataqa compare} require one.
+
+{phang}
+{opt phase(names)} reads only the rows of the listed phases, plus every
+call error row of the run (see {help dataqa##description:Description}). In
+{cmd:compare} it applies to both runs, and in {cmd:assert} to the baseline
+check as well.
 
 {phang}
 {opt mark:down(filename)} ({cmd:report}) writes the register draft to
@@ -379,6 +591,11 @@ draft, the table of bands and {opt stat()} invariants described above.
 {phang}
 {opt opt:ional(names)} ({cmd:assert}) lists datasets of the baseline run that may
 be absent from the run asserted. It requires {opt baseline()}.
+
+{phang}
+{opt pend:ing(names)} ({cmd:assert}) lists phases whose baseline datasets and
+gates may have no rows yet; such a dataset or gate is reported as
+{bf:PENDING} and does not halt. It requires {opt baseline()}.
 
 {phang}
 {opt sav:ing(filename)} ({cmd:export}) is required and names the release copy,
@@ -401,6 +618,55 @@ baseline run; the default is the ledger being compared.
 {opt ntol(#)} and {opt stattol(#)} ({cmd:compare}) are the nonnegative
 tolerances for a change in rows in scope and in a {opt stat()} value; both
 default to 0.05.
+
+
+{dlgtab:Options for flow}
+
+{phang}
+{opt led:ger(filename)} names the ledger whose flow file the steps go to
+and whose rows the flow gate is written to; the default is the session
+ledger. {opt run(string)} is the run, default the session run.
+
+{phang}
+{opt flow(name)} names the flow, default {cmd:main}; a run can hold several.
+
+{phang}
+{opt all} ({cmd:clear}) clears every flow of the run; it cannot be combined
+with {opt flow()}.
+
+{phang}
+{opt id(varname)} ({cmd:step}) counts distinct ids as well as rows. An id
+missing in any row is r(416).
+
+{phang}
+{opt lab:el(string)} ({cmd:step}) is the step's description, printed and
+exported as typed.
+
+{phang}
+{opt min:cell(#)} ({cmd:report}) is the threshold; the default is the
+session {opt mincell()} when it is positive, else 5. It must be 0 (nothing withheld) or 3 or
+more, and at least 5 under {cmd:dataqa set agent}.
+
+{phang}
+{opt pool:small} ({cmd:report}) prints each block of pooled steps as one
+row instead of one row per step with the block withheld.
+
+{phang}
+{opt count(ids|rows)} ({cmd:report}) chooses the counts printed; {cmd:ids}
+needs {opt id()} on every step.
+
+{phang}
+{opt exp:ort(filename)} ({cmd:report}) writes the printed table, withheld
+numbers included as {cmd:suppressed}, to a {cmd:.md} or {cmd:.csv} file;
+{opt replace} permits overwriting it.
+
+{dlgtab:Options for merge}
+
+{phang}
+{opt into(ledger)} is the ledger the shards are folded into; it is created
+when absent. {opt from(dir|pattern)} is where the shards are read (see
+above). {opt run(string)} folds in only the rows of that run.
+{opt replace} replaces rows of a worker already merged.
 
 
 {marker dispositions}{...}
@@ -443,8 +709,47 @@ propose widening an invariant.
 {pstd}Write the release copy of the run to its own file, never over the working ledger:{p_end}
 {phang2}{cmd:. dataqa export, saving("qa_ledger_release_demo.dta") replace}{p_end}
 
+{pstd}Two phases: a first run tags its build and analysis gates; the next
+run asserts its build phase against it while the analysis datasets are still
+pending, then the whole run once the analysis gates have run:{p_end}
+{phang2}{cmd:. dataqa set maskrare mincell(5) ledger("`ledger'") run(p1) phase(build)}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(make) name(auto_cars)}{p_end}
+{phang2}{cmd:. sysuse lifeexp, clear}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(country) name(lifeexp) phase(analysis)}{p_end}
+{phang2}{cmd:. dataqa set maskrare mincell(5) ledger("`ledger'") run(p2) phase(build)}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(make) name(auto_cars)}{p_end}
+{phang2}{cmd:. dataqa assert, baseline(p1) pending(analysis)}{p_end}
+{phang2}{cmd:. sysuse lifeexp, clear}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(country) name(lifeexp) phase(analysis)}{p_end}
+{phang2}{cmd:. dataqa report, phase(analysis)}{p_end}
+{phang2}{cmd:. dataqa assert, baseline(p1)}{p_end}
+
 {pstd}Clear the defaults:{p_end}
 {phang2}{cmd:. dataqa set clear}{p_end}
+
+{pstd}A cohort flow, recorded as the do-file narrows the data and printed
+with any small steps pooled:{p_end}
+{phang2}{cmd:. tempfile fl}{p_end}
+{phang2}{cmd:. dataqa set maskrare mincell(5) ledger("`fl'") run(f1)}{p_end}
+{phang2}{cmd:. sysuse nlsw88, clear}{p_end}
+{phang2}{cmd:. dataqa flow step all, id(idcode) label("All women")}{p_end}
+{phang2}{cmd:. drop if missing(wage, hours, tenure)}{p_end}
+{phang2}{cmd:. dataqa flow step complete, id(idcode) label("Wage, hours and tenure known")}{p_end}
+{phang2}{cmd:. drop if age > 44}{p_end}
+{phang2}{cmd:. dataqa flow step age, id(idcode) label("Aged 44 or less")}{p_end}
+{phang2}{cmd:. dataqa flow report, poolsmall}{p_end}
+{phang2}{cmd:. dataqa assert, expect(flow_main)}{p_end}
+
+{pstd}Parallel workers, each in its own Stata job, then one merge:{p_end}
+{phang2}{cmd:. dataqa set ledger("qa_ledger.dta") run(r1) worker(w1)}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(make) name(auto_cars)}{p_end}
+{phang2}{cmd:. * ... and in the job that runs after the workers:}{p_end}
+{phang2}{cmd:. dataqa set ledger("qa_ledger.dta") run(r1)}{p_end}
+{phang2}{cmd:. dataqa merge, into("qa_ledger.dta")}{p_end}
+{phang2}{cmd:. dataqa assert, expect(auto_cars)}{p_end}
 
 {pstd}In a do-file rerun under the same run label, start the run afresh and name the release copy apart from the ledger:{p_end}
 {phang2}{cmd:. dataqa set maskrare mincell(5) ledger("$working/qa_ledger_$dt.dta") run($dt) replace}{p_end}
@@ -498,12 +803,55 @@ stores {cmd:r(N)}, {cmd:r(n_failed)}, {cmd:r(n_errors)} (error rows, included in
 {cmd:r(baseline)}, {cmd:r(n_missing_base)} and {cmd:r(missing_base)} (baseline
 datasets without rows now, each in compound quotes),
 {cmd:r(n_optional_absent)} and {cmd:r(optional_absent)} (those waived by
-{opt optional()}); the baseline may come from {cmd:dataqa set baseline()}. {cmd:dataqa export}
+{opt optional()}); the baseline may come from {cmd:dataqa set baseline()}. With
+{opt pending()} it stores {cmd:r(n_pending)} and {cmd:r(pending)} (datasets
+reported as pending, each in compound quotes) and {cmd:r(n_pending_gates)}
+(gates of a pending phase listed as pending in datasets that have rows). {cmd:dataqa report},
+{cmd:dataqa assert}, {cmd:dataqa export}, and {cmd:dataqa compare} store
+{cmd:r(phase)}, the phases read, when {opt phase()} is given. {cmd:dataqa export}
 stores {cmd:r(N)}, {cmd:r(n_scope_dropped)}, {cmd:r(n_text_dropped)} (expected,
 label, and message texts blanked), {cmd:r(n_sig_dropped)} (signatures blanked),
 and {cmd:r(saving)}. {cmd:dataqa compare}
 stores {cmd:r(n_flags)} and {cmd:r(baseline)}, and with {opt baseline()}
-{cmd:r(run)}.
+{cmd:r(run)}. With {opt worker()}, {cmd:dataqa set} also stores
+{cmd:r(shard)}.
+
+{pstd}
+{cmd:dataqa flow step} stores {cmd:r(step)} (its number), {cmd:r(name)},
+{cmd:r(flow)}, {cmd:r(run)}, and {cmd:r(flowfile)}; no count.
+{cmd:dataqa flow report} stores {cmd:r(status)} ({cmd:pass} or
+{cmd:fail}), {cmd:r(flow)}, {cmd:r(run)}, and {cmd:r(n_steps)}; on a
+failure {cmd:r(bad_step)}, the step that adds rows or ids; on a pass
+{cmd:r(count)} ({cmd:ids} or {cmd:rows}), {cmd:r(steps)} (the step names),
+{cmd:r(n_rows)} (rows printed), {cmd:r(n_masked)} (numbers withheld),
+{cmd:r(n_pooled)} (steps in a block of two or more), {cmd:r(mincell)},
+with {opt export()} {cmd:r(export)}, and the matrix {cmd:r(table)}, one
+row per printed row (named by its last step) with columns {cmd:first} and
+{cmd:last} (the steps it covers), {cmd:remaining}, and {cmd:excluded}
+(missing on the first row); a withheld number is {cmd:.m}, so the matrix
+holds no more than the console. {cmd:dataqa flow clear} stores
+{cmd:r(n_cleared)}, {cmd:r(found)} (1 when the flow file exists),
+{cmd:r(flowfile)}, and, without {opt all}, {cmd:r(flow)}. {cmd:dataqa set}
+with {opt replace} also stores {cmd:r(n_flow_removed)}, the flow steps of
+the run removed, when the flow file exists.
+
+{pstd}
+{cmd:dataqa merge} stores {cmd:r(into)}, {cmd:r(workers)} (the worker ids
+in merge order), {cmd:r(n_shards)} (shards merged), {cmd:r(n_skipped)} (shards
+skipped as empty, or with no row of {opt run()}), {cmd:r(n_added)} (rows added),
+{cmd:r(n_replaced)} (rows of earlier merges replaced), and {cmd:r(N)}
+(rows in the merged ledger).
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Hundepool A, Domingo-Ferrer J, Franconi L, Giessing S, Lenz R, Naylor J,
+Schulte Nordholt E, Seri G, De Wolf P-P, Tent R, Mlodak A, Gussenbauer J,
+Wilak K. 2026. {it:Handbook on Statistical Disclosure Control}. 2nd ed.
+Centre of Excellence on Statistical Disclosure Control.
+{browse "https://sdctools.github.io/HandbookSDC/"}{p_end}
 
 
 {marker author}{...}

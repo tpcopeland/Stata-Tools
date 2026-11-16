@@ -4,7 +4,12 @@
 *! Program class: rclass
 *! ess: Kish effective sample size (sum w)^2 / sum w^2 (Kish 1965, Survey Sampling)
 
-// Syntax: _dataprobe_statval statistic var [den], cond(exp) [mask(#) fmt(%fmt)]
+// Syntax: _dataprobe_statval statistic var [den], cond(exp) [mask(#) fmt(%fmt)
+//         scopein(in a/b)]
+//
+// scopein(): an "in a/b" qualifier, the rows of one by() group block
+// (dataprobe sorts the rows by group once); every command reads only those
+// rows, with the same result as cond() alone over all rows.
 //
 // Statistics: mean sd p1 p5 p10 p25 p50 p75 p90 p95 p99 (summarize, detail
 // definitions), sum, n (nonmissing count), distinct (distinct nonmissing
@@ -38,7 +43,7 @@ program define _dataprobe_statval, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax anything(name=spec), COND(string) [MASK(integer 0) FMT(string) HIDE]
+        syntax anything(name=spec), COND(string) [MASK(integer 0) FMT(string) HIDE SCOPEIN(string)]
         gettoken st spec : spec
         gettoken v spec : spec
         gettoken den spec : spec
@@ -54,8 +59,8 @@ program define _dataprobe_statval, rclass
         local isorder = inlist("`st'", "p1", "p5", "p10", "p25", "p50") | ///
             inlist("`st'", "p75", "p90", "p95", "p99")
         if "`st'" == "mean" | "`st'" == "sd" | `isorder' {
-            if `isorder' quietly summarize `v' if (`cond'), detail
-            else quietly summarize `v' if (`cond')
+            if `isorder' quietly summarize `v' if (`cond') `scopein', detail
+            else quietly summarize `v' if (`cond') `scopein'
             local n = r(N)
             if `n' == 0 local defined = 0
             else if "`st'" == "mean" scalar `val' = r(mean)
@@ -63,45 +68,55 @@ program define _dataprobe_statval, rclass
             else scalar `val' = r(`st')
             if `defined' & !missing(scalar(`val')) {
                 _dataprobe_qshow `v', value(`val') mask(`mask') cond(`"`cond'"') ///
-                    stat(`st') fmt(`fmt')
+                    stat(`st') fmt(`fmt') scopein(`scopein')
                 local s `"`r(s)'"'
                 local shown = r(shown)
             }
             else local s "."
         }
         else if "`st'" == "sum" {
-            quietly summarize `v' if (`cond'), meanonly
+            quietly summarize `v' if (`cond') `scopein', meanonly
             local n = r(N)
             scalar `val' = cond(r(N) > 0, r(sum), 0)
             local iscount = (scalar(`val') == floor(scalar(`val')))
         }
         else if "`st'" == "n" {
-            quietly count if (`cond') & !missing(`v')
+            quietly count if (`cond') & !missing(`v') `scopein'
             local n = r(N)
             scalar `val' = r(N)
             local iscount = 1
         }
         else if "`st'" == "distinct" {
             tempvar tg
-            quietly egen byte `tg' = tag(`v') if (`cond') & !missing(`v')
-            quietly count if `tg' == 1
-            scalar `val' = r(N)
-            quietly count if (`cond') & !missing(`v')
+            if `"`scopein'"' != "" {
+                // one by() block: its distinct values, without egen's sort
+                // of every row
+                quietly generate byte `tg' = ((`cond') & !missing(`v')) `scopein'
+                _dataprobe_byhits distinct `v', touse(`tg') ///
+                    range(`=substr(`"`scopein'"', 4, .)')
+                scalar `val' = r(n)
+            }
+            else {
+                quietly egen byte `tg' = tag(`v') if (`cond') & !missing(`v')
+                quietly count if `tg' == 1
+                scalar `val' = r(N)
+            }
+            quietly count if (`cond') & !missing(`v') `scopein'
             local n = r(N)
             local iscount = 1
         }
         else if "`st'" == "pmiss" {
-            quietly count if (`cond')
+            quietly count if (`cond') `scopein'
             local n = r(N)
-            quietly count if (`cond') & missing(`v')
+            quietly count if (`cond') & missing(`v') `scopein'
             local nmiss = r(N)
             if `n' == 0 local defined = 0
             else scalar `val' = `nmiss' / `n'
         }
         else if "`st'" == "ess" {
             tempvar w2
-            quietly generate double `w2' = `v'^2 if (`cond') & !missing(`v')
-            quietly summarize `v' if (`cond') & !missing(`v'), meanonly
+            quietly generate double `w2' = `v'^2 if (`cond') & !missing(`v') `scopein'
+            quietly summarize `v' if (`cond') & !missing(`v') `scopein', meanonly
             local n = r(N)
             tempname s1
             scalar `s1' = r(sum)
@@ -110,11 +125,11 @@ program define _dataprobe_statval, rclass
             else scalar `val' = scalar(`s1')^2 / r(sum)
         }
         else if "`st'" == "ratio" {
-            quietly summarize `v' if (`cond') & !missing(`v') & !missing(`den'), meanonly
+            quietly summarize `v' if (`cond') & !missing(`v') & !missing(`den') `scopein', meanonly
             local n = r(N)
             tempname s1
             scalar `s1' = r(sum)
-            quietly summarize `den' if (`cond') & !missing(`v') & !missing(`den'), meanonly
+            quietly summarize `den' if (`cond') & !missing(`v') & !missing(`den') `scopein', meanonly
             if `n' == 0 | r(sum) == 0 local defined = 0
             else scalar `val' = scalar(`s1') / r(sum)
         }
@@ -129,9 +144,9 @@ program define _dataprobe_statval, rclass
             // back.  Complements are taken against the rows in scope (the
             // printed N) and against the nonmissing count (what stat(n)
             // prints): sum 990 beside n 992 reveals 2 zeros.
-            quietly count if (`cond')
+            quietly count if (`cond') `scopein'
             local nrow = r(N)
-            quietly count if (`cond') & !missing(`v')
+            quietly count if (`cond') & !missing(`v') `scopein'
             local nnm = r(N)
             if !`defined' | missing(scalar(`val')) local s "."
             else if `iscount' {
@@ -170,7 +185,7 @@ program define _dataprobe_statval, rclass
                 // weight is the count of ones, so the zero and nonzero
                 // weights are counts under the count rule
                 else if `mask' > 0 & "`st'" == "ess" {
-                    quietly count if (`cond') & !missing(`v') & `v' != 0
+                    quietly count if (`cond') & !missing(`v') & `v' != 0 `scopein'
                     local _nz = r(N)
                     if (`_nz' >= 1 & `_nz' < `mask') | ///
                         (`n' - `_nz' >= 1 & `n' - `_nz' < `mask') {
@@ -185,10 +200,10 @@ program define _dataprobe_statval, rclass
                 // or above it
                 else if `mask' > 0 & "`st'" == "ratio" {
                     quietly count if (`cond') & !missing(`v') & !missing(`den') & ///
-                        `den' != 0 & `v' / `den' <= scalar(`val')
+                        `den' != 0 & `v' / `den' <= scalar(`val') `scopein'
                     local _nle = r(N)
                     quietly count if (`cond') & !missing(`v') & !missing(`den') & ///
-                        `den' != 0 & `v' / `den' >= scalar(`val')
+                        `den' != 0 & `v' / `den' >= scalar(`val') `scopein'
                     if `_nle' < `mask' | r(N) < `mask' {
                         local s "[suppressed]"
                         local shown = 0
@@ -202,7 +217,7 @@ program define _dataprobe_statval, rclass
             // rows, the nonzero rows, and (two values) each value's rows
             // number 0 or at least mask()
             if `mask' > 0 & "`st'" == "sum" & `shown' & `defined' & !missing(scalar(`val')) {
-                _dataprobe_statval_sumok `v', cond(`"`cond'"') mask(`mask')
+                _dataprobe_statval_sumok `v', cond(`"`cond'"') mask(`mask') scopein(`scopein')
                 if !r(ok) {
                     local s "[suppressed]"
                     local shown = 0
@@ -229,23 +244,23 @@ end
 capture program drop _dataprobe_statval_sumok
 program define _dataprobe_statval_sumok, rclass
     version 16.0
-    syntax varname, COND(string) MASK(integer)
+    syntax varname, COND(string) MASK(integer) [SCOPEIN(string)]
     local v "`varlist'"
     local ok = 1
-    quietly count if (`cond') & !missing(`v')
+    quietly count if (`cond') & !missing(`v') `scopein'
     local nn = r(N)
-    quietly count if (`cond') & !missing(`v') & `v' != 0
+    quietly count if (`cond') & !missing(`v') & `v' != 0 `scopein'
     local nz = r(N)
     if (`nn' >= 1 & `nn' < `mask') | (`nz' >= 1 & `nz' < `mask') local ok = 0
     if `ok' & `nn' > 0 {
-        quietly summarize `v' if (`cond'), meanonly
+        quietly summarize `v' if (`cond') `scopein', meanonly
         tempname lo hi
         scalar `lo' = r(min)
         scalar `hi' = r(max)
         if scalar(`lo') < scalar(`hi') {
-            quietly count if (`cond') & `v' == scalar(`lo')
+            quietly count if (`cond') & `v' == scalar(`lo') `scopein'
             local nlo = r(N)
-            quietly count if (`cond') & `v' == scalar(`hi')
+            quietly count if (`cond') & `v' == scalar(`hi') `scopein'
             local nhi = r(N)
             if `nlo' + `nhi' == `nn' & (`nlo' < `mask' | `nhi' < `mask') local ok = 0
         }

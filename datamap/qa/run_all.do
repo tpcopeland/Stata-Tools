@@ -89,13 +89,20 @@ local core_suites ///
     test_dataprobe_v200.do ///
     test_datamap_v200_safe.do ///
     test_datamap_v200_leftovers.do ///
+    test_datamap_v210_dataqa_core.do ///
+    test_datamap_v210_by_engine.do ///
+    test_datamap_v210_coverage.do ///
+    test_datamap_v210_disclosure.do ///
+    test_datamap_v210_groupexpr.do ///
+    test_datamap_v210_flowshards.do ///
     validation_datamap.do ///
     validation_datamvp.do
 
 * timing on a 1M-row file; never part of quick, core, or full
 local benchmark_suites ///
     benchmark_gatesonly.do ///
-    benchmark_study.do
+    benchmark_study.do ///
+    benchmark_dataqa_ledger.do
 
 local suites "`core_suites'"
 if "`mode'" == "quick" local suites "`quick_suites'"

@@ -14,7 +14,10 @@ program define _datamap_dqdefaults, rclass
     local maskrare ""
     local mincell = -1
     local ledger ""
+    local worker ""
+    local sharddir ""
     local run ""
+    local phase ""
     local bandwarn ""
     local signature ""
     local collect ""
@@ -26,8 +29,8 @@ program define _datamap_dqdefaults, rclass
         local spec = strtrim(`"`macval(spec)'"')
         if `"`macval(spec)'"' != "" {
             local 0 `", `macval(spec)'"'
-            capture syntax [, MASKrare MINcell(integer -1) LEDger(string) ///
-                RUN(string) BANDWARN SIGnature COLLect BASEline(string) BASELEDger(string) ///
+            capture syntax [, MASKrare MINcell(integer -1) LEDger(string) WORKER(string) SHARDdir(string) ///
+                RUN(string) PHASE(name) BANDWARN SIGnature COLLect BASEline(string) BASELEDger(string) ///
                 SAFE]
             if _rc {
                 display as error "global DATAMAP_DQ is not a valid dataqa set option list; run dataqa set clear"
@@ -35,6 +38,7 @@ program define _datamap_dqdefaults, rclass
             }
             local ledger = subinstr(`"`ledger'"', char(34), "", .)
             local run = subinstr(`"`run'"', char(34), "", .)
+            local sharddir = subinstr(`"`sharddir'"', char(34), "", .)
             local baseline = subinstr(`"`baseline'"', char(34), "", .)
             local baseledger = subinstr(`"`baseledger'"', char(34), "", .)
         }
@@ -52,6 +56,14 @@ program define _datamap_dqdefaults, rclass
     return scalar safe = ("`safe'" != "")
     return local ledger `"`ledger'"'
     return local run `"`run'"'
+    // worker and sharddir (2.1.0, F12): written by dataqa set worker();
+    // every ledger write of the session goes to the worker's shard
+    // (_dataqa_shardpath)
+    return local worker "`worker'"
+    return local sharddir `"`sharddir'"'
+    // phase (2.1.0, U6): written by dataqa set phase(); the phase dataprobe
+    // ledger rows are tagged with when a call gives none
+    return local phase "`phase'"
     return local baseline `"`baseline'"'
     return local baseledger `"`baseledger'"'
     return scalar active = (`"`macval(spec)'"' != "")

@@ -206,10 +206,11 @@ capture noisily {
         quietly count if strpos(grp, "by(g) = `gg'") > 0
         assert r(N) == 1
     }
-    * ledger schema: the same columns as before (22, none added)
+    * ledger schema: the 1.9.0 columns plus the 2.1.0 phase column (23); byfreq adds none
     quietly use `"$O_LED"', clear
     quietly describe
-    assert r(k) == 22
+    assert r(k) == 23
+    confirm string variable phase
 }
 local rc = _rc
 _u_tally `rc' "O5 failing message names the direction summary; four per-group rows, 22 ledger columns"
