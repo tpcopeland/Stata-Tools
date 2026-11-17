@@ -127,6 +127,7 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 | `crossval_external_models.R`, `crossval_external_models.py`, `crossval_r.R`, `crossval_python.py`, `crossval_msm_ipw_dta.R` | Existing external reference calculations |
 | `tools/` | Package-local XLSX, PNG, and SMCL-width validators |
 | `data/`, `fixtures_manifest.md` | Tracked public teaching fixtures, the 1.4.12 `msm_diagnose` fixture, and provenance |
+| `THIRD_PARTY_NOTICES.md`, `licenses/` | Licence notice for `data/haartdat.dta` (R package `ipw`, MIT) and the licence text |
 
 ## Coverage map
 

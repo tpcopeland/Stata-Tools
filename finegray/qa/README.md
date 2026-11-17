@@ -34,7 +34,7 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 - `_finegray_qa_common.do` sandboxes `PLUS` and `PERSONAL` under `c(tmpdir)` and restores them, so lane runs do not alter the user's real ado tree.
 - Paths derive from `c(pwd)` or wrapper arguments; no suite depends on a machine-local absolute path.
 - Test data are generated from seeded builders or downloaded through Stata's documented `webuse` examples; R cross-validation fixtures are restored from checked frozen references; companion R scripts regenerate them only on explicit request.
-- Generated logs, datasets, CSV files, graphs, caches, and workbooks are gitignored. Frozen R references under `oracles/` are intentional QA fixtures; tracked receipts and transfer pins are provenance artifacts; documentation images belong under `demo/`.
+- Generated logs, datasets, CSV files, graphs, caches, and workbooks are gitignored. Frozen R references under `oracles/` are intentional QA fixtures (the `public_studies` reference holds `crrSC` data rows under GPL-2: licence notice in `THIRD_PARTY_NOTICES.md`, text in `licenses/`); tracked receipts and transfer pins are provenance artifacts; documentation images belong under `demo/`.
 
 ## Dependencies
 
