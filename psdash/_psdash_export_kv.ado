@@ -1,4 +1,4 @@
-*! _psdash_export_kv Version 1.9.0  2026/10/29
+*! _psdash_export_kv Version 1.9.1  2026/11/17
 *! Write a two-column (Metric, Value) summary sheet to an Excel workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -24,7 +24,7 @@ program define _psdash_export_kv, nclass
             exit 498
         }
 
-        putexcel set "`xlsx'", sheet("`sheet'", replace) modify
+        putexcel set "`xlsx'", sheet(`"`sheet'"', replace) modify
         local _putexcel_open = 1
         * Merging can clear the anchor cell on later workbook sheets.
         putexcel A1:B1, merge

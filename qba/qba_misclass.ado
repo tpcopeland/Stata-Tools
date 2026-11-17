@@ -1,7 +1,8 @@
-*! qba_misclass Version 1.2.0  2026/10/13
+*! qba_misclass Version 1.2.1  2026/11/17
 *! Misclassification bias analysis for 2x2 tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
+* stata-dev-ignore-file: hardcoded-tempname — every fixed _name is created in the Monte Carlo scratch dataset after preserve + clear, so no caller variable exists to collide with, and restore discards them
 
 /*
 Corrects 2x2 table cell counts and measures of association (OR, RR)
@@ -80,26 +81,40 @@ program define qba_misclass, rclass
 	         dist_se1(string) dist_sp1(string) ///
 	         CORR(string asis) TOtalerror ///
 	         FCASe(string asis) FCTRl(string asis) ///
-	         Seed(integer -1) Level(cilevel) ///
+	         Seed(string) Level(cilevel) ///
 	         SAving(string asis)]
 
+        * Record which options the caller supplied BEFORE filling defaults;
+        * presence, not a reserved value, decides differential mode.
+        foreach _numopt in secb spcb seed {
+            local has_`_numopt' = (`"`macval(`_numopt')'"' != "")
+        }
+        * User-scale text of Se/Sp for the r(dist_se)/r(dist_sp) labels; the
+        * %21x locals below stay the arithmetic carriers.
+        local seca_text = strtrim(`"`seca'"')
+        local spca_text = strtrim(`"`spca'"')
         * Keep raw continuous values after native type validation.
-        if `"`macval(secb)'"' == "" local secb -1
-        if `"`macval(spcb)'"' == "" local spcb -1
+        if !`has_secb' local secb .
+        if !`has_spcb' local spcb .
         if `"`macval(corr)'"' == "" local corr 0
         if `"`macval(fcase)'"' == "" local fcase 1
         if `"`macval(fctrl)'"' == "" local fctrl 1
         foreach _numopt in a b c d seca spca secb spcb corr fcase fctrl {
-            local `_numopt' : display regexr(string(``_numopt'', "%21x"), "^[+]", "")
+            local `_numopt' : display "(" regexr(string(``_numopt'', "%21x"), "^[+]", "") ")"
         }
 
 	    if missing(`reps') | `reps' < 0 {
 	        display as error "reps() must be a nonnegative integer"
 	        exit 198
 	    }
-	    if `seed' != -1 & missing(`seed') {
-	        display as error "seed() must be a nonmissing integer"
-	        exit 198
+	    * set seed folds a negative seed onto its absolute value, so the
+	    * documented domain 0 to 2^31-1 is enforced rather than aliased.
+	    if `has_seed' {
+	        local seed = `seed'
+	        if missing(`seed') | `seed' < 0 | `seed' > 2147483647 {
+	            display as error "seed() must be an integer between 0 and 2147483647"
+	            exit 198
+	        }
 	    }
 	    if `reps' == 0 {
 	        if `"`saving'"' != "" {
@@ -111,7 +126,7 @@ program define qba_misclass, rclass
 	            display as error "dist_*() options require reps()"
 	            exit 198
 	        }
-	        if `seed' != -1 {
+	        if `has_seed' {
 	            display as error "seed() requires reps()"
 	            exit 198
 	        }
@@ -199,10 +214,10 @@ program define qba_misclass, rclass
 
     * Differential misclassification
     local differential = 0
-    if `secb' != -1 | `spcb' != -1 {
+    if `has_secb' | `has_spcb' {
         local differential = 1
-        if `secb' == -1 local secb = `seca'
-        if `spcb' == -1 local spcb = `spca'
+        if !`has_secb' local secb `seca'
+        if !`has_spcb' local spcb `spca'
 	        if missing(`secb') | `secb' <= 0 | `secb' > 1 {
 	            display as error "secb() must be in (0, 1]"
 	            exit 198
@@ -236,42 +251,42 @@ program define qba_misclass, rclass
     }
 
     * Set seed
-    if `seed' != -1 {
+    if `has_seed' {
         set seed `seed'
     }
 
     * Inflate the sampled table to the source population before correcting
     * outcome misclassification in a case-control study.
     local cc_sampling = 0
-    local a_obs : display regexr(string(`a', "%21x"), "^[+]", "")
-    local b_obs : display regexr(string(`b', "%21x"), "^[+]", "")
-    local c_obs : display regexr(string(`c', "%21x"), "^[+]", "")
-    local d_obs : display regexr(string(`d', "%21x"), "^[+]", "")
+    local a_obs : display "(" regexr(string(`a', "%21x"), "^[+]", "") ")"
+    local b_obs : display "(" regexr(string(`b', "%21x"), "^[+]", "") ")"
+    local c_obs : display "(" regexr(string(`c', "%21x"), "^[+]", "") ")"
+    local d_obs : display "(" regexr(string(`d', "%21x"), "^[+]", "") ")"
     if `fcase' != 1 | `fctrl' != 1 {
         local cc_sampling = 1
-        local a : display regexr(string(`a' / `fcase', "%21x"), "^[+]", "")
-        local b : display regexr(string(`b' / `fcase', "%21x"), "^[+]", "")
-        local c : display regexr(string(`c' / `fctrl', "%21x"), "^[+]", "")
-        local d : display regexr(string(`d' / `fctrl', "%21x"), "^[+]", "")
+        local a : display "(" regexr(string(`a' / `fcase', "%21x"), "^[+]", "") ")"
+        local b : display "(" regexr(string(`b' / `fcase', "%21x"), "^[+]", "") ")"
+        local c : display "(" regexr(string(`c' / `fctrl', "%21x"), "^[+]", "") ")"
+        local d : display "(" regexr(string(`d' / `fctrl', "%21x"), "^[+]", "") ")"
     }
 
     * Compute observed measure (guard division by zero)
-    local M1 : display regexr(string(`a' + `b', "%21x"), "^[+]", "")
-    local M0 : display regexr(string(`c' + `d', "%21x"), "^[+]", "")
-    local N1 : display regexr(string(`a' + `c', "%21x"), "^[+]", "")
-    local N0 : display regexr(string(`b' + `d', "%21x"), "^[+]", "")
+    local M1 : display "(" regexr(string(`a' + `b', "%21x"), "^[+]", "") ")"
+    local M0 : display "(" regexr(string(`c' + `d', "%21x"), "^[+]", "") ")"
+    local N1 : display "(" regexr(string(`a' + `c', "%21x"), "^[+]", "") ")"
+    local N0 : display "(" regexr(string(`b' + `d', "%21x"), "^[+]", "") ")"
     if `b' * `c' != 0 {
-        local obs_or : display regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "")
+        local obs_or : display "(" regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "") ")"
     }
     else {
-        local obs_or : display regexr(string(., "%21x"), "^[+]", "")
+        local obs_or : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
     }
     if "`measure'" == "RR" {
         if `N1' != 0 & `N0' != 0 & `b' != 0 {
-            local obs_rr : display regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "")
+            local obs_rr : display "(" regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "") ")"
         }
         else {
-            local obs_rr : display regexr(string(., "%21x"), "^[+]", "")
+            local obs_rr : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
         }
     }
 
@@ -281,32 +296,32 @@ program define qba_misclass, rclass
             * Correct exposure misclassification within disease strata
             if `differential' == 0 {
                 * Nondifferential: same Se/Sp in cases and non-cases
-                local a_corr : display regexr(string((`a' - (1 - `spca') * `M1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "")
-                local b_corr : display regexr(string(`M1' - `a_corr', "%21x"), "^[+]", "")
-                local c_corr : display regexr(string((`c' - (1 - `spca') * `M0') / (`seca' + `spca' - 1), "%21x"), "^[+]", "")
-                local d_corr : display regexr(string(`M0' - `c_corr', "%21x"), "^[+]", "")
+                local a_corr : display "(" regexr(string((`a' - (1 - `spca') * `M1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "") ")"
+                local b_corr : display "(" regexr(string(`M1' - `a_corr', "%21x"), "^[+]", "") ")"
+                local c_corr : display "(" regexr(string((`c' - (1 - `spca') * `M0') / (`seca' + `spca' - 1), "%21x"), "^[+]", "") ")"
+                local d_corr : display "(" regexr(string(`M0' - `c_corr', "%21x"), "^[+]", "") ")"
             }
             else {
                 * Differential: Se1/Sp1 for cases, Se0/Sp0 for non-cases
-                local a_corr : display regexr(string((`a' - (1 - `spca') * `M1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "")
-                local b_corr : display regexr(string(`M1' - `a_corr', "%21x"), "^[+]", "")
-                local c_corr : display regexr(string((`c' - (1 - `spcb') * `M0') / (`secb' + `spcb' - 1), "%21x"), "^[+]", "")
-                local d_corr : display regexr(string(`M0' - `c_corr', "%21x"), "^[+]", "")
+                local a_corr : display "(" regexr(string((`a' - (1 - `spca') * `M1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "") ")"
+                local b_corr : display "(" regexr(string(`M1' - `a_corr', "%21x"), "^[+]", "") ")"
+                local c_corr : display "(" regexr(string((`c' - (1 - `spcb') * `M0') / (`secb' + `spcb' - 1), "%21x"), "^[+]", "") ")"
+                local d_corr : display "(" regexr(string(`M0' - `c_corr', "%21x"), "^[+]", "") ")"
             }
         }
         else {
             * Correct outcome misclassification within exposure strata
             if `differential' == 0 {
-                local a_corr : display regexr(string((`a' - (1 - `spca') * `N1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "")
-                local c_corr : display regexr(string(`N1' - `a_corr', "%21x"), "^[+]", "")
-                local b_corr : display regexr(string((`b' - (1 - `spca') * `N0') / (`seca' + `spca' - 1), "%21x"), "^[+]", "")
-                local d_corr : display regexr(string(`N0' - `b_corr', "%21x"), "^[+]", "")
+                local a_corr : display "(" regexr(string((`a' - (1 - `spca') * `N1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "") ")"
+                local c_corr : display "(" regexr(string(`N1' - `a_corr', "%21x"), "^[+]", "") ")"
+                local b_corr : display "(" regexr(string((`b' - (1 - `spca') * `N0') / (`seca' + `spca' - 1), "%21x"), "^[+]", "") ")"
+                local d_corr : display "(" regexr(string(`N0' - `b_corr', "%21x"), "^[+]", "") ")"
             }
             else {
-                local a_corr : display regexr(string((`a' - (1 - `spca') * `N1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "")
-                local c_corr : display regexr(string(`N1' - `a_corr', "%21x"), "^[+]", "")
-                local b_corr : display regexr(string((`b' - (1 - `spcb') * `N0') / (`secb' + `spcb' - 1), "%21x"), "^[+]", "")
-                local d_corr : display regexr(string(`N0' - `b_corr', "%21x"), "^[+]", "")
+                local a_corr : display "(" regexr(string((`a' - (1 - `spca') * `N1') / (`seca' + `spca' - 1), "%21x"), "^[+]", "") ")"
+                local c_corr : display "(" regexr(string(`N1' - `a_corr', "%21x"), "^[+]", "") ")"
+                local b_corr : display "(" regexr(string((`b' - (1 - `spcb') * `N0') / (`secb' + `spcb' - 1), "%21x"), "^[+]", "") ")"
+                local d_corr : display "(" regexr(string(`N0' - `b_corr', "%21x"), "^[+]", "") ")"
             }
         }
 
@@ -326,25 +341,25 @@ program define qba_misclass, rclass
 
         * Compute corrected measure
         if `n_bad' > 0 {
-            local corr_or : display regexr(string(., "%21x"), "^[+]", "")
+            local corr_or : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
         }
         else if `b_corr' * `c_corr' != 0 {
-            local corr_or : display regexr(string((`a_corr' * `d_corr') / (`b_corr' * `c_corr'), "%21x"), "^[+]", "")
+            local corr_or : display "(" regexr(string((`a_corr' * `d_corr') / (`b_corr' * `c_corr'), "%21x"), "^[+]", "") ")"
         }
         else {
-            local corr_or : display regexr(string(., "%21x"), "^[+]", "")
+            local corr_or : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
         }
         if "`measure'" == "RR" {
-            local N1_corr : display regexr(string(`a_corr' + `c_corr', "%21x"), "^[+]", "")
-            local N0_corr : display regexr(string(`b_corr' + `d_corr', "%21x"), "^[+]", "")
+            local N1_corr : display "(" regexr(string(`a_corr' + `c_corr', "%21x"), "^[+]", "") ")"
+            local N0_corr : display "(" regexr(string(`b_corr' + `d_corr', "%21x"), "^[+]", "") ")"
             if `n_bad' > 0 {
-                local corr_rr : display regexr(string(., "%21x"), "^[+]", "")
+                local corr_rr : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
             }
             else if `N1_corr' != 0 & `N0_corr' != 0 {
-                local corr_rr : display regexr(string((`a_corr' / `N1_corr') / (`b_corr' / `N0_corr'), "%21x"), "^[+]", "")
+                local corr_rr : display "(" regexr(string((`a_corr' / `N1_corr') / (`b_corr' / `N0_corr'), "%21x"), "^[+]", "") ")"
             }
             else {
-                local corr_rr : display regexr(string(., "%21x"), "^[+]", "")
+                local corr_rr : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
             }
         }
 
@@ -413,7 +428,7 @@ program define qba_misclass, rclass
                 display as text "  Corrected OR: " as result "undefined"
             }
             if `obs_or' != 0 & `obs_or' < . & `corr_or' < . {
-                local ratio : display regexr(string(`corr_or' / `obs_or', "%21x"), "^[+]", "")
+                local ratio : display "(" regexr(string(`corr_or' / `obs_or', "%21x"), "^[+]", "") ")"
                 display as text "  Ratio (corrected/observed): " as result %6.4f `ratio'
             }
         }
@@ -426,7 +441,7 @@ program define qba_misclass, rclass
                 display as text "  Corrected RR: " as result "undefined"
             }
             if `obs_rr' != 0 & `obs_rr' < . & `corr_rr' < . {
-                local ratio : display regexr(string(`corr_rr' / `obs_rr', "%21x"), "^[+]", "")
+                local ratio : display "(" regexr(string(`corr_rr' / `obs_rr', "%21x"), "^[+]", "") ")"
                 display as text "  Ratio (corrected/observed): " as result %6.4f `ratio'
             }
         }
@@ -503,15 +518,25 @@ program define qba_misclass, rclass
             }
             * Margins must agree with the snapped cells: the reallocation
             * derives one cell per stratum as (margin - drawn cell).
-            local M1 : display regexr(string(`a' + `b', "%21x"), "^[+]", "")
-            local M0 : display regexr(string(`c' + `d', "%21x"), "^[+]", "")
-            local N1 : display regexr(string(`a' + `c', "%21x"), "^[+]", "")
-            local N0 : display regexr(string(`b' + `d', "%21x"), "^[+]", "")
+            local M1 : display "(" regexr(string(`a' + `b', "%21x"), "^[+]", "") ")"
+            local M0 : display "(" regexr(string(`c' + `d', "%21x"), "^[+]", "") ")"
+            local N1 : display "(" regexr(string(`a' + `c', "%21x"), "^[+]", "") ")"
+            local N0 : display "(" regexr(string(`b' + `d', "%21x"), "^[+]", "") ")"
         }
 
-        * Set default distributions if not specified
-        if "`dist_se'" == "" local dist_se "constant `seca'"
-        if "`dist_sp'" == "" local dist_sp "constant `spca'"
+        * Set default distributions if not specified. The draws use the
+        * exact %21x carrier; r(dist_se)/r(dist_sp) report the user-scale
+        * text the caller typed, never the hex carrier.
+        local dist_se_label `"`dist_se'"'
+        local dist_sp_label `"`dist_sp'"'
+        if "`dist_se'" == "" {
+            local dist_se "constant `seca'"
+            local dist_se_label "constant `seca_text'"
+        }
+        if "`dist_sp'" == "" {
+            local dist_sp "constant `spca'"
+            local dist_sp_label "constant `spca_text'"
+        }
         if `differential' {
             if "`dist_se1'" == "" local dist_se1 "constant `secb'"
             if "`dist_sp1'" == "" local dist_sp1 "constant `spcb'"
@@ -641,8 +666,9 @@ program define qba_misclass, rclass
                     gen double _sp_s1 = _sp0
                 }
 
-                * Source (2): classified-variable prevalence within each
-                * stratum drawn Beta(bias-adjusted cell, complement), then
+                * Source (2): bias-adjusted (true) prevalence within each
+                * stratum drawn Beta(bias-adjusted cell, complement) (FML
+                * 2023 Table 1 step 3), then
                 * converted to PPV/NPV and used to reallocate the OBSERVED
                 * cells by binomial draws.
                 if "`type'" == "exposure" {
@@ -697,6 +723,10 @@ program define qba_misclass, rclass
                 replace _result_te = . if _cells_bad
                 replace _result_te = . if _ab <= 0 | _bb <= 0 | _cb <= 0 | _db <= 0
                 replace _result_te = . if _result_te <= 0 | _result_te >= .
+                * The reclassified measure is undefined on the same draws: a
+                * saved reclass_* value must never outlive the replicate
+                * filter that masks corrected_* and total_*.
+                replace _result_bb = . if missing(_result_te)
 
                 * The author reference summarizes systematic and total error
                 * over the same replicates: a draw is retained only when both
@@ -710,12 +740,12 @@ program define qba_misclass, rclass
                 * Random-error-only arm: the observed measure perturbed by its
                 * own log SE, for a like-for-like interval-width comparison.
                 if "`measure'" == "OR" {
-                    local se_log_obs : display regexr(string(sqrt(1/`a' + 1/`b' + 1/`c' + 1/`d'), "%21x"), "^[+]", "")
-                    local obs_meas : display regexr(string(`obs_or', "%21x"), "^[+]", "")
+                    local se_log_obs : display "(" regexr(string(sqrt(1/`a' + 1/`b' + 1/`c' + 1/`d'), "%21x"), "^[+]", "") ")"
+                    local obs_meas : display "(" regexr(string(`obs_or', "%21x"), "^[+]", "") ")"
                 }
                 else {
-                    local se_log_obs : display regexr(string(sqrt(1/`a' + 1/`b' - 1/`N1' - 1/`N0'), "%21x"), "^[+]", "")
-                    local obs_meas : display regexr(string(`obs_rr', "%21x"), "^[+]", "")
+                    local se_log_obs : display "(" regexr(string(sqrt(1/`a' + 1/`b' - 1/`N1' - 1/`N0'), "%21x"), "^[+]", "") ")"
+                    local obs_meas : display "(" regexr(string(`obs_rr', "%21x"), "^[+]", "") ")"
                 }
                 gen double _result_re = ///
                     exp(ln(`obs_meas') - rnormal() * `se_log_obs')
@@ -741,25 +771,25 @@ program define qba_misclass, rclass
 	        local save_rc = 0
 	        quietly {
             _qba_mc_summary _result, level(`level')
-            local mc_mean : display regexr(string(r(mean), "%21x"), "^[+]", "")
-            local mc_median : display regexr(string(r(median), "%21x"), "^[+]", "")
-            local mc_sd : display regexr(string(r(sd), "%21x"), "^[+]", "")
-            local mc_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
-            local mc_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
+            local mc_mean : display "(" regexr(string(r(mean), "%21x"), "^[+]", "") ")"
+            local mc_median : display "(" regexr(string(r(median), "%21x"), "^[+]", "") ")"
+            local mc_sd : display "(" regexr(string(r(sd), "%21x"), "^[+]", "") ")"
+            local mc_lo : display "(" regexr(string(r(ci_lower), "%21x"), "^[+]", "") ")"
+            local mc_hi : display "(" regexr(string(r(ci_upper), "%21x"), "^[+]", "") ")"
 
             if "`totalerror'" != "" {
                 if `n_valid_te' > 0 {
                     _qba_mc_summary _result_te, level(`level')
-                    local te_mean : display regexr(string(r(mean), "%21x"), "^[+]", "")
-                    local te_median : display regexr(string(r(median), "%21x"), "^[+]", "")
-                    local te_sd : display regexr(string(r(sd), "%21x"), "^[+]", "")
-                    local te_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
-                    local te_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
+                    local te_mean : display "(" regexr(string(r(mean), "%21x"), "^[+]", "") ")"
+                    local te_median : display "(" regexr(string(r(median), "%21x"), "^[+]", "") ")"
+                    local te_sd : display "(" regexr(string(r(sd), "%21x"), "^[+]", "") ")"
+                    local te_lo : display "(" regexr(string(r(ci_lower), "%21x"), "^[+]", "") ")"
+                    local te_hi : display "(" regexr(string(r(ci_upper), "%21x"), "^[+]", "") ")"
                 }
                 _qba_mc_summary _result_re, level(`level')
-                local re_median : display regexr(string(r(median), "%21x"), "^[+]", "")
-                local re_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
-                local re_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
+                local re_median : display "(" regexr(string(r(median), "%21x"), "^[+]", "") ")"
+                local re_lo : display "(" regexr(string(r(ci_lower), "%21x"), "^[+]", "") ")"
+                local re_hi : display "(" regexr(string(r(ci_upper), "%21x"), "^[+]", "") ")"
             }
 
             * Save if requested
@@ -916,8 +946,8 @@ program define qba_misclass, rclass
         return local measure "`measure'"
 	        return local method "probabilistic"
 	        return local interval "systematic-error simulation interval"
-	        return local dist_se "`dist_se'"
-	        return local dist_sp "`dist_sp'"
+	        return local dist_se `"`dist_se_label'"'
+	        return local dist_sp `"`dist_sp_label'"'
 	        if `save_rc' {
 	            display as error "saving() failed; analytical results are posted in r()"
 	            exit `save_rc'

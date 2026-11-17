@@ -43,41 +43,46 @@ directly to period diagnostics. {opt report()}, {opt saving()}, {opt scheme()},
 {opt threshold()}, {opt overlapmax()}, {opt essmin()}, {opt imbalmax()}, or
 {opt gpsfloor()} is also rejected with {cmd:r(198)}. The defaults are accepted
 but do not alter period diagnostics; {opt title()}, {opt dryrun}, and explicit
-input overrides remain available.
+input overrides remain available. The longitudinal engine diagnoses the
+producer's treatment, propensity score, and weight: {opt covariates()} and
+{opt psvars()} are not allowed, {opt reference()} is allowed only as the
+reference level 0 of the 0/1 treatment, and {opt estimand()} must match the producer's
+estimand (ignoring case); any other value is an error ({cmd:r(198)}).
 
 {pstd}
 For longitudinal diagnostics, period values must produce distinct Stata matrix
 row names (for example, values such as {cmd:-1} and {cmd:.1} can both normalize to
 {cmd:p_1}); recode such periods to distinct integer indices before running the
-command. The longitudinal route reports its period-specific diagnostics and
+command. Non-integer period values, including float-stored periods, are
+supported. The longitudinal route reports its period-specific diagnostics and
 does not run the cross-sectional panel workflow or produce a report workbook.
 
 {pstd}
-After {cmd:msm_weight}, the diagnosed weight defaults to the analysis weight
-{cmd:msm_fit} uses ({cmd:_msm_weight}: treatment times censoring weight, after
-any truncation); the output and {cmd:r(weight_role)} say which weight was
-diagnosed. Specify {cmd:wvar(_msm_tw_weight)} to diagnose the treatment-only
-weight instead; it is untruncated, so it is the right input when deciding
-on truncation, and it reproduces the numbers psdash 1.7.5 reported.
-Diagnostics are restricted to msm's treatment-decision risk
-set: the variable named by the {cmd:_msm_risk_var} characteristic (msm
-contract 1.1) or, under contract 1.0, {cmd:_msm_decision_risk}. Rows after the
-outcome or censoring are excluded by design and counted in
-{cmd:r(n_outside_risk)}, not reported as incomplete.
+After {cmd:msm_weight}, the diagnosed weight defaults to the analysis weight {cmd:msm_fit}
+uses ({cmd:_msm_weight}: treatment times censoring weight, after any
+truncation); the output and {cmd:r(weight_role)} say which weight was
+diagnosed. Specify {cmd:wvar(_msm_tw_weight)} to diagnose the treatment-only weight
+instead; it is untruncated, so it is the right input when deciding on
+truncation, and it reproduces the numbers psdash 1.7.5 reported. Diagnostics
+are restricted to msm's treatment-decision risk set: the variable named by the
+{cmd:_msm_risk_var} characteristic (msm contract 1.1) or, under contract 1.0,
+{cmd:_msm_decision_risk}. Rows after the outcome or censoring are excluded by design
+and counted in {cmd:r(n_outside_risk)}, not reported as incomplete.
 
 {pstd}
 For a binary treatment the dashboard graph is a 2x2 grid: PS overlap density,
 covariate balance (Love plot), weight distribution, and a {bf:Diagnostic Summary}
-scorecard. The scorecard states the overall verdict ({cmd:PASS} in green or
-{cmd:FAIL} in red, identical to {cmd:r(verdict)}) and the number of findings,
-then one row per executed panel with its key metrics, an {cmd:OK} or {cmd:Flag}
-status, and, for a flagged panel, its findings, wrapped onto at most two lines
-and abbreviated with "..." when longer; the full list is in {cmd:r(warnings)}. The common-support analysis still runs and feeds the verdict,
-the stored results, and the report workbook, but its density graph, which repeats the overlap
-density, is not drawn; specify {opt supportgraph} to show it in place of the
-scorecard. With {opt nooverlap}, the support density takes the overlap panel's
-place so the support bounds stay visible. Suppressed panels are omitted from
-the scorecard. Multi-group dashboards keep their overlap, balance, weight, and
+scorecard. The scorecard states the overall verdict ({cmd:PASS} in green or {cmd:FAIL} in
+red, identical to {cmd:r(verdict)}) and the number of findings, then one row per
+executed panel with its key metrics, an {cmd:OK} or {cmd:Flag} status, and, for a flagged
+panel, its findings, wrapped onto at most two lines and abbreviated with "..."
+when longer; the full list is in {cmd:r(warnings)}. The common-support analysis
+still runs and feeds the verdict, the stored results, and the report workbook,
+but its density graph, which repeats the overlap density, is not
+drawn; specify {opt supportgraph} to show it in place of the scorecard. With
+{opt nooverlap}, the support density takes the overlap panel's place so the support
+bounds stay visible. Suppressed panels are omitted from the
+scorecard. Multi-group dashboards keep their overlap, balance, weight, and
 support panels.
 
 {pstd}
@@ -102,7 +107,8 @@ factor-variable and interaction notation.
 {opt w:var(varname)} specifies existing diagnostic weights.
 
 {phang}
-{opt thr:eshold(#)} sets the absolute-SMD cutoff; default is {cmd:0.1}.
+{opt thr:eshold(#)} sets the absolute-SMD cutoff; default is {cmd:0.1}. It must
+be positive and is validated even when the balance panel is skipped.
 
 {phang}
 {opt overlap:max(#)} sets the maximum tolerated percent outside binary-treatment
@@ -110,7 +116,8 @@ common support. Multi-group verdicts use {opt gpsfloor()} instead.
 
 {phang}
 {opt ess:min(#)} sets the minimum tolerated overall ESS percentage; independent
-weight findings such as per-arm collapse, variability, and extremes remain active.
+weight findings such as per-arm collapse, variability, and extremes remain
+active.
 
 {phang}
 {opt imbal:max(#)} sets the tolerated number of SMD-imbalanced covariates, while
@@ -139,7 +146,10 @@ treatments, whose dashboards always show the support panel; a note says so.
 {opt dry:run} resolves inputs without running diagnostic panels.
 
 {phang}
-{opt rep:ort(filename)} writes the combined report workbook.
+{opt rep:ort(filename)} writes the combined report workbook. If the workbook
+cannot be written, the remaining panels still run and print once,
+{opt saving()} still runs, {cmd:r(report)} is not set, and the command exits
+with the write error.
 
 {phang}
 {opt sav:ing(filename)} saves the combined graph.
@@ -154,7 +164,8 @@ treatments, whose dashboards always show the support panel; a note says so.
 {opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
 
 {phang}
-{opt ref:erence(#)} selects the multi-group reference arm.
+{opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
+only {cmd:reference(0)} is allowed.
 
 {phang}
 {opt gpsfloor(#)} sets the multi-group practical-positivity floor.
@@ -188,11 +199,15 @@ treatments, whose dashboards always show the support panel; a note says so.
 {synopt:{cmd:r(n_excluded)}}observations excluded{p_end}
 {synopt:{cmd:r(n_estimation)}}estimation-sample observations assessed{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups{p_end}
+{synopt:{cmd:r(max_pct_outside)}}maximum period percent outside{p_end}
+{synopt:{cmd:r(n_ps_boundary)}}longitudinal PS values at 0 or 1{p_end}
+{synopt:{cmd:r(n_neg_wt)}}negative contract weights{p_end}
+{synopt:{cmd:r(n_nonpositive_wt)}}zero or negative contract weights{p_end}
 
 {p2col 5 32 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable{p_end}
 {synopt:{cmd:r(psvar)}}propensity-score variable{p_end}
-{synopt:{cmd:r(wvar)}}diagnostic weight variable{p_end}
+{synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}input-detection source{p_end}
 {synopt:{cmd:r(method)}}producer method metadata{p_end}
@@ -203,10 +218,16 @@ treatments, whose dashboards always show the support panel; a note says so.
 {synopt:{cmd:r(verdict)}}overall PASS or FAIL verdict{p_end}
 {synopt:{cmd:r(warnings)}}finding labels{p_end}
 {synopt:{cmd:r(warning_panels)}}panels with findings{p_end}
-{synopt:{cmd:r(report)}}report-workbook path{p_end}
+{synopt:{cmd:r(report)}}report path, when written{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component{p_end}
 {synopt:{cmd:r(levels)}}treatment-group levels{p_end}
 {synopt:{cmd:r(reference)}}reference treatment group{p_end}
+
+{pstd}
+The longitudinal scalars are posted only by the longitudinal route. A
+nonpositive contract weight is an error, so {cmd:r(n_neg_wt)} and
+{cmd:r(n_nonpositive_wt)} are 0 whenever results are posted. {cmd:r(max_pct_outside)} is
+missing when no period has both arms.
 
 {marker author}{...}
 {title:Author}

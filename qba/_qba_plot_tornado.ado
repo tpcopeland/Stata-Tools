@@ -1,4 +1,4 @@
-*! _qba_plot_tornado Version 1.2.0  2026/10/13
+*! _qba_plot_tornado Version 1.2.1  2026/11/17
 *! Internal helper: qba tornado plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -222,7 +222,16 @@ program define _qba_plot_tornado, rclass
             local _ref_text `"text(`_nully' `_xmax' "Null (`=strtrim("`_nullfmt'")')", placement(nw) size(small) color(gs6))"'
             if `obs_meas' < . {
                 local _obsfmt : display %5.2f `obs_meas'
-                local _ref_text `"`_ref_text' text(`=`obs_meas' + `_dy'' `_xmax' "Observed `measurelabel' (`=strtrim("`_obsfmt'")')", placement(nw) size(small) color(red))"'
+                * When the observed line sits on (or next to) the null line,
+                * hang its label below the line so the two labels never
+                * share coordinates.
+                local _obsy = `obs_meas' + `_dy'
+                local _obspl "nw"
+                if abs(`obs_meas' - `null') <= 2 * `_dy' {
+                    local _obsy = `obs_meas' - `_dy'
+                    local _obspl "sw"
+                }
+                local _ref_text `"`_ref_text' text(`_obsy' `_xmax' "Observed `measurelabel' (`=strtrim("`_obsfmt'")')", placement(`_obspl') size(small) color(red))"'
                 local _yrange "`_yrange' `obs_meas'"
             }
             local null_line `"`null_line' `_ref_text' yscale(range(`_yrange'))"'

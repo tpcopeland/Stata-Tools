@@ -36,22 +36,22 @@
 {synopt:{opt b(#)}}unexposed cases{p_end}
 {synopt:{opt c(#)}}exposed non-cases{p_end}
 {synopt:{opt d(#)}}unexposed non-cases{p_end}
-{synopt:{opt sela(#)}}selection probability for exposed cases{p_end}
-{synopt:{opt selb(#)}}selection probability for unexposed cases{p_end}
-{synopt:{opt selc(#)}}selection probability for exposed non-cases{p_end}
+{synopt:{opt sela(#)}}selection prob, exposed cases{p_end}
+{synopt:{opt selb(#)}}selection prob, unexposed cases{p_end}
+{synopt:{opt selc(#)}}selection prob, exposed non-cases{p_end}
 {synopt:{opt seld(#)}}selection prob, unexposed non-cases{p_end}
 
 {syntab:Measure}
 {synopt:{opt mea:sure(OR|RR)}}measure of association; default {cmd:OR}{p_end}
 
 {syntab:Probabilistic}
-{synopt:{opt reps(#)}}Monte Carlo replications; minimum 100{p_end}
+{synopt:{opt reps(#)}}Monte Carlo reps; minimum 100{p_end}
 {synopt:{opt dist_sela(distribution)}}sela distribution; default constant{p_end}
 {synopt:{opt dist_selb(distribution)}}selb distribution; default constant{p_end}
 {synopt:{opt dist_selc(distribution)}}selc distribution; default constant{p_end}
 {synopt:{opt dist_seld(distribution)}}seld distribution; default constant{p_end}
-{synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}simulation-interval level; default {cmd:c(level)}{p_end}
+{synopt:{opt seed(#)}}random number seed{p_end}
+{synopt:{opt level(#)}}interval level; default {cmd:c(level)}{p_end}
 {synopt:{opt sa:ving(filename, ...)}}save the Monte Carlo dataset{p_end}
 {synoptline}
 
@@ -121,7 +121,15 @@ ratio.
 accepted is 100, which is a floor rather than a stability guarantee: Fox,
 MacLehose, and Lash (2023) repeat the process "hundreds of thousands" of
 times, and their worked examples use 10^5 to 10^6 replications. Specifying
-{opt reps()} activates probabilistic mode.
+{opt reps()} activates probabilistic mode. Replicates with an out-of-support parameter draw or an undefined corrected
+measure are excluded from the summaries, and a warning is displayed when more
+than 20% of replicates are excluded. The 20% threshold is a package
+convention; Fox, Lash, and Greenland (2005) use 10% as their diagnostic. A zero
+observed cell stays zero after division by its selection probability
+(Greenland 1996, eq. 10), so an observed OR or RR of 0 gives a corrected value
+of exactly 0 on both routes; an observed measure that is undefined (a zero
+cell in its denominator) is reported as missing in simple mode and refused in
+probabilistic mode, where no replicate is defined.
 
 {phang}
 {opt dist_sela(distribution)} through {opt dist_seld(distribution)} specify distributions
@@ -130,7 +138,9 @@ a constant at the corresponding fixed value is used. See {helpb qba} for distrib
 syntax.
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducibility.
+{opt seed(#)} sets the random number seed for reproducibility. It must be an
+integer from 0 to 2147483647, the range {cmd:set seed} documents; a negative
+seed is refused because {cmd:set seed} would silently use its absolute value.
 
 {phang}
 {opt level(#)} specifies the confidence level for the percentile interval. The
@@ -216,9 +226,9 @@ uncertainty is strongly recommended.
 {synopt:{cmd:r(corrected_b)}}corrected unexposed cases cell count{p_end}
 {synopt:{cmd:r(corrected_c)}}corrected exposed non-cases cell count{p_end}
 {synopt:{cmd:r(corrected_d)}}corrected unexposed non-cases cell count{p_end}
-{synopt:{cmd:r(sela)}}selection probability for exposed cases{p_end}
-{synopt:{cmd:r(selb)}}selection probability for unexposed cases{p_end}
-{synopt:{cmd:r(selc)}}selection probability for exposed non-cases{p_end}
+{synopt:{cmd:r(sela)}}selection prob, exposed cases{p_end}
+{synopt:{cmd:r(selb)}}selection prob, unexposed cases{p_end}
+{synopt:{cmd:r(selc)}}selection prob, exposed non-cases{p_end}
 {synopt:{cmd:r(seld)}}selection probability for unexposed non-cases{p_end}
 
 {p2col 5 20 24 2: Scalars (probabilistic mode)}{p_end}
@@ -226,15 +236,15 @@ uncertainty is strongly recommended.
 {synopt:{cmd:r(corrected)}}median corrected measure{p_end}
 {synopt:{cmd:r(mean)}}mean of corrected measures{p_end}
 {synopt:{cmd:r(sd)}}standard deviation of corrected measures{p_end}
-{synopt:{cmd:r(ci_lower)}}lower limit of the systematic-error simulation interval{p_end}
-{synopt:{cmd:r(ci_upper)}}upper limit of the systematic-error simulation interval{p_end}
+{synopt:{cmd:r(ci_lower)}}lower limit of systematic-error interval{p_end}
+{synopt:{cmd:r(ci_upper)}}upper limit of systematic-error interval{p_end}
 {synopt:{cmd:r(reps)}}number of replications requested{p_end}
 {synopt:{cmd:r(n_valid)}}number of valid (non-missing) replications{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(measure)}}measure of association ({cmd:OR} or {cmd:RR}){p_end}
 {synopt:{cmd:r(method)}}{cmd:simple} or {cmd:probabilistic}{p_end}
-{synopt:{cmd:r(interval)}}what {cmd:r(ci_lower)}/{cmd:r(ci_upper)} are{p_end}
+{synopt:{cmd:r(interval)}}{cmd:r(ci_*)} interval type (probabilistic only){p_end}
 
 
 {title:References}

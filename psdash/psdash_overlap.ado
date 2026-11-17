@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.9.0  2026/10/29
+*! psdash_overlap Version 1.9.1  2026/11/17
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -100,7 +100,8 @@ program define psdash_overlap, rclass
     if "`xlsx'" != "" {
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
     }
-    if "`sheet'" == "" local sheet "Overlap"
+    if `"`sheet'"' != "" _psdash_validate_sheet, sheet(`"`sheet'"')
+    if `"`sheet'"' == "" local sheet "Overlap"
     if "`bwidth'" != "" {
         capture confirm number `bwidth'
         if _rc | real("`bwidth'") <= 0 {
@@ -143,6 +144,11 @@ program define psdash_overlap, rclass
     if "`estimand'" == "" local estimand "`_psd_estimand'"
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
+    * psdash combined marks the temporary PS it forwards (never a user name).
+    if `: word count `psvar'' == 1 {
+        local _lbl : char `psvar'[_psdash_label]
+        if `"`_lbl'"' != "" local psvar_label `"`_lbl'"'
+    }
 
     * Retrieve multi-group info from detect
     local multigroup "`_psd_multigroup'"
@@ -463,7 +469,7 @@ program define psdash_overlap, rclass
                 local _xk `"`_xk' "C-statistic (AUC)""'
                 local _xv `"`_xv' "`=string(`auc',"%6.4f")'""'
             }
-            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+            _psdash_export_kv, xlsx("`xlsx'") sheet(`"`sheet'"') ///
                 title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
         }
@@ -715,7 +721,7 @@ program define psdash_overlap, rclass
             local _xv `"`_xv' "`=string(`min_gps',"%6.4f")'" "`=string(`gpsfloor',"%6.4f")'" "`n_gps_violate'" "`=string(`pct_gps_violate',"%5.2f")'""'
             local _xk `"`_xk' "Observed-arm overlap lower" "Observed-arm overlap upper" "Outside observed-arm overlap (N)" "Outside observed-arm overlap (%)""'
             local _xv `"`_xv' "`=string(`overlap_lower',"%6.4f")'" "`=string(`overlap_upper',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
-            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+            _psdash_export_kv, xlsx("`xlsx'") sheet(`"`sheet'"') ///
                 title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
         }
@@ -729,6 +735,8 @@ program define psdash_overlap, rclass
 
     }
     local rc = _rc
+    * Multi-valued teffects PS columns are named <psout>_<level>.
+    if "`ps_auto'" != "" capture drop `ps_auto'_*
     set varabbrev `_vao'
     if `rc' == 0 & "`_psdash_return_mode'" != "" {
         if `_psdash_side_rc' {

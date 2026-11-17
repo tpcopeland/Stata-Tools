@@ -37,39 +37,39 @@
 
 {syntab:Data (tornado and tipping)}
 {synopt:{opt a(#)} {opt b(#)} {opt c(#)} {opt d(#)}}2x2 table cells{p_end}
-{synopt:{opt ty:pe(exposure|outcome)}}misclassification type; default {cmd:exposure}{p_end}
+{synopt:{opt ty:pe(exposure|outcome)}}misclass type; default {cmd:exposure}{p_end}
 {synopt:{opt mea:sure(OR|RR|coefficient)}}estimate to plot{p_end}
 
 {syntab:Parameters to sweep}
 {synopt:{opt param1(name)} {opt range1(# #)}}first parameter and range{p_end}
 {synopt:{opt param2(name)} {opt range2(# #)}}second parameter and range{p_end}
 {synopt:{opt param3(name)} {opt range3(# #)}}third parameter (tornado only){p_end}
-{synopt:{opt steps(#)}}grid steps; default {cmd:20}{p_end}
+{synopt:{opt s:teps(#)}}grid steps; default {cmd:20}{p_end}
 
 {syntab:Baseline values (for non-swept parameters)}
-{synopt:{opt base_se(#)}}baseline sensitivity; default {cmd:0.9}{p_end}
-{synopt:{opt base_sp(#)}}baseline specificity; default {cmd:0.9}{p_end}
-{synopt:{opt base_sela(#)}}baseline sel prob, exp cases{p_end}
-{synopt:{opt base_selb(#)}}baseline sel prob, unexp cases{p_end}
-{synopt:{opt base_selc(#)}}baseline sel prob, exp non-cases{p_end}
-{synopt:{opt base_seld(#)}}baseline sel prob, unexp non-cases{p_end}
+{synopt:{opt base_se(#)}}baseline Se; default {cmd:0.9}{p_end}
+{synopt:{opt base_sp(#)}}baseline Sp; default {cmd:0.9}{p_end}
+{synopt:{opt base_sela(#)}}base sel prob, exp cases{p_end}
+{synopt:{opt base_selb(#)}}base sel prob, unexp cases{p_end}
+{synopt:{opt base_selc(#)}}base sel prob, exp non-cases{p_end}
+{synopt:{opt base_seld(#)}}base sel prob, unexp non-cases{p_end}
 {synopt:{opt base_p1(#)}}baseline P(U | exposed){p_end}
 {synopt:{opt base_p0(#)}}baseline P(U | unexposed){p_end}
 {synopt:{opt base_rrcd(#)}}baseline confounder-disease RR{p_end}
-{synopt:{opt base_rrud(#)}}baseline RR, Greenland form{p_end}
+{synopt:{opt base_rrud(#)}}baseline RR, {cmd:rrud} form{p_end}
 
 {syntab:Distribution plot}
 {synopt:{opt us:ing(filename)}}Monte Carlo dataset to read{p_end}
 {synopt:{opt obs:erved(#)}}observed measure value{p_end}
-{synopt:{opt nu:ll(#)}}null value for the reference line{p_end}
+{synopt:{opt nu:ll(#)}}null value for reference line{p_end}
 
 {syntab:Graph options}
-{synopt:{opt sch:eme(name)}}graph scheme; default is current{p_end}
+{synopt:{opt sch:eme(name)}}graph scheme; default current{p_end}
 {synopt:{opt ti:tle(string)}}custom graph title{p_end}
 {synopt:{opt sa:ving(filename)}}export graph to file{p_end}
 {synopt:{opt name(name)}}assign name to graph window{p_end}
-{synopt:{opt replace}}replace existing file or named graph{p_end}
-{synopt:{it:twoway_options}}additional options passed to {cmd:twoway}{p_end}
+{synopt:{opt replace}}replace file or named graph{p_end}
+{synopt:{it:twoway_options}}options passed to {cmd:twoway}{p_end}
 {synoptline}
 
 
@@ -86,7 +86,7 @@ is varied across its range while other parameters are held at their baseline
 values. This reveals which parameters have the greatest influence on the
 corrected estimate. Up to three parameters can be displayed simultaneously. Each
 parameter is drawn as a one-way sensitivity curve (a line, not a bar), with the
-observed estimate (red dashed) and the null (gray dotted) labelled at the right
+observed estimate (red dashed) and the null (gray solid) labelled at the right
 edge of the plot.
 
 {phang}
@@ -155,7 +155,7 @@ parameters to vary. Recognized parameter names are:
 {p2col:{cmd:p1}}confounder prevalence among exposed{p_end}
 {p2col:{cmd:p0}}confounder prevalence among unexposed{p_end}
 {p2col:{cmd:rrcd}}confounder-disease RR (Schneeweiss formula){p_end}
-{p2col:{cmd:rrud}}confounder-disease RR (Greenland formula){p_end}
+{p2col:{cmd:rrud}}alternate name for {cmd:rrcd} (same bias factor){p_end}
 {p2colreset}{...}
 
 {pmore}
@@ -171,7 +171,7 @@ prevalences must be in [0,1]; and confounder relative risks must be greater
 than 0.
 
 {phang}
-{opt steps(#)} specifies the number of grid points per parameter. Default is
+{opt s:teps(#)} specifies the number of grid points per parameter. Default is
 {cmd:20}. Minimum is {cmd:2}. For tipping plots, the total number of computed
 points is steps^2, so values above 50 may be slow.
 
@@ -189,9 +189,10 @@ selection bias).
 {phang}
 {opt base_p1(#)}, {opt base_p0(#)}, {opt base_rrcd(#)}, and {opt base_rrud(#)} specify baseline
 confounding parameters for non-swept confounding parameters. Defaults are 0.3,
-0.1, 2, and unset, respectively. Specify {opt base_rrud()} to use the Greenland
-parameterization for p1/p0 sweeps; otherwise p1/p0 sweeps use {opt base_rrcd()} and
-the Schneeweiss parameterization.
+0.1, 2, and unset, respectively. Specify {opt base_rrud()} to hold the
+confounder-disease parameter at that value for p1/p0 sweeps; otherwise p1/p0
+sweeps use {opt base_rrcd()}. Both names enter the same Schneeweiss (2006)
+bias factor (see {helpb qba_confound}).
 
 {pmore}
 Baseline values are validated on the same support as their corresponding
@@ -212,8 +213,11 @@ specify {opt measure()}.
 dashed reference line. Required for distribution plots.
 
 {phang}
-{opt null(#)} specifies the null value shown as a gray dotted reference line. If
-omitted, the default is {cmd:1} for OR/RR plots and {cmd:0} for coefficient plots.
+{opt null(#)} specifies the null value shown as a gray solid reference line. If
+omitted, the default is {cmd:1} for OR/RR plots and {cmd:0} for coefficient plots; on
+the OR/RR scale (tornado, tipping, and OR/RR distribution plots)
+{opt observed()} and {opt null()} must be positive; a coefficient distribution
+plot accepts any nonmissing value.
 
 {dlgtab:Graph options}
 
@@ -248,9 +252,20 @@ across a grid of two parameters. For correct results, both parameters should
 be of the same bias type: both misclassification (e.g., {cmd:se} and {cmd:sp}) or both
 confounding (e.g., {cmd:p1} and {cmd:rrcd}). Mixed parameter types (e.g., one
 misclassification and one confounding) and selection parameters are not
-supported and produce error 198. The two alternative confounder-disease
-parameterizations, {cmd:rrcd} and {cmd:rrud}, cannot be used as the two axes in the same
-tipping plot.
+supported and produce error 198. {cmd:rrcd} and {cmd:rrud} name the same
+confounder-disease parameter, so they cannot be swept together in one tornado
+or tipping plot. Every tile is classified against the observed measure, so a
+tipping plot requires cells with a defined observed OR or RR (no zero cell in
+its denominator); otherwise it exits with error 198.
+
+{pstd}
+{bf:Options belong to one plot type.} {opt using()} and {opt observed()} apply
+to distribution plots only; {opt a()}-{opt d()}, {opt type()}, the
+{opt param}{it:#}{cmd:()}/{opt range}{it:#}{cmd:()} pairs, {opt steps()}, and the
+{opt base_}{it:*}{cmd:()} options apply to tornado and tipping plots only; and
+the {opt base_sel}{it:*}{cmd:()} options apply to tornado plots only. An option
+given with a plot type it does not belong to is refused with error 198 rather
+than silently ignored.
 
 {pstd}
 {bf:Tornado plot with confounding parameters.} When sweeping confounding
@@ -318,7 +333,7 @@ parameters are held at their baseline values ({opt base_p1()},
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(n_missing)}}infeasible or undefined grid points{p_end}
+{synopt:{cmd:r(n_missing)}}undefined grid points (tornado, tipping){p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(plot_type)}}plot type ({cmd:tornado}, {cmd:distribution}, or {cmd:tipping}){p_end}

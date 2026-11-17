@@ -1,4 +1,4 @@
-*! _psdash_export_balance Version 1.9.0  2026/10/29
+*! _psdash_export_balance Version 1.9.1  2026/11/17
 *! Write typed, complete balance tables to Excel
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -59,7 +59,7 @@ program define _psdash_export_balance, nclass
         local q = floor((`q' - 1) / 26)
     }
 
-    putexcel set "`xlsx'", sheet("`sheet'", replace) modify
+    putexcel set "`xlsx'", sheet(`"`sheet'"', replace) modify
     local _putexcel_open = 1
     * Merging can clear the anchor cell on later workbook sheets.
     if `ncols' > 1 putexcel A1:`last_col'1, merge

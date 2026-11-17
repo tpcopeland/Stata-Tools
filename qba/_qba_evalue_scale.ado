@@ -1,4 +1,4 @@
-*! _qba_evalue_scale Version 1.2.0  2026/10/13
+*! _qba_evalue_scale Version 1.2.1  2026/11/17
 *! Internal helper: report which VanderWeele-Ding Table 2 scale an E-value used
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -17,7 +17,7 @@ program define _qba_evalue_scale
     set varabbrev off
     capture noisily {
 
-        syntax , MEASure(string) CONV(string) RRUSED(real) [COMMON(string)]
+        syntax , MEASure(string) CONV(string) RRUSED(string) [COMMON(string)]
 
         local measure = strupper("`measure'")
         local conv = strlower("`conv'")

@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.9.0  2026/10/29
+*! psdash_weights Version 1.9.1  2026/11/17
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -75,8 +75,8 @@ program define psdash_weights, rclass
     * SYNTAX PARSING
     syntax [anything] [if] [in], ///
         [Wvar(varname) ///
-         TRIM(real 0) ///
-         TRUNCate(real 0) ///
+         TRIM(string) ///
+         TRUNCate(string) ///
          STABilize ///
          GENerate(name) ///
          replace ///
@@ -100,7 +100,38 @@ program define psdash_weights, rclass
     if "`xlsx'" != "" {
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
     }
+    if `"`sheet'"' != "" _psdash_validate_sheet, sheet(`"`sheet'"')
     if "`sheet'" == "" local sheet "Weights"
+
+    * trim()/truncate(): 0 is the internal "omitted" value, so an explicit
+    * value is range-checked here before it can collide with that sentinel
+    * (trim(0) and truncate(0) used to be ignored at rc 0).
+    if `"`trim'"' != "" {
+        capture confirm number `trim'
+        local _trim_num = real(`"`trim'"')
+        if _rc | missing(`_trim_num') | `_trim_num' < 50 | `_trim_num' > 99.9 {
+            display as error "trim() must be between 50 and 99.9"
+            exit 198
+        }
+        local trim = `_trim_num'
+    }
+    else local trim 0
+    if `"`truncate'"' != "" {
+        capture confirm number `truncate'
+        local _trunc_num = real(`"`truncate'"')
+        if _rc | missing(`_trunc_num') | `_trunc_num' <= 0 {
+            display as error "truncate() must be positive"
+            exit 198
+        }
+        local truncate = `_trunc_num'
+    }
+    else local truncate 0
+    * generate() names a modified weight; without a modification it is an
+    * error, reported before any table is printed (binary and multi-group).
+    if "`generate'" != "" & `trim' == 0 & `truncate' == 0 & "`stabilize'" == "" {
+        display as error "generate() requires trim(), truncate(), or stabilize"
+        exit 198
+    }
 
     * Extreme-weight thresholds (absolute scale). Defaults suit stabilized weights;
     * for unstabilized ATE weights set extreme() to larger cutoffs.
@@ -328,13 +359,17 @@ program define psdash_weights, rclass
     }
     else if "`psvar'" != "" markout `touse' `psvar'
 
-    * Positivity warnings (when PS is available, binary only)
+    * Positivity warnings (when PS is available: any two-arm treatment; for
+    * K=2 with non-0/1 codes the boundary counts of P(A=level|X) and its
+    * complement coincide)
     local n_ps_boundary = 0
     local n_ps_near = 0
-    if "`psvar'" != "" & "`multigroup'" == "0" {
+    local _ps_checked = 0
+    if "`psvar'" != "" & ("`multigroup'" == "0" | `K' == 2) {
         _psdash_pscheck `psvar' if `touse', nowarn
         local n_ps_boundary = r(n_ps_boundary)
         local n_ps_near = r(n_ps_near)
+        local _ps_checked = 1
     }
 
     * RB-09: account for observations whose weight is undefined (missing) BEFORE
@@ -501,9 +536,11 @@ program define psdash_weights, rclass
             display as error "generate() cannot be the same as the treatment variable"
             exit 198
         }
-        if "`generate'" == "`psvar'" {
-            display as error "generate() cannot be the same as the propensity score variable"
-            exit 198
+        foreach _ps_in in `psvar' `_psd_ps_0' `_psd_ps_1' `psvars' {
+            if "`generate'" == "`_ps_in'" {
+                display as error "generate() cannot be the same as the propensity score variable"
+                exit 198
+            }
         }
         if substr("`generate'", 1, 8) == "_psdash_" {
             display as error "generate() cannot use the reserved _psdash_ prefix"
@@ -592,6 +629,7 @@ program define psdash_weights, rclass
     display as text _n "IPTW Weight Diagnostics"
     local wvar_label "`wvar'"
     if "`wvar_auto'" == "1" local wvar_label "auto-generated"
+    if `"`: char `wvar'[_psdash_label]'"' != "" local wvar_label "auto-generated"
     display as text "Weight variable:   " as result "`wvar_label'"
     if "`component_label'" != "" {
         display as text "Weight component:  " as result "`component_label'"
@@ -749,10 +787,6 @@ program define psdash_weights, rclass
     }
 
     * WEIGHT TRIMMING/STABILIZATION (binary)
-    if "`generate'" != "" & `trim' == 0 & `truncate' == 0 & "`stabilize'" == "" {
-        display as error "generate() requires trim(), truncate(), or stabilize"
-        exit 198
-    }
 
     if "`stabilize'" != "" & "`wvar_auto'" != "1" {
         display as text "Note: stabilize multiplies the supplied weights by the marginal P(treatment);"
@@ -832,8 +866,12 @@ program define psdash_weights, rclass
     * EXPORT TO EXCEL (binary, O1)
     if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
-            local _xk `""Treatment" "Total N" "N (treated)" "N (control)" "Mean weight" "SD weight" "Min weight" "Max weight" "CV" "ESS" "ESS % of N" "ESS % (treated)" "ESS % (control)" "Weights > extreme (N)" "Weights > extreme (%)" "Weights > very-extreme (N)" "p1" "p5" "p95""'
-            local _xv `""`treatment'" "`N'" "`n_treated'" "`n_control'" "`=string(`mean_wt',"%8.4f")'" "`=string(`sd_wt',"%8.4f")'" "`=string(`min_wt',"%8.4f")'" "`=string(`max_wt',"%8.4f")'" "`=string(`cv',"%6.3f")'" "`=string(`ess',"%8.1f")'" "`=string(`ess_pct',"%5.1f")'" "`=string(`ess_pct_t',"%5.1f")'" "`=string(`ess_pct_c',"%5.1f")'" "`n_extreme'" "`=string(`pct_extreme',"%5.2f")'" "`n_very_extreme'" "`=string(`p1',"%8.4f")'" "`=string(`p5',"%8.4f")'" "`=string(`p95',"%8.4f")'""'
+            local _xk `""Treatment" "Total N" "N (treated)" "N (control)" "Mean weight" "SD weight" "Min weight" "Max weight" "CV" "ESS" "ESS % of N" "ESS % (treated)" "ESS % (control)" "Weights > extreme (N)" "Weights > extreme (%)" "Weights > very-extreme (N)" "p1" "p5" "p95" "p99" "Max/mean weight ratio" "ESS (treated)" "ESS (control)""'
+            local _xv `""`treatment'" "`N'" "`n_treated'" "`n_control'" "`=string(`mean_wt',"%8.4f")'" "`=string(`sd_wt',"%8.4f")'" "`=string(`min_wt',"%8.4f")'" "`=string(`max_wt',"%8.4f")'" "`=string(`cv',"%6.3f")'" "`=string(`ess',"%8.1f")'" "`=string(`ess_pct',"%5.1f")'" "`=string(`ess_pct_t',"%5.1f")'" "`=string(`ess_pct_c',"%5.1f")'" "`n_extreme'" "`=string(`pct_extreme',"%5.2f")'" "`n_very_extreme'" "`=string(`p1',"%8.4f")'" "`=string(`p5',"%8.4f")'" "`=string(`p95',"%8.4f")'" "`=string(`p99',"%8.4f")'" "`=string(`max_ratio',"%8.2f")'" "`=string(`ess_t',"%8.1f")'" "`=string(`ess_c',"%8.1f")'""'
+            if "`generate'" != "" {
+                local _xk `"`_xk' "Modified weight" "Modified mean" "Modified SD" "Modified max" "Modified CV" "Modified ESS" "Modified ESS % of N""'
+                local _xv `"`_xv' "`generate'" "`=string(`new_mean',"%8.4f")'" "`=string(`new_sd',"%8.4f")'" "`=string(`new_max',"%8.4f")'" "`=string(`new_cv',"%6.3f")'" "`=string(`new_ess',"%8.1f")'" "`=string(`new_ess_pct',"%5.1f")'""'
+            }
             _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
                 title("Weight Diagnostics") keys(`_xk') vals(`_xv')
             noisily display as text _n "Weights table exported to: " as result "`xlsx'"
@@ -917,7 +955,8 @@ program define psdash_weights, rclass
     }
 
     if "`generate'" != "" & (`trim' != 0 | `truncate' != 0 | "`stabilize'" != "") {
-        local reserved_names "`wvar' `treatment' `mg_psvars_all'"
+        * psvars() is reserved on every route, including treatment+wvar()
+        local reserved_names "`wvar' `treatment' `mg_psvars_all' `psvars'"
         local reserved_names : list uniq reserved_names
         foreach reserved of local reserved_names {
             if "`reserved'" == "" continue
@@ -949,11 +988,6 @@ program define psdash_weights, rclass
         }
     }
 
-    if "`generate'" != "" & `trim' == 0 & `truncate' == 0 & "`stabilize'" == "" {
-        display as error "generate() requires trim(), truncate(), or stabilize"
-        exit 198
-    }
-
     if "`name'" == "" local name "psdash_weights"
     local source_label "`source'"
     local component_label ""
@@ -978,6 +1012,7 @@ program define psdash_weights, rclass
             local component_label "visit-intensity IIW (`wvar')"
             local weight_xtitle "Visit-intensity weight"
             local graph_title "Visit-Intensity Weight Distribution"
+            display as text "note: iivwcomponent(visit) is descriptive only; PS overlap/support do not apply"
         }
     }
 
@@ -1019,6 +1054,7 @@ program define psdash_weights, rclass
     display as text _n "IPTW Weight Diagnostics (Multi-Group)"
     local wvar_label "`wvar'"
     if "`wvar_auto'" == "1" local wvar_label "auto-generated"
+    if `"`: char `wvar'[_psdash_label]'"' != "" local wvar_label "auto-generated"
     display as text "Weight variable:   " as result "`wvar_label'"
     if "`component_label'" != "" {
         display as text "Weight component:  " as result "`component_label'"
@@ -1198,6 +1234,17 @@ program define psdash_weights, rclass
         local _pf `"`_pf' | max weight `=string(`max_wt',"%6.2f")' > `_evh'"'
         local ++_pfn
     }
+    * K=2 with non-0/1 codes: the same positivity finding as the binary path.
+    if `_ps_checked' {
+        if `n_ps_boundary' > 0 {
+            display as text "{err}Warning: `n_ps_boundary' observation(s) at an exact PS boundary violate strict positivity.{txt}"
+            local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
+            local ++_pfn
+        }
+        if `n_ps_near' > 0 {
+            display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
+        }
+    }
     local _pf = strtrim("`_pf'")
     if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
     local _weights_findings `"`_pf'"'
@@ -1325,6 +1372,8 @@ program define psdash_weights, rclass
 
     }
     local rc = _rc
+    * Multi-valued teffects PS columns are named <psout>_<level>.
+    if "`ps_auto'" != "" capture drop `ps_auto'_*
     set varabbrev `_vao'
     if `rc' == 0 & "`_psdash_return_mode'" != "" {
         if `_psdash_side_rc' {
@@ -1423,6 +1472,10 @@ program define psdash_weights, rclass
             return scalar p99 = `p99'
             return scalar n_wt_undefined = `n_wt_undefined'
             return scalar n_wt_dropped = `n_wt_dropped'
+            if `_ps_checked' {
+                return scalar n_ps_boundary = `n_ps_boundary'
+                return scalar n_ps_near_boundary = `n_ps_near'
+            }
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"

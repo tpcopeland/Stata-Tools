@@ -1,4 +1,4 @@
-*! _psdash_expand_fv Version 1.9.0  2026/10/29
+*! _psdash_expand_fv Version 1.9.1  2026/11/17
 *! Expand factor-variable / interaction covariate terms into design-column labels
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,7 +62,9 @@ program define _psdash_expand_fv, rclass
         foreach t of local allterms {
             local ++j
             if regexm("`t'", "[0-9]+b\.") continue   // base level
-            if regexm("`t'", "[0-9]+o\.") continue   // omitted / collinear
+            * omitted / collinear: 3o.cat, and o.x for an omitted continuous
+            * term (alone or inside an interaction)
+            if regexm("`t'", "(^|#|[0-9]|[bc])o\.") continue
             local labels `"`labels' `t'"'
             local keepidx "`keepidx' `j'"
         }

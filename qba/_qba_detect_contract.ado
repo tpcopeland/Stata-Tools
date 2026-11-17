@@ -1,4 +1,4 @@
-*! _qba_detect_contract Version 1.2.0  2026/10/13
+*! _qba_detect_contract Version 1.2.1  2026/11/17
 *! Internal helper: detect active estimator contracts consumable by qba
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! _qba_plot_validate_cells Version 1.2.0  2026/10/13
+*! _qba_plot_validate_cells Version 1.2.1  2026/11/17
 *! Internal helper: validate qba_plot 2x2 cell options
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -12,10 +12,8 @@ program define _qba_plot_validate_cells
 
         syntax , PLOT(string) A(real) B(real) C(real) D(real)
 
-        if `a' == -1 | `b' == -1 | `c' == -1 | `d' == -1 {
-            display as error "`plot' plot requires a() b() c() d()"
-            exit 198
-        }
+        * Presence of a()-d() is checked by qba_plot from the raw options;
+        * every value reaching here was typed by the caller.
         foreach _cell in a b c d {
             if missing(``_cell'') {
                 display as error "`_cell'() must be nonmissing"

@@ -324,6 +324,10 @@ capture noisily {
     assert r(max_smd_adj) == `m0'
     capture graph describe psdash_balance
     assert _rc != 0
+    * nograph draws no distribution figure: neither the 1.9.1 single-variable
+    * name (psdash_balance_dist) nor the old one (psdash_balance_dist1)
+    capture graph describe psdash_balance_dist
+    assert _rc != 0
     capture graph describe psdash_balance_dist1
     assert _rc != 0
     * abbreviation

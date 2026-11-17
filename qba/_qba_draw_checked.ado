@@ -1,4 +1,4 @@
-*! _qba_draw_checked Version 1.2.0  2026/10/13
+*! _qba_draw_checked Version 1.2.1  2026/11/17
 *! Internal helper: draw a distribution and flag out-of-support values
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -27,6 +27,9 @@ program define _qba_draw_checked, rclass
             quietly gen byte `invalid' = 0
         }
 
+        * A missing draw is out of support for every parameter, including
+        * those drawn with no finite bound (dist_rr(), dist_confeffect()).
+        quietly replace `invalid' = 1 if missing(`gen')
         if "`lower'" != "" {
             if "`loweropen'" != "" {
                 quietly replace `invalid' = 1 if `gen' <= `lower'

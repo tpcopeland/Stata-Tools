@@ -1,4 +1,4 @@
-*! _qba_plot_tipping Version 1.2.0  2026/10/13
+*! _qba_plot_tipping Version 1.2.1  2026/11/17
 *! Internal helper: qba tipping plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -79,6 +79,16 @@ program define _qba_plot_tipping, rclass
         }
         else {
             local obs_meas = `obs_or'
+        }
+        * Every tile is classified against the observed measure ("crosses
+        * null" and "above/below observed"); with an undefined observed value
+        * those comparisons against missing would label tiles at rc=0.
+        if missing(`obs_meas') {
+            display as error ///
+                "observed `measurelabel' is undefined for these cells (zero denominator cell)"
+            display as error ///
+                "tipping tiles are classified against the observed value; supply cells with a defined observed measure"
+            exit 198
         }
 
         preserve

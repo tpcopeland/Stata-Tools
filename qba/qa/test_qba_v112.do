@@ -367,7 +367,9 @@ capture noisily {
     assert r(p0) == .2
     assert !missing(r(se), _se[weight])
     assert reldif(r(se), _se[weight]) < 1e-6
-    local half90 = invnormal(.95) * _se[weight]
+    * 1.2.1: the from_model CI uses the model's own critical value, t with
+    * e(df_r) after regress (matches r(table)), not the normal quantile
+    local half90 = invttail(e(df_r), .05) * _se[weight]
     _assert_close `=r(ci_upper) - r(observed)' `half90' 1e-6
 
     qba_confound, from_model coef(weight) p1(.4) p0(.2) confeffect(500) ///
@@ -383,7 +385,7 @@ capture noisily {
     qba_selection, a(100) b(200) c(50) d(300) ///
         sela(.9) selb(.8) selc(.7) seld(.6) ///
         dist_sela("uniform .7 .95") reps(500) seed(812) level(95)
-    assert !missing(r(ci_lower))
+    assert !missing(r(ci_lower)) & !missing(r(ci_upper)) & !missing(`sw80')
     assert r(ci_upper) - r(ci_lower) >= `sw80'
 
     qba_multi, a(100) b(200) c(50) d(300) seca(.85) spca(.95) ///
@@ -391,7 +393,7 @@ capture noisily {
     local mw80 = r(ci_upper) - r(ci_lower)
     qba_multi, a(100) b(200) c(50) d(300) seca(.85) spca(.95) ///
         dist_se("uniform .75 .95") reps(500) seed(813) level(95)
-    assert !missing(r(ci_lower))
+    assert !missing(r(ci_lower)) & !missing(r(ci_upper)) & !missing(`mw80')
     assert r(ci_upper) - r(ci_lower) >= `mw80'
 
     qba_plot, tornado a(100) b(200) c(50) d(300) type(outcome) ///

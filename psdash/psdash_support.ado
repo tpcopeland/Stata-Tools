@@ -1,4 +1,4 @@
-*! psdash_support Version 1.9.0  2026/10/29
+*! psdash_support Version 1.9.1  2026/11/17
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -82,8 +82,8 @@ program define psdash_support, rclass
     syntax [anything] [if] [in], ///
         [COVariates(varlist numeric fv) ///
          CRUMP ///
-         THReshold(real -1) ///
-         QTRIM(real -1) ///
+         THReshold(string) ///
+         QTRIM(string) ///
          GPSFLOOR(real 0.01) ///
          GENerate(name) ///
          replace ///
@@ -105,11 +105,34 @@ program define psdash_support, rclass
     if "`xlsx'" != "" {
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
     }
-    if "`sheet'" == "" local sheet "Support"
+    if `"`sheet'"' != "" _psdash_validate_sheet, sheet(`"`sheet'"')
+    if `"`sheet'"' == "" local sheet "Support"
 
-    * Validate qtrim() (quantile-based common-support bounds; binary only)
-    if `qtrim' != -1 {
-        if `qtrim' <= 0 | `qtrim' >= 50 {
+    * threshold() and qtrim() are parsed as text so that an omitted option is
+    * distinguishable from any value the user can type: -1 is only the internal
+    * "omitted" marker, so an explicit threshold(-1) or qtrim(-1) must be
+    * rejected here, not silently treated as omitted.
+    foreach _opt in threshold qtrim {
+        if `"``_opt''"' == "" {
+            local `_opt' = -1
+            continue
+        }
+        capture confirm number ``_opt''
+        if _rc {
+            display as error "`_opt'() must be a number"
+            exit 198
+        }
+        local `_opt' = real("``_opt''")
+        * Range checks run on every supplied value, so a valid value can never
+        * equal the -1 marker.
+        if "`_opt'" == "threshold" {
+            if `threshold' <= 0 | `threshold' >= 0.5 {
+                display as error "threshold() must be between 0 and 0.5"
+                exit 198
+            }
+        }
+        * qtrim(): quantile-based common-support bounds; binary only
+        else if `qtrim' <= 0 | `qtrim' >= 50 {
             display as error "qtrim() must be strictly between 0 and 50"
             exit 198
         }
@@ -156,6 +179,30 @@ program define psdash_support, rclass
     if "`estimand'" == "" local estimand "`_psd_estimand'"
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
+    * psdash combined marks the temporary PS it forwards (never a user name).
+    if `: word count `psvar'' == 1 {
+        local _lbl : char `psvar'[_psdash_label]
+        if `"`_lbl'"' != "" local psvar_label `"`_lbl'"'
+    }
+
+    * generate() must never overwrite a covariate this command reads: compare
+    * computes balance on covariates() (or the detected ones), and replace
+    * would substitute the 0/1 support indicator for the covariate first.
+    * Factor-variable terms reserve their base variables.
+    local _gen_cov_base ""
+    if "`generate'" != "" {
+        local _gen_covs "`covariates'"
+        if "`compare'" != "" & "`_gen_covs'" == "" local _gen_covs "`_psd_covariates'"
+        if "`_gen_covs'" != "" {
+            _psdash_strip_fv `"`_gen_covs'"'
+            local _gen_cov_base "`_psd_stripped_covars'"
+        }
+        if `: list generate in _gen_cov_base' {
+            display as error "generate() cannot name covariate `generate'"
+            display as error "  the support indicator would overwrite a covariate the command assesses"
+            exit 198
+        }
+    }
 
     * Retrieve multi-group info from detect
     local multigroup "`_psd_multigroup'"
@@ -707,7 +754,7 @@ program define psdash_support, rclass
                     local _xv `"`_xv' "`=string(`crump_alpha',"%6.4f")'""'
                 }
             }
-            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+            _psdash_export_kv, xlsx("`xlsx'") sheet(`"`sheet'"') ///
                 title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Support table exported to: " as result "`xlsx'"
         }
@@ -763,18 +810,6 @@ program define psdash_support, rclass
     foreach lev of local levels {
         local lev_ps "`group_ps_`lev''"
         quietly replace `obs_ps' = `lev_ps' if `treatment' == `lev' & `touse'
-    }
-
-    if "`crump'" != "" & `threshold' != -1 {
-        display as error "cannot specify both crump and threshold()"
-        exit 198
-    }
-
-    if `threshold' != -1 {
-        if `threshold' <= 0 | `threshold' >= 0.5 {
-            display as error "threshold() must be between 0 and 0.5"
-            exit 198
-        }
     }
 
     * Validate generate
@@ -1100,7 +1135,7 @@ program define psdash_support, rclass
                 local _xk `"`_xk' "Trim floor (every GPS component)" "Trimmed (N)" "Trimmed (%)" "Remaining N""'
                 local _xv `"`_xv' "`=string(`trim_lower',"%6.4f")'" "`n_trimmed'" "`=string(`pct_trimmed',"%5.2f")'" "`=`N'-`n_trimmed''""'
             }
-            _psdash_export_kv, xlsx("`xlsx'") sheet("`sheet'") ///
+            _psdash_export_kv, xlsx("`xlsx'") sheet(`"`sheet'"') ///
                 title(`"`title'"') keys(`_xk') vals(`_xv')
             noisily display as text _n "Support table exported to: " as result "`xlsx'"
         }
@@ -1114,6 +1149,8 @@ program define psdash_support, rclass
 
     }
     local rc = _rc
+    * Multi-valued teffects PS columns are named <psout>_<level>.
+    if "`ps_auto'" != "" capture drop `ps_auto'_*
     set varabbrev `_vao'
     if `rc' == 0 & "`_psdash_return_mode'" != "" {
         if `_psdash_side_rc' {

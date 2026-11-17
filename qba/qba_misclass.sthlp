@@ -40,27 +40,27 @@
 {synopt:{opt spca(#)}}specificity of classification{p_end}
 
 {syntab:Misclassification type}
-{synopt:{opt ty:pe(exposure|outcome)}}what is misclassified; default {cmd:exposure}{p_end}
-{synopt:{opt secb(#)}}Se, second stratum; enables differential{p_end}
-{synopt:{opt spcb(#)}}Sp, second stratum; enables differential{p_end}
+{synopt:{opt ty:pe(exposure|outcome)}}misclassified; default {cmd:exposure}{p_end}
+{synopt:{opt secb(#)}}Se, second stratum{p_end}
+{synopt:{opt spcb(#)}}Sp, second stratum{p_end}
 
 {syntab:Measure}
 {synopt:{opt mea:sure(OR|RR)}}measure of association; default {cmd:OR}{p_end}
 
 {syntab:Study design}
 {synopt:{opt fcas:e(#)}}case sampling fraction; default {cmd:1}{p_end}
-{synopt:{opt fctr:l(#)}}non-case sampling fraction; default {cmd:1}{p_end}
+{synopt:{opt fctr:l(#)}}non-case sampling; default {cmd:1}{p_end}
 
 {syntab:Probabilistic}
-{synopt:{opt reps(#)}}Monte Carlo replications; minimum 100{p_end}
+{synopt:{opt reps(#)}}Monte Carlo reps; minimum 100{p_end}
 {synopt:{opt dist_se(distribution)}}Se distribution; default constant{p_end}
 {synopt:{opt dist_sp(distribution)}}Sp distribution; default constant{p_end}
 {synopt:{opt dist_se1(distribution)}}Se distribution, second stratum{p_end}
 {synopt:{opt dist_sp1(distribution)}}Sp distribution, second stratum{p_end}
 {synopt:{opt corr(#)}}Se/Sp correlation across strata{p_end}
 {synopt:{opt to:talerror}}also report total-error intervals{p_end}
-{synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}simulation-interval level; default {cmd:c(level)}{p_end}
+{synopt:{opt seed(#)}}random number seed{p_end}
+{synopt:{opt level(#)}}interval level; default {cmd:c(level)}{p_end}
 {synopt:{opt sa:ving(filename, ...)}}save the Monte Carlo dataset{p_end}
 {synoptline}
 
@@ -125,8 +125,9 @@ of the revised summary-level algorithm in Fox, MacLehose, and Lash (2023) and
 reports the resulting total-error simulation interval:
 
 {p 8 12 2}
-1. the classified-variable prevalence in each stratum is drawn
-Beta({it:adjusted cell}, {it:complement}), converted to predictive values, and
+1. the bias-adjusted (true) prevalence of the misclassified variable in each
+stratum is drawn Beta({it:adjusted cell}, {it:complement}) (Fox, MacLehose,
+and Lash 2023, Table 1, step 3), converted to predictive values, and
 the observed cells are reallocated by binomial draws; then
 
 {p 8 12 2}
@@ -210,7 +211,11 @@ source-population non-case row.
 accepted is 100, which is a floor rather than a stability guarantee: Fox,
 MacLehose, and Lash (2023) repeat the process "hundreds of thousands" of
 times, and their worked summary-level examples use 10^5 to 10^6
-replications. Specifying {opt reps()} activates probabilistic mode.
+replications. Specifying {opt reps()} activates probabilistic mode. Replicates
+with an out-of-support parameter draw or an undefined corrected
+measure are excluded from the summaries, and a warning is displayed when more
+than 20% of replicates are excluded. The 20% threshold is a package
+convention; Fox, Lash, and Greenland (2005) use 10% as their diagnostic.
 
 {phang}
 {opt dist_se(distribution)} and {opt dist_sp(distribution)} specify the
@@ -250,7 +255,9 @@ random-error-only interval; see
 counts, all four greater than zero.
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducibility.
+{opt seed(#)} sets the random number seed for reproducibility. It must be an
+integer from 0 to 2147483647, the range {cmd:set seed} documents; a negative
+seed is refused because {cmd:set seed} would silently use its absolute value.
 
 {phang}
 {opt level(#)} specifies the level for the percentile simulation
@@ -423,8 +430,8 @@ inflated back to the source population before the correction:
 {synopt:{cmd:r(corrected)}}median corrected measure{p_end}
 {synopt:{cmd:r(mean)}}mean of corrected measures{p_end}
 {synopt:{cmd:r(sd)}}standard deviation of corrected measures{p_end}
-{synopt:{cmd:r(ci_lower)}}lower limit of the systematic-error simulation interval{p_end}
-{synopt:{cmd:r(ci_upper)}}upper limit of the systematic-error simulation interval{p_end}
+{synopt:{cmd:r(ci_lower)}}lower limit of systematic-error interval{p_end}
+{synopt:{cmd:r(ci_upper)}}upper limit of systematic-error interval{p_end}
 {synopt:{cmd:r(reps)}}number of replications requested{p_end}
 {synopt:{cmd:r(n_valid)}}number of valid (non-missing) replications{p_end}
 {synopt:{cmd:r(corr)}}Se/Sp correlation, when {opt corr()} is nonzero{p_end}
@@ -452,7 +459,7 @@ inflated back to the source population before the correction:
 {synopt:{cmd:r(type)}}misclassification type ({cmd:exposure} or {cmd:outcome}){p_end}
 {synopt:{cmd:r(measure)}}measure of association ({cmd:OR} or {cmd:RR}){p_end}
 {synopt:{cmd:r(method)}}{cmd:simple} or {cmd:probabilistic}{p_end}
-{synopt:{cmd:r(interval)}}what {cmd:r(ci_lower)}/{cmd:r(ci_upper)} are (probabilistic only){p_end}
+{synopt:{cmd:r(interval)}}{cmd:r(ci_*)} interval type (probabilistic only){p_end}
 {synopt:{cmd:r(dist_se)}}Se distribution specification (probabilistic only){p_end}
 {synopt:{cmd:r(dist_sp)}}Sp distribution specification (probabilistic only){p_end}
 

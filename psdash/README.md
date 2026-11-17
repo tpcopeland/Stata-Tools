@@ -2,9 +2,9 @@
 
 # psdash — Propensity-score diagnostics in one dashboard
 
-**Version 1.9.0** | 2026-10-29
+**Version 1.9.1** | 2026-11-17
 
-[![version](https://img.shields.io/badge/version-1.9.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.9.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -312,7 +312,7 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 | wvar(varname) | Use a supplied analysis-weight variable; otherwise a supported producer weight or an automatically generated IPTW weight is used where permitted. |
 | estimand(ate\|att\|atc) | ate by default; after teffects, the detected e(stat) is respected unless estimand() is explicit. For multi-group treatments, atc is not uniquely defined; use att with reference() for a named arm. |
 | psvars(varlist) | Required for multi-group generalized PS input; give one probability per nonnegative integer treatment level in ascending level order. Binary input may be one treated probability or two ordered probabilities, which are range- and sum-validated. |
-| reference(#) | The smallest observed treatment level by default; controls pairwise multi-group balance and group summaries. |
+| reference(#) | The smallest observed treatment level by default; controls pairwise multi-group balance and group summaries. For a treatment coded 0/1 only `reference(0)` is allowed. |
 
 ### Graph and export options
 
@@ -324,7 +324,7 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 | title(string) | Replace the command's default graph title. |
 | name(string) | Set the graph name. |
 | xlsx(filename) | Export a panel summary to an .xlsx workbook. |
-| sheet(string) | Excel sheet name; defaults are Overlap, Balance, Weights, or Support by panel. |
+| sheet(string) | Excel sheet name; defaults are Overlap, Balance, Weights, or Support by panel. At most 31 bytes, none of `: \ / ? * [ ]` or a double quote, no leading or trailing apostrophe, and not `History`; checked before any computation. |
 
 ### Balance options
 
@@ -338,8 +338,8 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 | loveplot | Draw a Love plot; off by default. Rows use variable labels (factor levels as label: value label), falling back to names. |
 | varnames | Label Love-plot rows and distribution panels with variable names instead of labels. |
 | nograph | Suppress every balance graph; loveplot, strategies(), distribution(), and saving() are ignored with a note. |
-| strategies(strategylist) | Overlay requested raw/ATE/ATT/ATC SMD strategies in a Love plot for supported binary workflows. |
-| distribution(varlist) | Draw per-covariate distributional balance plots for the requested variables. |
+| strategies(strategylist) | Overlay requested raw/ATE/ATT/ATC SMD strategies in a Love plot; requires a propensity score and a treatment coded 0/1. |
+| distribution(varlist) | Draw per-covariate distributional balance plots for the requested variables (treatment coded 0/1 only). The figure is named name_dist, so name() may have at most 27 characters with one variable and 26 with 2 to 9. |
 | smdmatrix(name) | Save the raw and adjusted SMD matrix under the requested matrix name and return it in r(smd). |
 | ks | Display KS statistics; raw and weighted KS statistics are returned whether or not this display option is used. |
 | format(string) | %6.3f for displayed SMD values. |
@@ -365,7 +365,7 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 | Option | Default and behavior |
 |---|---|
 | crump | Use Crump et al. (2009) optimal trimming for binary treatments; use threshold() for multi-group treatments. |
-| threshold(#) | No manual trim by default; binary values must be strictly between 0 and 0.5, while multi-group values define a one-sided GPS floor. |
+| threshold(#) | No manual trim by default; the value must be strictly between 0 and 0.5 for every treatment type. Binary trimming is two-sided, while multi-group values define a one-sided GPS floor. |
 | qtrim(#) | No quantile trim by default; binary-only within-group percentile trim, strictly between 0 and 50. |
 | gpsfloor(#) | 0.01 for multi-group overlap/support; units must meet the floor in every GPS component. |
 | generate(name) | Create an indicator for the retained support region. |
@@ -379,7 +379,7 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 |---|---|
 | nooverlap, nobalance, noweights, nosupport | Do not run the named panel. |
 | supportgraph | Binary dashboard only: show the support density panel instead of the Diagnostic Summary scorecard. |
-| threshold(#) | 0.1 for the balance panel's SMD findings; it is distinct from support's PS trimming threshold. |
+| threshold(#) | 0.1 for the balance panel's SMD findings; it is distinct from support's PS trimming threshold and must be positive even when the balance panel is skipped. |
 | overlapmax(#) | 10 percent outside binary-treatment common support tolerated before a finding; multi-group verdicts use gpsfloor(). |
 | essmin(#) | 50 percent overall ESS tolerated as the minimum before a finding; other weight findings remain active. |
 | imbalmax(#) | 0 SMD-imbalanced covariates tolerated before a finding; variance-ratio findings remain active. |
@@ -426,9 +426,13 @@ matrix list r(balance)
 
 ## References
 
+- Austin, P. C. 2009. “Balance diagnostics for comparing the distribution of baseline covariates between treatment groups in propensity-score matched samples.” Statistics in Medicine 28(25): 3083–3107.
+- Austin, P. C. 2011. “An introduction to propensity score methods for reducing the effects of confounding in observational studies.” Multivariate Behavioral Research 46(3): 399–424.
+- Austin, P. C., and E. A. Stuart. 2015. “Moving towards best practice when using inverse probability of treatment weighting (IPTW) using the propensity score to estimate causal treatment effects in observational studies.” Statistics in Medicine 34(28): 3661–3679.
 - Crump, R. K., V. J. Hotz, G. W. Imbens, and O. A. Mitnik. 2009. “Dealing with limited overlap in estimation of average treatment effects.” Biometrika 96(1): 187–199.
 - Li, F., and F. Li. 2019. “Propensity score weighting for causal inference with multiple treatments.” Annals of Applied Statistics 13(4): 2389–2415.
 - McCaffrey, D. F., B. A. Griffin, D. Almirall, M. E. Slaughter, R. Ramchand, and L. F. Burgette. 2013. “A tutorial on propensity score estimation for multiple treatments using generalized boosted models.” Statistics in Medicine 32(19): 3388–3414.
+- Greifer, N. 2026. cobalt: Covariate Balance Tables and Plots. R package. doi:10.32614/CRAN.package.cobalt.
 
 ## QA
 
@@ -436,6 +440,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **v1.9.1** (17 Nov 2026): Review fixes. **Balance numbers change in two edge cases:** a two-level covariate stored as a non-dyadic double (for example 0.1/0.3) that is constant within each arm no longer reports a huge SMD (now SMD undefined, status `UNDEFINED`), and a covariate constant on the sample (for example 0.3) no longer shows a false `IMBALANCED` under unequal weights (now SMD 0, VR missing, KS 0). The adjusted VR of a two-level covariate is undefined, like the raw VR, when an arm has a single weighted observation, and `r(max_vr_raw)`/`r(max_vr_adj)` are missing rather than 1 when no covariate has an assessable VR. Multi-group balance rows with an undefined SMD read `UNDEFINED` instead of `IMBALANCED`, and the VR-bounds summary line prints the bounds as given (0.45, not 0.5). Omitted terms (`o.x`) are skipped from balance. **`reference()` on a treatment coded 0/1 is now checked:** `reference(0)` is accepted and `reference(1)` (or a non-level) is an error on every route instead of being ignored; recode the treatment to make level 1 the reference. Multi-valued `teffects` no longer leaves `_psdash_ps_*` variables in the data; after `mlogit`, `psvars()` calls without a positional treatment generate IPTW weights (and `estimand(atc)` with more than two arms is refused); a weight expression such as `[fw=...]` in `e(cmdline)` is no longer read as a covariate. Two-level treatments not coded 0/1 now report `r(n_ps_boundary)`/`r(n_ps_near_boundary)` and the exact-boundary positivity finding in balance and weights. `strategies()` refuses a strategy whose weights are all zero in one arm (r(198)). With one variable, `distribution()` names its graph name_dist and takes `title()`, and a `name()` too long for the graph suffix is refused before any output (1.9.0 accepted it and failed late). Option validation: `trim(0)`, `truncate(0)`, support `threshold(-1)`/`qtrim(-1)` and other out-of-range values are errors instead of being read as omitted; `sheet()` names are checked against Excel's rules before any computation; combined `threshold()` is validated even when the balance panel is skipped; `generate()` in weights cannot overwrite a `psvars()` variable and errors before output without a modification option; support `generate()` cannot name an assessed covariate. Weights `xlsx()` adds p99, the max/mean ratio, ESS by arm, and the modified-weight rows, and multi-group weights with `iivwcomponent(visit)` print a note that the visit component is descriptive only. `psdash combined` reports `auto-generated` instead of internal `__00000#` names in `r(wvar)`, panel headers, and report sheets; an unwritable `report()` workbook no longer prints panels twice, blocks `saving()`, or posts `r(report)`, and the command exits with the write error. Longitudinal diagnostics accept float non-integer periods, return a missing `r(max_pct_outside)` when no period has both arms, and refuse `covariates()`, `psvars()`, a `reference()` other than 0, and an `estimand()` that differs from the producer's. A balance `title()` containing quotes, the compact multi-group overlap reshape listing, and an all-missing propensity score (now r(2000)) are fixed.
 - **v1.9.0** (29 Oct 2026): Graph overhaul. **The binary `psdash combined` dashboard replaces its fourth panel**, which repeated the overlap density, with a Diagnostic Summary scorecard showing the verdict (identical to `r(verdict)`) and each executed panel's key metric and OK/Flag status; the support analysis, its findings, returns, and report sheet are unchanged, `supportgraph` restores the old panel, and with `nooverlap` the support graph takes the overlap cell. The support graph labels its x axis over the full 0 to 1 scale, so the Crump and common-support lines sit on the drawn axis (a user `xlabel()` still wins). Love plots fit the x range to 0, the threshold, and every plotted SMD instead of a symmetric range of at least ±0.5, show a shaded |SMD| < threshold band in place of the two red threshold lines, and scale their height with the number of covariates; multi-group Love plots offset each comparison within a row and join its unadjusted and adjusted markers. The distribution-balance graph has one shared legend, a non-redundant default title, and lighter dashed raw curves under solid weighted ones. Overlap histograms share bin edges across arms, and overlap graphs give the common-support bounds a legend key that stays a dashed line inside the dashboard. **Weight histograms now show within-arm fractions on both routes** (binary graphs used counts); each bar is a share of the whole arm even when the displayed axis cuts off the tail, a note counts the omitted weights (also when your `xlabel()` sets the upper limit), and the dashed weight = 1 line is explained in a note. **Arm colours follow the scheme's own order** (`white_tableau`: treated blue, control orange, a third group green) instead of always taking the sixth style (brown) for the second series; sequential schemes such as viridis, where the first two colours are nearly identical, keep the 1.8.0 order so arms stay distinguishable. Multi-group graphs use one arm-colour mapping everywhere, including the dashboard box plots, explain the red positivity-floor line, and the standalone multi-group overlap figure has larger text and a single shared legend. Dashboard panels wrap three-key legends onto two rows and graphs print horizontal y labels, so the dashboards also read cleanly under `s2color` and `s1mono`. `distribution()` accepts any valid `name()`, and Love plots with very large SMDs use power-of-ten axis steps. Numerical results are unchanged.
 - **v1.8.0** (13 Oct 2026): `quietly psdash ...` now suppresses every panel warning line (including the second line of the exact-0/1 propensity-score warning and the two-line GPS-positivity warning), the IMBALANCED / UNDEFINED status cell of the balance table on the binary and multi-group routes, and the WARNING / IMBALANCED / FAIL verdict word (they were written in the error output class, which `quietly` does not silence); the findings stay in `r(warnings)`, `r(n_warnings)` and the verdict. Graph series colours now follow the active scheme (`scheme()` or `set scheme`) instead of fixed navy/cranberry, so default graphs change appearance; the second series uses the scheme's p6 style, which stays distinguishable from p1 in sequential schemes such as viridis. **Numbers change for existing msm users, even without post-event rows:** after msm_weight, `psdash combined` now diagnoses the truncated analysis weight msm_fit uses (`_msm_weight`) instead of the untruncated treatment weight (on msm_example, max weight 2.79 and ESS 3,998 instead of 6.65 and 3,809); `wvar(_msm_tw_weight)` restores the old numbers and is the right input when deciding on truncation. The output and `r(weight_role)` say which weight was diagnosed, and diagnostics are restricted to msm's risk set (`_msm_risk_var` in contract 1.1, `_msm_decision_risk` in 1.0), so legitimate post-event rows no longer force FAIL. Love-plot rows use variable labels, shortened past 40 characters and disambiguated when two are equal (`varnames` restores names); balance accepts `nograph`; the support graph labels its reference lines; the compact multi-group overlap legend is readable; unlabelled multi-group weight legends no longer print literal quotes.
 - **v1.7.5** (9 Oct 2026): Help References now give a DOI for every entry.

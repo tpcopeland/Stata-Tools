@@ -55,7 +55,8 @@ accepts factor-variable and interaction notation.
 omitted, the detector uses the supported estimation or producer context.
 
 {phang}
-{opt ref:erence(#)} selects the multi-group reference arm.
+{opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
+only {cmd:reference(0)} is allowed.
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.
@@ -86,17 +87,21 @@ omitted, the detector uses the supported estimation or producer context.
 {synopt:{cmd:r(psvar)}}propensity-score variable{p_end}
 {synopt:{cmd:r(covariates)}}covariates resolved{p_end}
 {synopt:{cmd:r(wvar)}}diagnostic weight variable{p_end}
-{synopt:{cmd:r(weight_role)}}role of {cmd:r(wvar)} after msm: {cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}{p_end}
+{synopt:{cmd:r(weight_role)}}role of {cmd:r(wvar)} after msm{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(levels)}}treatment-group levels, multigroup{p_end}
 {synopt:{cmd:r(reference)}}reference group, multigroup{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component{p_end}
 {synopt:{cmd:r(id)}}longitudinal identifier{p_end}
-{synopt:{cmd:r(riskvar)}}msm risk-set indicator, when the producer supplies one{p_end}
+{synopt:{cmd:r(riskvar)}}msm risk-set indicator, if any{p_end}
 {synopt:{cmd:r(period)}}longitudinal period variable{p_end}
 {synopt:{cmd:r(regime)}}longitudinal regime metadata{p_end}
 {synopt:{cmd:r(method)}}producer method metadata{p_end}
 {synopt:{cmd:r(contract_version)}}producer contract version{p_end}
+
+{pstd}
+{cmd:r(weight_role)} is {cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}. {cmd:r(riskvar)} is set
+when the producer supplies a risk-set indicator (msm).
 
 {marker author}{...}
 {title:Author}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  13oct2026}{...}
+{* *! version 1.2.1  17nov2026}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -63,8 +63,8 @@ Methods are based on {it:Applying Quantitative Bias Analysis to Epidemiologic}
 {synopt:{helpb qba_misclass}}misclassification bias analysis for 2x2 tables{p_end}
 {synopt:{helpb qba_selection}}selection bias analysis for 2x2 tables{p_end}
 {synopt:{helpb qba_confound}}unmeasured confounding analysis with E-values{p_end}
-{synopt:{helpb qba_multi}}multi-bias analysis (chains all three in one simulation){p_end}
-{synopt:{helpb qba_plot}}visualization (tornado, distribution, tipping point){p_end}
+{synopt:{helpb qba_multi}}multi-bias analysis (all three in one run){p_end}
+{synopt:{helpb qba_plot}}plots (tornado, distribution, tipping point){p_end}
 
 
 {marker workflow}{...}
@@ -253,7 +253,7 @@ biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116. doi:10.1093/ije/25.6.1107
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-10-13{p_end}
+{pstd}Version 1.2.1, 2026-11-17{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

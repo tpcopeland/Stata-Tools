@@ -55,6 +55,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | `test_qba_v112.do` | Regression locks for missing inputs, save failures, model-scale rejection, option coverage, and release install behavior |
 | `test_qba_v113.do` | Regression locks for estimator-scale handling, total-error validity masks, method labels, and second-edition citations |
 | `test_qba_v120.do` | Plot legibility regressions asserted on exported SVG: distribution median green and solid null line, labelled tornado reference lines, outline-free tipping tiles. |
+| `test_qba_review_regressions.do` | v1.2.1 regressions for the 2026-11 external review: explicit -999/-1 values validated rather than read as omitted, seed() domain, `from_model` t-based CI against `r(table)`, linear `measure()`, ratio-contract CI domain, `totalerror` reclass masking, user-scale `r(dist_se)`, compound-quoted `saving()`, selection zero cells, off-route `qba_plot` options, tipping with an undefined observed measure, tornado label placement, missing-draw flagging |
 | `test_qba_fml2023.do` | Method-alignment contracts from Fox, MacLehose, and Lash plus E-value scale conversions |
 | `test_qba_contract_detect.do` | Consumption of active `tmle`/`ltmle` estimator contracts |
 | `test_qba_docs.do` | Installed examples, documentation tokens, and the self-contained SMCL render oracle with positive control |
@@ -108,6 +109,8 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | `crossval_external_qba.do` | R `episensr` worked examples |
 | `crossval_episensr_dta.do` | Same-run double `.dta` parity with R `episensr::misclass()` for differential exposure misclassification |
 | `crossval_fml_totalerror.do` | Published Fox/MacLehose/Lash R algorithms for systematic and total error |
+| `crossval_qba_published_greenland-1996.do` | Greenland (1996) printed worked examples: external adjustment 1.39 (p.1109), corrected cells and OR 9.1 (p.1111), all 16 Table 4 ORs, and the eq. (10) selection-bias factor |
+| `crossval_qba_published_fox-maclehose-lash-2023.do` | Fox, MacLehose & Lash (2023) Table 3 summary-level random, systematic and total-error medians and intervals for the Table 2 example (1 million draws) |
 
 ### Support
 
@@ -125,10 +128,10 @@ The precision targets are recorded in `tools/qba_precision_oracles.json`, includ
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
 | `qba` | `test_qba` | `validation_qba_known_plot` | — | release and documentation suites |
-| `qba_misclass` | core and adversarial suites | `validation_qba_known_misclass` | all cross-validation suites | method-alignment, release, and literal documentation suites |
-| `qba_selection` | core and adversarial suites | `validation_qba_known_selection` | Python and `episensr` | release and literal documentation suites |
-| `qba_confound` | core, contract, and adversarial suites | `validation_qba_known_confound` | Python and `episensr` | method-alignment and literal documentation suites |
-| `qba_multi` | core and adversarial suites | `validation_qba_known_multi` | Python and `episensr` | method-alignment and literal documentation suites |
+| `qba_misclass` | core and adversarial suites | `validation_qba_known_misclass` | `crossval_python_qba`; `crossval_external_qba`; `crossval_episensr_dta`; `crossval_fml_totalerror`; `crossval_qba_published_greenland-1996`; `crossval_qba_published_fox-maclehose-lash-2023` | method-alignment, release, and literal documentation suites |
+| `qba_selection` | core and adversarial suites | `validation_qba_known_selection` | `crossval_python_qba`; `crossval_external_qba`; `crossval_qba_published_greenland-1996` | release and literal documentation suites |
+| `qba_confound` | core, contract, and adversarial suites | `validation_qba_known_confound` | `crossval_python_qba`; `crossval_external_qba`; `crossval_qba_published_greenland-1996` | method-alignment and literal documentation suites |
+| `qba_multi` | core and adversarial suites | `validation_qba_known_multi` | `crossval_python_qba`; `crossval_external_qba` | method-alignment and literal documentation suites |
 | `qba_plot` | core, refactor, release, and adversarial suites | `validation_qba_known_plot` | — | render and literal documentation suites |
 
 ## Lane membership
@@ -139,12 +142,24 @@ The precision targets are recorded in `tools/qba_precision_oracles.json`, includ
 |---|---|
 | `quick` | Functional/regression, estimator-contract, QA-harness, and refactor-contract groups |
 | `core` | `quick` plus validation, adversarial, documentation, and release groups |
-| `crossval` | Independent Python/R and published-code oracle group; any skip fails the lane |
+| `crossval` | Independent Python/R, published-code, and published-worked-example oracle group; any skip fails the lane |
 | `full` | `core` plus `crossval`; any skip fails the lane |
+
+## Evidence layers
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `qba_misclass` simple matrix correction (Greenland 1996 eq. 5-6) | `validation_qba_precision.do` | `crossval_external_qba.do`; `crossval_episensr_dta.do`; `crossval_python_qba.do` | `crossval_qba_published_greenland-1996.do` | none: no inference reported (simple mode returns corrected cells and a point measure under fixed Se/Sp, with no standard error, interval, or p-value) |
+| `qba_misclass` probabilistic systematic-error and total-error simulation intervals | `validation_qba_precision.do` | `crossval_fml_totalerror.do` | `crossval_qba_published_fox-maclehose-lash-2023.do` | none: no inference reported (percentile simulation intervals over bias-parameter draws; the authors define them as simulation intervals, not confidence intervals with a coverage claim) |
+| `qba_selection` simple and probabilistic selection-bias factor (Greenland 1996 eq. 10) | `validation_qba_precision.do` | `crossval_external_qba.do`; `crossval_python_qba.do` | `crossval_qba_published_greenland-1996.do` | none: no inference reported (point correction and percentile systematic-error simulation interval only, with no standard error or coverage claim) |
+| `qba_confound` ratio bias factor and E-value (Schneeweiss 2006 eq. 1a; VanderWeele and Ding 2017) | `validation_qba_precision.do` | `crossval_external_qba.do`; `crossval_python_qba.do` | `crossval_qba_published_greenland-1996.do` | none: no inference reported (the reported CI is the source model's own interval passed through, and the probabilistic route reports a systematic-error simulation interval) |
+| `qba_multi` chained misclassification, selection, and confounding | `validation_qba_precision.do` | `crossval_external_qba.do`; `crossval_python_qba.do` | none: paper publishes no worked example (Greenland 1996 p.1115 discusses ordering of combined corrections without a numeric example) | none: no inference reported (percentile systematic-error simulation interval over bias-parameter draws, with no coverage claim) |
 
 ## Known gaps
 
 - Representative real estimators are exercised for `from_model`, but the suite does not fit every recognized panel, mixed, count, and survival family on every Stata edition.
+- `check qa qba --view axes` still reports owed qa-lib cells unprobed (session fingerprint, lifecycle, surface parity, hostile strings) and `--view fixtures` reports missing fixture cells; the vendored qa-lib helpers are not yet adopted by these suites.
+- `qba_confound` linear `from_model` corrections have no published worked example to reproduce; the subtractive correction is checked by hand-computed oracles only.
 
 ## Oracles
 

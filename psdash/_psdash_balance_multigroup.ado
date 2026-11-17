@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.9.0  2026/10/29
+*! _psdash_balance_multigroup Version 1.9.1  2026/11/17
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -51,7 +51,7 @@ program define _psdash_balance_multigroup, rclass
             }
         }
 
-        tempname balance_mat _svmin _svmax
+        tempname balance_mat _svmin _svmax _svrange _sp
         matrix `balance_mat' = J(`nvars', `ncols', .)
 
         local colnames ""
@@ -113,13 +113,21 @@ program define _psdash_balance_multigroup, rclass
             }
 
             quietly summarize `var'
-            local _vmin = r(min)
-            local _vmax = r(max)
+            local _n_nonmiss = r(N)
             scalar `_svmin' = r(min)
             scalar `_svmax' = r(max)
+            scalar `_svrange' = `_svmax' - `_svmin'
             quietly count if `var' != `_svmin' & `var' != `_svmax' & !missing(`var')
             local _isbin_`i' = (r(N) == 0 & `_svmin' != `_svmax')
-            local _vrange = `_vmax' - `_vmin'
+            * Constant covariate: exact statistics are posted per contrast below
+            * (summarize of a non-dyadic constant can drift by an ULP per arm).
+            local _isconst = (`_n_nonmiss' > 0 & `_svmin' == `_svmax')
+            * Two-level arm proportions from an exact 0/1 indicator (see the
+            * binary helper): an arm constant at a support point has p = 0 or 1.
+            if `_isbin_`i'' {
+                tempvar _ind
+                quietly gen byte `_ind' = (`var' == `_svmax') if !missing(`var')
+            }
 
             quietly summarize `var' if `treatment' == `reference'
             local _n_ref_var = r(N)
@@ -127,8 +135,9 @@ program define _psdash_balance_multigroup, rclass
             local var_ref = r(Var)
 
             if `_isbin_`i'' & !missing(`mean_ref') {
-                local _p_ref = (`mean_ref' - `_vmin') / `_vrange'
-                local var_ref = (`_vrange'^2) * `_p_ref' * (1 - `_p_ref')
+                quietly summarize `_ind' if `treatment' == `reference', meanonly
+                scalar `_sp' = r(mean)
+                local var_ref = (`_svrange'^2) * `_sp' * (1 - `_sp')
             }
 
             if `has_adj' {
@@ -141,9 +150,10 @@ program define _psdash_balance_multigroup, rclass
 
                 if `_isbin_`i'' {
                     if !missing(`mean_ref_adj') {
-                        local _p_ref_adj = (`mean_ref_adj' - `_vmin') / `_vrange'
-                        local var_ref_adj = ///
-                            (`_vrange'^2) * `_p_ref_adj' * (1 - `_p_ref_adj')
+                        quietly summarize `_ind' [aw=`wvar'] ///
+                            if `treatment' == `reference', meanonly
+                        scalar `_sp' = r(mean)
+                        local var_ref_adj = (`_svrange'^2) * `_sp' * (1 - `_sp')
                     }
                 }
                 else {
@@ -190,8 +200,9 @@ program define _psdash_balance_multigroup, rclass
                 local var_a = r(Var)
 
                 if `_isbin_`i'' & !missing(`mean_a') {
-                    local _p_a = (`mean_a' - `_vmin') / `_vrange'
-                    local var_a = (`_vrange'^2) * `_p_a' * (1 - `_p_a')
+                    quietly summarize `_ind' if `treatment' == `clev', meanonly
+                    scalar `_sp' = r(mean)
+                    local var_a = (`_svrange'^2) * `_sp' * (1 - `_sp')
                 }
 
                 local sd_pooled = sqrt((`var_a' + `var_ref') / 2)
@@ -251,9 +262,10 @@ program define _psdash_balance_multigroup, rclass
                     local var_a_adj = .
                     if `_isbin_`i'' {
                         if !missing(`mean_a_adj') {
-                            local _p_a_adj = (`mean_a_adj' - `_vmin') / `_vrange'
-                            local var_a_adj = ///
-                                (`_vrange'^2) * `_p_a_adj' * (1 - `_p_a_adj')
+                            quietly summarize `_ind' [aw=`wvar'] ///
+                                if `treatment' == `clev', meanonly
+                            scalar `_sp' = r(mean)
+                            local var_a_adj = (`_svrange'^2) * `_sp' * (1 - `_sp')
                         }
                     }
                     else {
@@ -281,10 +293,14 @@ program define _psdash_balance_multigroup, rclass
                         local smd_adj = 0
                     }
 
-                    if !missing(`var_a_adj', `var_ref_adj') & `var_ref_adj' > 0 {
+                    * As for the raw VR: a single weighted observation in an
+                    * arm leaves no variance to compare.
+                    if `_n_a_adj' > 1 & `_n_ref_adj' > 1 & ///
+                            !missing(`var_a_adj', `var_ref_adj') & `var_ref_adj' > 0 {
                         local vr_adj = `var_a_adj' / `var_ref_adj'
                     }
-                    else if !missing(`var_a_adj', `var_ref_adj') & ///
+                    else if `_n_a_adj' > 1 & `_n_ref_adj' > 1 & ///
+                            !missing(`var_a_adj', `var_ref_adj') & ///
                             `var_a_adj' > 0 & `var_ref_adj' == 0 {
                         * .a denotes an infinite ratio; both-zero remains undefined.
                         local vr_adj = .a
@@ -312,12 +328,35 @@ program define _psdash_balance_multigroup, rclass
                     matrix `balance_mat'[`i', `adj_base' + 4] = `vr_adj'
                     matrix `balance_mat'[`i', `adj_base' + 5] = `ks_adj'
                 }
+                * Constant covariate: exact values. An arm without available
+                * cases keeps its missing mean and statistics.
+                if `_isconst' {
+                    if `_n_a_var' > 0 matrix `balance_mat'[`i', `col_base' + 1] = `_svmin'
+                    if `_n_ref_var' > 0 matrix `balance_mat'[`i', `col_base' + 2] = `_svmin'
+                    if `_n_a_var' > 0 & `_n_ref_var' > 0 {
+                        matrix `balance_mat'[`i', `col_base' + 3] = 0
+                        matrix `balance_mat'[`i', `col_base' + 5] = 0
+                    }
+                    matrix `balance_mat'[`i', `col_base' + 4] = .
+                    if `has_adj' {
+                        if `_n_a_adj' > 0 matrix `balance_mat'[`i', `adj_base' + 1] = `_svmin'
+                        if `_n_ref_adj' > 0 matrix `balance_mat'[`i', `adj_base' + 2] = `_svmin'
+                        if `_n_a_adj' > 0 & `_n_ref_adj' > 0 {
+                            matrix `balance_mat'[`i', `adj_base' + 3] = 0
+                        }
+                        if `_wt_a' > 0 & `_wt_ref' > 0 {
+                            matrix `balance_mat'[`i', `adj_base' + 5] = 0
+                        }
+                        matrix `balance_mat'[`i', `adj_base' + 4] = .
+                    }
+                }
             }
             if `_n_ref_var' > 0 drop `_cfref_raw'
             if `has_adj' {
                 if `_wt_ref' > 0 drop `_cfref_adj'
             }
             drop `_last'
+            if `_isbin_`i'' drop `_ind'
 
             local i = `i' + 1
         }
@@ -327,10 +366,12 @@ program define _psdash_balance_multigroup, rclass
 
         local max_smd_raw = 0
         local max_smd_adj = 0
-        local max_vr_raw = 1
-        local max_vr_adj = 1
-        local max_vr_raw_dev = 0
-        local max_vr_adj_dev = 0
+        * No assessable VR leaves the maximum missing rather than a fake 1;
+        * the -1 start lets the first assessable VR, even exactly 1, register.
+        local max_vr_raw = .
+        local max_vr_adj = .
+        local max_vr_raw_dev = -1
+        local max_vr_adj_dev = -1
         local max_ks_raw = 0
         local max_ks_adj = 0
         local n_imbalanced = 0

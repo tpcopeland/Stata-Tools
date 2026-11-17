@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.9.0  2026/10/29
+*! psdash_balance Version 1.9.1  2026/11/17
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -94,6 +94,7 @@ program define psdash_balance, rclass
          VRBounds(numlist min=2 max=2 >0 ascending) ///
          PSVars(varlist numeric) ///
          _PANEL]
+    if `"`sheet'"' != "" _psdash_validate_sheet, sheet(`"`sheet'"')
 
     * _panel (undocumented, set by psdash combined): the graph is drawn as a
     * 2x2 dashboard panel, which fixes text sizes and keeps scale 1.
@@ -136,6 +137,15 @@ program define psdash_balance, rclass
     if "`vrbounds'" != "" {
         gettoken vrlo vrhi : vrbounds
         local vrhi = strtrim("`vrhi'")
+    }
+    * Display text for the bounds: every significant digit the user gave (0.45
+    * is not shown as 0.5), at least one decimal, a leading zero.
+    local _vrb ""
+    foreach _vb in `vrlo' `vrhi' {
+        local _vbs = strtrim(string(`_vb', "%12.0g"))
+        if !strpos("`_vbs'", ".") & !strpos("`_vbs'", "e") local _vbs "`_vbs'.0"
+        if substr("`_vbs'", 1, 1) == "." local _vbs "0`_vbs'"
+        local _vrb = cond("`_vrb'" == "", "[`_vbs'", "`_vrb', `_vbs']")
     }
 
     * MARK SAMPLE
@@ -409,6 +419,17 @@ program define psdash_balance, rclass
                 exit 198
             }
         }
+        * The figure is named <name>_dist and, with several variables, each
+        * panel <name>_dist#. Refuse a name() that cannot carry the suffix
+        * before any output, rather than fail after the table.
+        local _ndv0 : word count `distribution'
+        local _dnm = cond(`"`name'"' == "", "psdash_balance", `"`name'"')
+        local _dsfx = cond(`_ndv0' > 1, "_dist`_ndv0'", "_dist")
+        if strlen(`"`_dnm'"') + strlen("`_dsfx'") > 32 {
+            display as error "name() is too long for distribution(): the graph name `_dnm'`_dsfx' exceeds 32 characters"
+            display as error "  use a name() of at most `=32 - strlen("`_dsfx'")' characters"
+            exit 198
+        }
     }
 
     * SET DEFAULTS (binary)
@@ -423,9 +444,9 @@ program define psdash_balance, rclass
         display as error "format() must be a numeric display format"
         exit 198
     }
-    if "`sheet'" == "" local sheet "Balance"
-    local _title_user = ("`title'" != "")
-    if "`title'" == "" local title "Covariate Balance Assessment"
+    if `"`sheet'"' == "" local sheet "Balance"
+    local _title_user = (`"`title'"' != "")
+    if `"`title'"' == "" local title "Covariate Balance Assessment"
     if "`name'" == "" local name "psdash_balance"
     local _graphopts0 "`graphoptions'"
 
@@ -478,6 +499,7 @@ program define psdash_balance, rclass
     if "`wvar'" != "" {
         local wvar_label "`wvar'"
         if "`wvar_auto'" == "1" local wvar_label "auto-generated"
+        if `"`: char `wvar'[_psdash_label]'"' != "" local wvar_label "auto-generated"
         display as text "Weights:       " as result "`wvar_label'"
     }
     if "`matched'" != "" {
@@ -610,7 +632,6 @@ program define psdash_balance, rclass
         display as text "Maximum VR (raw):         " as result `vr_fmt' `max_vr_raw'
     }
     display as text "Covariates > SMD threshold:  " as result %3.0f `n_imbalanced' " of " %3.0f `nvars'
-    local _vrb "[`=string(`vrlo',"%3.1f")', `=string(`vrhi',"%3.1f")']"
     if `n_vr_imbalanced' > 0 {
         display as text "VR outside `_vrb':       " as result %3.0f `n_vr_imbalanced' " of " %3.0f `nvars'
     }
@@ -827,6 +848,17 @@ program define psdash_balance, rclass
                         display as error "  Trim the boundary observations or omit `s' from strategies()."
                         exit 459
                     }
+                    * An arm whose strategy weights are all zero (every control
+                    * PS 0 under ATT, every treated PS 1 under ATC) has no
+                    * weighted distribution; refuse as estimand() does.
+                    foreach _arm in 1 0 {
+                        quietly summarize `wt_s' if `touse' & `treatment' == `_arm', meanonly
+                        if r(sum) <= 0 {
+                            display as error "strategies(`s'): `=cond(`_arm', "treated", "control")' observations must have positive total weight"
+                            display as error "  every `=strupper("`s'")' weight in that arm is zero; omit `s' from strategies()."
+                            exit 198
+                        }
+                    }
                     _psdash_balance_binary `varlist', treatment(`treatment') ///
                         samplevar(`touse') threshold(`threshold') wvar(`wt_s')
                     matrix `_bs' = r(balance)
@@ -946,6 +978,13 @@ program define psdash_balance, rclass
                     local _gname "`name'_dist`_dk'"
                     _psdash_term_label `dv', `varnames'
                     local _dvlab `"`r(label_1)'"'
+                    local _dvtitle `"title("`_dvlab'", size(medium))"'
+                    * A lone panel is the figure itself: it takes the
+                    * figure's name (<name>_dist) and a user title().
+                    if `_ndv' == 1 {
+                        local _gname "`name'_dist"
+                        if `_title_user' local _dvtitle `"title(`"`title'"', size(medium))"'
+                    }
                     * Weighted = solid, full colour, thicker; raw = lighter dashed,
                     * same hue per arm. Several panels share one legend (below);
                     * a lone panel keeps its own.
@@ -959,7 +998,7 @@ program define psdash_balance, rclass
                             (kdensity `dv' [aw=`wvar'] if `treatment'==0 & `touse', pstyle(p`_ps2') lpattern(solid) lwidth(medthick)), ///
                             `_plegend' ///
                             xtitle("`_dvlab'") ytitle("Density") ylabel(, angle(horizontal)) ///
-                            title("`_dvlab'", size(medium)) ///
+                            `_dvtitle' ///
                             name(`_gname', replace) `_go'
                     }
                     else {
@@ -969,7 +1008,7 @@ program define psdash_balance, rclass
                             (kdensity `dv' if `treatment'==0 & `touse', pstyle(p`_ps2') lwidth(medthick)), ///
                             `_plegend' ///
                             xtitle("`_dvlab'") ytitle("Density") ylabel(, angle(horizontal)) ///
-                            title("`_dvlab'", size(medium)) ///
+                            `_dvtitle' ///
                             name(`_gname', replace) `_go'
                     }
                     local _dist_names "`_dist_names' `_gname'"
@@ -1079,6 +1118,23 @@ program define psdash_balance, rclass
     local _mg_psvars "`r(mg_psvars_all)'"
     if "`_mg_psvars'" != "" markout `touse' `_mg_psvars'
 
+    * A two-level treatment not coded 0/1 is still a binary design: check
+    * positivity on its propensity score, P(T = second level), as the binary
+    * path does. K > 2 has no single PS to check here.
+    local n_ps_boundary = 0
+    local n_ps_near = 0
+    if `K' == 2 {
+        local _k2_ps "`psvar'"
+        if "`_k2_ps'" == "" & `: word count `_mg_psvars'' == 2 {
+            local _k2_ps : word 2 of `_mg_psvars'
+        }
+        if "`_k2_ps'" != "" {
+            _psdash_pscheck `_k2_ps' if `touse', nowarn
+            local n_ps_boundary = r(n_ps_boundary)
+            local n_ps_near = r(n_ps_near)
+        }
+    }
+
     if "`wvar_auto'" == "1" {
         local _ps_idx = 1
         foreach lev of local levels {
@@ -1162,18 +1218,22 @@ program define psdash_balance, rclass
         display as error "format() must be a numeric display format"
         exit 198
     }
-    if "`sheet'" == "" local sheet "Balance"
-    if "`title'" == "" local title "Covariate Balance Assessment (Multi-Group)"
+    if `"`sheet'"' == "" local sheet "Balance"
+    if `"`title'"' == "" local title "Covariate Balance Assessment (Multi-Group)"
     if "`name'" == "" local name "psdash_balance"
 
-    * strategies()/distribution() overlays are defined for binary treatment only
-    if "`strategies'" != "" {
-        display as error "strategies() is supported for binary treatment only"
-        exit 198
-    }
-    if "`distribution'" != "" {
-        display as error "distribution() is supported for binary treatment only"
-        exit 198
+    * strategies()/distribution() overlays are defined for 0/1 treatment only
+    foreach _ovl in strategies distribution {
+        if "``_ovl''" != "" {
+            if `K' == 2 {
+                display as error "`_ovl'() requires a treatment coded 0/1; `treatment' has levels `levels'"
+                display as error "  recode it, e.g. {cmd:generate byte t01 = (`treatment' == `: word 2 of `levels'')}"
+            }
+            else {
+                display as error "`_ovl'() is supported for binary treatment only"
+            }
+            exit 198
+        }
     }
 
     local nvars : word count `varlist'
@@ -1251,6 +1311,7 @@ program define psdash_balance, rclass
     if "`wvar'" != "" {
         local wvar_label "`wvar'"
         if "`wvar_auto'" == "1" local wvar_label "auto-generated"
+        if `"`: char `wvar'[_psdash_label]'"' != "" local wvar_label "auto-generated"
         display as text "Weights:       " as result "`wvar_label'"
     }
     if "`matched'" != "" {
@@ -1311,8 +1372,10 @@ program define psdash_balance, rclass
         local row_line ""
         local row_line `"as text %20s "`varname'" " {c |}""'
 
-        * Determine status: IMBALANCED if any contrast exceeds threshold
+        * Determine status: IMBALANCED if any contrast exceeds threshold,
+        * otherwise UNDEFINED if any verdict-scale SMD is missing (as binary)
         local cov_imbalanced = 0
+        local cov_undefined = 0
         local cnum = 0
         foreach clev of local contrasts {
             local cnum = `cnum' + 1
@@ -1342,7 +1405,7 @@ program define psdash_balance, rclass
                     }
                 }
                 else {
-                    local cov_imbalanced = 1
+                    local cov_undefined = 1
                 }
             }
             else {
@@ -1350,7 +1413,7 @@ program define psdash_balance, rclass
                     if abs(`smd_raw_v') > `threshold' local cov_imbalanced = 1
                 }
                 else {
-                    local cov_imbalanced = 1
+                    local cov_undefined = 1
                 }
             }
         }
@@ -1376,6 +1439,9 @@ program define psdash_balance, rclass
         if `cov_imbalanced' {
             local row_line `"`row_line' as text _skip(2) "{err}IMBALANCED{txt}""'
         }
+        else if `cov_undefined' {
+            local row_line `"`row_line' as text _skip(3) "{err}UNDEFINED{txt}""'
+        }
         else {
             local row_line `"`row_line' as result %12s "Balanced""'
         }
@@ -1399,7 +1465,6 @@ program define psdash_balance, rclass
         display as text "Maximum |SMD| (raw):      " as result `format' `max_smd_raw'
     }
     display as text "Covariates > SMD threshold:  " as result %3.0f `n_imbalanced' " of " %3.0f `nvars'
-    local _vrb "[`=string(`vrlo',"%3.1f")', `=string(`vrhi',"%3.1f")']"
     if `n_vr_imbalanced' > 0 {
         * RB-08: report the covariate count (the documented unit) and, when a
         * covariate is imbalanced in more than one contrast, the contrast tally.
@@ -1440,6 +1505,14 @@ program define psdash_balance, rclass
     }
     local _pf ""
     local _pfn = 0
+    if `n_ps_boundary' > 0 {
+        display as text "{err}Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1.{txt}"
+        local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary observation(s)"'
+        local ++_pfn
+    }
+    if `n_ps_near' > 0 {
+        display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
+    }
     if `n_imbalanced' > 0 {
         local _pf `"`_pf' | `n_imbalanced' of `nvars' covariate(s) exceed the SMD threshold"'
         local ++_pfn
@@ -1692,6 +1765,8 @@ program define psdash_balance, rclass
     } // end capture noisily
 
     local rc = _rc
+    * Multi-valued teffects PS columns are named <psout>_<level>.
+    if "`ps_auto'" != "" capture drop `ps_auto'_*
     set varabbrev `_vao'
     if `rc' == 0 & "`_psdash_return_mode'" != "" {
         if `_psdash_side_rc' {
@@ -1772,6 +1847,10 @@ program define psdash_balance, rclass
             return scalar max_ks_raw = `max_ks_raw'
             if `has_adj' return scalar max_ks_adj = `max_ks_adj'
             return scalar threshold = `threshold'
+            if `K' == 2 {
+                return scalar n_ps_boundary = `n_ps_boundary'
+                return scalar n_ps_near_boundary = `n_ps_near'
+            }
             return scalar n_wt_undefined = `n_wt_undefined'
             return scalar n_wt_dropped = `n_wt_dropped'
             if "`vr_na_vars'" != "" return local vr_na_vars "`vr_na_vars'"

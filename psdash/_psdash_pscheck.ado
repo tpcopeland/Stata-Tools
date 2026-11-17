@@ -1,4 +1,4 @@
-*! _psdash_pscheck Version 1.9.0  2026/10/29
+*! _psdash_pscheck Version 1.9.1  2026/11/17
 *! Validate propensity score ranges and positivity warnings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -31,6 +31,10 @@ program define _psdash_pscheck, rclass
 
         foreach psv of local varlist {
             quietly summarize `psv' if `samplevar'
+            if r(N) == 0 {
+                display as error "propensity score `psv' has no nonmissing values in the sample"
+                exit 2000
+            }
             if r(min) < 0 | r(max) > 1 {
                 display as error "propensity scores must be in [0,1]"
                 exit 198

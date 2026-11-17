@@ -47,7 +47,7 @@ Source:        teffects
 
 PS Overlap
 Treatment:         statin
-PS variable:       __000001
+PS variable:       auto-generated
 
 ----------------------------------------------------------------------
 Propensity Score Distribution
@@ -81,7 +81,7 @@ Treatment:     statin
 Estimand:      ATE
 N (treated):          551
 N (control):          249
-Weights:       __000002
+Weights:       auto-generated
 Threshold:      0.100
 
 
@@ -110,7 +110,7 @@ Balance: Adequate (max |SMD| =  0.032)
 === WEIGHT DIAGNOSTICS ===
 
 IPTW Weight Diagnostics
-Weight variable:   __000002
+Weight variable:   auto-generated
 Treatment:         statin
 Observations:             800
 
@@ -153,7 +153,7 @@ Weights: WARNING (ESS = 70.3% of N; 1 finding(s))
 
 Common Support
 Treatment:         statin
-PS variable:       __000001
+PS variable:       auto-generated
 Observations:             800
 
 ------------------------------------------------------------

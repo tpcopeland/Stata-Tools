@@ -1,4 +1,4 @@
-*! qba_plot Version 1.2.0  2026/10/13
+*! qba_plot Version 1.2.1  2026/11/17
 *! Visualization for quantitative bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -29,6 +29,26 @@ program define qba_plot, rclass
 
     _qba_require_distributions
 
+    * Presence pass: record which route-specific options the caller typed.
+    * Several carry defaults (steps(20), base_se(.9), ...) or would otherwise
+    * need a reserved "omitted" value (observed(), null(), a()-d(),
+    * base_rrud()), so presence is read from the raw text, not the value.
+    * The full grammar is validated by the typed parse that follows.
+    syntax , [TORnado DISTribution TIPping ///
+        A(string) B(string) C(string) D(string) TYpe(string) ///
+        PARAM1(string) RANGE1(string) PARAM2(string) RANGE2(string) ///
+        PARAM3(string) RANGE3(string) Steps(string) ///
+        BASE_se(string) BASE_sp(string) ///
+        BASE_sela(string) BASE_selb(string) BASE_selc(string) BASE_seld(string) ///
+        BASE_p1(string) BASE_p0(string) BASE_rrcd(string) BASE_rrud(string) ///
+        USing(string) OBServed(string) NUll(string) *]
+    foreach _o in a b c d type param1 range1 param2 range2 param3 range3 ///
+        steps base_se base_sp base_sela base_selb base_selc base_seld ///
+        base_p1 base_p0 base_rrcd base_rrud using observed null {
+        local has_`_o' = (`"``_o''"' != "")
+    }
+    local 0 `"`_raw_syntax'"'
+
     syntax , [TORnado DISTribution TIPping ///
         A(real -1) B(real -1) C(real -1) D(real -1) ///
         MEAsure(string) TYpe(string) ///
@@ -50,6 +70,63 @@ program define qba_plot, rclass
         display as error "specify exactly one of: tornado, distribution, tipping"
         exit 198
     }
+
+    * Refuse options that belong to another plot type: each would otherwise
+    * be accepted at rc=0 and silently ignored.
+    local _offroute ""
+    if "`distribution'" != "" {
+        foreach _o in a b c d type param1 range1 param2 range2 param3 range3 ///
+            steps base_se base_sp base_sela base_selb base_selc base_seld ///
+            base_p1 base_p0 base_rrcd base_rrud {
+            if `has_`_o'' local _offroute "`_offroute' `_o'()"
+        }
+    }
+    else {
+        foreach _o in using observed {
+            if `has_`_o'' local _offroute "`_offroute' `_o'()"
+        }
+        if "`tipping'" != "" {
+            foreach _o in base_sela base_selb base_selc base_seld {
+                if `has_`_o'' local _offroute "`_offroute' `_o'()"
+            }
+        }
+    }
+    if "`_offroute'" != "" {
+        local _route "`tornado'`distribution'`tipping'"
+        display as error "option(s)`_offroute' not allowed with `_route' plots"
+        exit 198
+    }
+    * Explicit values are validated on their own domain, never mistaken for
+    * an omitted option.
+    if `has_observed' & missing(`observed') {
+        display as error "observed() must be nonmissing"
+        exit 198
+    }
+    if `has_null' & missing(`null') {
+        display as error "null() must be nonmissing"
+        exit 198
+    }
+    * Tornado and tipping plots are on the OR/RR scale, where a reference
+    * line must be positive.
+    if "`tornado'`tipping'" != "" & `has_null' & `null' <= 0 {
+        display as error "null() must be > 0 for OR/RR plots"
+        exit 198
+    }
+    if `has_base_rrud' & (missing(`base_rrud') | `base_rrud' <= 0) {
+        display as error "base_rrud() must be > 0"
+        exit 198
+    }
+    if "`tornado'`tipping'" != "" & !(`has_a' & `has_b' & `has_c' & `has_d') {
+        display as error "`tornado'`tipping' plot requires a() b() c() d()"
+        exit 198
+    }
+    if "`distribution'" != "" & !`has_observed' {
+        display as error "observed() required for distribution plot"
+        exit 198
+    }
+    * The distribution helper picks its measure-specific default null line
+    * when null() is omitted.
+    if "`distribution'" != "" & !`has_null' local null .
 
 	    if `steps' < 2 {
 	        display as error "steps() must be at least 2"
@@ -109,7 +186,7 @@ program define qba_plot, rclass
         display as error "type() must be exposure or outcome"
         exit 198
     }
-    if ("`tornado'" != "" | "`tipping'" != "") & `null' == -999 {
+    if ("`tornado'" != "" | "`tipping'" != "") & !`has_null' {
         local null 1
     }
 
@@ -171,7 +248,10 @@ program define qba_plot, rclass
             local _np = "``_p''"
             if "`_np'" == "se" local _np "seca"
             if "`_np'" == "sp" local _np "spca"
-            if strpos("`_norm_params'", "`_np'") > 0 {
+            * rrcd() and rrud() name one bias factor (Schneeweiss 2006 eq.
+            * 1a): sweeping both would draw the same curve twice.
+            if "`_np'" == "rrud" local _np "rrcd"
+            if strpos(" `_norm_params' ", " `_np' ") > 0 {
                 display as error "duplicate parameter: ``_p'' maps to same parameter as another"
                 exit 198
             }
@@ -304,7 +384,7 @@ program define qba_plot, rclass
 	                display as error "base_rrcd() must be > 0"
 	                exit 198
 	            }
-	            if `base_rrud' != -1 & (missing(`base_rrud') | `base_rrud' <= 0) {
+	            if `has_base_rrud' & (missing(`base_rrud') | `base_rrud' <= 0) {
 	                display as error "base_rrud() must be > 0"
 	                exit 198
             }
@@ -313,7 +393,7 @@ program define qba_plot, rclass
 
 	    local base_conf_rr = `base_rrcd'
 	    local base_conf_formula "rrcd"
-	    if `base_rrud' != -1 {
+	    if `has_base_rrud' {
 	        local base_conf_rr = `base_rrud'
 	        local base_conf_formula "rrud"
 	    }
@@ -412,6 +492,7 @@ program define qba_plot, rclass
     }
     local rc = _rc
     if `_had_gm_span' {
+        * stata-dev-ignore: capture-rc — cleanup after `local rc = _rc' already saved the block's code; restoring the global must not replace it
         capture mata: st_global("T_gm_fix_span", st_local("_old_gm_span"))
     }
     else {

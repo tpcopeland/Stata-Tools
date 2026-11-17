@@ -33,10 +33,11 @@ Bernoulli definition, and weighted continuous variances use a scale-invariant
 unbiased weighted estimator. See {help psdash##remarks:Remarks} for the method.
 
 {pstd}
-The {bf:SMD status} column judges SMD alone. The panel verdict also counts
-variance imbalance. A one-arm zero variance gives VR = 0 or an infinite
-ratio ({cmd:.a} in returned matrices and maximum VR scalars); both are
-flagged. Both-arm zero variances remain undefined and unflagged for VR.
+The {bf:SMD status} column judges SMD alone. The panel verdict also counts variance
+imbalance. A one-arm zero variance gives VR = 0 or an infinite ratio ({cmd:.a} in
+returned matrices and maximum VR scalars); both are flagged. Both-arm zero
+variances remain undefined and unflagged for VR. A covariate constant on the
+analysis sample reports SMD 0, VR missing and KS 0.
 
 {pstd}
 The complete stored-result contract, including {cmd:r(balance)} and
@@ -47,7 +48,8 @@ The complete stored-result contract, including {cmd:r(balance)} and
 
 {phang}
 {opt cov:ariates(varlist)} specifies covariates to assess and accepts
-factor-variable and interaction notation.
+factor-variable and interaction notation. Base levels and omitted terms
+({cmd:o.}) are not assessed.
 
 {phang}
 {opt w:var(varname)} specifies existing adjustment weights. It is mutually
@@ -69,27 +71,31 @@ the value must be positive.
 {opt now:eights} is a compatibility alias for {opt nowvar}.
 
 {phang}
-{opt ref:erence(#)} selects the multi-group reference arm.
+{opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
+only {cmd:reference(0)} is allowed.
 
 {phang}
 {opt xlsx(filename)} exports the balance table to an Excel workbook.
 
 {phang}
-{opt sheet(string)} sets the Excel sheet name.
+{opt sheet(string)} sets the Excel sheet name: at most 31 bytes (a multibyte
+character counts each byte), none of {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote, no
+leading or trailing apostrophe, and not the reserved name {cmd:History} (in any
+case). It is checked before any computation; an invalid name is an error
+({cmd:r(198)}).
 
 {phang}
-{opt love:plot} requests a Love plot of raw and, when weights are applied,
-adjusted SMDs. The x axis is fitted to the data (it always includes 0,
-the threshold, and every plotted SMD), the rows are spaced in proportion to the
-number of covariates, and a light band marks {bf:|SMD| < }{opt threshold()}.
-Multi-group plots offset the
-comparisons vertically within each covariate row and join each hollow
-(unadjusted) marker to its solid (adjusted) marker with a thin line. Multi-group
-contrasts are named with the treatment's value labels, shown verbatim, or with numeric codes for unlabelled levels. Rows
-are labelled with each covariate's variable label (factor levels as
-{it:label}{cmd::} {it:value label}), or with its name when it has no label.
-Labels over 40 characters are shortened with {cmd:...}; a label shared by two
-rows gets the variable name appended.
+{opt love:plot} requests a Love plot of raw and, when weights are applied, adjusted
+SMDs. The x axis is fitted to the data (it always includes 0, the threshold,
+and every plotted SMD), the rows are spaced in proportion to the number of
+covariates, and a light band marks {bf:|SMD| < }{opt threshold()}. Multi-group plots
+offset the comparisons vertically within each covariate row and join each
+hollow (unadjusted) marker to its solid (adjusted) marker with a thin
+line. Multi-group contrasts are named with the treatment's value labels, shown
+verbatim, or with numeric codes for unlabelled levels. Rows are labelled with
+each covariate's variable label (factor levels as {it:label}{cmd::} {it:value label}), or with
+its name when it has no label. Labels over 40 characters are shortened with
+{cmd:...}; a label shared by two rows gets the variable name appended.
 
 {phang}
 {opt varn:ames} labels Love-plot rows and distribution panels with variable
@@ -133,17 +139,23 @@ also returned in {cmd:r(smd)}.
 {phang}
 {opt strat:egies(string)} selects a space-separated subset of {cmd:raw},
 {cmd:ate}, {cmd:att}, and {cmd:atc} for the Love plot. It requires a
-propensity score and a binary treatment. A strategy whose weight is undefined
-for an exact 0 or 1 propensity score exits with error 459 after the balance
-table and its stored results are posted.
+propensity score and a treatment coded 0/1. A strategy whose weight is
+undefined for an exact 0 or 1 propensity score exits with error 459, and a
+strategy whose weights are all zero in one arm (every control PS 0 under
+{cmd:att}, every treated PS 1 under {cmd:atc}) exits with error 198; both
+errors come after the balance table and its stored results are posted.
 
 {phang}
 {opt dist:ribution(varlist)} selects assessed covariates for distribution plots and
-is available for binary treatment only. Each covariate gets one density panel
-(weighted: solid, raw: lighter dashed, one hue per arm); panels share a single
-legend. Without {opt title()} the combined figure is titled
-"Covariate Distributions: Raw vs Weighted" when weights are used and
-"Covariate Distributions: Treated vs Control" without weights.
+is available for a treatment coded 0/1 only. Each covariate gets one density
+panel (weighted: solid, raw: lighter dashed, one hue per arm); panels share a
+single legend. Without {opt title()} the combined figure is titled "Covariate
+Distributions: Raw vs Weighted" when weights are used and "Covariate
+Distributions: Treated vs Control" without weights. The figure is named
+{it:name}{cmd:_dist}. With one variable the panel is the figure: it is named {it:name}{cmd:_dist}
+and takes {opt title()} when given. {opt name()} must leave room for the graph suffix: at
+most 27 characters with one variable, 26 with 2-9, and 25 with 10 or more; a
+longer name is refused before any output ({cmd:r(198)}).
 
 {phang}
 {opt vrb:ounds(# #)} sets the lower and upper variance-ratio cutoffs; default is
@@ -209,6 +221,12 @@ legend. Without {opt title()} the combined figure is titled
 {p2col 5 32 34 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}complete balance results{p_end}
 {synopt:{cmd:r(smd)}}raw and adjusted SMDs{p_end}
+
+{pstd}
+{cmd:r(n_ps_boundary)} and {cmd:r(n_ps_near_boundary)} are posted for two-level
+treatments (any coding) and not when K > 2. {cmd:r(max_vr_raw)} and
+{cmd:r(max_vr_adj)} are missing when no covariate has an assessable variance
+ratio (all two-level or constant).
 
 {marker author}{...}
 {title:Author}

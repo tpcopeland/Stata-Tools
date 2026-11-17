@@ -45,12 +45,14 @@ machine-readable positivity findings, is listed under
 
 {phang}
 {opt trim(#)} caps weights at the requested percentile; allowed values are
-50 through 99.9. It cannot be combined with {opt truncate()} or
+50 through 99.9, and any other value, including {cmd:trim(0)}, is an error
+({cmd:r(198)}). It cannot be combined with {opt truncate()} or
 {opt stabilize}.
 
 {phang}
-{opt trunc:ate(#)} truncates weights at the requested positive upper value. It
-cannot be combined with {opt trim()} or {opt stabilize}.
+{opt trunc:ate(#)} truncates weights at the requested positive upper
+value; {cmd:truncate(0)} or a negative value is an error ({cmd:r(198)}). It cannot be
+combined with {opt trim()} or {opt stabilize}.
 
 {phang}
 {opt stab:ilize} requests ATE-stabilized weights. With auto-generated ATT or
@@ -59,27 +61,30 @@ and a caution is printed.
 
 {phang}
 {opt gen:erate(newvar)} names the modified-weight variable. It is required with
-{opt trim()}, {opt truncate()}, or {opt stabilize}.
+{opt trim()}, {opt truncate()}, or {opt stabilize}, and is an error without one
+of them. It may not name the treatment, the {opt wvar()} variable, or any
+propensity-score or {opt psvars()} variable, even with {opt replace}.
 
 {phang}
 {opt replace} permits replacing the requested generated variable.
 
 {phang}
-{opt ref:erence(#)} selects the multi-group reference arm.
+{opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
+only {cmd:reference(0)} is allowed.
 
 {phang}
 {opt det:ail} displays percentile and arm-specific diagnostics.
 
 {phang}
-{opt gr:aph} requests a weight-distribution graph. Histograms show each
-treatment arm's within-arm fraction: a bar's height is the number of the arm's
-weights in that bin divided by all of the arm's weights. When a long tail would
-flatten the bulk of the distribution, the displayed range stops at a round value
-and the graph note reports how many weights lie above it and the maximum; the
-omitted weights still count in their arm's denominator, so the displayed bars of
-a clipped arm sum to less than one. Every reported statistic uses all weights.
-A dashed line marks weight = 1 and is explained in the graph note when 1 lies
-inside the displayed range.
+{opt gr:aph} requests a weight-distribution graph. Histograms show each treatment
+arm's within-arm fraction: a bar's height is the number of the arm's weights
+in that bin divided by all of the arm's weights. When a long tail would
+flatten the bulk of the distribution, the displayed range stops at a round
+value and the graph note reports how many weights lie above it and the
+maximum; the omitted weights still count in their arm's denominator, so the
+displayed bars of a clipped arm sum to less than one. Every reported statistic
+uses all weights. A dashed line marks weight = 1 and is explained in the graph
+note when 1 lies inside the displayed range.
 
 {phang}
 {opt compact} is accepted for compatibility; histograms are always scaled to
@@ -89,13 +94,13 @@ within-arm fractions, so arm sizes do not distort the comparison.
 {opt sav:ing(filename)} saves the graph.
 
 {phang}
-{opt xlabel(numlist)} sets graph x-axis labels. The largest value is the
-upper limit of the displayed range; weights above it are left out of the
-histogram and counted in the graph note. If some arm has no weight at or
-below that value, the range is not limited and a note says so. Only numbers
-are accepted (no text labels or suboptions). Supplying {cmd:xscale()} (or
-{cmd:xsc()}) in {opt graphoptions()} gives the user full control of the axis:
-nothing is omitted and no omission note is added.
+{opt xlabel(numlist)} sets graph x-axis labels. The largest value is the upper limit
+of the displayed range; weights above it are left out of the histogram and
+counted in the graph note. If some arm has no weight at or below that value,
+the range is not limited and a note says so. Only numbers are accepted (no
+text labels or suboptions). Supplying {cmd:xscale()} (or {cmd:xsc()}) in {opt graphoptions()}
+gives the user full control of the axis: nothing is omitted and no omission
+note is added.
 
 {phang}
 {opt sch:eme(schemename)} sets the graph scheme.
@@ -107,10 +112,16 @@ nothing is omitted and no omission note is added.
 {opt name(string)} names the graph in memory.
 
 {phang}
-{opt xlsx(filename)} exports weight statistics to Excel.
+{opt xlsx(filename)} exports weight statistics to Excel. For a binary
+treatment the sheet includes p99, the maximum-to-mean weight ratio, ESS by
+arm, and, when {opt generate()} is used, the modified-weight statistics.
 
 {phang}
-{opt sheet(string)} sets the Excel sheet name.
+{opt sheet(string)} sets the Excel sheet name: at most 31 bytes (a multibyte
+character counts each byte), none of {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote, no
+leading or trailing apostrophe, and not the reserved name {cmd:History} (in any
+case). It is checked before any computation; an invalid name is an error
+({cmd:r(198)}).
 
 {phang}
 {opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
@@ -194,6 +205,10 @@ combined with {opt wvar()}.
 {synopt:{cmd:r(levels)}}treatment-group levels{p_end}
 {synopt:{cmd:r(reference)}}reference treatment group{p_end}
 {synopt:{cmd:r(warnings)}}finding labels{p_end}
+
+{pstd}
+{cmd:r(n_ps_boundary)} and {cmd:r(n_ps_near_boundary)} are posted for a
+two-level treatment (any coding) when a propensity score is available.
 
 {marker author}{...}
 {title:Author}

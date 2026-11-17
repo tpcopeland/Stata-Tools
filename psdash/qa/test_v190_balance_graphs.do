@@ -623,7 +623,8 @@ capture noisily {
     use `big', clear
     graph drop _all
     psdash balance t ps, covariates(x1 x2) wvar(w) distribution(x1) name(v190_k)
-    graph describe v190_k_dist1
+    * 1.9.1: a lone panel is the figure and takes its name, <name>_dist
+    graph describe v190_k_dist
     assert strpos(`"`r(command)'"', "legend(off)") == 0
     assert strpos(`"`r(command)'"', `"3 "Treated (weighted)""') > 0
     capture graph describe v190_k_distlegend

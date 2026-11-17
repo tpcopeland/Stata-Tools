@@ -1,4 +1,4 @@
-*! _psdash_manual_detect Version 1.9.0  2026/10/29
+*! _psdash_manual_detect Version 1.9.1  2026/11/17
 *! Shared treatment-only detection for balance and weights
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper - rclass
@@ -37,7 +37,29 @@ program define _psdash_manual_detect, rclass
             }
         }
 
+        * RB-06: atc has no unique control arm once there are K>2 arms.
+        if "`estimand'" == "atc" & `K' > 2 {
+            display as error "estimand(atc) is not uniquely defined for a multi-valued treatment (K=`K')"
+            display as error "  use estimand(att) with reference() to target a named arm"
+            exit 198
+        }
+
         if `_is_bin01' {
+            * Binary 0/1 formulas fix level 0 as the reference (control) arm:
+            * refuse any other reference() rather than ignore it.
+            if !inlist("`reference'", "", "0") {
+                if "`reference'" == "1" {
+                    display as error "reference(1) is not supported for a treatment coded 0/1"
+                    display as error "  binary 0/1 diagnostics use level 0 as the reference (control) arm."
+                    display as error "  To make level 1 the reference, recode the treatment, e.g."
+                    display as error "  {cmd:gen byte t = 1 - `varlist'}."
+                }
+                else {
+                    display as error "reference(`reference') is not a treatment level"
+                    display as error "  treatment levels: 0 1"
+                }
+                exit 198
+            }
             local multigroup "0"
             local mg_reference "0"
         }

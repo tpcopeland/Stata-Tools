@@ -1,7 +1,8 @@
-*! qba_selection Version 1.2.0  2026/10/13
+*! qba_selection Version 1.2.1  2026/11/17
 *! Selection bias analysis for 2x2 tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
+* stata-dev-ignore-file: hardcoded-tempname — every fixed _name is created in the Monte Carlo scratch dataset after preserve + clear, so no caller variable exists to collide with, and restore discards them
 
 /*
 Corrects 2x2 table cell counts and measures of association (OR, RR)
@@ -59,21 +60,27 @@ program define qba_selection, rclass
          Reps(integer 0) ///
          dist_sela(string) dist_selb(string) ///
          dist_selc(string) dist_seld(string) ///
-	         Seed(integer -1) Level(cilevel) ///
+	         Seed(string) Level(cilevel) ///
 	         SAving(string asis)]
 
+        local has_seed = (`"`seed'"' != "")
         * Keep raw continuous values after native type validation.
         foreach _numopt in a b c d sela selb selc seld {
-            local `_numopt' : display regexr(string(``_numopt'', "%21x"), "^[+]", "")
+            local `_numopt' : display "(" regexr(string(``_numopt'', "%21x"), "^[+]", "") ")"
         }
 
 	    if missing(`reps') | `reps' < 0 {
 	        display as error "reps() must be a nonnegative integer"
 	        exit 198
 	    }
-	    if `seed' != -1 & missing(`seed') {
-	        display as error "seed() must be a nonmissing integer"
-	        exit 198
+	    * set seed folds a negative seed onto its absolute value, so the
+	    * documented domain 0 to 2^31-1 is enforced rather than aliased.
+	    if `has_seed' {
+	        local seed = `seed'
+	        if missing(`seed') | `seed' < 0 | `seed' > 2147483647 {
+	            display as error "seed() must be an integer between 0 and 2147483647"
+	            exit 198
+	        }
 	    }
 	    if `reps' == 0 {
 	        if `"`saving'"' != "" {
@@ -85,7 +92,7 @@ program define qba_selection, rclass
 	            display as error "dist_*() options require reps()"
 	            exit 198
 	        }
-	        if `seed' != -1 {
+	        if `has_seed' {
 	            display as error "seed() requires reps()"
 	            exit 198
 	        }
@@ -131,56 +138,56 @@ program define qba_selection, rclass
         exit 198
     }
 
-    if `seed' != -1 {
+    if `has_seed' {
         set seed `seed'
     }
 
     * Compute observed measure (guard division by zero)
-    local N1 : display regexr(string(`a' + `c', "%21x"), "^[+]", "")
-    local N0 : display regexr(string(`b' + `d', "%21x"), "^[+]", "")
+    local N1 : display "(" regexr(string(`a' + `c', "%21x"), "^[+]", "") ")"
+    local N0 : display "(" regexr(string(`b' + `d', "%21x"), "^[+]", "") ")"
     if `b' * `c' != 0 {
-        local obs_or : display regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "")
+        local obs_or : display "(" regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "") ")"
     }
     else {
-        local obs_or : display regexr(string(., "%21x"), "^[+]", "")
+        local obs_or : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
     }
     if "`measure'" == "RR" {
         if `N1' != 0 & `N0' != 0 & `b' != 0 {
-            local obs_rr : display regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "")
+            local obs_rr : display "(" regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "") ")"
         }
         else {
-            local obs_rr : display regexr(string(., "%21x"), "^[+]", "")
+            local obs_rr : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
         }
     }
 
 	    * SIMPLE BIAS ANALYSIS
     if `reps' == 0 {
         * Correct by dividing each cell by its selection probability
-        local a_corr : display regexr(string(`a' / `sela', "%21x"), "^[+]", "")
-        local b_corr : display regexr(string(`b' / `selb', "%21x"), "^[+]", "")
-        local c_corr : display regexr(string(`c' / `selc', "%21x"), "^[+]", "")
-        local d_corr : display regexr(string(`d' / `seld', "%21x"), "^[+]", "")
+        local a_corr : display "(" regexr(string(`a' / `sela', "%21x"), "^[+]", "") ")"
+        local b_corr : display "(" regexr(string(`b' / `selb', "%21x"), "^[+]", "") ")"
+        local c_corr : display "(" regexr(string(`c' / `selc', "%21x"), "^[+]", "") ")"
+        local d_corr : display "(" regexr(string(`d' / `seld', "%21x"), "^[+]", "") ")"
 
         * Corrected measures
         if `b_corr' * `c_corr' != 0 {
-            local corr_or : display regexr(string((`a_corr' * `d_corr') / (`b_corr' * `c_corr'), "%21x"), "^[+]", "")
+            local corr_or : display "(" regexr(string((`a_corr' * `d_corr') / (`b_corr' * `c_corr'), "%21x"), "^[+]", "") ")"
         }
         else {
-            local corr_or : display regexr(string(., "%21x"), "^[+]", "")
+            local corr_or : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
         }
         if "`measure'" == "RR" {
-            local N1_corr : display regexr(string(`a_corr' + `c_corr', "%21x"), "^[+]", "")
-            local N0_corr : display regexr(string(`b_corr' + `d_corr', "%21x"), "^[+]", "")
+            local N1_corr : display "(" regexr(string(`a_corr' + `c_corr', "%21x"), "^[+]", "") ")"
+            local N0_corr : display "(" regexr(string(`b_corr' + `d_corr', "%21x"), "^[+]", "") ")"
             if `N1_corr' != 0 & `N0_corr' != 0 {
-                local corr_rr : display regexr(string((`a_corr' / `N1_corr') / (`b_corr' / `N0_corr'), "%21x"), "^[+]", "")
+                local corr_rr : display "(" regexr(string((`a_corr' / `N1_corr') / (`b_corr' / `N0_corr'), "%21x"), "^[+]", "") ")"
             }
             else {
-                local corr_rr : display regexr(string(., "%21x"), "^[+]", "")
+                local corr_rr : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
             }
         }
 
         * Selection bias factor
-        local sbf : display regexr(string((`sela' * `seld') / (`selb' * `selc'), "%21x"), "^[+]", "")
+        local sbf : display "(" regexr(string((`sela' * `seld') / (`selb' * `selc'), "%21x"), "^[+]", "") ")"
 
         * Display
         display as text ""
@@ -210,20 +217,20 @@ program define qba_selection, rclass
             display as text "  Observed OR:  " as result %9.4f `obs_or'
             display as text "  Corrected OR: " as result %9.4f `corr_or'
             if `obs_or' != 0 & `obs_or' < . & `corr_or' < . {
-                local ratio : display regexr(string(`corr_or' / `obs_or', "%21x"), "^[+]", "")
+                local ratio : display "(" regexr(string(`corr_or' / `obs_or', "%21x"), "^[+]", "") ")"
             }
             else {
-                local ratio : display regexr(string(., "%21x"), "^[+]", "")
+                local ratio : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
             }
         }
         else {
             display as text "  Observed RR:  " as result %9.4f `obs_rr'
             display as text "  Corrected RR: " as result %9.4f `corr_rr'
             if `obs_rr' != 0 & `obs_rr' < . & `corr_rr' < . {
-                local ratio : display regexr(string(`corr_rr' / `obs_rr', "%21x"), "^[+]", "")
+                local ratio : display "(" regexr(string(`corr_rr' / `obs_rr', "%21x"), "^[+]", "") ")"
             }
             else {
-                local ratio : display regexr(string(., "%21x"), "^[+]", "")
+                local ratio : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
             }
         }
         display as text "  Selection bias factor (OR scale): " as result %6.4f `sbf'
@@ -306,8 +313,13 @@ program define qba_selection, rclass
                 gen double _result = (_a_corr / _N1c) / (_b_corr / _N0c)
             }
 
+            * Greenland (1996) eq. (10) rescales each cell by its own
+            * selection probability, so a zero observed cell stays zero and
+            * a zero observed OR/RR maps to a corrected value of exactly 0,
+            * as the simple route reports. Only an undefined (missing)
+            * measure is invalid; a defined 0 is kept.
             replace _result = . if _draw_invalid == 1
-            replace _result = . if _result <= 0 | _result >= .
+            replace _result = . if _result < 0 | _result >= .
 
             count if _result < .
             local n_valid = r(N)
@@ -316,6 +328,17 @@ program define qba_selection, rclass
         if `n_valid' == 0 {
             restore
             display as error "all Monte Carlo replicates produced invalid results"
+            * obs_rr exists only for measure(RR): test the measure first.
+            if "`measure'" == "OR" {
+                if `obs_or' >= . {
+                    display as error ///
+                        "the observed OR is undefined (b() or c() is zero), so every corrected OR is undefined"
+                }
+            }
+            else if `obs_rr' >= . {
+                display as error ///
+                    "the observed RR is undefined (zero unexposed cases or an empty exposure group), so every corrected RR is undefined"
+            }
             exit 198
         }
 
@@ -332,11 +355,11 @@ program define qba_selection, rclass
 	        local save_rc = 0
 	        quietly {
 		            _qba_mc_summary _result, level(`level')
-		            local mc_mean : display regexr(string(r(mean), "%21x"), "^[+]", "")
-		            local mc_median : display regexr(string(r(median), "%21x"), "^[+]", "")
-	            local mc_sd : display regexr(string(r(sd), "%21x"), "^[+]", "")
-	            local mc_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
-	            local mc_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
+		            local mc_mean : display "(" regexr(string(r(mean), "%21x"), "^[+]", "") ")"
+		            local mc_median : display "(" regexr(string(r(median), "%21x"), "^[+]", "") ")"
+	            local mc_sd : display "(" regexr(string(r(sd), "%21x"), "^[+]", "") ")"
+	            local mc_lo : display "(" regexr(string(r(ci_lower), "%21x"), "^[+]", "") ")"
+	            local mc_hi : display "(" regexr(string(r(ci_upper), "%21x"), "^[+]", "") ")"
 
             if `"`saving'"' != "" {
                 keep _sa _sb _sc _sd _a_corr _b_corr _c_corr _d_corr _result

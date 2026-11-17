@@ -1,7 +1,8 @@
-*! qba_multi Version 1.2.0  2026/10/13
+*! qba_multi Version 1.2.1  2026/11/17
 *! Multi-bias analysis combining misclassification, selection, and confounding
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
+* stata-dev-ignore-file: hardcoded-tempname — every fixed _name is created in the Monte Carlo scratch dataset after preserve + clear, so no caller variable exists to collide with, and restore discards them
 
 /*
 Chains misclassification -> selection -> confounding corrections in a
@@ -71,34 +72,38 @@ program define qba_multi, rclass
          P1(string asis) P0(string asis) RRcd(string asis) RRud(string asis) ///
          dist_p1(string) dist_p0(string) dist_rr(string) ///
 	         ORder(string) ///
-	         Seed(integer -1) Level(cilevel) ///
+	         Seed(string) Level(cilevel) ///
 	         SAving(string asis)]
 
+        * Record which options the caller supplied BEFORE filling defaults.
+        * Presence decides which biases are active; no value is reserved as
+        * an "omitted" sentinel, so an explicit out-of-domain value such as
+        * seca(-1) meets its own domain check instead of disabling the bias.
+        foreach _numopt in seca spca secb spcb sela selb selc seld p1 p0 rrcd rrud seed {
+            local has_`_numopt' = (`"`macval(`_numopt')'"' != "")
+        }
+        local has_mctype = (`"`mctype'"' != "")
         * Keep raw continuous values after native type validation.
-        if `"`macval(seca)'"' == "" local seca -1
-        if `"`macval(spca)'"' == "" local spca -1
-        if `"`macval(secb)'"' == "" local secb -1
-        if `"`macval(spcb)'"' == "" local spcb -1
+        foreach _numopt in seca spca secb spcb sela selb selc seld p1 p0 rrcd rrud {
+            if !`has_`_numopt'' local `_numopt' .
+        }
         if `"`macval(corr)'"' == "" local corr 0
-        if `"`macval(sela)'"' == "" local sela -1
-        if `"`macval(selb)'"' == "" local selb -1
-        if `"`macval(selc)'"' == "" local selc -1
-        if `"`macval(seld)'"' == "" local seld -1
-        if `"`macval(p1)'"' == "" local p1 -1
-        if `"`macval(p0)'"' == "" local p0 -1
-        if `"`macval(rrcd)'"' == "" local rrcd -1
-        if `"`macval(rrud)'"' == "" local rrud -1
         foreach _numopt in a b c d seca spca secb spcb corr sela selb selc seld p1 p0 rrcd rrud {
-            local `_numopt' : display regexr(string(``_numopt'', "%21x"), "^[+]", "")
+            local `_numopt' : display "(" regexr(string(``_numopt'', "%21x"), "^[+]", "") ")"
         }
 
 	    if missing(`reps') {
 	        display as error "reps() must be a nonmissing integer"
 	        exit 198
 	    }
-	    if `seed' != -1 & missing(`seed') {
-	        display as error "seed() must be a nonmissing integer"
-	        exit 198
+	    * set seed folds a negative seed onto its absolute value, so the
+	    * documented domain 0 to 2^31-1 is enforced rather than aliased.
+	    if `has_seed' {
+	        local seed = `seed'
+	        if missing(`seed') | `seed' < 0 | `seed' > 2147483647 {
+	            display as error "seed() must be an integer between 0 and 2147483647"
+	            exit 198
+	        }
 	    }
 
     local savefile ""
@@ -154,27 +159,27 @@ program define qba_multi, rclass
     local do_selection = 0
     local do_confound = 0
 
-    if `seca' != -1 & `spca' != -1 {
+    if `has_seca' & `has_spca' {
         local do_misclass = 1
     }
-    if `sela' != -1 & `selb' != -1 & `selc' != -1 & `seld' != -1 {
+    if `has_sela' & `has_selb' & `has_selc' & `has_seld' {
         local do_selection = 1
     }
-    if `p1' != -1 & `p0' != -1 & (`rrcd' != -1 | `rrud' != -1) {
+    if `has_p1' & `has_p0' & (`has_rrcd' | `has_rrud') {
         local do_confound = 1
     }
 
-    if `rrcd' != -1 & `rrud' != -1 {
+    if `has_rrcd' & `has_rrud' {
         display as error "specify rrcd() or rrud(), not both"
         exit 198
     }
 
     * Reject incomplete bias parameter pairs
-    if (`seca' != -1 & `spca' == -1) | (`seca' == -1 & `spca' != -1) {
+    if `has_seca' != `has_spca' {
         display as error "misclassification requires both seca() and spca()"
         exit 198
     }
-	    if (`secb' != -1 | `spcb' != -1) & !`do_misclass' {
+	    if (`has_secb' | `has_spcb') & !`do_misclass' {
 	        display as error "secb()/spcb() require seca() and spca()"
 	        exit 198
 	    }
@@ -182,19 +187,19 @@ program define qba_multi, rclass
 	        display as error "dist_se()/dist_sp() require seca() and spca()"
 	        exit 198
 	    }
-	    if ("`dist_se1'" != "" | "`dist_sp1'" != "") & !(`secb' != -1 | `spcb' != -1) {
+	    if ("`dist_se1'" != "" | "`dist_sp1'" != "") & !(`has_secb' | `has_spcb') {
 	        display as error "dist_se1()/dist_sp1() requires secb() or spcb()"
 	        exit 198
     }
 	    * corr() correlates the case-stratum and non-case-stratum bias
 	    * parameters, so it needs two strata to correlate.
-	    if `corr' != 0 & !(`secb' != -1 | `spcb' != -1) {
+	    if `corr' != 0 & !(`has_secb' | `has_spcb') {
 	        display as error ///
 	            "corr() requires secb() or spcb() to enable differential misclassification"
 	        exit 198
 	    }
-	    if (`sela' != -1 | `selb' != -1 | `selc' != -1 | `seld' != -1) & ///
-	       !(`sela' != -1 & `selb' != -1 & `selc' != -1 & `seld' != -1) {
+	    if (`has_sela' | `has_selb' | `has_selc' | `has_seld') & ///
+	       !(`has_sela' & `has_selb' & `has_selc' & `has_seld') {
 	        display as error "selection bias requires all of sela() selb() selc() seld()"
 	        exit 198
 	    }
@@ -203,7 +208,7 @@ program define qba_multi, rclass
 	        display as error "dist_sela()/dist_selb()/dist_selc()/dist_seld() require selection probabilities"
 	        exit 198
 	    }
-	    if (`p1' != -1 | `p0' != -1 | `rrcd' != -1 | `rrud' != -1) & !`do_confound' {
+	    if (`has_p1' | `has_p0' | `has_rrcd' | `has_rrud') & !`do_confound' {
 	        display as error "confounding requires p1(), p0(), and rrcd() or rrud()"
 	        exit 198
 	    }
@@ -211,6 +216,13 @@ program define qba_multi, rclass
 	        display as error "dist_p1()/dist_p0()/dist_rr() require confounding parameters"
 	        exit 198
 	    }
+
+    * mctype() selects which variable is misclassified; without an active
+    * misclassification bias it would be silently ignored.
+    if `has_mctype' & !`do_misclass' {
+        display as error "mctype() requires seca() and spca()"
+        exit 198
+    }
 
     local n_biases = `do_misclass' + `do_selection' + `do_confound'
     if `n_biases' == 0 {
@@ -250,11 +262,11 @@ program define qba_multi, rclass
 	            display as error "p0() must be in [0, 1]"
 	            exit 198
 	        }
-	        if `rrcd' != -1 & (missing(`rrcd') | `rrcd' <= 0) {
+	        if `has_rrcd' & (missing(`rrcd') | `rrcd' <= 0) {
 	            display as error "rrcd() must be > 0"
 	            exit 198
 	        }
-	        if `rrud' != -1 & (missing(`rrud') | `rrud' <= 0) {
+	        if `has_rrud' & (missing(`rrud') | `rrud' <= 0) {
 	            display as error "rrud() must be > 0"
 	            exit 198
         }
@@ -310,10 +322,10 @@ program define qba_multi, rclass
 
     * Differential misclassification
     local mc_differential = 0
-    if `do_misclass' & (`secb' != -1 | `spcb' != -1) {
+    if `do_misclass' & (`has_secb' | `has_spcb') {
         local mc_differential = 1
-        if `secb' == -1 local secb = `seca'
-        if `spcb' == -1 local spcb = `spca'
+        if !`has_secb' local secb `seca'
+        if !`has_spcb' local spcb `spca'
     }
 
     if `mc_differential' {
@@ -333,35 +345,35 @@ program define qba_multi, rclass
 
     * Confounding RR choice
     if `do_confound' {
-        if `rrud' != -1 {
+        if `has_rrud' {
             local use_rrud = 1
-            local rr_val : display regexr(string(`rrud', "%21x"), "^[+]", "")
+            local rr_val : display "(" regexr(string(`rrud', "%21x"), "^[+]", "") ")"
         }
         else {
             local use_rrud = 0
-            local rr_val : display regexr(string(`rrcd', "%21x"), "^[+]", "")
+            local rr_val : display "(" regexr(string(`rrcd', "%21x"), "^[+]", "") ")"
         }
     }
 
-    if `seed' != -1 {
+    if `has_seed' {
         set seed `seed'
     }
 
     * Compute observed measure (guard division by zero)
-    local N1 : display regexr(string(`a' + `c', "%21x"), "^[+]", "")
-    local N0 : display regexr(string(`b' + `d', "%21x"), "^[+]", "")
+    local N1 : display "(" regexr(string(`a' + `c', "%21x"), "^[+]", "") ")"
+    local N0 : display "(" regexr(string(`b' + `d', "%21x"), "^[+]", "") ")"
     if `b' * `c' != 0 {
-        local obs_or : display regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "")
+        local obs_or : display "(" regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "") ")"
     }
     else {
-        local obs_or : display regexr(string(., "%21x"), "^[+]", "")
+        local obs_or : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
     }
     if "`measure'" == "RR" {
         if `N1' != 0 & `N0' != 0 & `b' != 0 {
-            local obs_rr : display regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "")
+            local obs_rr : display "(" regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "") ")"
         }
         else {
-            local obs_rr : display regexr(string(., "%21x"), "^[+]", "")
+            local obs_rr : display "(" regexr(string(., "%21x"), "^[+]", "") ")"
         }
     }
 
@@ -534,7 +546,12 @@ program define qba_multi, rclass
         else {
             replace _result = . if _wa < 0 | _wb < 0 | _wc < 0 | _wd < 0
         }
-        replace _result = . if _result <= 0 | _result >= .
+        * A zero corrected measure is valid where the cells are only rescaled
+        * (selection, Greenland 1996 eq. 10) or divided by a confounding bias
+        * factor: an observed OR/RR of 0 stays 0, as in qba_selection. With
+        * misclassification active the zero-cell screen above already removed
+        * every replicate whose measure could be 0. Undefined stays invalid.
+        replace _result = . if _result < 0 | _result >= .
 
         count if _result < .
         local n_valid = r(N)
@@ -559,11 +576,11 @@ program define qba_multi, rclass
 		    local save_rc = 0
 		    quietly {
 		        _qba_mc_summary _result, level(`level')
-		        local mc_mean : display regexr(string(r(mean), "%21x"), "^[+]", "")
-	        local mc_median : display regexr(string(r(median), "%21x"), "^[+]", "")
-	        local mc_sd : display regexr(string(r(sd), "%21x"), "^[+]", "")
-	        local mc_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
-	        local mc_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
+		        local mc_mean : display "(" regexr(string(r(mean), "%21x"), "^[+]", "") ")"
+	        local mc_median : display "(" regexr(string(r(median), "%21x"), "^[+]", "") ")"
+	        local mc_sd : display "(" regexr(string(r(sd), "%21x"), "^[+]", "") ")"
+	        local mc_lo : display "(" regexr(string(r(ci_lower), "%21x"), "^[+]", "") ")"
+	        local mc_hi : display "(" regexr(string(r(ci_upper), "%21x"), "^[+]", "") ")"
 
         if `"`saving'"' != "" {
             keep _wa _wb _wc _wd _result

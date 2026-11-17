@@ -1,4 +1,4 @@
-*! psdash_detect Version 1.9.0  2026/10/29
+*! psdash_detect Version 1.9.1  2026/11/17
 *! Report propensity-score auto-detection without running diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -212,6 +212,8 @@ program define psdash_detect, rclass
 
     }
     local rc = _rc
+    * Multi-valued teffects PS columns are named <psout>_<level>.
+    if "`ps_auto'" != "" capture drop `ps_auto'_*
     set varabbrev `_vao'
     if `rc' exit `rc'
 end

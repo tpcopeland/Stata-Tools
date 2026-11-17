@@ -2,9 +2,9 @@
 
 # qba — Quantitative bias analysis: how wrong could this estimate be?
 
-**Version 1.2.0** | 2026-10-13
+**Version 1.2.1** | 2026-11-17
 
-[![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+[![version](https://img.shields.io/badge/version-1.2.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
 
 **[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Demo](#demo)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
@@ -37,7 +37,7 @@ qba_plot, distribution using("mc_multi_bias.dta") observed(2.15)
 
 ## Features
 
-- **Three biases, one interface.** Exposure or outcome misclassification (nondifferential or differential, by the Greenland/Lash matrix method), selection bias from four stratum-specific selection probabilities, and one unmeasured confounder (Schneeweiss or Greenland parameterization, or a signed shift for a linear coefficient).
+- **Three biases, one interface.** Exposure or outcome misclassification (nondifferential or differential, by the Greenland/Lash matrix method), selection bias from four stratum-specific selection probabilities, and one unmeasured confounder (the Schneeweiss bias factor, which reproduces Greenland's external adjustment, or a signed shift for a linear coefficient).
 - **Fixed or probabilistic.** Each single-bias command runs with fixed parameters or, with `reps()`, draws them from trapezoidal, triangular, uniform, beta, logit-normal, or constant distributions; the percentile interval is labelled a systematic-error simulation interval, not a corrected confidence interval, and `qba_misclass, totalerror` adds random error.
 - **Several biases in one simulation.** `qba_multi` applies the cell-level corrections in the order you give (`order()`, default misclassification then selection) and the confounding correction last.
 - **E-values that state their scale.** `evalue` uses VanderWeele and Ding (2017), converts an OR or HR for a common outcome with `commonoutcome`, and records the scale used in `r(evalue_rr)` and `r(evalue_conv)`.
@@ -114,7 +114,7 @@ qba_confound, estimate(1.5) measure(OR) ///
     p1(.4) p0(.2) rrcd(2.0) evalue ci_bound(1.1)
 ```
 
-Use `rrud()` instead of `rrcd()` for the Greenland parameterization. `commonoutcome` applies the VanderWeele-Ding conversion before an E-value is computed for a common outcome.
+`rrud()` is an alternate name for `rrcd()`: both enter the same Schneeweiss (2006) bias factor. `commonoutcome` applies the VanderWeele-Ding conversion before an E-value is computed for a common outcome.
 
 ### 4. Correct a coefficient from the last model
 
@@ -275,8 +275,8 @@ qba_confound, [estimate(#) | from_model] ///
 | `coef()` | First eligible coefficient when there is one | Name a non-constant, non-omitted main-equation coefficient when the model has multiple eligible predictors |
 | `measure()` | `RR` for `estimate()`; auto-detected from recognized models | Accept `OR`, `RR`, `HR`, or `IRR`; linear `from_model` results are labeled `coefficient` |
 | `p1()` `p0()` | Unset | Confounder prevalence among exposed and unexposed, each in `[0, 1]`; required for a bias correction |
-| `rrcd()` | Unset | Schneeweiss confounder-disease risk-ratio parameterization; must be greater than zero and cannot be combined with `rrud()` |
-| `rrud()` | Unset | Greenland confounder-disease risk-ratio parameterization; must be greater than zero and cannot be combined with `rrcd()` |
+| `rrcd()` | Unset | Confounder-disease risk ratio in the Schneeweiss (2006) bias factor; must be greater than zero and cannot be combined with `rrud()` |
+| `rrud()` | Unset | Alternate name for `rrcd()` (same bias factor); must be greater than zero and cannot be combined with `rrcd()` |
 | `confeffect()` | Unset | Signed additive confounder effect for linear `from_model` corrections; required instead of `rrcd()`/`rrud()` |
 | `evalue` | Off | Compute the E-value for the point estimate and, when available, the confidence-limit bound closest to the null |
 | `ci_bound()` | Unset | Positive confidence-limit bound for an E-value when a model-derived interval is unavailable; requires `evalue` |
@@ -461,6 +461,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.1** (2026-11-17): Bug fixes from an external review. An explicitly typed value is never mistaken for an omitted option: `confeffect(-999)`, `observed(-999)` and `null(-999)` are accepted, and out-of-domain values such as `rrud(-1)`, `secb(-1)`, `seca(-1)`, `sela(-1)`, `ci_bound(-999)`, `base_rrud(-1)` or `estimate(-999)` with an active estimator contract now meet their own domain error instead of being ignored. `seed()` must be in 0 to 2147483647 (`set seed` silently took the absolute value of a negative seed). `qba_confound, from_model` now builds its CI with the model's own critical value (Student's t with `e(df_r)` after `regress`, `areg`, `cnsreg`), matching `r(table)`; a linear `from_model` result refuses a ratio `measure()` and accepts `measure(coefficient)`; a ratio estimator contract with a nonpositive CI limit has its CI treated as unavailable (the correction and point E-value still run, no CI E-value is computed from that bound). `qba_misclass, totalerror` masks `reclass_*` in `saving()` on the same invalid replicates as `corrected_*`/`total_*`, and `r(dist_se)`/`r(dist_sp)` report the user-scale value instead of a hex carrier. `saving()` accepts compound-quoted filenames. `qba_selection` probabilistic mode, and `qba_multi` without misclassification, keep an exact corrected value of 0 from a zero observed cell, as simple selection does. Exact internal number transport no longer fails on values near 2^±13, 2^±14, 2^±29, 2^±30 (for example cell counts from 8192 to 32767, or very small model coefficients): such values were re-read as decimal exponent notation and the commands exited with an error. `qba_plot` refuses options that belong to another plot type, refuses a tipping plot whose observed measure is undefined, refuses sweeping `rrcd` and `rrud` together, and places the tornado observed label clear of the null label when they coincide. `qba_multi` refuses `mctype()` without misclassification. Missing distribution draws are counted as invalid. Help: `rrud()` is documented as the same Schneeweiss bias factor as `rrcd()` (Greenland's parameter is an odds ratio), the total-error prevalence is the bias-adjusted one, and the 20% invalid-replicate warning is documented in every command.
 - **1.2.0** (2026-10-13): Plot legibility. The distribution plot draws the median line in a visible green and the null line solid so it no longer disappears into a grid line; the tornado plot labels the observed and null reference lines and keeps both in range; the tornado null line is now solid gray; tipping tiles are drawn without outlines and use opaque lighter colors (`*` intensity instead of `%` opacity) so overlapping tiles no longer stripe; the distribution histogram fill is lighter (`navy%40` to `navy%25`) so the median line shows through cleanly. `qba_confound` help now explains how to choose rare versus common outcome for E-values and gives the bounding-factor formula.
 - **1.1.5** (2026-10-09): Help References now give a DOI for every entry.
 - **1.1.4** (2026-09-30): Plotting preserves the exact entry presence and contents of Stata's native graph global on success and refusal, including fresh-session initialization. Continuous numeric options and intermediate analytical results retain double precision, including tiny scientific-notation inputs and saved constant-distribution draws; the original option grammar and range checks are preserved.

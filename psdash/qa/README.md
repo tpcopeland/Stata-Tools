@@ -105,6 +105,9 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_v190_weights_graphs.do` | Within-arm fraction histograms on both routes, default label formats and text sizes, the weight = 1 and omitted-tail notes (including a user `xlabel()`), and statistics unchanged by the display range; quick/full. |
 | `test_v190_balance_graphs.do` | Love-plot x range fitted to 0, the threshold and every plotted SMD (no fixed ±0.5 floor), shaded \|SMD\| < threshold band replacing the threshold lines, height scaled to the covariate count, single shared legend and raw-vs-weighted styling on the distribution graph, dodged multi-group comparisons with raw-to-adjusted connectors, and unchanged balance returns; quick/full. |
 | `test_v190_dashboard_summary.do` | Binary dashboard Diagnostic Summary scorecard (verdict equals `r(verdict)` for PASS and FAIL, rows for executed panels only), `supportgraph` restoring the support density panel, `nooverlap` moving the support graph into the overlap slot, unchanged multi-group layout and `r()` returns, and longitudinal rejection; quick/full. |
+| `test_v191_balance.do` | Two-level non-dyadic and constant covariates (exact SMD/VR/KS), two-level `VR_Adj` single-observation guard, missing `r(max_vr_*)` with no assessable VR, omitted `o.x` terms, `distribution()` naming and `title()` on one variable, `strategies()` zero-weight arm refusal, and K = 2 non-0/1 positivity counts and recode messages; quick/full. |
+| `test_v191_detect_weights.do` | No leaked `_psdash_ps_*` after multi-valued `teffects`, post-`mlogit` weight generation and K > 2 `atc` refusal, `e(cmdline)` weight expressions, `reference()` on 0/1 treatments across routes, all-missing PS, `trim(0)`/`truncate(0)` range errors, K = 2 non-0/1 weight positivity, `generate()` collision and early-error rules, and the binary `xlsx()` rows; quick/full. |
+| `test_v191_overlap_support_combined.do` | Float non-integer longitudinal periods, missing `r(max_pct_outside)` without two-arm periods, `auto-generated` labels instead of tempvar names in combined output and report sheets, combined `threshold()` validation with the balance panel skipped, `report()` write-failure handling, support `generate()`/`threshold()`/`qtrim()` validation, `sheet()` and quoted `title()` handling, quiet compact overlap, and longitudinal option refusals; quick/full. |
 
 ### Validation
 
@@ -145,12 +148,12 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
 | `psdash` | `test_psdash`, dispatch/refactor suites | — | — | Install/autoload and adversarial suites. |
-| `psdash detect` | Detection, producer-contract, and sample-ledger suites | `validation_multigroup_longitudinal` | External reference workflows | Every auto-detected panel path. |
-| `psdash overlap` | Binary/multi-group overlap and adversarial suites | Known-answer suites | Python, external references, and public studies | Combined and producer integrations. |
-| `psdash balance` | Binary/multi-group balance, factors, VR, and export suites | Known-answer and method suites | R `cobalt`, Python, external references, and public studies | Combined and teffects paths. |
-| `psdash weights` | Binary/multi-group weights, estimands, thresholds, and exports | Known-answer and method suites | Python, external references, and public studies | Combined and producer integrations. |
-| `psdash support` | Binary/multi-group support, trimming, Crump, and guards | Known-answer and method suites | Python, external references, and public studies | Combined and GPS-positivity suites. |
-| `psdash combined` | Verdict, threshold, common-sample, report, and longitudinal suites | Multi-group/longitudinal validation | External reference workflows | Real producer integrations. |
+| `psdash detect` | Detection, producer-contract, and sample-ledger suites | `validation_multigroup_longitudinal` | `crossval_external_references` | Every auto-detected panel path. |
+| `psdash overlap` | Binary/multi-group overlap and adversarial suites | Known-answer suites | `crossval_python_psdash`, `crossval_external_references`, `crossval_public_studies` | Combined and producer integrations. |
+| `psdash balance` | Binary/multi-group balance, factors, VR, and export suites | Known-answer and method suites | `crossval_cobalt`, `crossval_python_psdash`, `crossval_external_references`, `crossval_public_studies` | Combined and teffects paths. |
+| `psdash weights` | Binary/multi-group weights, estimands, thresholds, and exports | Known-answer and method suites | `crossval_python_psdash`, `crossval_external_references`, `crossval_public_studies` | Combined and producer integrations. |
+| `psdash support` | Binary/multi-group support, trimming, Crump, and guards | Known-answer and method suites | `crossval_python_psdash`, `crossval_external_references`, `crossval_public_studies` | Combined and GPS-positivity suites. |
+| `psdash combined` | Verdict, threshold, common-sample, report, and longitudinal suites | Multi-group/longitudinal validation | — | Real producer integrations. |
 
 ## Lane membership
 
@@ -172,3 +175,23 @@ Canonical direct route extension: `validation_fixture_routes.do` ran12/12 with z
 |---|---|
 | `validation_fixture_routes.do` | Seven public manual binary PS routes and meaningful A1 consumed-role operators; quick/full |
 | `_qa_state.do` | Current byte-for-byte caller-state helper vendor |
+
+## Evidence layers
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `psdash balance` binary SMD/VR/KS, raw and weighted | `validation_known_answers.do` | `crossval_cobalt.do`; `crossval_python_psdash.do`; `crossval_external_references.do`; `crossval_public_studies.do` | — | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash balance` multi-group pairwise SMD/VR/KS | `validation_multigroup_longitudinal.do` | `crossval_cobalt.do`; `crossval_external_references.do` | — | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash weights` binary IPTW ATE/ATT/ATC, ESS | `validation_known_answers.do` | `crossval_python_psdash.do`; `crossval_external_references.do`; `crossval_public_studies.do` | none: deterministic transform of the supplied propensity scores into closed-form IPTW weights | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash weights` multi-group GPS weights, ESS | `validation_multigroup_longitudinal.do` | `crossval_external_references.do` | none: deterministic transform of the supplied propensity scores into closed-form IPTW weights | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash overlap` binary PS overlap, AUC | `validation_known_answers.do` | `crossval_python_psdash.do`; `crossval_external_references.do`; `crossval_public_studies.do` | — | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash overlap` multi-group full-vector GPS positivity | `validation_method_contracts.do` | `crossval_external_references.do` | — | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash support` binary common support and Crump trimming | `validation_known_answers.do` | `crossval_python_psdash.do`; `crossval_external_references.do`; `crossval_public_studies.do` | — | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash support` multi-group GPS-floor trimming | `validation_method_contracts.do` | `crossval_external_references.do` | — | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+| `psdash combined` longitudinal period overlap and weights | `validation_multigroup_longitudinal.do` | — | — | none: no inference reported; psdash computes descriptive diagnostics without standard errors, intervals, or p-values |
+
+## Known gaps
+
+- Published reproduction is not built for the balance, overlap, support, and longitudinal routes; those cells are gaps, not waivers.
+- The longitudinal route has no maintained-reference parity suite.
+- The `.sthlp` render axis is checked by `artifact help` / `check package`, not by this lane.

@@ -51,6 +51,7 @@ capture noisily {
     qba_plot, distribution using("`mc'") observed(2.15) saving("`svg'") replace
     * median: a dashed "0 150 60" (#00963C) line, clearly green
     _v120_count "`svg'" "stroke:#00963C;stroke-width:12.96"
+    assert !missing(r(n))
     assert r(n) > 0
     * null: ONE solid gray (#606060) medthick path, not a dotted series
     _v120_count "`svg'" "stroke:#606060;stroke-width:12.96"
@@ -103,6 +104,7 @@ capture noisily {
     qba_plot, tipping a(136) b(297) c(1432) d(6738) param1(p1) range1(0 .6) ///
         param2(rrcd) range2(1 5) base_p0(.1) steps(8) saving("`svg'") replace
     _v120_count "`svg'" "stroke-width:0.00"
+    assert !missing(r(n))
     assert r(n) >= 40
     capture erase "`svg'"
 }

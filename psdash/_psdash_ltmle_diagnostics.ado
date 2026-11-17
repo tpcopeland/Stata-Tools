@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.9.0  2026/10/29
+*! _psdash_ltmle_diagnostics Version 1.9.1  2026/11/17
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -120,6 +120,32 @@ program define _psdash_ltmle_diagnostics, rclass
             display as error "no period values in `source' diagnostic sample"
             exit 2000
         }
+        * Select each period by its sorted index, never by its decimal text:
+        * a float period such as 0.1 is not equal to the double literal .1
+        * that levelsof prints, so a text filter matched no row at all.
+        tempvar period_idx
+        quietly egen long `period_idx' = group(`period') if `samplevar'
+        quietly summarize `period_idx', meanonly
+        if r(max) != `n_periods' {
+            display as error "period values could not be indexed exactly"
+            display as error "  recode period values to distinct integer indices before running diagnostics"
+            exit 459
+        }
+        * levelsof prints a float period at double precision (.1 becomes
+        * .1000000014901161). Label each float period by its shortest %9.0g
+        * text when that text reads back as exactly the same float; otherwise
+        * keep the exact levelsof text.
+        if "`: type `period''" == "float" {
+            local _pv ""
+            local _pv_exact = 1
+            forvalues _j = 1/`n_periods' {
+                quietly summarize `period' if `period_idx' == `_j', meanonly
+                local _pt = strtrim(string(r(min), "%9.0g"))
+                if float(real("`_pt'")) != r(min) local _pv_exact = 0
+                local _pv "`_pv' `_pt'"
+            }
+            if `_pv_exact' local period_values = strtrim("`_pv'")
+        }
 
         tempname overlap wtperiod ov_lo ov_hi ov_min_t ov_max_t ov_min_c ov_max_c
         matrix `overlap' = J(`n_periods', 12, .)
@@ -135,7 +161,9 @@ program define _psdash_ltmle_diagnostics, rclass
         quietly gen byte `period_sample' = 0
 
         local rownames ""
-        local max_pct_outside = 0
+        * Missing until at least one period has both arms: with no estimable
+        * period there is no outside-support share to report, not 0%.
+        local max_pct_outside = .
         local max_weight_p99 = .
         * RB-10 (L1): a period with only one treatment arm present is NOT estimable
         * -- its overlap/outside-support is undefined, and folding a missing
@@ -161,11 +189,11 @@ program define _psdash_ltmle_diagnostics, rclass
             }
             local rownames "`rownames' `_rowname'"
 
-            quietly count if `samplevar' & `period' == `p'
+            quietly count if `period_idx' == `i'
             local p_N = r(N)
-            quietly count if `samplevar' & `period' == `p' & `treatment' == 1
+            quietly count if `period_idx' == `i' & `treatment' == 1
             local p_Nt = r(N)
-            quietly count if `samplevar' & `period' == `p' & `treatment' == 0
+            quietly count if `period_idx' == `i' & `treatment' == 0
             local p_Nc = r(N)
 
             if `p_Nt' == 0 | `p_Nc' == 0 {
@@ -180,7 +208,7 @@ program define _psdash_ltmle_diagnostics, rclass
             local max_t = .
             if `p_Nt' > 0 {
                 quietly summarize `psvar' ///
-                    if `samplevar' & `period' == `p' & `treatment' == 1, meanonly
+                    if `period_idx' == `i' & `treatment' == 1, meanonly
                 local mean_t = r(mean)
                 local min_t = r(min)
                 local max_t = r(max)
@@ -193,7 +221,7 @@ program define _psdash_ltmle_diagnostics, rclass
             local max_c = .
             if `p_Nc' > 0 {
                 quietly summarize `psvar' ///
-                    if `samplevar' & `period' == `p' & `treatment' == 0, meanonly
+                    if `period_idx' == `i' & `treatment' == 0, meanonly
                 local mean_c = r(mean)
                 local min_c = r(min)
                 local max_c = r(max)
@@ -211,11 +239,11 @@ program define _psdash_ltmle_diagnostics, rclass
                 * observation outside its own support).
                 scalar `ov_lo' = max(`ov_min_t', `ov_min_c')
                 scalar `ov_hi' = min(`ov_max_t', `ov_max_c')
-                quietly count if `samplevar' & `period' == `p' ///
+                quietly count if `period_idx' == `i' ///
                     & (`psvar' < `ov_lo' | `psvar' > `ov_hi')
                 local n_outside = r(N)
                 local pct_outside = 100 * `n_outside' / `p_N'
-                if `pct_outside' > `max_pct_outside' {
+                if missing(`max_pct_outside') | `pct_outside' > `max_pct_outside' {
                     local max_pct_outside = `pct_outside'
                 }
             }
@@ -235,7 +263,7 @@ program define _psdash_ltmle_diagnostics, rclass
 
             * Use the same scaled weight moments as the overall summary;
             * squaring the original weights can overflow or underflow.
-            quietly replace `period_sample' = `samplevar' & `period' == `p'
+            quietly replace `period_sample' = `period_idx' == `i'
             _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
                 samplevar(`period_sample') n(`p_N')
             local wt_mean = r(mean_wt)
@@ -415,7 +443,7 @@ program define _psdash_ltmle_diagnostics, rclass
             local _pf `"`_pf' | `n_single_arm' single-arm period(s) (overlap not estimable)"'
             local ++_pfn
         }
-        if `max_pct_outside' > 10 {
+        if `max_pct_outside' > 10 & !missing(`max_pct_outside') {
             display as text "{err}Warning: at least one period has >10% outside common support.{txt}"
             local _pf `"`_pf' | max period `=string(`max_pct_outside',"%4.1f")'% outside common support"'
             local ++_pfn

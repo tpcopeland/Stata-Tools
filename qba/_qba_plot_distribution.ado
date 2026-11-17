@@ -1,4 +1,4 @@
-*! _qba_plot_distribution Version 1.2.0  2026/10/13
+*! _qba_plot_distribution Version 1.2.1  2026/11/17
 *! Internal helper: qba distribution plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,16 +30,10 @@ program define _qba_plot_distribution, rclass
             display as error "distribution plot requires using(filename)"
             exit 198
         }
-        if `observed' == -999 {
-            display as error "observed() required for distribution plot"
-            exit 198
-        }
+        * qba_plot checks presence; observed() is always supplied here and
+        * a missing null() means "use the measure's null".
         if missing(`observed') {
             display as error "observed() must be nonmissing"
-            exit 198
-        }
-        if `null' != -999 & missing(`null') {
-            display as error "null() must be nonmissing"
             exit 198
         }
 
@@ -58,7 +52,7 @@ program define _qba_plot_distribution, rclass
                 }
             }
             if `result_count' == 0 {
-                noisily display as error "no supported corrected result variable found in `using'"
+                noisily display as error `"no supported corrected result variable found in `using'"'
                 noisily display as error "expected corrected_or, corrected_rr, or corrected_coefficient"
                 exit 198
             }
@@ -68,13 +62,13 @@ program define _qba_plot_distribution, rclass
                 if "`measure'" == "COEFFICIENT" local requested_var "corrected_coefficient"
                 capture confirm variable `requested_var'
                 if _rc {
-                    noisily display as error "measure(`requested_measure') requested, but `requested_var' was not found in `using'"
+                    noisily display as error `"measure(`requested_measure') requested, but `requested_var' was not found in `using'"'
                     exit 198
                 }
                 local result_var "`requested_var'"
             }
             else if `result_count' > 1 {
-                noisily display as error "`using' contains multiple corrected result variables"
+                noisily display as error `"`using' contains multiple corrected result variables"'
                 noisily display as error "specify measure(OR), measure(RR), or measure(coefficient)"
                 exit 198
             }
@@ -93,14 +87,21 @@ program define _qba_plot_distribution, rclass
             local inferred_measure = strupper(subinstr("`result_var'", "corrected_", "", 1))
             if !`measureuser' local measure "`inferred_measure'"
             if `measureuser' & "`measure'" != "`inferred_measure'" {
-                noisily display as error "measure() does not match `result_var' in `using'"
+                noisily display as error `"measure() does not match `result_var' in `using'"'
                 exit 198
             }
             local measurelabel "`measure'"
             if "`measure'" == "COEFFICIENT" local measurelabel "Coefficient"
-            if `null' == -999 {
+            if missing(`null') {
                 if "`measure'" == "COEFFICIENT" local null 0
                 else local null 1
+            }
+            * An OR or RR lives on (0, inf): a nonpositive reference line
+            * there is a typo, not a value to draw.
+            if "`measure'" != "COEFFICIENT" & (`observed' <= 0 | `null' <= 0) {
+                noisily display as error ///
+                    "observed() and null() must be > 0 for an `measure' distribution plot"
+                exit 198
             }
 
             summarize `result_var', detail

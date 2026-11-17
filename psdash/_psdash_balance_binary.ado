@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.9.0  2026/10/29
+*! _psdash_balance_binary Version 1.9.1  2026/11/17
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,7 +36,7 @@ program define _psdash_balance_binary, rclass
             exit 2001
         }
 
-        tempname balance_mat _svmin _svmax
+        tempname balance_mat _svmin _svmax _svrange _sp
         matrix `balance_mat' = J(`nvars', 10, .)
         matrix colnames `balance_mat' = "Mean_T" "Mean_C" "SMD_Raw" "VR_Raw" "KS_Raw" "Mean_T_Adj" "Mean_C_Adj" "SMD_Adj" "VR_Adj" "KS_Adj"
         local rownames ""
@@ -92,13 +92,24 @@ program define _psdash_balance_binary, rclass
             }
 
             quietly summarize `var'
-            local _vmin = r(min)
-            local _vmax = r(max)
+            local _n_nonmiss = r(N)
             scalar `_svmin' = r(min)
             scalar `_svmax' = r(max)
+            scalar `_svrange' = `_svmax' - `_svmin'
             quietly count if `var' != `_svmin' & `var' != `_svmax' & !missing(`var')
             local _isbin_`i' = (r(N) == 0 & `_svmin' != `_svmax')
-            local _vrange = `_vmax' - `_vmin'
+            * A covariate constant on its available cases has no between-arm
+            * difference and no variance. Its statistics are known exactly and
+            * are posted below; summarize of a non-dyadic constant (0.3) can
+            * drift by an ULP per arm and fake an imbalance.
+            local _isconst = (`_n_nonmiss' > 0 & `_svmin' == `_svmax')
+            * Two-level arm proportions come from an exact 0/1 indicator, so an
+            * arm constant at either support point has p exactly 0 or 1 (and
+            * variance exactly 0), whatever the decimal support values are.
+            if `_isbin_`i'' {
+                tempvar _ind
+                quietly gen byte `_ind' = (`var' == `_svmax') if !missing(`var')
+            }
 
             quietly summarize `var' if `treatment' == 1
             local _n_t_var = r(N)
@@ -116,12 +127,14 @@ program define _psdash_balance_binary, rclass
             * and cobalt's binary variance contract.
             if `_isbin_`i'' {
                 if !missing(`mean_t') {
-                    local _p_t = (`mean_t' - `_vmin') / `_vrange'
-                    local var_t = (`_vrange'^2) * `_p_t' * (1 - `_p_t')
+                    quietly summarize `_ind' if `treatment' == 1, meanonly
+                    scalar `_sp' = r(mean)
+                    local var_t = (`_svrange'^2) * `_sp' * (1 - `_sp')
                 }
                 if !missing(`mean_c') {
-                    local _p_c = (`mean_c' - `_vmin') / `_vrange'
-                    local var_c = (`_vrange'^2) * `_p_c' * (1 - `_p_c')
+                    quietly summarize `_ind' if `treatment' == 0, meanonly
+                    scalar `_sp' = r(mean)
+                    local var_c = (`_svrange'^2) * `_sp' * (1 - `_sp')
                 }
             }
 
@@ -192,14 +205,16 @@ program define _psdash_balance_binary, rclass
                 local var_c_adj = .
                 if `_isbin_`i'' {
                     if !missing(`mean_t_adj') {
-                        local _p_t_adj = (`mean_t_adj' - `_vmin') / `_vrange'
-                        local var_t_adj = ///
-                            (`_vrange'^2) * `_p_t_adj' * (1 - `_p_t_adj')
+                        quietly summarize `_ind' [aw=`wvar'] ///
+                            if `treatment' == 1, meanonly
+                        scalar `_sp' = r(mean)
+                        local var_t_adj = (`_svrange'^2) * `_sp' * (1 - `_sp')
                     }
                     if !missing(`mean_c_adj') {
-                        local _p_c_adj = (`mean_c_adj' - `_vmin') / `_vrange'
-                        local var_c_adj = ///
-                            (`_vrange'^2) * `_p_c_adj' * (1 - `_p_c_adj')
+                        quietly summarize `_ind' [aw=`wvar'] ///
+                            if `treatment' == 0, meanonly
+                        scalar `_sp' = r(mean)
+                        local var_c_adj = (`_svrange'^2) * `_sp' * (1 - `_sp')
                     }
                 }
                 else {
@@ -246,10 +261,14 @@ program define _psdash_balance_binary, rclass
                     local smd_adj = 0
                 }
 
-                if !missing(`var_t_adj', `var_c_adj') & `var_c_adj' > 0 {
+                * As for the raw VR: an arm with a single weighted observation
+                * has no variance to compare.
+                if `_n_t_adj' > 1 & `_n_c_adj' > 1 & ///
+                        !missing(`var_t_adj', `var_c_adj') & `var_c_adj' > 0 {
                     local vr_adj = `var_t_adj' / `var_c_adj'
                 }
-                else if !missing(`var_t_adj', `var_c_adj') & ///
+                else if `_n_t_adj' > 1 & `_n_c_adj' > 1 & ///
+                        !missing(`var_t_adj', `var_c_adj') & ///
                         `var_t_adj' > 0 & `var_c_adj' == 0 {
                     * .a denotes an infinite ratio; both-zero remains undefined.
                     local vr_adj = .a
@@ -281,7 +300,30 @@ program define _psdash_balance_binary, rclass
                 }
                 matrix `balance_mat'[`i', 10] = `ks_adj'
             }
+            * Constant covariate: exact values (see _isconst above). An arm
+            * without available cases keeps its missing mean and statistics.
+            if `_isconst' {
+                if `_n_t_var' > 0 matrix `balance_mat'[`i', 1] = `_svmin'
+                if `_n_c_var' > 0 matrix `balance_mat'[`i', 2] = `_svmin'
+                if `_n_t_var' > 0 & `_n_c_var' > 0 {
+                    matrix `balance_mat'[`i', 3] = 0
+                    matrix `balance_mat'[`i', 5] = 0
+                }
+                matrix `balance_mat'[`i', 4] = .
+                if `has_adj' {
+                    if `_n_t_adj' > 0 matrix `balance_mat'[`i', 6] = `_svmin'
+                    if `_n_c_adj' > 0 matrix `balance_mat'[`i', 7] = `_svmin'
+                    if `_n_t_adj' > 0 & `_n_c_adj' > 0 {
+                        matrix `balance_mat'[`i', 8] = 0
+                    }
+                    if `_wt_t' > 0 & `_wt_c' > 0 {
+                        matrix `balance_mat'[`i', 10] = 0
+                    }
+                    matrix `balance_mat'[`i', 9] = .
+                }
+            }
             drop `_last'
+            if `_isbin_`i'' drop `_ind'
 
             local i = `i' + 1
         }
@@ -291,10 +333,13 @@ program define _psdash_balance_binary, rclass
 
         local max_smd_raw = 0
         local max_smd_adj = 0
-        local max_vr_raw = 1
-        local max_vr_adj = 1
-        local max_vr_raw_dev = 0
-        local max_vr_adj_dev = 0
+        * No assessable VR (every covariate two-level, constant or with an
+        * undefined ratio) leaves the maximum missing rather than a fake 1.
+        * The -1 start lets the first assessable VR, even exactly 1, register.
+        local max_vr_raw = .
+        local max_vr_adj = .
+        local max_vr_raw_dev = -1
+        local max_vr_adj_dev = -1
         local max_ks_raw = 0
         local max_ks_adj = 0
         local n_imbalanced = 0

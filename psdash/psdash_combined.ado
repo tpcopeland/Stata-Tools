@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.9.0  2026/10/29
+*! psdash_combined Version 1.9.1  2026/11/17
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -34,6 +34,9 @@ program define psdash_combined, rclass
     local _vao = c(varabbrev)
     set varabbrev off
     local _psdash_side_rc = 0
+    * report() workbook failure, kept apart from graph failures so that an
+    * unwritable workbook neither blocks saving() nor posts r(report).
+    local _rep_rc = 0
 
     capture noisily {
 
@@ -82,6 +85,17 @@ program define psdash_combined, rclass
         display as error "imbalmax() must be non-negative"
         exit 198
     }
+    * threshold() belongs to the balance panel, but it is validated here so an
+    * invalid value is refused even when that panel is skipped (nobalance, or
+    * no covariates detected) rather than accepted silently.
+    if missing(`threshold') | `threshold' <= 0 {
+        display as error "threshold() must be positive"
+        exit 198
+    }
+    * Options as typed, before detection fills them from the producer; the
+    * longitudinal route must refuse the ones it cannot honor.
+    local _user_covariates "`covariates'"
+    local _user_estimand "`estimand'"
     if `"`report'"' != "" {
         _psdash_validate_path, path(`"`report'"') option(report) extension(xlsx)
     }
@@ -150,7 +164,10 @@ program define psdash_combined, rclass
     if "`estimand'" == "" local estimand "`_psd_estimand'"
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
-
+    * The panels receive the PS and weight as explicit variables, so they cannot
+    * tell a temporary one from a user's. Mark this command's own temporaries
+    * (never a user variable) so every panel prints "auto-generated" instead
+    * of an internal __00000# name in its console header and report() sheet.
     * Retrieve multi-group info from detect
     local multigroup "`_psd_multigroup'"
     local K = `_psd_K'
@@ -169,6 +186,29 @@ program define psdash_combined, rclass
             local combined_psvars "`psvars'"
         }
         local combined_psvars : list uniq combined_psvars
+    }
+
+    * The panels receive the PS and weight as explicit variables, so they cannot
+    * tell a temporary one from a user's. Mark this command's own temporaries
+    * (never a user variable) so every panel prints "auto-generated" instead
+    * of an internal __00000# name in its console header and report() sheet:
+    * the binary PS (<ps_auto>), the per-level PS columns detect names
+    * <ps_auto>_<level> for multi-valued teffects, and the generated weight.
+    if "`psvar_auto'" == "1" {
+        foreach _v in `psvar' `combined_psvars' {
+            if "`_v'" == "`ps_auto'" | substr("`_v'", 1, strlen("`ps_auto'") + 1) == "`ps_auto'_" {
+                capture confirm variable `_v', exact
+                if !_rc char `_v'[_psdash_label] "auto-generated"
+            }
+        }
+    }
+    if "`wvar_auto'" == "1" {
+        foreach _v in `_psd_wvar' {
+            if "`_v'" == "`wt_auto'" | substr("`_v'", 1, strlen("`wt_auto'") + 1) == "`wt_auto'_" {
+                capture confirm variable `_v', exact
+                if !_rc char `_v'[_psdash_label] "auto-generated"
+            }
+        }
     }
 
     * Use detected covariates if not explicitly provided
@@ -193,6 +233,46 @@ program define psdash_combined, rclass
             display as error "cross-sectional panel and output options are unavailable for longitudinal diagnostics"
             display as error "  omit panel suppression, supportgraph, report(), saving(), scheme(), and custom thresholds"
             exit 198
+        }
+        * The longitudinal engine diagnoses the producer's PS and weight by
+        * period: it runs no balance panel (covariates()), has a binary
+        * treatment (reference(), psvars()), and cannot re-weight to another
+        * estimand. Refuse these options rather than ignore or relabel them.
+        * reference() that restates the contract's own reference arm (level 0
+        * of the required 0/1 treatment) and estimand() equal to the
+        * producer's estimand change nothing and are accepted.
+        foreach _lopt in covariates reference psvars {
+            local _lval "``_lopt''"
+            if "`_lopt'" == "covariates" local _lval "`_user_covariates'"
+            if "`_lopt'" == "reference" & "`_lval'" != "" {
+                if real("`_lval'") == 0 local _lval ""
+            }
+            if "`_lval'" != "" {
+                display as error "`_lopt'(`_lval') is unavailable for longitudinal diagnostics"
+                display as error "  the `source' contract fixes the treatment, propensity score, and weight"
+                if "`_lopt'" == "reference" display as error "  (its 0/1 treatment has reference level 0)"
+                exit 198
+            }
+        }
+        * The producer's estimand: msm and tte contracts fix it in detect, but
+        * detect's ltmle branch echoes a user estimand(), so read the ltmle
+        * contract here the same way detect does when none is given.
+        local _prod_est "`_psd_estimand'"
+        if "`source'" == "ltmle" {
+            local _prod_est ""
+            if inlist("`e(cmd)'", "ltmle", "ltmle_surv") local _prod_est "`e(estimand)'"
+            if "`_prod_est'" == "" local _prod_est : char _dta[_ltmle_estimand]  // stata-dev-ignore: ambient-fallback — source is the verified ltmle contract; e() and _dta[] are one producer contract, as in _psdash_detect
+            local _prod_est = strlower("`_prod_est'")
+            if "`_prod_est'" == "" local _prod_est "ate"
+        }
+        if "`_user_estimand'" != "" {
+            if lower("`_user_estimand'") != lower("`_prod_est'") {
+                display as error "estimand(`_user_estimand') does not match the `source' contract estimand (`_prod_est')"
+                display as error "  longitudinal diagnostics use the producer's weights and cannot change the estimand"
+                exit 198
+            }
+            * report the producer's spelling, not the case the user typed
+            local estimand "`_prod_est'"
         }
         if "`title'" == "" local title "Longitudinal Propensity Score Diagnostics"
         local id_opt ""
@@ -323,9 +403,9 @@ program define psdash_combined, rclass
         local ncovs : word count `covariates'
         display as text "Covariates:    " as result "`ncovs'"
     }
+    local wvar_label "`wvar'"
+    if "`wvar_auto'" == "1" local wvar_label "auto-generated"
     if "`wvar'" != "" {
-        local wvar_label "`wvar'"
-        if "`wvar_auto'" == "1" local wvar_label "auto-generated"
         display as text "Weights:       " as result "`wvar_label'"
     }
     display as text "Estimand:      " as result strupper("`estimand'")
@@ -374,8 +454,16 @@ program define psdash_combined, rclass
             if `"`rep_overlap'"' == "" exit `_panel_rc'
             * Recompute without the workbook to distinguish export failure from
             * an analytical error and retain this panel's complete payload.
-            `_panel_cmd'
-            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+            * The failed attempt already printed the panel, so the retry is
+            * quiet; an analytical error still exits with its own code.
+            quietly `_panel_cmd'
+            * The workbook is unwritable: stop exporting the later panels
+            * (each would fail and print twice) and record the failure.
+            local _rep_rc = `_panel_rc'
+            foreach _rp in overlap balance weights support {
+                local rep_`_rp' ""
+            }
+            display as error "report() workbook could not be written (r(`_panel_rc')); later panels are not exported"
         }
         local graph_list "`graph_list' psdash_c_overlap"
         local _pw = r(n_warnings)
@@ -431,8 +519,16 @@ program define psdash_combined, rclass
             if `"`rep_balance'"' == "" exit `_panel_rc'
             * Recompute without the workbook to distinguish export failure from
             * an analytical error and retain this panel's complete payload.
-            `_panel_cmd'
-            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+            * The failed attempt already printed the panel, so the retry is
+            * quiet; an analytical error still exits with its own code.
+            quietly `_panel_cmd'
+            * The workbook is unwritable: stop exporting the later panels
+            * (each would fail and print twice) and record the failure.
+            local _rep_rc = `_panel_rc'
+            foreach _rp in overlap balance weights support {
+                local rep_`_rp' ""
+            }
+            display as error "report() workbook could not be written (r(`_panel_rc')); later panels are not exported"
         }
         local graph_list "`graph_list' psdash_c_balance"
         local _pw = r(n_warnings)
@@ -500,8 +596,16 @@ program define psdash_combined, rclass
             if `"`rep_weights'"' == "" exit `_panel_rc'
             * Recompute without the workbook to distinguish export failure from
             * an analytical error and retain this panel's complete payload.
-            `_panel_cmd'
-            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+            * The failed attempt already printed the panel, so the retry is
+            * quiet; an analytical error still exits with its own code.
+            quietly `_panel_cmd'
+            * The workbook is unwritable: stop exporting the later panels
+            * (each would fail and print twice) and record the failure.
+            local _rep_rc = `_panel_rc'
+            foreach _rp in overlap balance weights support {
+                local rep_`_rp' ""
+            }
+            display as error "report() workbook could not be written (r(`_panel_rc')); later panels are not exported"
         }
         local graph_list "`graph_list' psdash_c_weights"
         local _pw = r(n_warnings)
@@ -565,8 +669,16 @@ program define psdash_combined, rclass
             if `"`rep_support'"' == "" exit `_panel_rc'
             * Recompute without the workbook to distinguish export failure from
             * an analytical error and retain this panel's complete payload.
-            `_panel_cmd'
-            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+            * The failed attempt already printed the panel, so the retry is
+            * quiet; an analytical error still exits with its own code.
+            quietly `_panel_cmd'
+            * The workbook is unwritable: stop exporting the later panels
+            * (each would fail and print twice) and record the failure.
+            local _rep_rc = `_panel_rc'
+            foreach _rp in overlap balance weights support {
+                local rep_`_rp' ""
+            }
+            display as error "report() workbook could not be written (r(`_panel_rc')); later panels are not exported"
         }
         if `_sc_support_graph' {
             * With nooverlap the binary support density takes the overlap slot.
@@ -689,7 +801,7 @@ program define psdash_combined, rclass
     }
 
     * REPORT WORKBOOK summary sheet (O2)
-    if `"`report'"' != "" & `_psdash_side_rc' == 0 {
+    if `"`report'"' != "" & `_rep_rc' == 0 {
         capture noisily {
             local _rk `""Treatment" "PS variable" "Estimand" "Source" "Verdict" "Warnings (N)" "Warnings" "overlapmax" "essmin" "imbalmax""'
             local _rv `""`treatment'" "`psvar_label'" "`=strupper("`estimand'")'" "`source'" "`verdict'" "`n_warnings'" "`verdict_warnings'" "`overlapmax'" "`essmin'" "`imbalmax'""'
@@ -697,10 +809,11 @@ program define psdash_combined, rclass
                 title("Propensity Score Diagnostics — Summary") keys(`_rk') vals(`_rv')
         }
         local _rep_rc = _rc
-        if `_rep_rc' {
-            local _psdash_side_rc = `_rep_rc'
+        if !`_rep_rc' {
+            capture confirm file `"`report'"'
+            local _rep_rc = _rc
         }
-        else {
+        if !`_rep_rc' {
             display as text _n "Report workbook written to: " as result "`report'"
         }
     }
@@ -712,15 +825,16 @@ program define psdash_combined, rclass
     return local warnings `"`_all_findings'"'
     return scalar n_panels = `_panels_run'
     return local warning_panels "`verdict_warnings'"
-    if `"`report'"' != "" {
-        return local report "`report'"
+    * Posted only for a workbook that every sheet was written to.
+    if `"`report'"' != "" & `_rep_rc' == 0 {
+        return local report `"`report'"'
     }
     return scalar overlapmax = `overlapmax'
     return scalar essmin = `essmin'
     return scalar imbalmax = `imbalmax'
     return local treatment "`treatment'"
     return local psvar "`psvar_label'"
-    return local wvar "`wvar'"
+    return local wvar "`wvar_label'"
     return local estimand "`estimand'"
     return local source "`source'"
     return scalar N_requested = `N_requested'
@@ -742,9 +856,14 @@ program define psdash_combined, rclass
 
     }
     local rc = _rc
+    * Multi-valued teffects PS columns are named <psout>_<level>.
+    if "`ps_auto'" != "" capture drop `ps_auto'_*
     set varabbrev `_vao'
     if `rc' == 0 & `_psdash_side_rc' {
         local rc = `_psdash_side_rc'
+    }
+    if `rc' == 0 & `_rep_rc' {
+        local rc = `_rep_rc'
     }
     if `rc' exit `rc'
 end

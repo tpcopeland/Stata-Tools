@@ -30,6 +30,7 @@ program define _qba_precision_factor, rclass
     foreach result in observed corrected se ci_lower ci_upper {
         assert !missing(r(`result'))
     }
+    assert !missing(r(se))
     assert r(se)>0
     return add
 end

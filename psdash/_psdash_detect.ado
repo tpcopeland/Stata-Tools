@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.9.0  2026/10/29
+*! _psdash_detect Version 1.9.1  2026/11/17
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -163,6 +163,7 @@ program define _psdash_detect, nclass
         if `_is_binary01' {
             c_local _psd_multigroup "0"
             c_local _psd_reference "0"
+            _psdash_detect_ref01 `reference'
             * Classic binary: use single psvar
             if "`arg_psvar'" != "" {
                 c_local _psd_psvar "`arg_psvar'"
@@ -272,8 +273,10 @@ program define _psdash_detect, nclass
                 if "`samplevar'" != "" local _sample_opt "samplevar(`samplevar')"
                 _psdash_validate_psvars `psvars', levels(`_trt_levels') ///
                     k(`_K') `_sample_opt'
+                local _mg_pslist ""
                 foreach _lv of local _trt_levels {
                     c_local _psd_ps_`_lv' "`r(ps_`_lv')'"
+                    local _mg_pslist "`_mg_pslist' `r(ps_`_lv')'"
                 }
                 c_local _psd_psvar "`r(first_psvar)'"
                 c_local _psd_psvar_auto "0"
@@ -281,130 +284,15 @@ program define _psdash_detect, nclass
 
             * Auto-generate weights for multi-group if getwvar requested
             if "`getwvar'" != "" & "`wvar'" == "" {
-                local _ref_level "`reference'"
-                if "`_ref_level'" == "" {
-                    local _ref_level : word 1 of `_trt_levels'
+                if `_K' == 2 & "`psvars'" == "" & "`arg_psvar'" != "" {
+                    local _mgwt_ps "oneps(`arg_psvar')"
                 }
-
-                local wt_storage "_psdash_wt"
-                local wt_fixed = 1
-                if "`wout'" != "" {
-                    local wt_storage "`wout'"
-                    local wt_fixed = 0
-                }
-                capture confirm variable `wt_storage'
-                if _rc == 0 {
-                    if `wt_fixed' {
-                        local _wt_auto : char `wt_storage'[_psdash_auto]
-                        if "`_wt_auto'" != "1" {
-                            display as error "variable `wt_storage' already exists"
-                            display as error "  drop or rename it before using psdash"
-                            exit 110
-                        }
-                    }
-                    drop `wt_storage'
-                }
-
-                quietly {
-                    local _sv ""
-                    if "`samplevar'" != "" local _sv "& `samplevar'"
-                    gen double `wt_storage' = .
-
-                    local _single_k2_ps = (`_K' == 2 & "`psvars'" == "" & "`arg_psvar'" != "")
-                    if `_single_k2_ps' {
-                        local _lev1 : word 1 of `_trt_levels'
-                        local _lev2 : word 2 of `_trt_levels'
-                        local _ownps_`_lev1' "(1 - `arg_psvar')"
-                        local _ownps_`_lev2' "`arg_psvar'"
-                    }
-                    else {
-                        foreach _lv of local _trt_levels {
-                            local _ps_lv "`_psd_ps_`_lv''"
-                            if "`_ps_lv'" == "" {
-                                * Fallback from c_local — read from psvars positional
-                                local _lv_idx = 1
-                                foreach _lv2 of local _trt_levels {
-                                    if "`_lv2'" == "`_lv'" {
-                                        local _ps_lv : word `_lv_idx' of `psvars'
-                                    }
-                                    local _lv_idx = `_lv_idx' + 1
-                                }
-                            }
-                            local _ownps_`_lv' "`_ps_lv'"
-                        }
-                    }
-
-                    if `_K' == 2 {
-                        * RB-06: binary treatment with ARBITRARY levels. Map the two
-                        * levels to a documented reference (control) / other (treated)
-                        * arm keyed to own-PS, so ate/att/atc are correct and
-                        * recoding-invariant. reference = `_ref_level' (default:
-                        * smallest level); the other level is the treated arm. These
-                        * reduce to the classic 0/1 formulas used elsewhere in the
-                        * package (see the binary panel path and the tmle branch).
-                        local _oth_level ""
-                        foreach _lv of local _trt_levels {
-                            if "`_lv'" != "`_ref_level'" local _oth_level "`_lv'"
-                        }
-                        local _ps_ref "`_ownps_`_ref_level''"    // own-PS of control
-                        local _ps_oth "`_ownps_`_oth_level''"    // own-PS of treated
-                        if "`estimand'" == "ate" {
-                            replace `wt_storage' = 1 / (`_ps_ref') ///
-                                if `arg_treatment' == `_ref_level' & (`_ps_ref') > 0 `_sv'
-                            replace `wt_storage' = 1 / (`_ps_oth') ///
-                                if `arg_treatment' == `_oth_level' & (`_ps_oth') > 0 `_sv'
-                        }
-                        else if "`estimand'" == "att" {
-                            * ATT: target = the treated (non-reference) arm.
-                            replace `wt_storage' = 1 ///
-                                if `arg_treatment' == `_oth_level' `_sv'
-                            replace `wt_storage' = (`_ps_oth') / (`_ps_ref') ///
-                                if `arg_treatment' == `_ref_level' & (`_ps_ref') > 0 `_sv'
-                        }
-                        else if "`estimand'" == "atc" {
-                            * ATC: target = the control (reference) arm.
-                            replace `wt_storage' = 1 ///
-                                if `arg_treatment' == `_ref_level' `_sv'
-                            replace `wt_storage' = (`_ps_ref') / (`_ps_oth') ///
-                                if `arg_treatment' == `_oth_level' & (`_ps_oth') > 0 `_sv'
-                        }
-                    }
-                    else {
-                        * Multi-group (K>2). atc is rejected at detection (above).
-                        if "`estimand'" == "ate" {
-                            * ATE: w = 1 / P(A=a|X) for each obs's own group
-                            foreach _lv of local _trt_levels {
-                                local _ps_expr "`_ownps_`_lv''"
-                                replace `wt_storage' = 1 / (`_ps_expr') ///
-                                    if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
-                            }
-                        }
-                        else if "`estimand'" == "att" {
-                            * ATT: w=1 for reference arm, w=P(A=ref|X)/P(A=a|X) for others
-                            local _ps_ref "`_ownps_`_ref_level''"
-                            foreach _lv of local _trt_levels {
-                                if "`_lv'" == "`_ref_level'" {
-                                    replace `wt_storage' = 1 ///
-                                        if `arg_treatment' == `_lv' `_sv'
-                                }
-                                else {
-                                    local _ps_expr "`_ownps_`_lv''"
-                                    replace `wt_storage' = (`_ps_ref') / (`_ps_expr') ///
-                                        if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
-                                }
-                            }
-                        }
-                        else if "`estimand'" == "atc" {
-                            * Unreachable: guarded at detection. Defensive only.
-                            noisily display as error "estimand(atc) is not defined for K>2 arms"
-                            exit 198
-                        }
-                    }
-                }
-                if `wt_fixed' {
-                    char `wt_storage'[_psdash_auto] 1
-                }
-                c_local _psd_wvar "`wt_storage'"
+                else local _mgwt_ps "pslist(`_mg_pslist')"
+                _psdash_detect_mgwt, treatment(`arg_treatment') ///
+                    levels(`_trt_levels') estimand(`estimand') ///
+                    reference(`reference') `_mgwt_ps' wout(`wout') ///
+                    samplevar(`samplevar')
+                c_local _psd_wvar "`_mgwt_storage'"
                 c_local _psd_wvar_auto "1"
             }
         }
@@ -531,6 +419,7 @@ program define _psdash_detect, nclass
             c_local _psd_K "2"
             c_local _psd_levels "0 1"
             c_local _psd_reference "0"
+            _psdash_detect_ref01 `reference'
             c_local _psd_iivw_component "treatment"
             c_local _psd_iivw_treatment_wvar "`iivw_twvar'"
             c_local _psd_iivw_final_wvar "`iivw_wvar_final'"
@@ -663,6 +552,7 @@ program define _psdash_detect, nclass
             c_local _psd_K "2"
             c_local _psd_levels "0 1"
             c_local _psd_reference "0"
+            _psdash_detect_ref01 `reference'
             c_local _psd_estimand "`msm_estimand'"
             local _psdash_early_success = 1
             exit 498
@@ -755,6 +645,7 @@ program define _psdash_detect, nclass
             c_local _psd_K "2"
             c_local _psd_levels "0 1"
             c_local _psd_reference "0"
+            _psdash_detect_ref01 `reference'
             c_local _psd_estimand "`tte_estimand'"
             local _psdash_early_success = 1
             exit 498
@@ -884,6 +775,7 @@ program define _psdash_detect, nclass
         c_local _psd_K "2"
         c_local _psd_levels "0 1"
         c_local _psd_reference "0"
+        _psdash_detect_ref01 `reference'
         c_local _psd_estimand "`tmle_estimand'"
 
         local tmle_wvar "`wvar'"
@@ -1104,6 +996,7 @@ program define _psdash_detect, nclass
         c_local _psd_K "2"
         c_local _psd_levels "0 1"
         c_local _psd_reference "0"
+        _psdash_detect_ref01 `reference'
         c_local _psd_estimand "`ltmle_estimand'"
         local _psdash_early_success = 1
         exit 498
@@ -1274,6 +1167,7 @@ program define _psdash_detect, nclass
 
             if `_is_binary01' {
                 c_local _psd_multigroup "0"
+                _psdash_detect_ref01 `reference'
 
                 * Generate PS from teffects postestimation (binary path)
                 local ps_storage "_psdash_ps"
@@ -1315,7 +1209,10 @@ program define _psdash_detect, nclass
                 * Use predict with tlevel() in a loop
                 local _ps_first ""
                 foreach _lv of local _trt_levels {
+                    * Name the columns after the caller's tempvar so the caller
+                    * can drop them (<psout>_*); fixed names only without psout().
                     local _ps_name "_psdash_ps_`_lv'"
+                    if "`psout'" != "" local _ps_name "`psout'_`_lv'"
                     capture confirm variable `_ps_name'
                     if _rc == 0 {
                         local _ps_auto_chk : char `_ps_name'[_psdash_auto]
@@ -1332,9 +1229,10 @@ program define _psdash_detect, nclass
                     else {
                         quietly predict double `_ps_name', ps tlevel(`_lv')
                     }
-                    char `_ps_name'[_psdash_auto] 1
+                    if "`psout'" == "" char `_ps_name'[_psdash_auto] 1
                     c_local _psd_ps_`_lv' "`_ps_name'"
                     if "`_ps_first'" == "" local _ps_first "`_ps_name'"
+                    local _te_pslist "`_te_pslist' `_ps_name'"
                 }
                 c_local _psd_psvar "`_ps_first'"
                 c_local _psd_psvar_auto "1"
@@ -1366,7 +1264,16 @@ program define _psdash_detect, nclass
                     c_local _psd_wvar_auto "0"
                 }
                 else {
-                    * Auto-generate weights from PS (guard PS=0 and PS=1)
+                    if !`_is_binary01' {
+                        _psdash_detect_mgwt, treatment(`te_treatment') ///
+                            levels(`_trt_levels') estimand(`estimand') ///
+                            reference(`reference') pslist(`_te_pslist') ///
+                            wout(`wout') samplevar(`samplevar')
+                        c_local _psd_wvar "`_mgwt_storage'"
+                        c_local _psd_wvar_auto "1"
+                    }
+                    else {
+                    * Auto-generate binary weights from PS (guard PS=0 and PS=1)
                     local wt_storage "_psdash_wt"
                     local wt_fixed = 1
                     if "`wout'" != "" {
@@ -1390,7 +1297,6 @@ program define _psdash_detect, nclass
                         if "`samplevar'" != "" local _sv "& `samplevar'"
                         gen double `wt_storage' = .
 
-                        if `_is_binary01' {
                             * Binary 0/1: use legacy formulas
                             if "`estimand'" == "ate" {
                                 replace `wt_storage' = 1 / `ps_storage' ///
@@ -1410,81 +1316,13 @@ program define _psdash_detect, nclass
                                 replace `wt_storage' = 1 ///
                                     if `te_treatment' == 0 `_sv'
                             }
-                        }
-                        else {
-                            * Multi-group predicted PS in _psdash_ps_<lev>.
-                            local _ref_level "`reference'"
-                            if "`_ref_level'" == "" {
-                                local _ref_level : word 1 of `_trt_levels'
-                            }
-                            if `_K' == 2 {
-                                * RB-06: binary treatment with ARBITRARY levels. Same
-                                * reference(control)/other(treated) mapping as the manual
-                                * branch, keyed to own-PS, so ate/att/atc are correct and
-                                * recoding-invariant instead of routed through the
-                                * generalized (atc==ate) fallback.
-                                local _oth_level ""
-                                foreach _lv of local _trt_levels {
-                                    if "`_lv'" != "`_ref_level'" local _oth_level "`_lv'"
-                                }
-                                local _ps_ref "_psdash_ps_`_ref_level'"
-                                local _ps_oth "_psdash_ps_`_oth_level'"
-                                if "`estimand'" == "ate" {
-                                    replace `wt_storage' = 1 / `_ps_ref' ///
-                                        if `te_treatment' == `_ref_level' & `_ps_ref' > 0 `_sv'
-                                    replace `wt_storage' = 1 / `_ps_oth' ///
-                                        if `te_treatment' == `_oth_level' & `_ps_oth' > 0 `_sv'
-                                }
-                                else if "`estimand'" == "att" {
-                                    replace `wt_storage' = 1 ///
-                                        if `te_treatment' == `_oth_level' `_sv'
-                                    replace `wt_storage' = `_ps_oth' / `_ps_ref' ///
-                                        if `te_treatment' == `_ref_level' & `_ps_ref' > 0 `_sv'
-                                }
-                                else if "`estimand'" == "atc" {
-                                    replace `wt_storage' = 1 ///
-                                        if `te_treatment' == `_ref_level' `_sv'
-                                    replace `wt_storage' = `_ps_ref' / `_ps_oth' ///
-                                        if `te_treatment' == `_oth_level' & `_ps_oth' > 0 `_sv'
-                                }
-                            }
-                            else {
-                                * Multi-group (K>2): generalized weights. atc is rejected
-                                * at detection (above), so only ate/att reach here.
-                                if "`estimand'" == "ate" {
-                                    foreach _lv of local _trt_levels {
-                                        local _ps_lv "_psdash_ps_`_lv'"
-                                        replace `wt_storage' = 1 / `_ps_lv' ///
-                                            if `te_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
-                                    }
-                                }
-                                else if "`estimand'" == "att" {
-                                    local _ps_ref "_psdash_ps_`_ref_level'"
-                                    foreach _lv of local _trt_levels {
-                                        if "`_lv'" == "`_ref_level'" {
-                                            replace `wt_storage' = 1 ///
-                                                if `te_treatment' == `_lv' `_sv'
-                                        }
-                                        else {
-                                            local _ps_lv "_psdash_ps_`_lv'"
-                                            replace `wt_storage' = `_ps_ref' / `_ps_lv' ///
-                                                if `te_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
-                                        }
-                                    }
-                                }
-                                else if "`estimand'" == "atc" {
-                                    * Unreachable: guarded at detection. Defensive only.
-                                    noisily display as error "estimand(atc) is not defined for K>2 arms"
-                                    exit 198
-                                }
-                            }
-                        }
                     }
                     if `wt_fixed' {
                         char `wt_storage'[_psdash_auto] 1
                     }
                     c_local _psd_wvar "`wt_storage'"
                     c_local _psd_wvar_auto "1"
+                    }
                 }
             }
             else if "`wvar'" != "" {
@@ -1563,6 +1401,9 @@ program define _psdash_detect, nclass
             * Remove command name and depvar
             gettoken cmd cmdline : cmdline
             gettoken depvar rhs : cmdline
+            * A weight expression ([fw=...], [pw=...], ...) is not a covariate
+            local wt_pos = strpos("`rhs'", "[")
+            if `wt_pos' > 0 local rhs = substr("`rhs'", 1, `wt_pos' - 1)
             * Remove everything after comma (options)
             local comma_pos = strpos("`rhs'", ",")
             if `comma_pos' > 0 {
@@ -1597,6 +1438,7 @@ program define _psdash_detect, nclass
         c_local _psd_K "2"
         c_local _psd_levels "0 1"
         c_local _psd_reference "0"
+        _psdash_detect_ref01 `reference'
 
         if "`estimand'" == "" local estimand "ate"
         c_local _psd_estimand "`estimand'"
@@ -1645,6 +1487,9 @@ program define _psdash_detect, nclass
             local cmdline "`e(cmdline)'"
             gettoken cmd cmdline : cmdline
             gettoken depvar rhs : cmdline
+            * A weight expression ([fw=...], [pw=...], ...) is not a covariate
+            local wt_pos = strpos("`rhs'", "[")
+            if `wt_pos' > 0 local rhs = substr("`rhs'", 1, `wt_pos' - 1)
             local comma_pos = strpos("`rhs'", ",")
             if `comma_pos' > 0 {
                 local rhs = substr("`rhs'", 1, `comma_pos' - 1)
@@ -1672,6 +1517,9 @@ program define _psdash_detect, nclass
         quietly levelsof `_trt_var' `_sv_levelsof', local(_trt_levels)
 
         _psdash_validate_levels, levels(`_trt_levels')
+        * An mlogit treatment coded 0/1 follows the same reference() rule as
+        * every other 0/1 route.
+        if "`_trt_levels'" == "0 1" _psdash_detect_ref01 `reference'
 
         c_local _psd_multigroup "1"
         c_local _psd_K "`_K'"
@@ -1701,8 +1549,10 @@ program define _psdash_detect, nclass
             if "`samplevar'" != "" local _sample_opt "samplevar(`samplevar')"
             _psdash_validate_psvars `psvars', levels(`_trt_levels') ///
                 k(`_K') `_sample_opt'
+            local _mg_pslist ""
             foreach _lv of local _trt_levels {
                 c_local _psd_ps_`_lv' "`r(ps_`_lv')'"
+                local _mg_pslist "`_mg_pslist' `r(ps_`_lv')'"
             }
             c_local _psd_psvar "`r(first_psvar)'"
             c_local _psd_psvar_auto "0"
@@ -1712,13 +1562,29 @@ program define _psdash_detect, nclass
             c_local _psd_psvar_auto "0"
         }
 
-        * Weights
+        if "`estimand'" == "" local estimand "ate"
+        * RB-06: atc has no unique control arm once K>2 (as in Strategies 1/2).
+        if "`estimand'" == "atc" & `_K' > 2 {
+            display as error "estimand(atc) is not uniquely defined for a multi-valued treatment (K=`_K')"
+            display as error "  use estimand(att) with reference() to target a named arm"
+            exit 198
+        }
+
+        * Weights: explicit, or generated from the per-level PS like the
+        * manual and teffects routes when the caller asks for one.
         if "`wvar'" != "" {
             c_local _psd_wvar "`wvar'"
             c_local _psd_wvar_auto "0"
         }
+        else if "`getwvar'" != "" & "`_mg_pslist'" != "" {
+            _psdash_detect_mgwt, treatment(`_trt_var') ///
+                levels(`_trt_levels') estimand(`estimand') ///
+                reference(`reference') pslist(`_mg_pslist') ///
+                wout(`wout') samplevar(`samplevar')
+            c_local _psd_wvar "`_mgwt_storage'"
+            c_local _psd_wvar_auto "1"
+        }
 
-        if "`estimand'" == "" local estimand "ate"
         c_local _psd_estimand "`estimand'"
         c_local _psd_source "estimation"
         local _psdash_early_success = 1
@@ -1750,4 +1616,128 @@ program define _psdash_detect, nclass
     }
     set varabbrev `_vao'
     if `rc' exit `rc'
+end
+
+* File-private helper: auto-generated IPTW weights for a treatment that is not
+* coded 0/1 (K=2 arbitrary levels or K>2), keyed to each arm's own PS.
+* pslist() holds one PS per level in level order; oneps() is the single
+* P(A=second level|X) of a K=2 manual call. Returns the weight variable name
+* in the caller's local _mgwt_storage.
+capture program drop _psdash_detect_mgwt
+program define _psdash_detect_mgwt
+    version 16.0
+    syntax , TREATment(varname numeric) LEVELS(string) ESTImand(string) ///
+        [REFerence(string) PSLIST(varlist numeric) ONEPS(varname numeric) ///
+         WOUT(name) SAMPLEvar(varname)]
+
+    local _K : word count `levels'
+    local _ref_level "`reference'"
+    if "`_ref_level'" == "" local _ref_level : word 1 of `levels'
+
+    local wt_storage "_psdash_wt"
+    local wt_fixed = 1
+    if "`wout'" != "" {
+        local wt_storage "`wout'"
+        local wt_fixed = 0
+    }
+    capture confirm variable `wt_storage'
+    if _rc == 0 {
+        if `wt_fixed' {
+            local _wt_auto : char `wt_storage'[_psdash_auto]
+            if "`_wt_auto'" != "1" {
+                display as error "variable `wt_storage' already exists"
+                display as error "  drop or rename it before using psdash"
+                exit 110
+            }
+        }
+        drop `wt_storage'
+    }
+
+    local _idx = 1
+    foreach _lv of local levels {
+        if "`oneps'" != "" {
+            local _ownps_`_lv' = cond(`_idx' == 1, "(1 - `oneps')", "`oneps'")
+        }
+        else local _ownps_`_lv' : word `_idx' of `pslist'
+        local ++_idx
+    }
+
+    quietly {
+        local _sv ""
+        if "`samplevar'" != "" local _sv "& `samplevar'"
+        gen double `wt_storage' = .
+        local _ps_ref "`_ownps_`_ref_level''"
+        if `_K' == 2 {
+            * RB-06: binary treatment with ARBITRARY levels. reference() is the
+            * control arm (default: smallest level); the other level is the
+            * treated arm. These reduce to the classic 0/1 formulas.
+            local _oth_level ""
+            foreach _lv of local levels {
+                if "`_lv'" != "`_ref_level'" local _oth_level "`_lv'"
+            }
+            local _ps_oth "`_ownps_`_oth_level''"
+            if "`estimand'" == "ate" {
+                replace `wt_storage' = 1 / (`_ps_ref') ///
+                    if `treatment' == `_ref_level' & (`_ps_ref') > 0 `_sv'
+                replace `wt_storage' = 1 / (`_ps_oth') ///
+                    if `treatment' == `_oth_level' & (`_ps_oth') > 0 `_sv'
+            }
+            else if "`estimand'" == "att" {
+                replace `wt_storage' = 1 if `treatment' == `_oth_level' `_sv'
+                replace `wt_storage' = (`_ps_oth') / (`_ps_ref') ///
+                    if `treatment' == `_ref_level' & (`_ps_ref') > 0 `_sv'
+            }
+            else if "`estimand'" == "atc" {
+                replace `wt_storage' = 1 if `treatment' == `_ref_level' `_sv'
+                replace `wt_storage' = (`_ps_ref') / (`_ps_oth') ///
+                    if `treatment' == `_oth_level' & (`_ps_oth') > 0 `_sv'
+            }
+        }
+        else if "`estimand'" == "ate" {
+            foreach _lv of local levels {
+                local _ps_expr "`_ownps_`_lv''"
+                replace `wt_storage' = 1 / (`_ps_expr') ///
+                    if `treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
+            }
+        }
+        else if "`estimand'" == "att" {
+            * ATT: w=1 for the reference arm, P(A=ref|X)/P(A=a|X) otherwise
+            foreach _lv of local levels {
+                if "`_lv'" == "`_ref_level'" {
+                    replace `wt_storage' = 1 if `treatment' == `_lv' `_sv'
+                }
+                else {
+                    local _ps_expr "`_ownps_`_lv''"
+                    replace `wt_storage' = (`_ps_ref') / (`_ps_expr') ///
+                        if `treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
+                }
+            }
+        }
+        else {
+            noisily display as error "estimand(`estimand') is not defined for K>2 arms"
+            exit 198
+        }
+    }
+    if `wt_fixed' char `wt_storage'[_psdash_auto] 1
+    c_local _mgwt_storage "`wt_storage'"
+end
+
+* File-private helper: reference() on a treatment coded 0/1. Every binary
+* formula in psdash fixes level 0 as the reference (control) arm, so only
+* reference(0) can be honoured; anything else is refused rather than ignored.
+capture program drop _psdash_detect_ref01
+program define _psdash_detect_ref01
+    version 16.0
+    args reference
+    if inlist("`reference'", "", "0") exit
+    if "`reference'" != "1" {
+        display as error "reference(`reference') is not a treatment level"
+        display as error "  treatment levels: 0 1"
+        exit 198
+    }
+    display as error "reference(1) is not supported for a treatment coded 0/1"
+    display as error "  binary 0/1 diagnostics use level 0 as the reference (control) arm."
+    display as error "  To make level 1 the reference, recode the treatment, e.g."
+    display as error "  {cmd:gen byte t = 1 - arm}, and use P(t=1|X) = 1 - ps."
+    exit 198
 end

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.0  29oct2026}{...}
+{* *! version 1.9.1  17nov2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -220,8 +220,10 @@ columns (labelled {cmd:2.}{it:var}, {cmd:c.}{it:x}{cmd:#c.}{it:z}, ...) rather
 than on the underlying integer category codes, so categorical and joint
 distribution imbalance is not hidden. The same expansion is applied to terms
 auto-detected from a fitted {cmd:logit}/{cmd:probit}/{cmd:mlogit}/{cmd:teffects}
-model. A specification that cannot be mapped to design columns is rejected with
-an explicit error rather than silently reduced.
+model. Base levels and omitted terms (for example {cmd:3o.}{it:var}, or
+{cmd:o.}{it:x} for a continuous term a fitted model dropped) are not assessed. A
+specification that cannot be mapped to design columns is rejected with an
+explicit error rather than silently reduced.
 
 {phang}
 {opt wvar(varname)} specifies a pre-existing weight variable for subcommands
@@ -233,10 +235,13 @@ auto-generated based on the {opt estimand()} option.
 (default) generates standard IPTW weights: {cmd:1/ps} for treated and {cmd:1/(1-ps)} for
 control. {cmd:att} generates ATT weights: {cmd:1} for treated and {cmd:ps/(1-ps)} for
 control. {cmd:atc} generates ATC weights: {cmd:(1-ps)/ps} for treated and {cmd:1} for
-control. For a binary treatment these formulas apply to {it:any} two level values,
-not only 0/1: the {opt reference()} arm (default: the smaller level) is the control
-and the other arm is the treated, so recoding the levels leaves the weights
-unchanged. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)} when not
+control. For a binary treatment with two levels not coded 0/1, these formulas
+apply with the {opt reference()} arm (default: the smaller level) as the control and
+the other arm as the treated, so recoding such levels leaves the weights
+unchanged. For a treatment coded 0/1, level 0 is always the
+control: {opt reference(0)} is accepted, and {opt reference(1)} is an error ({cmd:r(198)}); to
+treat level 1 as the reference, recode (e.g. {cmd:gen byte t = 1 - arm}) and use 1 -
+ps. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)} when not
 specified by the user; if {opt estimand()} is given explicitly, it is always
 respected regardless of {cmd:e(stat)}. {cmd:atc} is rejected with an error for a
 multi-valued treatment (K>2) — see the {it:Multi-group ATC note} below.
@@ -278,7 +283,8 @@ multi-group diagnostics.
 {opt reference(#)} specifies the reference treatment level for pairwise comparisons
 (balance, weights). Default is the smallest treatment level. Must be one of
 the observed treatment values. For {cmd:balance}, SMD is computed for each
-non-reference group vs the reference.
+non-reference group vs the reference. For a treatment coded 0/1 only
+{cmd:reference(0)} is allowed.
 
 {dlgtab:Graph options}
 
@@ -292,21 +298,20 @@ produced.
 
 {phang}
 {opt scheme(schemename)} specifies the graph scheme. Series colours (treated,
-control, each group, contrast, or strategy) come from the scheme's plot styles,
-so {opt scheme()} and {cmd:set scheme} change them. They are taken in the
-scheme's own order {cmd:p1}, {cmd:p2}, {cmd:p3}, ... (blue, orange, green in
-{cmd:white_tableau}) when {cmd:p1} and {cmd:p2} are clearly different colours
-(CIE76 colour difference of at least 30). Sequential schemes such as viridis,
-cividis, or piyg put {cmd:p2} next to {cmd:p1}, so there the order is {cmd:p1},
-{cmd:p6}, {cmd:p2}, {cmd:p3}, {cmd:p4}, {cmd:p5}, {cmd:p7}, ... and the second
-series (control, adjusted, or the second group) keeps a distinct colour.
-Monochrome schemes such as {cmd:s1mono} draw every series in one colour either
-way. A scheme can still define both choices alike, and graphs with three or more
-series reuse later styles; check the legend, and use symbols and line patterns,
-which psdash also varies, when colours are close. Grouped box plots in
-{opt compact} multi-group panels use the scheme's own box order.
-Reference lines keep fixed colours: grey dashed for common-support or overlap
-bounds, red for SMD thresholds, trimming bounds, and the practical-positivity floor.
+control, each group, contrast, or strategy) come from the scheme's plot
+styles, so {opt scheme()} and {cmd:set scheme} change them. They are taken in the scheme's
+own order {cmd:p1}, {cmd:p2}, {cmd:p3}, ... (blue, orange, green in {cmd:white_tableau}) when {cmd:p1} and
+{cmd:p2} are clearly different colours (CIE76 colour difference of at least
+30). Sequential schemes such as viridis, cividis, or piyg put {cmd:p2} next to {cmd:p1},
+so there the order is {cmd:p1}, {cmd:p6}, {cmd:p2}, {cmd:p3}, {cmd:p4}, {cmd:p5}, {cmd:p7}, ... and the second series
+(control, adjusted, or the second group) keeps a distinct colour. Monochrome
+schemes such as {cmd:s1mono} draw every series in one colour either way. A scheme
+can still define both choices alike, and graphs with three or more series
+reuse later styles; check the legend, and use symbols and line patterns, which
+psdash also varies, when colours are close. Grouped box plots in {opt compact}
+multi-group panels use the scheme's own box order. Reference lines keep fixed
+colours: grey dashed for common-support or overlap bounds, red for SMD
+thresholds, trimming bounds, and the practical-positivity floor.
 
 {phang}
 {opt saving(filename)} exports the graph to an image file. The format is determined
@@ -364,7 +369,12 @@ grid. Histograms use aligned bins within each component.
 (a two-column Metric/Value sheet).
 
 {phang}
-{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Overlap"}.
+{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Overlap"}. The name may
+have at most 31 bytes (a multibyte character counts each byte), may not
+contain {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote,
+may not begin or end with an apostrophe, and may not be the reserved name
+{cmd:History} (in any case). It is checked before any computation; an invalid
+name is an error ({cmd:r(198)}).
 
 {phang}
 {opt gpsfloor(#)} sets the practical-positivity floor for the multi-group
@@ -430,17 +440,26 @@ note; tables and stored results are unchanged.
 in one Love plot, replacing the default raw/adjusted plot. {it:strategylist} is a
 space-separated subset of {cmd:raw} (unadjusted), {cmd:ate}, {cmd:att}, and
 {cmd:atc} (each IPTW-weighted under that estimand). Requires a propensity score
-and binary treatment. A strategy whose weight is undefined for an exact 0 or 1
-propensity score exits with error 459 rather than plotting a smaller sample. This
-mirrors R {cmd:cobalt}'s multi-strategy {cmd:love.plot}.
+and a treatment coded 0/1; a two-level treatment with other codes is refused
+with a recode suggestion. A strategy whose weight is undefined for an exact 0 or
+1 propensity score exits with error 459 rather than plotting a smaller sample. A
+strategy whose weights are all zero in one arm (every control PS 0 under
+{cmd:att}, every treated PS 1 under {cmd:atc}) exits with error 198. Both errors
+come after the balance table and its stored results are posted. This mirrors R
+{cmd:cobalt}'s multi-strategy {cmd:love.plot}.
 
 {phang}
 {opt distribution(varlist)} draws per-covariate distributional balance plots
 (kernel densities by treatment group, with weighted overlays when weights are
 present), one panel per covariate combined into a single graph. The covariates
-must be among those assessed. Binary treatment only. This mirrors R
-{cmd:cobalt}'s {cmd:bal.plot} and surfaces distributional differences that SMD
-alone can miss.
+must be among those assessed. Available for a treatment coded 0/1 only. The
+combined figure is named {it:name}{cmd:_dist} and, with several variables, each
+panel {it:name}{cmd:_dist}{it:#}. With one variable the panel is the figure: it
+is named {it:name}{cmd:_dist} and takes {opt title()} when given. {opt name()}
+must leave room for the graph suffix: at most 27 characters with one variable,
+26 with 2-9, and 25 with 10 or more; a longer name is an error ({cmd:r(198)})
+before any output. This mirrors R {cmd:cobalt}'s {cmd:bal.plot} and surfaces
+distributional differences that SMD alone can miss.
 
 {phang}
 {opt smdmatrix(name)} saves a covariate-by-SMD matrix to the named matrix in the
@@ -465,48 +484,59 @@ cells remain numeric; raw and adjusted SMD, variance-ratio, and KS columns are
 included when available, with formatted headers and readable column widths.
 
 {phang}
-{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Balance"}.
+{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Balance"}. The name may
+have at most 31 bytes (a multibyte character counts each byte), may not
+contain {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote,
+may not begin or end with an apostrophe, and may not be the reserved name
+{cmd:History} (in any case). It is checked before any computation; an invalid
+name is an error ({cmd:r(198)}).
 
 {phang}
 {opt format(string)} sets the numeric display format for SMD values. Default is {cmd:%6.3f}.
 
 {pstd}
 {bf:Interpretation:} An absolute SMD of 0.1 is a conventional, configurable
-screening threshold (Austin 2009), not proof of balance, exchangeability, or an
-adequate causal design. Interpret it alongside prognostic importance and the
-other distribution diagnostics. Variance ratios between 0.5 and 2.0 are acceptable (adjust with
-{opt vrbounds()}); values outside this range indicate scale imbalances that SMD
-alone can miss. The variance ratio is reported but not flagged for two-level
-covariates, where it adds nothing beyond the SMD. KS statistics are
-informational: larger values indicate greater distributional separation, but
-there is no universal verdict threshold.
-A zero numerator variance with positive denominator variance gives VR = 0.
-A positive numerator variance with zero denominator variance is infinite,
-represented by Stata extended missing {cmd:.a} in the matrix and maximum VR
-returns; both cases count as variance imbalance. Variances of zero in both
-arms remain undefined ({cmd:.}) and are excluded from the VR verdict.
-Insufficient covariate observations likewise leave the ratio undefined.
-The table's {bf:SMD status} column judges only SMD; the panel verdict also
-uses variance-ratio findings.
+screening threshold (Austin 2009), not proof of balance, exchangeability, or
+an adequate causal design. Interpret it alongside prognostic importance and
+the other distribution diagnostics. Variance ratios between 0.5 and 2.0 are
+acceptable (adjust with {opt vrbounds()}); values outside this range indicate scale
+imbalances that SMD alone can miss. The variance ratio is reported but not
+flagged for two-level covariates, where it adds nothing beyond the SMD. KS
+statistics are informational: larger values indicate greater distributional
+separation, but there is no universal verdict threshold. A zero numerator
+variance with positive denominator variance gives VR = 0. A positive numerator
+variance with zero denominator variance is infinite, represented by Stata
+extended missing {cmd:.a} in the matrix and maximum VR returns; both cases count as
+variance imbalance. Variances of zero in both arms remain undefined ({cmd:.}) and
+are excluded from the VR verdict. Insufficient covariate observations likewise
+leave the ratio undefined, for the adjusted ratio as for the raw one: an arm
+with a single weighted observation has no variance to compare. A covariate
+constant on the analysis sample reports SMD 0, VR missing and KS 0. When no
+covariate has an assessable variance ratio (all two-level or constant),
+{cmd:r(max_vr_raw)} and {cmd:r(max_vr_adj)} are missing. A covariate whose verdict-scale
+SMD (adjusted when weighted, raw otherwise) is undefined, for example a
+two-level covariate constant within each arm, has SMD status {cmd:UNDEFINED}; in a
+multi-group table this applies when no contrast exceeds the threshold but one
+has an undefined SMD. The table's {bf:SMD status} column judges only SMD; the panel
+verdict also uses variance-ratio findings.
 
 {pstd}
-{bf:SMD denominator.} {cmd:psdash} standardizes both the raw and the adjusted SMD
-by the same {it:unweighted} pooled standard deviation, so the two columns share a
-scale and are directly comparable — including across the several weighting schemes
+{bf:SMD denominator.} {cmd:psdash} standardizes both the raw and the adjusted SMD by the
+same {it:unweighted} pooled standard deviation, so the two columns share a scale
+and are directly comparable — including across the several weighting schemes
 of {opt strategies()}. Computing the denominator once in the unadjusted sample
-follows {cmd:cobalt} (R); the pooled denominator is {cmd:cobalt}'s default only
-for the ATE. For ATT and ATC, {cmd:cobalt} defaults to the treated-group and
-control-group standard deviation, whereas {cmd:psdash} uses the pooled
-denominator of Austin (2009) for every estimand, so ATT/ATC SMDs can differ
-from a default {cmd:cobalt} table. It is
-{it:not} the formulation in Austin and Stuart (2015), whose section 4.1.1 replaces
-{it:each} sample estimate by its weighted equivalent, so that the weighted SMD's
-denominator is a weighted variance as well. The two agree when weights are equal
-and otherwise differ: under the Austin-Stuart form the adjusted SMD can move
-because the weights changed the covariate's {it:spread} rather than its location,
-which the common-scale form attributes entirely to the means. Read
-{cmd:r(max_smd_adj)} as "mean shift on the raw sample's scale", not as an
-Austin-Stuart weighted standardized difference.
+follows {cmd:cobalt} (R); the pooled denominator is {cmd:cobalt}'s default only for the
+ATE. For ATT and ATC, {cmd:cobalt} defaults to the treated-group and control-group
+standard deviation, whereas {cmd:psdash} uses the pooled denominator of Austin
+(2009) for every estimand, so ATT/ATC SMDs can differ from a default {cmd:cobalt}
+table. It is {it:not} the formulation in Austin and Stuart (2015), whose section
+4.1.1 replaces {it:each} sample estimate by its weighted equivalent, so that the
+weighted SMD's denominator is a weighted variance as well. The two agree when
+weights are equal and otherwise differ: under the Austin-Stuart form the
+adjusted SMD can move because the weights changed the covariate's {it:spread}
+rather than its location, which the common-scale form attributes entirely to
+the means. Read {cmd:r(max_smd_adj)} as "mean shift on the raw sample's scale", not
+as an Austin-Stuart weighted standardized difference.
 
 {pstd}
 {bf:Variance definitions.} For a two-level covariate with values {it:a} and
@@ -524,10 +554,13 @@ unchanged.
 {dlgtab:weights options}
 
 {phang}
-{opt trim(#)} trims weights at the specified percentile (50-99.9).
+{opt trim(#)} trims weights at the specified percentile. {it:#} must be between
+50 and 99.9 inclusive; any other value, including {cmd:trim(0)}, is an error
+({cmd:r(198)}).
 
 {phang}
-{opt truncate(#)} truncates weights at a fixed maximum value.
+{opt truncate(#)} truncates weights at a fixed maximum value. {it:#} must be
+positive; {cmd:truncate(0)} and negative values are errors ({cmd:r(198)}).
 
 {phang}
 {opt stabilize} creates stabilized weights by multiplying by the marginal
@@ -556,7 +589,10 @@ threshold is fixed and is not affected by {opt extreme()}.
 
 {phang}
 {opt generate(name)} specifies the variable name for modified weights. Required with
-{opt trim()}, {opt truncate()}, or {opt stabilize}.
+{opt trim()}, {opt truncate()}, or {opt stabilize}; {opt generate()} without one of
+them is an error reported before any output. The name may not be the treatment,
+the {opt wvar()} variable, the propensity score, or any {opt psvars()} variable,
+even with {opt replace}, and may not use the reserved {cmd:_psdash_} prefix.
 
 {phang}
 {opt replace} allows overwriting an existing variable.
@@ -581,24 +617,31 @@ question.
 
 {phang}
 {opt compact} is accepted for compatibility: each treatment arm's histogram is
-always scaled to within-arm fractions of all of that arm's weights, so arm shapes
-are comparable when sample sizes differ.
+always scaled to within-arm fractions of all of that arm's weights, so arm
+shapes are comparable when sample sizes differ.
 
 {phang}
 {opt xlabel(numlist)} specifies custom x-axis labels for the weight histogram. It is
-ignored unless {opt graph} is also specified. Without {opt xlabel()}, psdash uses
-round, data-driven tick intervals. If the maximum is more than 1.5 times both p99
-and the lower {opt extreme()} cutoff, the graph focuses on the central distribution
-through a rounded limit based on the larger cutoff and notes the omitted count and
-full maximum; numerical diagnostics still use every weight. Specifying
+ignored unless {opt graph} is also specified. Without {opt xlabel()}, psdash uses round,
+data-driven tick intervals. If the maximum is more than 1.5 times both p99 and
+the lower {opt extreme()} cutoff, the graph focuses on the central distribution
+through a rounded limit based on the larger cutoff and notes the omitted count
+and full maximum; numerical diagnostics still use every weight. Specifying
 {opt xlabel()} disables that automatic display cap.
 
 {phang}
 {opt xlsx(filename)} exports the weight summary statistics to an Excel file
-(a two-column Metric/Value sheet).
+(a two-column Metric/Value sheet). For a binary treatment the sheet includes
+p99, the maximum-to-mean weight ratio, and ESS by arm, plus the modified-weight
+rows (mean, SD, maximum, CV, ESS, ESS %) when {opt generate()} is used.
 
 {phang}
-{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Weights"}.
+{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Weights"}. The name may
+have at most 31 bytes (a multibyte character counts each byte), may not
+contain {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote,
+may not begin or end with an apostrophe, and may not be the reserved name
+{cmd:History} (in any case). It is checked before any computation; an invalid
+name is an error ({cmd:r(198)}).
 
 {pstd}
 {bf:Interpretation:} An ESS above 50% of the original sample size is typical. A
@@ -612,19 +655,20 @@ or truncating extreme weights.
 {dlgtab:support options}
 
 {phang}
-{opt crump} applies the empirical Crump et al. (2009) trimming search. Under
-the paper's homoscedastic approximation, the selected symmetric region
-minimizes an asymptotic variance criterion for the average treatment effect in
-the retained subpopulation; it does not preserve the original-population ATE. When every assessed score is strictly
-inside (0,1), the Corollary 1 full-sample inequality is checked first and can
-return alpha = 0. Otherwise, an ascending grid from 0.001 through 0.500
-in steps of 0.001 selects the first alpha satisfying
-1/[alpha(1-alpha)] <= 2 times the retained-sample mean of 1/[PS(1-PS)].
-The retained region includes its endpoints. Exact boundary scores cannot
-qualify for alpha zero and are excluded by positive thresholds. A grid with
-no nonempty retained-sample crossing fails with error 498; the final retained
-sample must also contain both treatment arms. Restricted to binary treatment;
-for multi-group treatments, use {opt threshold()} instead.
+{opt crump} applies the empirical Crump et al. (2009) trimming search. Under the
+paper's homoscedastic approximation, the selected symmetric region minimizes
+an asymptotic variance criterion for the average treatment effect in the
+retained subpopulation; it does not preserve the original-population ATE. When
+every assessed score is strictly inside (0,1), the Corollary 1 full-sample
+inequality is checked first and can return alpha = 0. Otherwise, an ascending
+grid from 0.001 through 0.500 in steps of 0.001 selects the first alpha
+satisfying 1/[alpha(1-alpha)] <= 2 times the retained-sample mean of
+1/[PS(1-PS)]. The retained region includes its endpoints. Exact boundary
+scores cannot qualify for alpha zero and are excluded by positive
+thresholds. A grid with no nonempty retained-sample crossing fails with error
+498; the final retained sample must also contain both treatment
+arms. Restricted to binary treatment; for multi-group treatments, use
+{opt threshold()} instead.
 
 {phang}
 {opt threshold(#)} specifies a manual trimming threshold. For binary treatment,
@@ -632,7 +676,8 @@ observations with PS < threshold or PS > 1-threshold are excluded, and both
 {cmd:r(trim_lower)} and {cmd:r(trim_upper)} are returned. For multiple
 treatments the rule is one-sided — a unit is retained only if every GPS
 component satisfies {it:e_j(X)} >= threshold — so only {cmd:r(trim_lower)}, the
-floor, is returned. Must be strictly between 0 and 0.5.
+floor, is returned. For every treatment type {it:#} must be strictly between 0
+and 0.5; any other value is an error.
 
 {phang}
 {opt qtrim(#)} bases the reported common-support region on within-group percentiles
@@ -640,7 +685,8 @@ floor, is returned. Must be strictly between 0 and 0.5.
 overlap. The min-max region is optimistic: a single observation with an
 extreme PS can stretch the reported interval and hide interior sparsity. A
 small value such as {cmd:qtrim(1)} or {cmd:qtrim(2.5)} gives a more robust boundary. {it:#}
-must be strictly between 0 and 50. Binary treatment only.
+must be strictly between 0 and 50; any other value is an error. Binary
+treatment only.
 
 {phang}
 {opt gpsfloor(#)} sets the practical-positivity floor for the multi-group
@@ -667,7 +713,9 @@ the indicator marks the trimmed region. Without trimming, binary treatment marks
 the empirical common-support interval of the propensity score, and multi-group
 treatment marks {it:min_j e_j(X)} >= {opt gpsfloor()} — the panel's own primary
 diagnostic, not the observed-arm overlap range, which the output labels
-informational and which is not a valid multi-arm support rule.
+informational and which is not a valid multi-arm support rule. The name may
+not be a variable in {opt covariates()} (or, with {opt compare}, a detected
+covariate), including the base variable of a factor-variable term.
 
 {phang}
 {opt replace} allows overwriting an existing variable specified in
@@ -690,15 +738,21 @@ one box-plot region of the minimum GPS component by observed treatment arm. It
 has no effect for binary treatments.
 
 {pstd}
-The detailed multi-group support graph uses the overlap graph's component-specific
-axes, relevant-only floor lines, and filled three-component row.
+The detailed multi-group support graph uses the overlap graph's
+component-specific axes, relevant-only floor lines, and filled three-component
+row.
 
 {phang}
 {opt xlsx(filename)} exports the support summary statistics to an Excel file
 (a two-column Metric/Value sheet).
 
 {phang}
-{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Support"}.
+{opt sheet(string)} specifies the Excel sheet name. Default is {cmd:"Support"}. The name may
+have at most 31 bytes (a multibyte character counts each byte), may not
+contain {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote,
+may not begin or end with an apostrophe, and may not be the reserved name
+{cmd:History} (in any case). It is checked before any computation; an invalid
+name is an error ({cmd:r(198)}).
 
 {pstd}
 {bf:Interpretation:} Observations outside common support lack counterparts in the
@@ -731,7 +785,9 @@ result, and has no effect for multi-group treatments (a note says so).
 
 {phang}
 {opt threshold(#)} sets the SMD imbalance threshold for the balance panel in
-the combined dashboard. It is not passed to the support panel.
+the combined dashboard. It is not passed to the support panel. It must be
+positive and is validated even when the balance panel is skipped
+({opt nobalance}, or no covariates detected).
 
 {phang}
 {opt overlapmax(#)} sets the threshold (percent outside common support) above
@@ -740,14 +796,14 @@ verdict. Default is 10. For multi-group treatments, {opt gpsfloor()} drives the
 positivity verdict; observed-arm min/max overlap is descriptive only.
 
 {phang}
-{opt essmin(#)} sets the minimum overall effective sample size (percent of N)
-below which the weight panel is flagged. Default is 50. Per-arm ESS collapse,
-weight variability, extremes, dominance, and positivity remain independent findings.
+{opt essmin(#)} sets the minimum overall effective sample size (percent of N) below
+which the weight panel is flagged. Default is 50. Per-arm ESS collapse, weight
+variability, extremes, dominance, and positivity remain independent findings.
 
 {phang}
 {opt imbalmax(#)} sets the maximum number of SMD-imbalanced covariates tolerated
-before the balance panel is flagged. Default is 0. Variance-ratio and exact-boundary
-findings remain active independently.
+before the balance panel is flagged. Default is 0. Variance-ratio and
+exact-boundary findings remain active independently.
 
 {phang}
 {opt gpsfloor(#)} sets the multi-group practical-positivity floor and is passed to
@@ -765,7 +821,13 @@ to period diagnostics. {opt report()}, {opt saving()}, {opt scheme()},
 {opt overlapmax()}, {opt essmin()}, {opt imbalmax()}, or {opt gpsfloor()} are
 also rejected with {cmd:r(198)}. Defaults are accepted but do not alter period
 diagnostics; {opt title()}, {opt dryrun}, and explicit input overrides remain
-available.
+available. The longitudinal engine diagnoses the producer's treatment,
+propensity score, and weight, so {opt covariates()} and {opt psvars()} are not
+allowed, {opt reference()} is allowed only as the reference level 0 of
+the 0/1 treatment, and {opt estimand()} must match the producer's estimand (ignoring
+case); any other value is an error ({cmd:r(198)}). Non-integer period values,
+including float-stored periods, are supported. {cmd:r(max_pct_outside)} is
+missing when no period has both treatment arms.
 
 {phang}
 {opt dryrun} reports the auto-detection result (treatment, PS, covariates,
@@ -775,7 +837,10 @@ panel. Equivalent to {cmd:psdash detect}.
 {phang}
 {opt report(filename)} writes a multi-sheet Excel workbook ({cmd:.xlsx}) bundling each
 panel's table (Overlap, Balance, Weights, Support) plus a Summary sheet with
-the overall verdict and thresholds. The path is returned in {cmd:r(report)}.
+the overall verdict and thresholds. The path is returned in {cmd:r(report)}. If
+the workbook cannot be written, the remaining panels still run and print once,
+{opt saving()} still runs, {cmd:r(report)} is not set, and the command exits
+with the write error.
 
 {phang}
 {opt saving(filename)} exports the combined graph (not individual panels) to an
@@ -783,11 +848,12 @@ image file; the format is set by the filename extension ({cmd:.png}, {cmd:.pdf},
 etc.). Use {helpb graph save} for a {cmd:.gph} file.
 
 {pstd}
-For a multi-group treatment, the combined overlap panel is one grouped box-plot
-region containing every GPS component, and the support panel is one box-plot region
-of the minimum GPS component by observed treatment arm. This avoids nesting a
-multi-panel graph inside each dashboard cell. The standalone {cmd:overlap} and
-{cmd:support} commands retain one detailed density panel per GPS component.
+For a multi-group treatment, the combined overlap panel is one grouped
+box-plot region containing every GPS component, and the support panel is one
+box-plot region of the minimum GPS component by observed treatment arm. This
+avoids nesting a multi-panel graph inside each dashboard cell. The standalone
+{cmd:overlap} and {cmd:support} commands retain one detailed density panel per GPS
+component.
 
 {dlgtab:detect options}
 
@@ -857,7 +923,11 @@ final FIPTIW/IPTW analysis-weight distribution.
 8. {bf:After mlogit (multi-group)}: for multi-valued treatments, treatment
 and covariates are auto-detected from {cmd:e()}. The user runs
 {cmd:predict ps1 ps2 ps3, pr} and passes the GPS variables via
-{opt psvars(ps1 ps2 ps3)}.
+{opt psvars(ps1 ps2 ps3)}. Auto-generated IPTW weights are built from the
+{opt psvars()} columns, as after {cmd:teffects}. Specifying the treatment
+explicitly ({cmd:psdash} {it:subcmd} {cmd:arm, psvars(...)}) is manual mode: it
+uses the data as given and does not read {cmd:e(sample)} or the
+{cmd:e(cmdline)} covariates.
 
 {phang2}
 9. {bf:Manual}: the user provides treatment and PS variables explicitly,
@@ -884,12 +954,12 @@ what {cmd:psdash} reads and how it routes. Run {cmd:psdash detect} (or
 {p2colreset}{...}
 
 {pstd}
-{bf:Default behavior of {cmd:balance}:} When a PS variable is available, {cmd:psdash balance} auto-generates IPTW weights
-for the requested {opt estimand()} and displays {it:adjusted} columns (SMD Adj, VR Adj)
-alongside the raw columns. Pass {opt nowvar} to show raw balance only, or {opt wvar()} to
-supply a pre-computed weight variable. The {opt estimand()} option (default {cmd:ate})
-controls which IPTW formula is used; after {cmd:teffects} it is auto-detected from
-{cmd:e(stat)} when not specified explicitly.
+{bf:Default behavior of {cmd:balance}:} When a PS variable is available, {cmd:psdash balance}
+auto-generates IPTW weights for the requested {opt estimand()} and displays {it:adjusted}
+columns (SMD Adj, VR Adj) alongside the raw columns. Pass {opt nowvar} to show raw
+balance only, or {opt wvar()} to supply a pre-computed weight variable. The
+{opt estimand()} option (default {cmd:ate}) controls which IPTW formula is used; after
+{cmd:teffects} it is auto-detected from {cmd:e(stat)} when not specified explicitly.
 
 {pstd}
 Internally generated propensity scores and IPTW weights are temporary and are
@@ -907,8 +977,9 @@ with K>2 groups, use {opt estimand(att)} together with {opt reference()} to
 weight every group toward a chosen reference group's covariate distribution, or
 fit a binary contrast. Binary (K=2) treatments — including arbitrary two-level
 codings, not only 0/1 — are unaffected and use the standard ATC weights
-({cmd:(1-e)/e} for treated, {cmd:1} for control), with the {opt reference()} arm
-(default: the smaller level) as the control.
+({cmd:(1-e)/e} for treated, {cmd:1} for control). The control arm is level 0
+for a treatment coded 0/1, or the {opt reference()} arm (default: the smaller
+level) for any other two-level coding.
 
 {pstd}
 {bf:Diagnostic workflow:} A typical PS analysis proceeds as follows: (1) estimate
@@ -1060,9 +1131,10 @@ Each subcommand stores results in {cmd:r()}.
 {pstd}
 {bf:Multi-group note:} For binary (0/1) treatment, stored results use binary group
 names such as {cmd:r(N_treated)} and {cmd:r(N_control)}. For multi-group treatment runs,
-per-group results use the naming convention {cmd:r(N_group_{it:<level>})}, {cmd:r(ess_group_{it:<level>})},
-etc. Additionally, {cmd:r(K)} returns the number of groups, {cmd:r(levels)} lists the
-treatment values, and {cmd:r(reference)} identifies the reference group.
+per-group results use the naming convention {cmd:r(N_group_{it:<level>})},
+{cmd:r(ess_group_{it:<level>})}, etc. Additionally, {cmd:r(K)} returns the number of groups,
+{cmd:r(levels)} lists the treatment values, and {cmd:r(reference)} identifies the
+reference group.
 
 {pstd}
 {bf:Estimation-sample note:} After {cmd:teffects}, every subcommand restricts its
@@ -1128,6 +1200,9 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(max_ks_adj)}}maximum adjusted KS statistic{p_end}
 {synopt:{cmd:r(n_imbalanced)}}covariates exceeding SMD threshold{p_end}
 {synopt:{cmd:r(n_vr_imbalanced)}}nonbinary covariates outside VR bounds{p_end}
+{synopt:{cmd:r(n_vr_imbalanced_raw)}}raw VR findings{p_end}
+{synopt:{cmd:r(n_vr_imbalanced_adj)}}adjusted VR findings, when weighted{p_end}
+{synopt:{cmd:r(n_vr_contrasts_imbalanced)}}VR findings over contrasts, multi-group{p_end}
 {synopt:{cmd:r(n_binary_vr)}}binary covariates omitted from VR count{p_end}
 {synopt:{cmd:r(vr_na_vars)}}binary covariates excluded from VR{p_end}
 {synopt:{cmd:r(n_cov_incomplete)}}covariates with panel-sample missingness{p_end}
@@ -1137,6 +1212,7 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
 {synopt:{cmd:r(n_wt_undefined)}}undefined generated weights{p_end}
 {synopt:{cmd:r(n_wt_dropped)}}missing supplied weights dropped{p_end}
+{synopt:{cmd:r(n_warnings)}}machine-readable findings{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
@@ -1145,10 +1221,17 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(cov_miss_vars)}}covariates with missing values, when any{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
+{synopt:{cmd:r(warnings)}}finding labels{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(balance)}}covariate balance-statistics matrix{p_end}
 {synopt:{cmd:r(smd)}}raw/adjusted covariate-by-SMD matrix{p_end}
+
+{pstd}
+{cmd:r(n_ps_boundary)} and {cmd:r(n_ps_near_boundary)} are posted for two-level
+treatments (any coding) and not when K > 2. {cmd:r(max_vr_raw)} and
+{cmd:r(max_vr_adj)} are missing when no covariate has an assessable variance
+ratio (all two-level or constant).
 
 {pstd}
 For binary treatments, the balance matrix columns are: {cmd:Mean_T}, {cmd:Mean_C}, {cmd:SMD_Raw},
@@ -1206,7 +1289,9 @@ include the compared treatment levels.
 {pstd}
 If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {cmd:r(new_mean)}, {cmd:r(new_sd)}, {cmd:r(new_min)}, {cmd:r(new_max)},
-{cmd:r(new_cv)}, {cmd:r(new_ess)}, {cmd:r(new_ess_pct)}.
+{cmd:r(new_cv)}, {cmd:r(new_ess)}, {cmd:r(new_ess_pct)}. {cmd:r(n_ps_boundary)} and
+{cmd:r(n_ps_near_boundary)} are posted for a two-level treatment (any coding)
+when a propensity score is available.
 
 {dlgtab:support}
 
@@ -1270,13 +1355,13 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(psvar)}}PS variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
-{synopt:{cmd:r(wvar)}}diagnostic weight variable{p_end}
+{synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component, when applicable{p_end}
 {synopt:{cmd:r(period)}}longitudinal period variable{p_end}
 {synopt:{cmd:r(periods)}}included longitudinal period values{p_end}
 {synopt:{cmd:r(id)}}longitudinal ID variable, when available{p_end}
-{synopt:{cmd:r(riskvar)}}longitudinal risk-set indicator, when the producer supplies one (msm){p_end}
-{synopt:{cmd:r(weight_role)}}role of the diagnosed msm weight: {cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}{p_end}
+{synopt:{cmd:r(riskvar)}}msm risk-set indicator, when supplied{p_end}
+{synopt:{cmd:r(weight_role)}}role of the diagnosed msm weight{p_end}
 {synopt:{cmd:r(regime)}}LTMLE regime metadata, when available{p_end}
 {synopt:{cmd:r(method)}}LTMLE method metadata, when available{p_end}
 {synopt:{cmd:r(contract_version)}}producer contract version{p_end}
@@ -1284,10 +1369,12 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(reference)}}multi-group reference level{p_end}
 {synopt:{cmd:r(verdict)}}overall verdict, {cmd:"PASS"} or {cmd:"FAIL"}{p_end}
 {synopt:{cmd:r(warnings)}}panel-labeled machine-readable findings{p_end}
-{synopt:{cmd:r(report)}}report workbook path, when used{p_end}
+{synopt:{cmd:r(warning_panels)}}panels with findings{p_end}
+{synopt:{cmd:r(report)}}report workbook path, when written{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:r(n_warnings)}}total findings across panels{p_end}
+{synopt:{cmd:r(n_panels)}}diagnostic panels run{p_end}
 {synopt:{cmd:r(overlapmax)}, {cmd:r(essmin)}, {cmd:r(imbalmax)}}verdict thresholds used{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups, if applicable{p_end}
 {synopt:{cmd:r(N_requested)}}requested cross-sectional observations{p_end}
@@ -1295,7 +1382,7 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(n_common_excluded)}}observations excluded from all panels{p_end}
 {synopt:{cmd:r(N)}}longitudinal diagnostic-sample N{p_end}
 {synopt:{cmd:r(N_input)}, {cmd:r(N_complete)}, {cmd:r(n_excluded)}}longitudinal sample ledger{p_end}
-{synopt:{cmd:r(n_outside_risk)}}longitudinal rows outside the producer risk set, excluded by design{p_end}
+{synopt:{cmd:r(n_outside_risk)}}rows outside the producer risk set{p_end}
 {synopt:{cmd:r(n_missing_treatment)}, {cmd:r(n_missing_period)}, {cmd:r(n_missing_ps)}, {cmd:r(n_missing_weight)}}longitudinal input missingness ledger{p_end}
 {synopt:{cmd:r(longitudinal)}}1 for longitudinal diagnostics{p_end}
 {synopt:{cmd:r(N_periods)}}number of longitudinal periods{p_end}
@@ -1309,6 +1396,9 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(n_single_arm_periods)}, {cmd:r(n_estimable_periods)}}period estimability ledger{p_end}
 {synopt:{cmd:r(p1)}, {cmd:r(p5)}, {cmd:r(p50)}, {cmd:r(p95)}, {cmd:r(p99)}}selected contract-weight percentiles{p_end}
 {synopt:{cmd:r(n_extreme)}, {cmd:r(pct_extreme)}}contract weights above 10: N and %{p_end}
+{synopt:{cmd:r(n_ps_boundary)}}longitudinal PS values exactly 0 or 1{p_end}
+{synopt:{cmd:r(n_neg_wt)}}negative contract weights{p_end}
+{synopt:{cmd:r(n_nonpositive_wt)}}zero or negative contract weights{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table{p_end}
@@ -1319,6 +1409,15 @@ Rows of both matrices are named for the period {it:value} they describe
 ({cmd:p0}, {cmd:p1}, ... for periods 0, 1, ...), in the same order as
 {cmd:r(periods)}, so a consumer can address a period by name rather than by
 position.
+
+{pstd}
+{cmd:r(weight_role)} is {cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}. {cmd:r(riskvar)} is set
+only when the producer supplies a risk-set indicator (msm). Rows outside that
+risk set are excluded by design and counted in {cmd:r(n_outside_risk)}. A
+nonpositive contract weight is an error, so {cmd:r(n_neg_wt)} and
+{cmd:r(n_nonpositive_wt)} are 0 whenever results are posted. {cmd:r(max_pct_outside)} is
+missing when no period has both arms. {cmd:r(wvar)} reports {cmd:auto-generated} when the
+cross-sectional weight is a temporary variable.
 
 {dlgtab:detect}
 
@@ -1332,7 +1431,8 @@ position.
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(levels)}, {cmd:r(reference)}}multi-group treatment levels/reference{p_end}
 {synopt:{cmd:r(id)}, {cmd:r(period)}, {cmd:r(regime)}, {cmd:r(method)}, {cmd:r(contract_version)}}longitudinal metadata, when applicable{p_end}
-{synopt:{cmd:r(riskvar)}, {cmd:r(weight_role)}}msm risk-set indicator and the role of {cmd:r(wvar)} ({cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}){p_end}
+{synopt:{cmd:r(riskvar)}, {cmd:r(weight_role)}}msm risk set and weight role{p_end}
+{synopt:{cmd:r(iivwcomponent)}}selected iivw component{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:r(n_covariates)}}number of covariates{p_end}
@@ -1341,31 +1441,42 @@ position.
 {synopt:{cmd:r(K)}}number of treatment groups (multi-group){p_end}
 {synopt:{cmd:r(longitudinal)}}1 for longitudinal contract state{p_end}
 
+{pstd}
+{cmd:r(weight_role)} is the role of {cmd:r(wvar)} after msm: {cmd:analysis},
+{cmd:treatment}, or {cmd:user-supplied}.
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.9.0, 2026-10-29{p_end}
+{pstd}Version 1.9.1, 2026-11-17{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
 
-{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version
+installed here.{p_end}
 
 
 {title:References}
 
 {phang}
-Austin, P. C. (2009). Balance diagnostics for comparing the distribution
-of baseline covariates between treatment groups in propensity-score matched
-samples. {it:Statistics in Medicine}, 28(25), 3083-3107.
-doi:10.1002/sim.3697.
+Austin, P. C. (2009). Balance diagnostics for comparing the distribution of
+baseline covariates between treatment groups in propensity-score matched
+samples. {it:Statistics in Medicine}, 28(25), 3083-3107. doi:10.1002/sim.3697.
 
 {phang}
 Austin, P. C. (2011). An introduction to propensity score methods for reducing
 the effects of confounding in observational
-studies. {it:Multivariate Behavioral Research}, 46(3), 399-424. doi:10.1080/00273171.2011.568786.
+studies. {it:Multivariate Behavioral Research}, 46(3),
+399-424. doi:10.1080/00273171.2011.568786.
+
+{phang}
+Austin, P. C., & Stuart, E. A. (2015). Moving towards best practice when using
+inverse probability of treatment weighting (IPTW) using the propensity score
+to estimate causal treatment effects in observational
+studies. {it:Statistics in Medicine}, 34(28), 3661-3679. doi:10.1002/sim.6607.
 
 {phang}
 Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009). Dealing with
@@ -1374,7 +1485,8 @@ limited overlap in estimation of average treatment effects. {it:Biometrika}, 96(
 
 {phang}
 Li, F., & Li, F. (2019). Propensity score weighting for causal inference with
-multiple treatments. {it:Annals of Applied Statistics}, 13(4), 2389-2415. doi:10.1214/19-aoas1282.
+multiple treatments. {it:Annals of Applied Statistics}, 13(4),
+2389-2415. doi:10.1214/19-aoas1282.
 
 {phang}
 McCaffrey, D. F., Griffin, B. A., Almirall, D., Slaughter, M. E., Ramchand,
@@ -1384,8 +1496,7 @@ multiple treatments using generalized boosted models. {it:Statistics in Medicine
 
 {phang}
 Greifer, N. (2026). {it:cobalt: Covariate balance tables and plots}. R package
-documentation. {browse "https://ngreifer.github.io/cobalt/":https://ngreifer.github.io/cobalt/}.
-doi:10.32614/CRAN.package.cobalt.
+documentation. {browse "https://ngreifer.github.io/cobalt/":https://ngreifer.github.io/cobalt/}. doi:10.32614/CRAN.package.cobalt.
 
 
 {title:Also see}

@@ -30,12 +30,13 @@ See {help psdash##subcommands:Subcommand syntax} for the full signature and
 {cmd:psdash support} reports common-support bounds and can mark observations
 retained by a trimming rule. Binary treatments support Crump's
 variance-oriented rule; multi-valued treatments use a full-vector generalized
-propensity-score floor. The Crump search selects the first empirical inequality crossing on an
-ascending 0.001 grid from 0.001 through 0.500, including retained endpoints.
-No nonempty crossing on the grid produces error 498. It can return alpha = 0 only when every
-assessed score is strictly inside (0,1) and the full-sample inequality holds; exact
-boundary scores instead require positive-threshold handling. A sample with no
-interior score fails the retained-sample guard.
+propensity-score floor. The Crump search selects the first empirical
+inequality crossing on an ascending 0.001 grid from 0.001 through 0.500,
+including retained endpoints. No nonempty crossing on the grid produces error
+498. It can return alpha = 0 only when every assessed score is strictly inside
+(0,1) and the full-sample inequality holds; exact boundary scores instead
+require positive-threshold handling. A sample with no interior score fails the
+retained-sample guard.
 
 {pstd}
 The complete return contract, including {cmd:r(crump_alpha)} and the
@@ -45,9 +46,9 @@ multi-group {cmd:r(gps_means)} matrix, is listed under
 {pstd}
 Detailed multi-group graphs use one data-driven x axis per GPS component. A
 practical-positivity floor line is drawn only when it lies within that
-component's observed range, and three-component graphs occupy one filled row.
-For a binary treatment, the dashed lines for the common-support and trimming
-bounds each carry a legend key.
+component's observed range, and three-component graphs occupy one filled
+row. For a binary treatment, the dashed lines for the common-support and
+trimming bounds each carry a legend key.
 
 {marker options}{...}
 {title:Options}
@@ -61,21 +62,23 @@ accepts factor-variable and interaction notation.
 combined with {opt threshold()} and is available for binary treatment only.
 
 {phang}
-{opt thr:eshold(#)} sets a fixed PS or GPS trimming threshold; for binary
-treatment it must be strictly between 0 and 0.5. It cannot be combined with
-{opt crump}.
+{opt thr:eshold(#)} sets a fixed PS or GPS trimming threshold. It must be
+strictly between 0 and 0.5; any other value is an error. It cannot be combined
+with {opt crump}.
 
 {phang}
 {opt qtrim(#)} sets within-group quantile-based common-support bounds. It is
 binary-only, has no effect unless specified, and must be strictly between 0
-and 50.
+and 50; any other value is an error.
 
 {phang}
 {opt gpsfloor(#)} sets the multi-group practical-positivity floor; default is
 {cmd:0.01}, and the value must be strictly between 0 and 1.
 
 {phang}
-{opt gen:erate(newvar)} marks observations retained by the selected rule.
+{opt gen:erate(newvar)} marks observations retained by the selected rule. It
+may not name a variable in {opt covariates()} (or, with {opt compare}, a
+detected covariate), including the base variable of a factor-variable term.
 
 {phang}
 {opt replace} permits replacing the requested generated variable.
@@ -106,13 +109,18 @@ and 50.
 {opt xlsx(filename)} exports support statistics to Excel.
 
 {phang}
-{opt sheet(string)} sets the Excel sheet name.
+{opt sheet(string)} sets the Excel sheet name: at most 31 bytes (a multibyte
+character counts each byte), none of {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote, no
+leading or trailing apostrophe, and not the reserved name {cmd:History} (in any
+case). It is checked before any computation; an invalid name is an error
+({cmd:r(198)}).
 
 {phang}
 {opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
 
 {phang}
-{opt ref:erence(#)} selects the multi-group reference arm.
+{opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
+only {cmd:reference(0)} is allowed.
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.

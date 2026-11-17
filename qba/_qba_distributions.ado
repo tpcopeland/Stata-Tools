@@ -1,4 +1,4 @@
-*! _qba_distributions Version 1.2.0  2026/10/13
+*! _qba_distributions Version 1.2.1  2026/11/17
 *! Internal helper: random draws from distributions for probabilistic QBA
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -48,7 +48,14 @@ program define _qba_parse_dist, rclass
     }
 
     foreach _p of local params {
-        capture confirm number `_p'
+        * qba's own defaults pass exact %21x carriers wrapped in parentheses,
+        * "(1.8X-001)", so a carrier whose exponent ends in d or e is never
+        * re-lexed as decimal exponent notation; validate the literal inside.
+        local _pnum : copy local _p
+        if substr("`_pnum'", 1, 1) == "(" & substr("`_pnum'", -1, 1) == ")" {
+            local _pnum = substr("`_pnum'", 2, strlen("`_pnum'") - 2)
+        }
+        capture confirm number `_pnum'
         if _rc {
             display as error "distribution parameters must be numeric"
             exit 198
@@ -210,6 +217,7 @@ program define _qba_draw_one
                 tempvar uvar
                 quietly gen double `uvar' = runiform() in 1/`n'
             }
+            * stata-dev-ignore: unchecked-commit — `gen' is a draw column in the caller's preserved, cleared reps-row scratch dataset; the two branches partition [0, 1] and every caller counts invalid draws before use
             quietly gen double `gen' = `lo' + sqrt(`uvar' * `range' * (`mode' - `lo')) ///
                 if `uvar' <= `fc' in 1/`n'
             quietly replace `gen' = `hi' - sqrt((1 - `uvar') * `range' * (`hi' - `mode')) ///

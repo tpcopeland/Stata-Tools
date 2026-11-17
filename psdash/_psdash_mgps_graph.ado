@@ -1,4 +1,4 @@
-*! _psdash_mgps_graph Version 1.9.0  2026/10/29
+*! _psdash_mgps_graph Version 1.9.1  2026/11/17
 *! Component-by-treatment generalized propensity score graph
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -110,7 +110,7 @@ program define _psdash_mgps_graph, rclass
                 frame `compact_frame': rename `score_tmp' _psd_gps`score_idx'
             }
             frame `compact_frame': generate long `row_tmp' = _n
-            frame `compact_frame': reshape long _psd_gps, ///
+            quietly frame `compact_frame': reshape long _psd_gps, ///
                 i(`row_tmp') j(_psd_component)
             frame `compact_frame': label define _psd_component ///
                 `component_label_defs', replace

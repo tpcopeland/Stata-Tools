@@ -36,14 +36,14 @@
 {synoptline}
 {syntab:Required}
 {synopt:{opt a(#)} {opt b(#)} {opt c(#)} {opt d(#)}}2x2 table cells (non-negative){p_end}
-{synopt:{opt reps(#)}}Monte Carlo replications (minimum 100){p_end}
+{synopt:{opt reps(#)}}Monte Carlo reps (minimum 100){p_end}
 
 {syntab:Misclassification (requires both seca and spca)}
-{synopt:{opt seca(#)}}sensitivity of classification; (0, 1]{p_end}
+{synopt:{opt seca(#)}}sensitivity of classification{p_end}
 {synopt:{opt spca(#)}}specificity; (0, 1]; Se + Sp > 1{p_end}
-{synopt:{opt secb(#)}}Se, second stratum; enables differential{p_end}
-{synopt:{opt spcb(#)}}Sp, second stratum; enables differential{p_end}
-{synopt:{opt mc:type(exposure|outcome)}}misclassification type; default {cmd:exposure}{p_end}
+{synopt:{opt secb(#)}}Se, second stratum{p_end}
+{synopt:{opt spcb(#)}}Sp, second stratum{p_end}
+{synopt:{opt mc:type(exposure|outcome)}}misclass type; default {cmd:exposure}{p_end}
 {synopt:{opt dist_se(distribution)}}Se distribution; default constant{p_end}
 {synopt:{opt dist_sp(distribution)}}Sp distribution; default constant{p_end}
 {synopt:{opt dist_se1(distribution)}}Se distribution, second stratum{p_end}
@@ -51,7 +51,7 @@
 {synopt:{opt corr(#)}}Se/Sp correlation across strata{p_end}
 
 {syntab:Selection bias (requires all four sel options)}
-{synopt:{opt sela(#)} {opt selb(#)}}selection probabilities for cases; (0, 1]{p_end}
+{synopt:{opt sela(#)} {opt selb(#)}}selection probs, cases; (0, 1]{p_end}
 {synopt:{opt selc(#)} {opt seld(#)}}selection probs, non-cases{p_end}
 {synopt:{opt dist_sela(distribution)}}sela distribution; default constant{p_end}
 {synopt:{opt dist_selb(distribution)}}selb distribution; default constant{p_end}
@@ -59,17 +59,19 @@
 {synopt:{opt dist_seld(distribution)}}seld distribution; default constant{p_end}
 
 {syntab:Unmeasured confounding (requires p1, p0, and rrcd or rrud)}
-{synopt:{opt p1(#)}}P(confounder = 1 | exposed); [0, 1]{p_end}
-{synopt:{opt p0(#)}}P(confounder = 1 | unexposed); [0, 1]{p_end}
-{synopt:{opt rrcd(#)}}confounder-disease RR (Schneeweiss); > 0{p_end}
-{synopt:{opt rrud(#)}}confounder-disease RR (Greenland); > 0{p_end}
-{synopt:{opt dist_p1(distribution)}}through {opt dist_rr()} distributions{p_end}
+{synopt:{opt p1(#)}}P(conf = 1 | exposed); [0, 1]{p_end}
+{synopt:{opt p0(#)}}P(conf = 1 | unexposed); [0, 1]{p_end}
+{synopt:{opt rrcd(#)}}conf-disease RR (Schneeweiss); > 0{p_end}
+{synopt:{opt rrud(#)}}alternate name for {opt rrcd()}{p_end}
+{synopt:{opt dist_p1(distribution)}}p1 distribution; default constant{p_end}
+{synopt:{opt dist_p0(distribution)}}p0 distribution; default constant{p_end}
+{synopt:{opt dist_rr(distribution)}}RR distribution; default constant{p_end}
 
 {syntab:Control}
 {synopt:{opt mea:sure(OR|RR)}}measure of association; default {cmd:OR}{p_end}
 {synopt:{opt or:der(string)}}cell-level correction order{p_end}
-{synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
-{synopt:{opt level(#)}}simulation-interval level; default {cmd:c(level)}{p_end}
+{synopt:{opt seed(#)}}random number seed{p_end}
+{synopt:{opt level(#)}}interval level; default {cmd:c(level)}{p_end}
 {synopt:{opt sa:ving(filename, ...)}}save Monte Carlo dataset{p_end}
 {synoptline}
 
@@ -152,7 +154,9 @@ must exceed 1.
 
 {phang}
 {opt mctype(exposure|outcome)} specifies the misclassification type. Default
-is {cmd:exposure}. See {helpb qba_misclass} for details.
+is {cmd:exposure}. It requires an active misclassification bias ({opt seca()}
+and {opt spca()}); otherwise it is refused rather than ignored. See
+{helpb qba_misclass} for details.
 
 {phang}
 {opt dist_se(distribution)} and {opt dist_sp(distribution)} specify
@@ -189,8 +193,9 @@ fixed values are used.
 {phang}
 {opt p1(#)}, {opt p0(#)}, and {opt rrcd(#)} or {opt rrud(#)} specify
 confounding parameters. All three must be specified to activate confounding
-correction. See {helpb qba_confound} for details on the two RR
-parameterizations.
+correction. {opt p1()} and {opt p0()} must be in [0, 1]; {opt rrcd()} and
+{opt rrud()} must be positive. {opt rrud()} is an alternate name for the same
+Schneeweiss (2006) bias-factor parameter as {opt rrcd()}; see {helpb qba_confound}.
 
 {phang}
 {opt dist_p1(distribution)}, {opt dist_p0(distribution)}, and {opt dist_rr(distribution)}
@@ -211,7 +216,9 @@ level. All active cell-level biases must appear. Default order is
 {cmd:misclass selection} (following Fox, MacLehose, and Lash 2021).
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducibility.
+{opt seed(#)} sets the random number seed for reproducibility. It must be an
+integer from 0 to 2147483647, the range {cmd:set seed} documents; a negative
+seed is refused because {cmd:set seed} would silently use its absolute value.
 
 {phang}
 {opt level(#)} specifies the confidence level for the percentile interval. The
@@ -243,7 +250,17 @@ measure of association rather than the cell counts.
 {bf:Invalid replicates.} Some draws may produce negative corrected cell
 counts (from misclassification correction) or undefined measures. These
 replicates are excluded. A warning is displayed when more than 20% of
-replicates are invalid, suggesting the distributions may be too wide.
+replicates are invalid, suggesting the distributions may be too wide. The 20%
+threshold is a package convention; Fox, Lash, and Greenland (2005) use 10% as
+their diagnostic.
+
+{pstd}
+{bf:Zero cells.} When misclassification is active, a replicate with a zero or
+negative misclassification-corrected cell is invalid, as in {helpb qba_misclass}. Without
+misclassification the cells are only rescaled (selection) and the
+measure is divided by a bias factor (confounding), so a zero observed cell in
+the numerator gives a corrected OR or RR of exactly 0, as in
+{helpb qba_selection}; an undefined measure (zero denominator cell) is invalid.
 
 
 {marker examples}{...}
@@ -293,18 +310,18 @@ replicates are invalid, suggesting the distributions may be too wide.
 {synopt:{cmd:r(corrected)}}median corrected measure{p_end}
 {synopt:{cmd:r(mean)}}mean of corrected measures{p_end}
 {synopt:{cmd:r(sd)}}standard deviation of corrected measures{p_end}
-{synopt:{cmd:r(ci_lower)}}lower limit of the systematic-error simulation interval{p_end}
-{synopt:{cmd:r(ci_upper)}}upper limit of the systematic-error simulation interval{p_end}
+{synopt:{cmd:r(ci_lower)}}lower limit of systematic-error interval{p_end}
+{synopt:{cmd:r(ci_upper)}}upper limit of systematic-error interval{p_end}
 {synopt:{cmd:r(reps)}}number of replications requested{p_end}
 {synopt:{cmd:r(n_valid)}}number of valid (non-missing) replications{p_end}
 {synopt:{cmd:r(n_draw_invalid)}}number of draws with out-of-support parameters{p_end}
 {synopt:{cmd:r(n_biases)}}number of bias types corrected (1, 2, or 3){p_end}
+{synopt:{cmd:r(corr)}}Se/Sp correlation, when {opt corr()} is nonzero{p_end}
 
 {p2col 5 22 26 2: Macros}{p_end}
 {synopt:{cmd:r(measure)}}measure of association ({cmd:OR} or {cmd:RR}){p_end}
 {synopt:{cmd:r(method)}}{cmd:multi-bias}{p_end}
 {synopt:{cmd:r(interval)}}what {cmd:r(ci_lower)}/{cmd:r(ci_upper)} are{p_end}
-{synopt:{cmd:r(corr)}}Se/Sp correlation, when {opt corr()} is nonzero{p_end}
 {synopt:{cmd:r(order)}}cell-level correction order used{p_end}
 
 

@@ -36,11 +36,12 @@ K-by-K mean table in {cmd:r(gps_means)}.
 Detailed multi-group graphs use one data-driven x axis per GPS component. A
 practical-positivity floor line is drawn only when it lies within that
 component's observed range, and three-component graphs occupy one filled
-row. Histogram bins are aligned across observed arms within each component.
-The panels share one legend below the panel row; when a panel draws the floor
-line, the legend names it (for example "Practical positivity floor (0.01)").
-For a binary treatment, the dashed grey common-support bounds carry a legend
-key, and the treated and control histograms share one bin origin and width.
+row. Histogram bins are aligned across observed arms within each
+component. The panels share one legend below the panel row; when a panel draws
+the floor line, the legend names it (for example "Practical positivity floor
+(0.01)"). For a binary treatment, the dashed grey common-support bounds carry
+a legend key, and the treated and control histograms share one bin origin and
+width.
 
 {pstd}
 The complete stored-result contract and the distinction between the full-vector
@@ -88,13 +89,18 @@ when omitted, Stata chooses the bandwidth.
 name is {cmd:"Overlap"}.
 
 {phang}
-{opt sheet(string)} sets the Excel sheet name.
+{opt sheet(string)} sets the Excel sheet name: at most 31 bytes (a multibyte
+character counts each byte), none of {cmd::} {cmd:\} {cmd:/} {cmd:?} {cmd:*} {cmd:[} {cmd:]} or a double quote, no
+leading or trailing apostrophe, and not the reserved name {cmd:History} (in any
+case). It is checked before any computation; an invalid name is an error
+({cmd:r(198)}).
 
 {phang}
 {opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
 
 {phang}
-{opt ref:erence(#)} selects the multi-group reference arm.
+{opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
+only {cmd:reference(0)} is allowed.
 
 {phang}
 {opt gpsfloor(#)} sets the multi-group practical-positivity floor; default is

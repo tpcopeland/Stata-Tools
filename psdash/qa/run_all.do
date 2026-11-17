@@ -47,6 +47,8 @@ local suites_quick validation_fixture_truth.do validation_fixture_routes.do test
     test_v180_regressions.do test_v181_regressions.do test_quiet_warnings.do ///
     test_v190_overlap_support_graphs.do test_v190_weights_graphs.do ///
     test_v190_balance_graphs.do test_v190_dashboard_summary.do ///
+    test_v191_balance.do test_v191_detect_weights.do ///
+    test_v191_overlap_support_combined.do ///
     test_release_detect.do test_release_numeric.do test_release_combined.do ///
     test_producer_contracts.do ///
     test_real_producer_integrations.do ///
