@@ -90,7 +90,7 @@ capture noisily {
     assert B[1,8] == .
     assert B[1,9] == .
     assert r(n_imbalanced) == 1
-    assert r(max_smd_raw) == 0
+    assert missing(r(max_smd_raw))  // v1.9.2: undefined SMD is missing, not 0
     psdash balance t, covariates(x) nowvar nograph
     matrix B = r(balance)
     assert B[1,3] == . & B[1,4] == .

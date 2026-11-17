@@ -62,12 +62,14 @@ program define _dataprobe_events, rclass
             foreach r of local rows {
                 local k = `tot'[`r']
                 if `isexc' local lev = "[excluded] level " + strtrim(string(`ord'[`r'], "%12.0f"))
-                else if `isstr' local lev = `v'[`r']
+                // a value or label is data: it moves through Mata, never
+                // re-expanded ("a$b" stayed "aEXPANDED_B", 2026-11-17)
+                else if `isstr' mata: st_local("lev", st_sdata(`r', st_local("v")))
                 else {
                     local lev = strtrim(string(`v'[`r'], "%16.0g"))
                     if "`vlab'" != "" {
                         local ltxt : label `vlab' `=`v'[`r']', strict
-                        if `"`ltxt'"' != "" local lev `"`lev' (`ltxt')"'
+                        mata: st_local("lev", st_local("lev") + (st_local("ltxt") != "" ? " (" + st_local("ltxt") + ")" : ""))
                     }
                 }
                 _dataprobe_mcount `k' `mask' . `_hz'
@@ -84,10 +86,14 @@ program define _dataprobe_events, rclass
                     local g `"`v' level `_ok'"'
                 }
                 if `"`grp'"' != "" local g `"`grp'; `g'"'
-                local msg `"`pfx'events(`ev'): `v' = `lev' has `ks' events, expected >= `mtxt'"'
+                mata: st_local("msg", st_local("pfx") + "events(" + st_local("ev") + "): " + ///
+                    st_local("v") + " = " + st_local("lev") + " has " + st_local("ks") + ///
+                    " events, expected >= " + st_local("mtxt"))
+                // frame post expands its arguments again: msg from Mata
                 frame post `rf' ("events") ("`kind'") (0) ("`ev'") ("`v'") ///
                     (`"`macval(g)'"') ("`ks' events") (`knum') (">= `mtxt'") ///
-                    (`nscope') (`"`macval(scope)'"') (`"`macval(msg)'"') (`mins') (`km')
+                    (`nscope') (`"`macval(scope)'"') ("") (`mins') (`km')
+                frame `rf': mata: st_sstore(st_nobs(), "msg", st_local("msg"))
                 local ++nfail
                 local ++nf_v
             }

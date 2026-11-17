@@ -59,7 +59,9 @@ accepts factor-variable and interaction notation.
 
 {phang}
 {opt crump} requests Crump's binary-treatment trimming rule. It cannot be
-combined with {opt threshold()} and is available for binary treatment only.
+combined with {opt threshold()} and is available for binary treatment only. If
+no propensity score lies strictly inside (0,1), the rule is undefined and
+the command exits with error 459.
 
 {phang}
 {opt thr:eshold(#)} sets a fixed PS or GPS trimming threshold. It must be
@@ -78,14 +80,23 @@ and 50; any other value is an error.
 {phang}
 {opt gen:erate(newvar)} marks observations retained by the selected rule. It
 may not name a variable in {opt covariates()} (or, with {opt compare}, a
-detected covariate), including the base variable of a factor-variable term.
+detected covariate), including the base variable of a factor-variable term. The
+variable is created only after the support and {opt compare}
+computations succeed, so an error there leaves an existing {opt replace}
+target untouched and creates no new variable.
 
 {phang}
 {opt replace} permits replacing the requested generated variable.
 
 {phang}
 {opt comp:are} compares diagnostics before and after trimming. It requires
-{opt crump} or {opt threshold()} and is available for binary treatment only.
+{opt crump} or {opt threshold()} and is available for binary treatment only. When
+covariates are supplied or detected, the trimmed sample must keep at
+least two observations per arm; otherwise the command exits with error 459. The
+pre/post ESS uses estimand-specific IPTW weights. An observation whose
+weight is undefined (a treated observation with PS exactly 0 under ATE or ATC,
+a control with PS exactly 1 under ATE or ATT) is left out of the ESS, and a
+note reports how many were excluded.
 
 {phang}
 {opt nog:raph} suppresses the graph.
@@ -186,7 +197,7 @@ treatments.
 {p2col 5 32 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable{p_end}
 {synopt:{cmd:r(psvar)}}propensity-score variable{p_end}
-{synopt:{cmd:r(estimand)}}target estimand{p_end}
+{synopt:{cmd:r(estimand)}}target estimand, lowercase{p_end}
 {synopt:{cmd:r(source)}}input-detection source{p_end}
 {synopt:{cmd:r(levels)}}treatment-group levels{p_end}
 {synopt:{cmd:r(reference)}}reference treatment group{p_end}
@@ -194,6 +205,11 @@ treatments.
 
 {p2col 5 32 34 2: Matrices}{p_end}
 {synopt:{cmd:r(gps_means)}}mean GPS by observed arm and component{p_end}
+
+{pstd}
+{cmd:r(max_smd_pre)} and {cmd:r(max_smd_post)} are missing when no covariate
+has a defined SMD.
+{p_end}
 
 {marker author}{...}
 {title:Author}

@@ -99,8 +99,9 @@ of the displayed range; weights above it are left out of the histogram and
 counted in the graph note. If some arm has no weight at or below that value,
 the range is not limited and a note says so. Only numbers are accepted (no
 text labels or suboptions). Supplying {cmd:xscale()} (or {cmd:xsc()}) in {opt graphoptions()}
-gives the user full control of the axis: nothing is omitted and no omission
-note is added.
+gives the user full control of the axis: nothing is omitted, no omission
+note is added, and (unless {opt xlabel()} is also given) {cmd:psdash weights}
+adds no x-axis labels or range of its own.
 
 {phang}
 {opt sch:eme(schemename)} sets the graph scheme.
@@ -124,14 +125,15 @@ case). It is checked before any computation; an invalid name is an error
 ({cmd:r(198)}).
 
 {phang}
-{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
+{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc} (case does not matter).
 
 {phang}
 {opt ext:reme(# #)} sets the lower and upper extreme-weight cutoffs; default is
 {cmd:10 20}. Supply exactly two positive values in ascending order.
 
 {phang}
-{opt psv:ars(varlist)} supplies generalized propensity-score components.
+{opt psv:ars(varlist)} supplies generalized propensity-score components for a
+multi-group treatment. For a binary treatment it is ignored and a note says so.
 
 {phang}
 {opt iivwc:omponent(string)} selects the iivw weight component: {cmd:treatment},

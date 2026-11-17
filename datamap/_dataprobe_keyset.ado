@@ -165,7 +165,9 @@ program define _dataprobe_keyset, rclass
         _datamap_validate_path `"`file'"', option(keyset())
         capture confirm file `"`file'"'
         if _rc {
-            capture confirm file `"`file'.dta"'
+            // a name that already ends in .dta is the file itself: it never
+            // falls back to name.dta.dta (_rc stays the first confirm's)
+            if lower(substr(`"`file'"', -4, 4)) != ".dta" capture confirm file `"`file'.dta"'
             if _rc {
                 display as error `"keyset(): file `file' not found"'
                 exit 601

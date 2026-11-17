@@ -1,4 +1,4 @@
-*! _psdash_mgps_map Version 1.9.1  2026/11/17
+*! _psdash_mgps_map Version 1.9.2  2026/11/18
 *! Build multi-group propensity score mapping
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper

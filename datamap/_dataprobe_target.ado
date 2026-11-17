@@ -111,7 +111,10 @@ program define _dataprobe_target, rclass
                 _dataprobe_tpath `"`tgt'"' `option'
                 capture confirm file `"`tgt'"'
                 if _rc {
-                    capture confirm file `"`tgt'.dta"'
+                    // a name that already ends in .dta is the file itself:
+                    // foo.dta missing never falls back to foo.dta.dta (_rc
+                    // stays the first confirm's)
+                    if lower(substr(`"`tgt'"', -4, 4)) != ".dta" capture confirm file `"`tgt'.dta"'
                     if _rc {
                         if `isfile' display as error `"`option'() file `tgt' not found"'
                         else display as error `"`option'(): no frame or file named `tgt'"'

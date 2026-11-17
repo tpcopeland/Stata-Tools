@@ -115,7 +115,9 @@ program define _dataprobe_reconcile, rclass
         _datamap_validate_path `"`file'"', option(reconcile())
         capture confirm file `"`file'"'
         if _rc {
-            capture confirm file `"`file'.dta"'
+            // a name ending in .dta is the file itself (never foo.dta.dta);
+            // _rc stays the first confirm's
+            if lower(substr(`"`file'"', -4, 4)) != ".dta" capture confirm file `"`file'.dta"'
             if _rc {
                 display as error `"reconcile(): file `file' not found"'
                 exit 601
@@ -362,8 +364,24 @@ program define _dataprobe_reconcile, rclass
                     local nfg = r(N)
                     quietly count if `anyf' & `small'
                     local nfs = r(N)
+                    // under the mask a count of failing groups is masked as
+                    // byrule() masks one (<m, all but <m).  The group lines
+                    // number nfg - nfs, so when nfs is masked nfg and each
+                    // measure's count are withheld too (2026-11-17)
+                    local nfgs "`nfg'"
+                    local nfss "`nfs'"
+                    local _gsup = 0
+                    if `m' > 0 {
+                        _dataprobe_mcount `nfs' `m'
+                        local nfss "`r(s)'"
+                        local _gsup = r(masked)
+                        _dataprobe_mcount `nfg' `m' `G'
+                        local nfgs "`r(s)'"
+                        if `_gsup' & !r(masked) & `nfg' > 0 local nfgs "[suppressed]"
+                        if `_gsup' | r(masked) local anymask = 1
+                    }
                     display as text "  by(`by'): " as result "`G'" as text " groups, " ///
-                        as result "`nfg'" as text " failing"
+                        as result "`nfgs'" as text " failing"
                     // a by() variable in exclude(), or safe: groups by number
                     local _bx : list by & excluded
                     local _bynum = (`safe' | "`_bx'" != "")
@@ -402,7 +420,7 @@ program define _dataprobe_reconcile, rclass
                     }
                     if `shown' > 20 display as text "    ... and " as result "`=`shown' - 20'" as text " more"
                     if `nfs' > 0 display as text "    groups with fewer than `m' rows on a side (not shown): " ///
-                        as result "`nfs'" as text " failing"
+                        as result "`nfss'" as text " failing"
                     foreach q of local meas {
                         if "`q'" == "rows" local qn "rows"
                         else if "`q'" == "ids" local qn "ids(`ids')"
@@ -410,12 +428,27 @@ program define _dataprobe_reconcile, rclass
                         local qv = cond("`q'" == "rows", "", cond("`q'" == "ids", "`ids'", word("`sum'", real(substr("`q'", 2, .)))))
                         local ok = (`gf_`q'' == 0)
                         if !`ok' local ++nfail
-                        local obs "`gf_`q'' of `G' groups fail"
+                        local gfs "`gf_`q''"
+                        local gfn = `gf_`q''
+                        local gfm = 0
+                        if `m' > 0 {
+                            _dataprobe_mcount `gf_`q'' `m' `G'
+                            local gfs "`r(s)'"
+                            local gfn = r(num)
+                            local gfm = r(masked)
+                            if `_gsup' & !`gfm' & `gf_`q'' > 0 {
+                                local gfs "[suppressed]"
+                                local gfn = .
+                                local gfm = 1
+                            }
+                            if `gfm' local anymask = 1
+                        }
+                        local obs "`gfs' of `G' groups fail"
                         local exp "memory `_rel' `fbase' in every group"
                         local msg `"reconcile(`fbase'): `qn' by(`by') — `obs', expected `exp'"'
                         frame post `rf' ("reconcile") ("`kind'") (`ok') ("`fbase' `qn' by(`by')") ///
-                            ("`qv'") ("") ("`obs'") (`gf_`q'') ("`exp'") (`nscope') ("") ///
-                            (`"`macval(msg)'"') (.) (0)
+                            ("`qv'") ("") ("`obs'") (`gfn') ("`exp'") (`nscope') ("") ///
+                            (`"`macval(msg)'"') (.) (`gfm')
                     }
                 }
             }

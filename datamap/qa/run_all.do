@@ -99,6 +99,9 @@ local core_suites ///
     test_datamap_v210_safety.do ///
     test_datamap_v210_final.do ///
     test_datamap_v210_final_fixes.do ///
+    test_review_2026_11_17_dataprobe.do ///
+    test_review_2026_11_17_datamap.do ///
+    test_review_2026_11_17_datamvp_dataqa.do ///
     validation_datamap.do ///
     validation_datamvp.do
 

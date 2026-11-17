@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.1  17nov2026}{...}
+{* *! version 1.9.2  18nov2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -56,7 +56,11 @@ After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are 
 from {cmd:e()}. The inverse-probability estimators {cmd:teffects ipw}, {cmd:ipwra}, and {cmd:aipw} are
 supported; {cmd:teffects psmatch} is a matching estimator that exposes no
 propensity-score prediction, so it is rejected with an explicit error rather
-than diagnosed as if it were IPW. For {cmd:teffects}, {cmd:logit}, {cmd:probit}, and
+than diagnosed as if it were IPW. An {cmd:if}/{cmd:in} restriction that removes
+whole treatment arms from a {cmd:teffects} fit is an error ({cmd:r(198)}): the
+predicted scores belong to the full-arm model. A single positional variable after
+{cmd:teffects}, {cmd:tmle}, or {cmd:ltmle} must name the fitted treatment; any other
+variable is an error rather than silently ignored. For {cmd:teffects}, {cmd:logit}, {cmd:probit}, and
 {cmd:mlogit}, diagnostics are computed on the estimation
 sample {cmd:e(sample)}: observations the fitted estimator excluded (by {cmd:if}/{cmd:in} or
 missing covariates) are dropped from every panel, and
@@ -75,9 +79,13 @@ treatment-weight variables are read from the iivw dataset contract. After
 {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied
 explicitly. In that setting, {cmd:psdash overlap ps} and {cmd:psdash overlap treatment ps}
 are both valid; the one-argument form treats the argument as the propensity
-score variable and uses the treatment from {cmd:e(depvar)}. After {cmd:mlogit} with a
+score variable and uses the treatment from {cmd:e(depvar)}, which must be coded 0/1 in
+the diagnostic sample (other codings are an error, {cmd:r(198)}). After {cmd:mlogit} with a
 multi-valued treatment, supply {opt psv:ars()} with K predicted probabilities (one
-per treatment level, ordered by level value).
+per treatment level, ordered by level value). An {cmd:mlogit} treatment coded 0/1 is
+reported as the binary design, exactly as the manual route reports it
+({cmd:r(multigroup)}=0). A positional {it:psvar} that is not one of the
+{opt psv:ars()} variables is an error.
 
 {pstd}
 For {cmd:balance} and {cmd:weights}, one positional argument together with
@@ -243,7 +251,15 @@ control: {opt reference(0)} is accepted, and {opt reference(1)} is an error ({cm
 treat level 1 as the reference, recode (e.g. {cmd:gen byte t = 1 - arm}) and use 1 -
 ps. After {cmd:teffects}, the estimand is auto-detected from {cmd:e(stat)} when not
 specified by the user; if {opt estimand()} is given explicitly, it is always
-respected regardless of {cmd:e(stat)}. {cmd:atc} is rejected with an error for a
+respected regardless of {cmd:e(stat)}. psdash's 0/1 formulas treat level 1 as
+treated, so after {cmd:teffects ..., control(1) atet} (level 0 treated) the detected
+estimand is {cmd:atc}, with a note. After {cmd:iivw_weight}, {cmd:msm_weight}, and
+{cmd:tte_weight}, the estimand is the producer's: an explicit {opt estimand()} that
+disagrees with it is an error ({cmd:r(198)}) whenever the producer's weight would be
+diagnosed (it is honoured with {opt wvar()}, and by the PS-only {cmd:overlap} and
+{cmd:support} panels after {cmd:iivw_weight}; after {cmd:msm_weight} every subcommand,
+including {cmd:detect} and {cmd:combined}, refuses it unless {opt wvar()} is given). {cmd:r(estimand)} is always returned
+in lower case. {cmd:atc} is rejected with an error for a
 multi-valued treatment (K>2) — see the {it:Multi-group ATC note} below.
 
 {pstd}
@@ -351,7 +367,8 @@ not specified, Stata's default bandwidth is used.
 {phang}
 {opt compact} replaces the detailed multi-group component density panels with
 one grouped box-plot region containing every GPS component. Its treatment-group
-legend uses one row. It has no effect for binary treatments.
+legend uses one row, wrapping to two rows when the arm labels are long. It
+has no effect for binary treatments.
 
 {pstd}
 For a multi-valued treatment, the overlap graph has one panel for each GPS
@@ -1137,7 +1154,7 @@ per-group results use the naming convention {cmd:r(N_group_{it:<level>})},
 reference group.
 
 {pstd}
-{bf:Estimation-sample note:} After {cmd:teffects}, every subcommand restricts its
+{bf:Estimation-sample note:} After {cmd:teffects}, every subcommand (including {cmd:detect}) restricts its
 diagnostic sample to {cmd:e(sample)} and additionally returns {cmd:r(n_estimation)}
 (observations in the estimation sample that were diagnosed) and {cmd:r(n_excluded)}
 (requested observations dropped because the fitted estimator did not use them).
@@ -1193,10 +1210,10 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(N_treated)}}treated observations{p_end}
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(max_smd_raw)}}maximum |SMD| before adjustment{p_end}
-{synopt:{cmd:r(max_smd_adj)}}maximum adjusted |SMD|, when weighted{p_end}
+{synopt:{cmd:r(max_smd_adj)}}maximum adjusted |SMD|, if weighted{p_end}
 {synopt:{cmd:r(max_vr_raw)}}most deviant raw variance ratio{p_end}
 {synopt:{cmd:r(max_vr_adj)}}most deviant adjusted variance ratio{p_end}
-{synopt:{cmd:r(max_ks_raw)}}maximum KS statistic (raw){p_end}
+{synopt:{cmd:r(max_ks_raw)}}maximum raw KS statistic{p_end}
 {synopt:{cmd:r(max_ks_adj)}}maximum adjusted KS statistic{p_end}
 {synopt:{cmd:r(n_imbalanced)}}covariates exceeding SMD threshold{p_end}
 {synopt:{cmd:r(n_vr_imbalanced)}}nonbinary covariates outside VR bounds{p_end}
@@ -1204,7 +1221,6 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(n_vr_imbalanced_adj)}}adjusted VR findings, when weighted{p_end}
 {synopt:{cmd:r(n_vr_contrasts_imbalanced)}}VR findings over contrasts, multi-group{p_end}
 {synopt:{cmd:r(n_binary_vr)}}binary covariates omitted from VR count{p_end}
-{synopt:{cmd:r(vr_na_vars)}}binary covariates excluded from VR{p_end}
 {synopt:{cmd:r(n_cov_incomplete)}}covariates with panel-sample missingness{p_end}
 {synopt:{cmd:r(n_cov_min)}}smallest N among covariate rows{p_end}
 {synopt:{cmd:r(threshold)}}threshold used{p_end}
@@ -1220,6 +1236,7 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(varlist)}}covariates assessed{p_end}
 {synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}
 {synopt:{cmd:r(cov_miss_vars)}}covariates with missing values, when any{p_end}
+{synopt:{cmd:r(vr_na_vars)}}binary covariates excluded from VR{p_end}
 {synopt:{cmd:r(source)}}detection source{p_end}
 {synopt:{cmd:r(warnings)}}finding labels{p_end}
 
@@ -1440,6 +1457,13 @@ cross-sectional weight is a temporary variable.
 {synopt:{cmd:r(multigroup)}}1 for multi-group treatment{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups (multi-group){p_end}
 {synopt:{cmd:r(longitudinal)}}1 for longitudinal contract state{p_end}
+{synopt:{cmd:r(n_estimation)}, {cmd:r(n_excluded)}}estimation-sample ledger{p_end}
+
+{pstd}
+{cmd:r(max_smd_raw)}, {cmd:r(max_smd_adj)}, {cmd:r(max_ks_raw)}, and
+{cmd:r(max_ks_adj)} are missing when no covariate has a defined value. {cmd:r(n_estimation)}
+and {cmd:r(n_excluded)} give the estimation-sample ledger after
+{cmd:teffects}/{cmd:logit}/{cmd:probit}/{cmd:mlogit} auto-detection.
 
 {pstd}
 {cmd:r(weight_role)} is the role of {cmd:r(wvar)} after msm: {cmd:analysis},
@@ -1450,7 +1474,7 @@ cross-sectional weight is a temporary variable.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.9.1, 2026-11-17{p_end}
+{pstd}Version 1.9.2, 2026-11-18{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

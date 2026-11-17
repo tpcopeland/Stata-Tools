@@ -91,7 +91,7 @@ capture noisily {
     assert r(nbad) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: all five help files render cleanly"
+    display as result "  PASS: all four help files render cleanly"
     local ++pass_count
 }
 else {

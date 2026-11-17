@@ -117,20 +117,20 @@ scheme in effect (or {cmd:set scheme}).
 {opt graphopt:ions(string)} passes additional graph options.
 
 {phang}
-{opt f:ormat(string)} sets the displayed numeric format.
+{opt f:ormat(string)} sets the displayed numeric format; default is {cmd:%6.3f}.
 
 {phang}
 {opt ti:tle(string)} sets the table or graph title.
 
 {phang}
-{opt name(string)} names the graph in memory.
+{opt name(string)} names the graph in memory; default is {cmd:psdash_balance}.
 
 {phang}
 {opt ks} displays Kolmogorov-Smirnov distances: raw and, when weights are
 applied, adjusted (weighted empirical CDF) columns.
 
 {phang}
-{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
+{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc} (case does not matter).
 
 {phang}
 {opt smdm:atrix(name)} names a matrix that receives SMD results. The matrix is
@@ -162,7 +162,8 @@ longer name is refused before any output ({cmd:r(198)}).
 {cmd:0.5 2.0}. Supply exactly two positive values in ascending order.
 
 {phang}
-{opt psv:ars(varlist)} supplies generalized propensity-score components.
+{opt psv:ars(varlist)} supplies generalized propensity-score components for a
+multi-group treatment. For a binary treatment it is ignored and a note says so.
 
 {marker examples}{...}
 {title:Examples}
@@ -182,7 +183,7 @@ longer name is refused before any output ({cmd:r(198)}).
 {synopt:{cmd:r(N_treated)}}treated observations{p_end}
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(max_smd_raw)}}maximum raw absolute SMD{p_end}
-{synopt:{cmd:r(max_smd_adj)}}maximum adjusted |SMD|, weighted{p_end}
+{synopt:{cmd:r(max_smd_adj)}}maximum adjusted |SMD| (weighted){p_end}
 {synopt:{cmd:r(max_vr_raw)}}most deviant raw variance ratio{p_end}
 {synopt:{cmd:r(max_vr_adj)}}most deviant adjusted VR, weighted{p_end}
 {synopt:{cmd:r(n_imbalanced)}}covariates above the SMD cutoff{p_end}
@@ -191,7 +192,7 @@ longer name is refused before any output ({cmd:r(198)}).
 {synopt:{cmd:r(n_vr_imbalanced_adj)}}adjusted VR findings, weighted{p_end}
 {synopt:{cmd:r(n_binary_vr)}}binary covariates excluded from VR{p_end}
 {synopt:{cmd:r(max_ks_raw)}}maximum raw KS distance{p_end}
-{synopt:{cmd:r(max_ks_adj)}}maximum adjusted KS, weighted{p_end}
+{synopt:{cmd:r(max_ks_adj)}}maximum adjusted KS (weighted){p_end}
 {synopt:{cmd:r(threshold)}}absolute-SMD cutoff used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}PS values exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}PS values near 0 or 1{p_end}
@@ -205,6 +206,11 @@ longer name is refused before any output ({cmd:r(198)}).
 {synopt:{cmd:r(n_warnings)}}machine-readable findings{p_end}
 {synopt:{cmd:r(n_excluded)}}observations excluded{p_end}
 {synopt:{cmd:r(n_estimation)}}estimation-sample observations assessed{p_end}
+
+{pstd}
+{cmd:r(max_smd_raw)}, {cmd:r(max_smd_adj)}, {cmd:r(max_ks_raw)}, and
+{cmd:r(max_ks_adj)} are missing when no covariate has a defined value.
+{p_end}
 
 {p2col 5 32 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable{p_end}

@@ -93,7 +93,7 @@
 {synopt:{opt recon:cile(spec)}}check rows, ids, totals against a file{p_end}
 {synopt:{opt constant(spec)}}require time-fixed values within a key{p_end}
 {synopt:{opt sets(spec)}}check matched-set structure{p_end}
-{synopt:{opt smallcells(spec)}}small-cell gate on a table or microdata{p_end}
+{synopt:{opt small:cells(spec)}}small-cell gate on a table or microdata{p_end}
 
 {syntab:Sanity bands}
 {synopt:{opt bands(gates)}}declare the call's sanity bands{p_end}
@@ -177,7 +177,8 @@ modifies the user's data.
 {phang}
 {opt sing:le(filename)} profiles a saved {opt .dta} file instead of the data in
 memory. The in-memory data is preserved and restored. The {opt .dta}
-extension is optional.
+extension is optional; a {it:filename} that ends in {opt .dta} is read as
+given, never as {it:filename}{cmd:.dta}.
 
 {phang}
 {opt conf:ig(filename)} reads reusable defaults from a text file containing
@@ -244,64 +245,56 @@ quartiles already shown for continuous variables.
 default is 20.
 
 {phang}
-{opt topv:alues(spec)} lists the most frequent levels of a variable and never
-prints the value of a rare one, in place of {cmd:tabulate} or {cmd:levelsof}
-on a text or code variable whose log may be shared. Each {cmd:\}-separated
-entry is {varlist} [{cmd:,} {opt mincell(#)} {opt max(#)} {opt id(varname)}],
-one block per variable under the heading {bf:TOP VALUES}. A level is a
-distinct value, and a missing value ({cmd:.}, {cmd:.a}, a blank string) is a
-level too, so the levels add up to the rows of the call's {cmd:if}/{cmd:in}
-sample. Levels are listed most frequent first, ties in value order, with
-their rows and percentage and, with {opt id()}, their distinct values of
-{it:varname} ({bf:ids}; a missing id counts as one value). A level is listed
-when it has at least {it:m} rows (and, with {opt id()}, at least {it:m} ids)
-and is among the first {opt max(#)} levels; {opt max()} defaults to
-{opt maxfreq()}. {it:m} is the entry's {opt mincell(#)}, otherwise the call's
-masking threshold ({opt mincell()} or the {cmd:dataqa set} default, then
-{opt rare()} under {opt maskrare}), otherwise 5; below 2 it is r(198).
-{opt topvalues()} masks at {it:m} whether or not {opt maskrare} is given.
-Under {opt maskrare}, and so under {opt safe} and {cmd:dataqa set agent},
-the call's masking threshold is a floor: an entry's {opt mincell()} below it
-is raised to it, with a note such as
-{bf:note: safe raises topvalues() mincell(2) to 5}
-({bf:maskrare raises} ... without {opt safe}), so an entry never lists a level
-the call's mask withholds. Without {opt maskrare} the entry's
-{opt mincell()} is used as given.
+{opt topv:alues(spec)} lists the most frequent levels of a variable and never prints
+the value of a rare one, in place of {cmd:tabulate} or {cmd:levelsof} on a text or code
+variable whose log may be shared. Each {cmd:\}-separated entry is {varlist} [{cmd:,} {opt mincell(#)}
+{opt max(#)} {opt id(varname)}], one block per variable under the heading {bf:TOP VALUES}. A
+level is a distinct value, and a missing value ({cmd:.}, {cmd:.a}, a blank string) is a
+level too, so the levels add up to the rows of the call's {cmd:if}/{cmd:in} sample. Levels
+are listed most frequent first, ties in value order, with their rows and
+percentage and, with {opt id()}, their distinct values of {it:varname} ({bf:ids}; a missing id
+counts as one value). A level is listed when it has at least {it:m} rows (and, with
+{opt id()}, at least {it:m} ids) and is among the first {opt max(#)} levels; {opt max()} defaults to
+{opt maxfreq()}. {it:m} is the entry's {opt mincell(#)}, otherwise the call's masking threshold
+({opt mincell()} or the {cmd:dataqa set} default, then {opt rare()} under {opt maskrare}), otherwise
+5; below 2 it is r(198). {opt topvalues()} masks at {it:m} whether or not {opt maskrare} is
+given. Under {opt maskrare}, and so under {opt safe} and {cmd:dataqa set agent}, the call's
+masking threshold is a floor: an entry's {opt mincell()} below it is raised to it,
+with a note such as {bf:note: safe raises topvalues() mincell(2) to 5}
+({bf:maskrare raises} ... without {opt safe}), so an entry never lists a level the call's
+mask withholds. Without {opt maskrare} the entry's {opt mincell()} is used as given.
 
 {pmore}
-Every other level is pooled in one line, {bf:[}{it:k} {bf:levels suppressed]},
-with the pooled rows (and ids); the value of a pooled level is never printed,
-and the levels past {opt max()} are pooled with the rare ones. The pool
-follows the rule of the {opt maskrare} frequency tables: a pool holding a
-level below {it:m} needs two levels and {it:m} rows, else the smallest listed
-level joins it. With {opt id()} the smallest listed level also joins while
-the pool has 1 to {it:m}-1 ids. When every level is pooled and the pool is
-still 1 to {it:m}-1 rows or ids, its counts and the total are withheld
-together ({bf:[suppressed]}), since the total minus the listed counts would
-give them back. {it:k} prints only when the pool has at least 2{it:k} rows
-and more than {it:k} ids: every pooled level holds a row or more, so fewer
-than 2{it:k} rows in {it:k} levels would say that some pooled level is a
-single row. The number of levels prints only when {it:k} prints or nothing is
-pooled. The total ids print
+Every other level is pooled in one line, {bf:[}{it:k} {bf:levels suppressed]}, with the
+pooled rows (and ids); the value of a pooled level is never printed, and the
+levels past {opt max()} are pooled with the rare ones. The pool follows the rule of
+the {opt maskrare} frequency tables: a pool holding a level below {it:m} needs two levels
+and {it:m} rows, else the smallest listed level joins it. With {opt id()} the smallest
+listed level also joins while the pool has 1 to {it:m}-1 ids. When every level is
+pooled and the pool is still 1 to {it:m}-1 rows or ids, its counts and the total
+are withheld together ({bf:[suppressed]}), since the total minus the listed counts
+would give them back. {it:k} prints only when the pool has at least 2{it:k} rows and
+more than {it:k} ids: every pooled level holds a row or more, so fewer than 2{it:k} rows
+in {it:k} levels would say that some pooled level is a single row. The number of
+levels prints only when {it:k} prints or nothing is pooled. The total ids print
 only when the total minus each listed level's ids, and minus the pool's, is 0
 or at least {it:m}, as persons can hold several levels and ids need not add
-up. These pooling rules for the remainder are datamap's own: Hundepool et al.
-(2026, sec. 4.3.3 and 5.3) recommend grouping rare categories as table
+up. These pooling rules for the remainder are datamap's own: Hundepool et
+al. (2026, sec. 4.3.3 and 5.3) recommend grouping rare categories as table
 redesign, and the pooled line is a cell that must itself pass the threshold
 (sec. 4.2.1).
 
 {pmore}
-With no {it:varlist} the call profiles nothing else, as under
-{opt gatesonly}, so the view never comes with an unmasked profile of every
-variable; give a {it:varlist} for the profile as well. Declared gates run as
-usual; {opt topvalues()} itself records no gate and writes no ledger row, and
-it ignores {opt by()}. The values of a variable in {opt exclude()} (under
-{opt safe}, the likely identifiers) are not listed (r(198)), and under
-{opt safe} neither are those of a date-formatted variable or of text holding
-a digit. A numeric level prints in its display format with its value label,
-a blank string as {bf:(blank)}, and quotes, braces, dollar signs, backticks
-and control characters print as the literal characters ({cmd:\n}, {cmd:\t}).
-{cmd:r(topvalues)} holds what was printed.
+With no {it:varlist} the call profiles nothing else, as under {opt gatesonly}, so the
+view never comes with an unmasked profile of every variable; give a {it:varlist}
+for the profile as well. Declared gates run as usual; {opt topvalues()} itself
+records no gate and writes no ledger row, and it ignores {opt by()}. The values of a
+variable in {opt exclude()} (under {opt safe}, the likely identifiers) are not listed
+(r(198)), and under {opt safe} neither are those of a date-formatted variable or of
+text holding a digit. A numeric level prints in its display format with its
+value label, a blank string as {bf:(blank)}, and quotes, braces, dollar signs,
+backticks and control characters print as the literal characters ({cmd:\n},
+{cmd:\t}). {cmd:r(topvalues)} holds what was printed.
 
 {phang}
 {opt rare(#)} flags categorical levels whose count falls below {it:#}.
@@ -346,7 +339,8 @@ variables first; a categorical variable adds its five most frequent levels
 (a level held by one row, or by fewer than the mask, is not listed); text
 whose values are all distinct reads {bf:all distinct, maxlen} {it:#}. The
 stored results are those of the full profile. {opt brief} cannot be combined
-with {opt gatesonly}, {opt patterns}, or {opt byfreq}.
+with {opt gatesonly}, {opt patterns}, or {opt byfreq}, and {opt brief} with
+{opt topvalues()} and no {it:varlist} is r(198).
 
 {phang}
 {opt out:liers(#)} flags continuous values lying more than {it:#} interquartile
@@ -412,24 +406,23 @@ values.
 
 {phang}
 {opt inrange(spec)} asserts that variables fall within declared ranges. Each
-{cmd:\}-separated entry is {it:var} [{it:var ...}] {it:lo hi}: every token but
-the last two is a variable, so one bound pair can cover several variables, as
-in {cmd:inrange(dob entry exit td(01jan1900) td(31dec2025) \ age 18 110)}. Bounds
-may be numbers, date literals such as {cmd:td(01jan2010)}, or date
-strings such as {cmd:01jan2010} or {cmd:2010-01-01}, read in the variable's own
-date unit; for a date variable a date string is never evaluated as
-arithmetic, and a bound naming a variable is an error. A bound written {cmd:.} is open: {cmd:inrange(exit_date . td(31dec2025))}
-has no lower bound. Missing values are
-never outside a range. Bounds are compared at full double precision, so a
-{opt makespec()} spec passes {opt checks()} on the data it was written from.
-A failing entry with both bounds also prints how many of the rows outside lie
-below {it:lo} and how many above {it:hi}, as in
-{cmd:13 obs outside [15, 30] (8 below, 5 above)}, so one entry replaces two
-half-open {opt rule()} gates. Each side is masked as the count is; beside a
-masked or withheld count a side prints only {cmd:0} or {cmd:<}{it:m}, and when
-one side is masked the other is withheld, since the count minus the shown side
-would give it back. {cmd:r(inrange_n_below)} and {cmd:r(inrange_n_above)} hold
-the sides summed over every entry and {opt by()} group.
+{cmd:\}-separated entry is {it:var} [{it:var ...}] {it:lo hi}: every token but the last two is a
+variable, so one bound pair can cover several variables, as in
+{cmd:inrange(dob entry exit td(01jan1900) td(31dec2025) \ age 18 110)}. Bounds may
+be numbers, date literals such as {cmd:td(01jan2010)}, or date strings such as
+{cmd:01jan2010} or {cmd:2010-01-01}, read in the variable's own date unit; for a date
+variable a date string is never evaluated as arithmetic, and a bound naming a
+variable is an error. A bound written {cmd:.} is
+open: {cmd:inrange(exit_date . td(31dec2025))} has no lower bound. Missing values
+are never outside a range. Bounds are compared at full double precision, so a
+{opt makespec()} spec passes {opt checks()} on the data it was written from. A failing
+entry with both bounds also prints how many of the rows outside lie below {it:lo}
+and how many above {it:hi}, as in {cmd:13 obs outside [15, 30] (8 below, 5 above)}, so
+one entry replaces two half-open {opt rule()} gates. Each side is masked as the
+count is; beside a masked or withheld count a side prints only {cmd:0} or {cmd:<}{it:m}, and
+when one side is masked the other is withheld, since the count minus the shown
+side would give it back. {cmd:r(inrange_n_below)} and {cmd:r(inrange_n_above)} hold the
+sides summed over every entry and {opt by()} group.
 
 {phang}
 {opt all:owed(spec)} asserts that variables contain only declared values. The
@@ -447,11 +440,11 @@ values. Missing values are not checked by {opt allowed()}, {opt forbid()}, or
 
 {phang}
 {opt regex(spec)} asserts that string variables match regular expressions. Each
-{cmd:\}-separated entry is {it:var pattern}. A pattern cannot contain a
-backslash, because {cmd:\} separates entries: write {cmd:[.]} for a literal
-period rather than {cmd:\.}, as in {cmd:regex(x ^-?[0-9][.][0-9]+$)}. A numeric variable is matched on
-its value as text: an integer in full ({cmd:1234567890}, not {cmd:1.23e+09}),
-other values in {cmd:%16.0g} ({cmd:%9.0g} for a float).
+{cmd:\}-separated entry is {it:var pattern}. A pattern cannot contain a backslash,
+because {cmd:\} separates entries: write {cmd:[.]} for a literal period rather than {cmd:\.}, as
+in {cmd:regex(x ^-?[0-9][.][0-9]+$)}. A numeric variable is matched on its value as
+text: an integer in full ({cmd:1234567890}, not {cmd:1.23e+09}), other values in {cmd:%16.0g}
+({cmd:%9.0g} for a float).
 
 {phang}
 {opt notv:alues(spec)} asserts that variables do not contain sentinel or
@@ -461,21 +454,20 @@ placeholder values such as {cmd:-9}, {cmd:999}, or {cmd:"UNKNOWN"}.
 {opt rule(spec)} asserts row-level rules. Each {cmd:\}-separated entry is
 {it:label}{cmd::} {it:expression}, for example
 {cmd:rule("timeline": dob < dx_date & dx_date <= entry \ "entry_exit": entry < exit)}. A
-rule holds for a row where the expression is true under Stata's {cmd:if}
-semantics, so add {cmd:!missing()} terms where missing values matter. Rules are
-evaluated once, on the {cmd:if}/{cmd:in} subset, in the data's current sort
-order and before {cmd:dataprobe} sorts anything, so subscripted expressions
-such as {cmd:id != id[_n-1] | start >= stop[_n-1]} see the rows as arranged; sort
-the data first, or use {opt intervals()}, which sorts its own copy. An
-expression cannot contain a backslash. An expression that cannot be evaluated
-is an error, not a violation. When an expression uses a subscript, {cmd:_n} or
-{cmd:_N} and the data had no sort order at entry ({cmd:: sortedby} was empty),
-or were sorted by none of the variables it subscripts, {cmd:dataprobe} prints a
-note naming the rule and pointing to {opt byrule()}; the note never changes a
-verdict. {opt review()} gets the same note. As in {opt byrule()}, the expression
-reaches Stata exactly as written: a {cmd:$} or backtick inside it, such as
-{cmd:s != "a$b"} given through a compound-quoted local, is never expanded. A
-{opt rule()} or {opt review()} label cannot hold {cmd:$} (r(198)).
+rule holds for a row where the expression is true under Stata's {cmd:if} semantics,
+so add {cmd:!missing()} terms where missing values matter. Rules are evaluated once,
+on the {cmd:if}/{cmd:in} subset, in the data's current sort order and before {cmd:dataprobe}
+sorts anything, so subscripted expressions such as
+{cmd:id != id[_n-1] | start >= stop[_n-1]} see the rows as arranged; sort the data
+first, or use {opt intervals()}, which sorts its own copy. An expression cannot
+contain a backslash. An expression that cannot be evaluated is an error, not a
+violation. When an expression uses a subscript, {cmd:_n} or {cmd:_N} and the data had no
+sort order at entry ({cmd:: sortedby} was empty), or were sorted by none of the
+variables it subscripts, {cmd:dataprobe} prints a note naming the rule and pointing
+to {opt byrule()}; the note never changes a verdict. {opt review()} gets the same note. As
+in {opt byrule()}, the expression reaches Stata exactly as written: a {cmd:$} or backtick
+inside it, such as {cmd:s != "a$b"} given through a compound-quoted local, is never
+expanded. A {opt rule()} or {opt review()} label cannot hold {cmd:$} (r(198)).
 
 {phang}
 {opt byrule(spec)} asserts row-level rules under Stata's own
@@ -506,40 +498,34 @@ a compound-quoted local, is never expanded. The {it:byspec} and the label cannot
 hold {cmd:$} (r(198)).
 
 {pmore}
-{bf:Group aggregates.} The expression may state a rule per group with
-{cmd:total(}{it:exp}{cmd:)}, the sum of {it:exp} over the group's rows;
-{cmd:mean(}{it:exp}{cmd:)}; {cmd:gmin(}{it:exp}{cmd:)} and
-{cmd:gmax(}{it:exp}{cmd:)}, its smallest and largest value;
-{cmd:spread(}{it:exp}{cmd:)}, {cmd:gmax()} minus {cmd:gmin()}; and
-{cmd:count(}{it:exp}{cmd:)}, the number of the group's rows where {it:exp} is
-nonmissing ({cmd:count(1)} is the group's size). Each is taken over the
-in-scope rows of the {it:byvars} group (all the rows without {it:byvars}) and
-holds the same value on every row of the group: {cmd:byrule(id: "wsum": abs(total(w) - 1) <= 1e-6)}
-asserts that the weights of each {cmd:id} sum to one, and
-{cmd:byrule(id: "flat": spread(height) <= 2)} that each person's heights lie
-within 2 units. They mix with row terms, {cmd:byrule(id (t): "first": _n > 1 | t == gmin(t))}.
-{cmd:min()} and {cmd:max()} keep their meaning as Stata's row functions, and
-none of the six names is a Stata function, so no expression that ran before
-reads differently. {it:exp} follows the missing-value rule of a {opt stat()}
-expression: a row where a variable it names is missing is left out of the
-aggregate, and {cmd:missing()}, missing literals, {cmd:_n}, {cmd:_N},
+{bf:Group aggregates.} The expression may state a rule per group with {cmd:total(}{it:exp}{cmd:)},
+the sum of {it:exp} over the group's rows; {cmd:mean(}{it:exp}{cmd:)}; {cmd:gmin(}{it:exp}{cmd:)} and
+{cmd:gmax(}{it:exp}{cmd:)}, its smallest and largest value; {cmd:spread(}{it:exp}{cmd:)}, {cmd:gmax()} minus
+{cmd:gmin()}; and {cmd:count(}{it:exp}{cmd:)}, the number of the group's rows where {it:exp} is nonmissing
+({cmd:count(1)} is the group's size). Each is taken over the in-scope rows of the
+{it:byvars} group (all the rows without {it:byvars}) and holds the same value on every
+row of the group: {cmd:byrule(id: "wsum": abs(total(w) - 1) <= 1e-6)} asserts that
+the weights of each {cmd:id} sum to one, and {cmd:byrule(id: "flat": spread(height) <= 2)}
+that each person's heights lie within 2 units. They mix with row terms,
+{cmd:byrule(id (t): "first": _n > 1 | t == gmin(t))}. {cmd:min()} and {cmd:max()} keep their
+meaning as Stata's row functions, and none of the six names is a Stata
+function, so no expression that ran before reads differently. {it:exp} follows the
+missing-value rule of a {opt stat()} expression: a row where a variable it names is
+missing is left out of the aggregate, and {cmd:missing()}, missing literals, {cmd:_n}, {cmd:_N},
 subscripts, and an aggregate inside another are errors (r(198)). A group with
-no nonmissing value of {it:exp} has no {cmd:total()}, {cmd:mean()},
-{cmd:gmin()}, {cmd:gmax()}, or {cmd:spread()} (not 0), and fails the rule
-whatever the comparison, since a missing value would satisfy
-{cmd:total(w) > 0.5}; {cmd:count()} is 0 for it.
-{p_end}
+no nonmissing value of {it:exp} has no {cmd:total()}, {cmd:mean()}, {cmd:gmin()}, {cmd:gmax()}, or {cmd:spread()}
+(not 0), and fails the rule whatever the comparison, since a missing value
+would satisfy {cmd:total(w) > 0.5}; {cmd:count()} is 0 for it. {p_end}
 
 {pmore}
 {bf:Precision.} An aggregate is computed in double precision from the stored
-values, and {cmd:==} compares exactly. Float weights that sum to one on paper
-rarely sum to exactly 1 (ten float weights of 0.1 total 1.0000000149), so
+values, and {cmd:==} compares exactly. Float weights that sum to one on paper rarely
+sum to exactly 1 (ten float weights of 0.1 total 1.0000000149), so
 {cmd:total(w) == 1} fails for them; state the tolerance,
 {cmd:abs(total(w) - 1) <= 1e-6}. Storing a weight as a float changes it by at most
 6e-8 of its value, so the total of float weights whose exact values sum to one
-is within 6e-8 of 1 however many there are, and 1e-6 leaves room to spare;
-weights held as doubles meet 1e-12.
-{p_end}
+is within 6e-8 of 1 however many there are, and 1e-6 leaves room to
+spare; weights held as doubles meet 1e-12. {p_end}
 
 {pmore}
 A rule with an aggregate is reported by its failing groups, not rows: a group
@@ -556,78 +542,70 @@ every gate: no data rows and no group.
 
 {phang}
 {opt stat(spec)} asserts that a statistic falls within a declared inclusive
-band. Each {cmd:\}-separated entry is {it:statistic var lo hi} [{cmd:if} {it:exp}]
-or {cmd:ratio} {it:num den lo hi} [{cmd:if} {it:exp}]. The statistics are
-{cmd:mean}, {cmd:sd}, {cmd:median}, and the percentiles {help summarize:summarize, detail}
-reports, {cmd:p1} {cmd:p5} {cmd:p10} {cmd:p25} {cmd:p50} {cmd:p75} {cmd:p90} {cmd:p95} {cmd:p99}
-(no other percentile, such as {cmd:p2} or {cmd:p37}, is accepted); {cmd:sum}; {cmd:n}, the nonmissing count; {cmd:distinct},
-the number of distinct nonmissing values; {cmd:pmiss}, the
-share missing over all rows in scope; {cmd:ess}, the Kish effective sample size
-(sum w)^2/sum(w^2) of a weight variable (Kish 1965); and {cmd:ratio}, sum
-{it:num} / sum {it:den} over rows where both are nonmissing. The optional
-{cmd:if} {it:exp} restricts that entry only and combines with the call's own
-{cmd:if}: {cmd:stat(sum _d 412 412 \ ratio ev py 0.018 0.025 if at_risk)}. Commas
-are read as spaces in the band, before the {cmd:if}, so a band stored as
-{it:lo, hi} can be reused. A statistic with no value in scope (a mean of no
-observations, {cmd:pmiss} of no rows) is a violation; {cmd:sum}, {cmd:n}, and
-{cmd:distinct} of no rows are 0. An upper bound written {cmd:.} is open, for a
-date as for any other variable; a lower bound of {cmd:.} is an error (r(198)). A
-percentile of a float variable is compared
-with the bounds at float precision, but a mean, sd, or sum is compared
-exactly, in double precision: a float variable holding 0.2 in every row has
-mean 0.20000000298 and fails {cmd:stat(mean x 0 0.2)}. Set such a band a
-little wider than float resolution, as in {cmd:stat(mean x 0 0.2000001)}. Band
-bounds are compared at full double precision. Without the mask, a failing mean
-or percentile of a date variable whose date does not show it exactly (a
-fraction of a day, milliseconds under a {cmd:%tc} format that shows seconds)
-prints its value at full precision with the date beside it,
-{cmd:874.5125 (24may1962)} ({cmd:%21.0g} for a {cmd:%tc} value), since the date
-alone can read as the bound it failed; under {opt maskrare} it prints at month
-precision. A failing {opt inrange()} on a date prints its minimum and maximum
-the same way.
+band. Each {cmd:\}-separated entry is {it:statistic var lo hi} [{cmd:if} {it:exp}] or {cmd:ratio}
+{it:num den lo hi} [{cmd:if} {it:exp}]. The statistics are {cmd:mean}, {cmd:sd}, {cmd:median}, and the
+percentiles {help summarize:summarize, detail} reports, {cmd:p1} {cmd:p5} {cmd:p10} {cmd:p25} {cmd:p50} {cmd:p75}
+{cmd:p90} {cmd:p95} {cmd:p99} (no other percentile, such as {cmd:p2} or {cmd:p37}, is accepted); {cmd:sum}; {cmd:n}, the
+nonmissing count; {cmd:distinct}, the number of distinct nonmissing values; {cmd:pmiss},
+the share missing over all rows in scope; {cmd:ess}, the Kish effective sample size
+(sum w)^2/sum(w^2) of a weight variable (Kish 1965), whose weights must be
+nonnegative (a negative weight in scope is r(459)); and {cmd:ratio}, sum {it:num} / sum
+{it:den} over rows where both are nonmissing. The optional {cmd:if} {it:exp} restricts that
+entry only and combines with the call's own
+{cmd:if}: {cmd:stat(sum _d 412 412 \ ratio ev py 0.018 0.025 if at_risk)}. Commas are read
+as spaces in the band, before the {cmd:if}, so a band stored as {it:lo, hi} can be
+reused. A statistic with no value in scope (a mean of no observations, {cmd:pmiss}
+of no rows) is a violation; {cmd:sum}, {cmd:n}, and {cmd:distinct} of no rows are 0. An upper
+bound written {cmd:.} is open, for a date as for any other variable; a lower bound
+of {cmd:.} is an error (r(198)). A percentile of a float variable is compared with
+the bounds at float precision, but a mean, sd, or sum is compared exactly, in
+double precision: a float variable holding 0.2 in every row has mean
+0.20000000298 and fails {cmd:stat(mean x 0 0.2)}. Set such a band a little wider
+than float resolution, as in {cmd:stat(mean x 0 0.2000001)}. Band bounds are
+compared at full double precision. Without the mask, a failing mean or
+percentile of a date variable whose date does not show it exactly (a fraction
+of a day, milliseconds under a {cmd:%tc} format that shows seconds) prints its value
+at full precision with the date beside it, {cmd:874.5125 (24may1962)} ({cmd:%21.0g} for a
+{cmd:%tc} value), since the date alone can read as the bound it failed; under
+{opt maskrare} it prints at month precision. A failing {opt inrange()} on a date prints
+its minimum and maximum the same way.
 
 {pmore}
-Where {opt stat()} expects a variable ({it:var}, or {it:num} and {it:den} of
-{cmd:ratio}), a parenthesised expression may stand instead:
-{cmd:stat(mean (dx == 1) 0.10 0.30)} asserts that the share of rows with
-{cmd:dx} equal to 1 lies in [0.10, 0.30], and
-{cmd:stat(sum (age >= 18 & sex == "F") 100 . \ ratio (los * w) w 2 9)} uses one
-in a count and a ratio. A variable slot that begins with {cmd:(} is an
-expression and runs to its matching {cmd:)} (a parenthesis inside a
-{cmd:"}{it:...}{cmd:"} string does not count), so it may hold commas, spaces and
-{cmd:if}; a variable name never begins with {cmd:(}, so no existing entry reads
-differently. The expression is evaluated on the call's {cmd:if}/{cmd:in} rows
-into a double variable that exists only inside {cmd:dataprobe}, and the output,
-{opt ledger()} label and variable, and {opt violations()} name it by its text,
-printed as typed (no macro, quote, or SMCL character in it is interpreted).
-{p_end}
+Where {opt stat()} expects a variable ({it:var}, or {it:num} and {it:den} of {cmd:ratio}), a
+parenthesised expression may stand instead: {cmd:stat(mean (dx == 1) 0.10 0.30)}
+asserts that the share of rows with {cmd:dx} equal to 1 lies in [0.10, 0.30], and
+{cmd:stat(sum (age >= 18 & sex == "F") 100 . \ ratio (los * w) w 2 9)} uses one in a
+count and a ratio. A variable slot that begins with {cmd:(} is an expression and
+runs to its matching {cmd:)} (a parenthesis inside a {cmd:"}{it:...}{cmd:"} string does not count),
+so it may hold commas, spaces and {cmd:if}; a variable name never begins with {cmd:(}, so
+no existing entry reads differently. The expression is evaluated on the call's
+{cmd:if}/{cmd:in} rows into a double variable that exists only inside {cmd:dataprobe}, and the
+output, {opt ledger()} label and variable, and {opt violations()} name it by its text,
+printed as typed (no macro, quote, or SMCL character in it is interpreted). {p_end}
 
 {pmore}
-{bf:Missing values.} Stata evaluates {cmd:(x > 5)} as 1 and {cmd:(x == 1)} as 0
-when {cmd:x} is missing, because a missing value is larger than any number;
-{opt stat()} does not. The expression is missing on every row where a variable
-it names is missing ({cmd:""} for a string variable), whatever the expression
-would give, so {cmd:mean (dx == 1)} is the share among the rows whose
-{cmd:dx} is known, {cmd:sum (dx == 1)} counts known ones, {cmd:n} counts the
-rows whose variables are all known, and {cmd:pmiss} the share where one is
-missing. To count missing values as 0 or 1, generate the variable yourself. Since
-that rule leaves nothing for them to test, an expression that uses
-{cmd:missing()} or {cmd:mi()}, a missing literal ({cmd:.}, {cmd:.a}-{cmd:.z}),
-{cmd:_n}, {cmd:_N}, or a subscript is an error (r(198)), as is an unclosed
-{cmd:(}; a string-valued expression is r(109). Masking, the date display, and
-the band follow the statistic as for a variable (a {cmd:mean} of a 0/1
-expression is shown only when at least {it:m} rows hold each value, its counts
-of ones and zeros); {opt exclude()} of any variable the expression names
-withholds the value as for that variable, and under {opt safe} the mean or a
-percentile of an expression that names a date variable is withheld as a
-date's is. With {opt by()} and {opt maskrare}, a per-group count of an
-expression whose rows are exactly a level of a profiled variable (a
-{cmd:sum} of a 0/1 expression such as {cmd:(flag == 1)}) or exactly a profiled
-variable's missing rows ({cmd:n} and {cmd:pmiss}, as of {cmd:(x + 0)}) is
-withheld in the same groups as that variable's own count, so
-{cmd:stat(sum (flag == 1) ...)} prints what {cmd:stat(sum flag ...)} prints
-and neither gives back a masked group by subtraction from the pooled
-frequency table.
+{bf:Missing values.} Stata evaluates {cmd:(x > 5)} as 1 and {cmd:(x == 1)} as 0 when {cmd:x} is
+missing, because a missing value is larger than any number; {opt stat()} does
+not. The expression is missing on every row where a variable it names is
+missing ({cmd:""} for a string variable), whatever the expression would give, so
+{cmd:mean (dx == 1)} is the share among the rows whose {cmd:dx} is known, {cmd:sum (dx == 1)}
+counts known ones, {cmd:n} counts the rows whose variables are all known, and {cmd:pmiss}
+the share where one is missing. To count missing values as 0 or 1, generate
+the variable yourself. Since that rule leaves nothing for them to test, an
+expression that uses {cmd:missing()} or {cmd:mi()}, a missing literal ({cmd:.}, {cmd:.a}-{cmd:.z}), {cmd:_n}, {cmd:_N},
+or a subscript is an error (r(198)), as is an unclosed {cmd:(}; a string-valued
+expression is r(109). Masking, the date display, and the band follow the
+statistic as for a variable (a {cmd:mean} of a 0/1 expression is shown only when at
+least {it:m} rows hold each value, its counts of ones and zeros); {opt exclude()} of any
+variable the expression names withholds the value as for that variable, and
+under {opt safe} the mean or a percentile of an expression that names a date
+variable is withheld as a date's is. With {opt by()} and {opt maskrare}, a per-group count
+of an expression whose rows are exactly a level of a profiled variable (a {cmd:sum}
+of a 0/1 expression such as {cmd:(flag == 1)}) or exactly a profiled variable's
+missing rows ({cmd:n} and {cmd:pmiss}, as of {cmd:(x + 0)}) is withheld in the same groups as
+that variable's own count, so {cmd:stat(sum (flag == 1) ...)} prints what
+{cmd:stat(sum flag ...)} prints and neither gives back a masked group by subtraction
+from the pooled frequency table.
 
 {phang}
 {opt bin:ary(varlist)} asserts that each variable is a 0/1 flag: every
@@ -649,20 +627,17 @@ nonmissing level in scope fails. The message names the
 level and its value label: {cmd:events(_d): mstype = 3 (SPMS) has 0 events}.
 
 {phang}
-{opt intervals(spec)} checks an interval file. Each {cmd:\}-separated entry is
-{it:id} [{it:id ...}] {it:start stop} [{cmd:,} {cmd:contiguous}
-{cmd:event(}{it:varname}{cmd:)} {cmd:tol(}{it:#}{cmd:)}]. The checks are named
-separately: {bf:intervals(missing)} (id, start, and stop nonmissing; such rows
-are left out of the other interval checks),
-{bf:intervals(order)} (start < stop), {bf:intervals(overlap)} (within id,
-sorted by start, start >= the latest earlier stop - tol), {bf:intervals(gap)} (with
-{cmd:contiguous}, no start after the latest earlier stop + tol), and
-{bf:intervals(event_last)} (with {cmd:event()}, the event is nonzero only on
-the id's last interval). {cmd:dataprobe} sorts its own copy, so the user's sort
-order does not matter. {cmd:tol()} defaults to 0; use it for time scales in
-days divided by 30.4375 or 365.25. Omit {cmd:event()} for a recurrent outcome. {opt intervals()}
-runs once on the {cmd:if}/{cmd:in} sample, ignoring
-{opt by()}.
+{opt intervals(spec)} checks an interval file. Each {cmd:\}-separated entry is {it:id} [{it:id ...}]
+{it:start stop} [{cmd:,} {cmd:contiguous} {cmd:event(}{it:varname}{cmd:)} {cmd:tol(}{it:#}{cmd:)}]. The checks are named
+separately: {bf:intervals(missing)} (id, start, and stop nonmissing; such rows are
+left out of the other interval checks), {bf:intervals(order)} (start < stop),
+{bf:intervals(overlap)} (within id, sorted by start, start >= the latest earlier
+stop - tol), {bf:intervals(gap)} (with {cmd:contiguous}, no start after the latest
+earlier stop + tol), and {bf:intervals(event_last)} (with {cmd:event()}, the event is
+nonzero only on the id's last interval). {cmd:dataprobe} sorts its own copy, so the
+user's sort order does not matter. {cmd:tol()} defaults to 0; use it for time scales
+in days divided by 30.4375 or 365.25. Omit {cmd:event()} for a recurrent
+outcome. {opt intervals()} runs once on the {cmd:if}/{cmd:in} sample, ignoring {opt by()}.
 
 {phang}
 {opt keyset(spec)} asserts that the distinct keys in memory match those of a
@@ -670,58 +645,53 @@ saved dataset. Each {cmd:\}-separated entry is {it:varlist} {cmd:using}
 {it:filename} [{cmd:,} {cmd:equal}|{cmd:subset}|{cmd:superset}]. With
 {cmd:subset}, every key in memory exists in the file; with {cmd:superset},
 every key in the file exists in memory; {cmd:equal} (the default) requires
-both. Equal counts with different members, such as one person lost and another
+both. A {it:filename} that ends in {opt .dta} is read as given, and one without
+it as {it:filename} or {it:filename}{cmd:.dta}; a missing file is r(601). Equal
+counts with different members, such as one person lost and another
 gained after a merge on the wrong key, fail. {opt keyset()} ignores
 {opt by()}. Before the verdict, {opt keyset()} prints a preflight report; see
 {help dataprobe##keyset:Keyset preflight}.
 
 {pmore}
-For a link by key and date, an entry may add {cmd:asof(}{it:mdate udate}{cmd:)}
-(the latest file row of the key dated on or before {it:mdate}) or
-{cmd:window(}{it:mstart mend udate}{cmd:)} (the file rows of the key dated in
-[{it:mstart}, {it:mend}], what {helpb joinby} followed by {cmd:keep if} would
-leave): {it:mdate}, {it:mstart} and {it:mend} are numeric variables in memory,
+For a link by key and date, an entry may add {cmd:asof(}{it:mdate udate}{cmd:)} (the latest
+file row of the key dated on or before {it:mdate}) or {cmd:window(}{it:mstart mend udate}{cmd:)}
+(the file rows of the key dated in [{it:mstart}, {it:mend}], what {helpb joinby} followed by
+{cmd:keep if} would leave): {it:mdate}, {it:mstart} and {it:mend} are numeric variables in memory,
 {it:udate} a numeric variable in the file. The entry then reports, per row in
-memory, how many file rows link (none, one, more), and nothing is joined;
-see {help dataprobe##kwindow:Date linkage}. {cmd:maxlag(}{it:#}{cmd:)} (with
-{cmd:asof()}) counts the rows whose latest file date is more than {it:#}
-before {it:mdate}. The diagnostic is a review item unless a threshold, a share
-from 0 to 1 of the rows in memory, makes it a gate: {cmd:maxnone(}{it:#}{cmd:)}
-(rows with no link), {cmd:maxmulti(}{it:#}{cmd:)} (rows with more than one),
-and with {cmd:asof()} {cmd:maxties(}{it:#}{cmd:)} (rows whose latest file date
-holds more than one file row, so the as-of pick is arbitrary) and
-{cmd:maxstale(}{it:#}{cmd:)} (rows older than {cmd:maxlag()}). With
-{cmd:asof()} or {cmd:window()} the key-set verdict runs only when
-{cmd:equal}, {cmd:subset} or {cmd:superset} is named:
-{cmd:keyset(id using labs, asof(index labdate) maxlag(365) maxties(0))}.
+memory, how many file rows link (none, one, more), and nothing is joined; see
+{help dataprobe##kwindow:Date linkage}. {cmd:maxlag(}{it:#}{cmd:)} (with {cmd:asof()}) counts the rows whose latest file
+date is more than {it:#} before {it:mdate}. The diagnostic is a review item unless a
+threshold, a share from 0 to 1 of the rows in memory, makes it a
+gate: {cmd:maxnone(}{it:#}{cmd:)} (rows with no link), {cmd:maxmulti(}{it:#}{cmd:)} (rows with more than one),
+and with {cmd:asof()} {cmd:maxties(}{it:#}{cmd:)} (rows whose latest file date holds more than one
+file row, so the as-of pick is arbitrary) and {cmd:maxstale(}{it:#}{cmd:)} (rows older than
+{cmd:maxlag()}). With {cmd:asof()} or {cmd:window()} the key-set verdict runs only when {cmd:equal},
+{cmd:subset} or {cmd:superset} is
+named: {cmd:keyset(id using labs, asof(index labdate) maxlag(365) maxties(0))}.
 
 {phang}
-{opt recon:cile(spec)} compares the working sample with a saved checkpoint
-{cmd:.dta}, so that rows, persons and totals are conserved across a step
-without {cmd:count} into a local or {cmd:collapse} and {cmd:merge}. Each
-{cmd:\}-separated entry is {it:filename} [{cmd:,} {cmd:n}
-{cmd:ids(}{it:varname}{cmd:)} {cmd:sum(}{it:varlist}{cmd:)}
-{cmd:by(}{it:varlist}{cmd:)} {cmd:expect(eq}|{cmd:le}|{cmd:ge)}
-{cmd:tol(}{it:#}{cmd:)}]. {cmd:n} compares the row counts (the default when
-neither {cmd:ids()} nor {cmd:sum()} is given), {cmd:ids()} the distinct
-nonmissing values of an id, {cmd:sum()} the total of each variable (a missing
-value adds nothing). {cmd:expect()} is the relation memory must have to the
-file: {cmd:eq} (the default), {cmd:le} (memory at most the file, as after
-exclusions) or {cmd:ge}. Counts compare exactly; a total compares within
-{cmd:tol()} times the file's absolute total (default 1e-9, for the order of
-floating-point addition). With {cmd:by()} the same comparison runs in every
+{opt recon:cile(spec)} compares the working sample with a saved checkpoint {cmd:.dta}, so
+that rows, persons and totals are conserved across a step without {cmd:count} into a
+local or {cmd:collapse} and {cmd:merge}. Each {cmd:\}-separated entry is {it:filename} [{cmd:,} {cmd:n}
+{cmd:ids(}{it:varname}{cmd:)} {cmd:sum(}{it:varlist}{cmd:)} {cmd:by(}{it:varlist}{cmd:)}
+{cmd:expect(eq}|{cmd:le}|{cmd:ge)} {cmd:tol(}{it:#}{cmd:)}]. {cmd:n} compares the row counts (the default when neither
+{cmd:ids()} nor {cmd:sum()} is given), {cmd:ids()} the distinct nonmissing values of an id,
+{cmd:sum()} the total of each variable (a missing value adds nothing). {cmd:expect()} is
+the relation memory must have to the file: {cmd:eq} (the default), {cmd:le} (memory at
+most the file, as after exclusions) or {cmd:ge}. Counts compare exactly; a total
+compares within {cmd:tol()} times the file's absolute total (default 1e-9, for the
+order of floating-point addition). With {cmd:by()} the same comparison runs in every
 group too, a group present on one side only counting zero on the other; the
 groups that fail print by their value labels. The file is read with a varlist
-(the {cmd:ids()}, {cmd:sum()} and {cmd:by()} variables only; with {cmd:n}
-alone only its header) into a temporary frame, from whatever frame is
-current, and the data in memory are not changed. A missing file is r(601), a
-variable missing from the file r(111), a {cmd:sum()} variable that is a string
-in the file r(109), and a {cmd:by()} variable that is a string on one side
-only, or a {cmd:strL}, r(106). Each measure is a gate record, and with
-{cmd:by()} one more per measure, failed when any group fails.
-{opt reconcile()} ignores {opt by()} (the option of {cmd:dataprobe}), runs on
-the {cmd:if}/{cmd:in} sample, and under {opt maskrare} masks as described in
-{help dataprobe##masking:Masking}.
+(the {cmd:ids()}, {cmd:sum()} and {cmd:by()} variables only; with {cmd:n} alone only its header) into
+a temporary frame, from whatever frame is current, and the data in memory are
+not changed. A {it:filename} that ends in {opt .dta} is read as given, and one
+without it as {it:filename} or {it:filename}{cmd:.dta}. A missing file is r(601), a variable missing from the file
+r(111), a {cmd:sum()} variable that is a string in the file r(109), and a {cmd:by()}
+variable that is a string on one side only, or a {cmd:strL}, r(106). Each measure is
+a gate record, and with {cmd:by()} one more per measure, failed when any group
+fails. {opt reconcile()} ignores {opt by()} (the option of {cmd:dataprobe}), runs on the {cmd:if}/{cmd:in}
+sample, and under {opt maskrare} masks as described in {help dataprobe##masking:Masking}.
 
 {phang}
 {opt constant(spec)} asserts that variables take one value within each key. Each
@@ -765,17 +735,15 @@ as {cmd:rule("x": ... | suppressed)} does, while {cmd:if suppressed != 1}
 keeps it in.
 
 {pmore}
-{it:m} is the threshold the call resolves for masking: {opt mincell(#)}
-when given or set by {cmd:dataqa set mincell(#)}; under {opt maskrare}
-otherwise {opt rare(#)}, otherwise 5. With none of these the gate stops with
-{cmd:r(198)} and asks for {opt mincell()}, because {opt mincell()} has no
-default. A threshold below 2, from {opt mincell()}, {opt rare()} under {opt maskrare},
-or the session default, stops the gate with {cmd:r(198)}: a check on counts in 1..0 tests
-nothing. The threshold used is in the gate line and in the ledger's
-{cmd:expected} column, {bf:no released count in 1..4 (m=5)}. A small positive
-count is a primary suppression in tabtools {cmd:smallcells(}{it:#}{cmd:)} as
-well, and zero is not, so a table written by tabtools with the same
-{it:#} passes this gate.
+{it:m} is the threshold the call resolves for masking: {opt mincell(#)} when given or set
+by {cmd:dataqa set mincell(#)}; under {opt maskrare} otherwise {opt rare(#)}, otherwise 5. With
+none of these the gate stops with {cmd:r(198)} and asks for {opt mincell()}, because
+{opt mincell()} has no default. A threshold below 2, from {opt mincell()}, {opt rare()} under
+{opt maskrare}, or the session default, stops the gate with {cmd:r(198)}: a check on
+counts in 1..0 tests nothing. The threshold used is in the gate line and in
+the ledger's {cmd:expected} column, {bf:no released count in 1..4 (m=5)}. A small
+positive count is a primary suppression in tabtools {cmd:smallcells(}{it:#}{cmd:)} as well, and
+zero is not, so a table written by tabtools with the same {it:#} passes this gate.
 
 {pmore}
 {opt smallcells()} is always an invariant, never a band, and fails with exit 9. The
@@ -789,35 +757,32 @@ the call's {opt by()} (an entry's own {cmd:by()}, below, sets its strata),
 and {opt makespec()} does not write it.
 
 {pmore}
-{it:Microdata audit.} An entry may end in suboptions:
-{it:countexp} [{it:countexp} ...] [{cmd:if} {it:exp}]{cmd:,}
-[{opt id(varname)} {opt by(varlist)} {opt margins}[{cmd:(strata}|{cmd:conditions)}]].
-Any of them makes the entry an audit of the rows in memory, before a table is
-made, rather than of a results table. Each {it:countexp} is then a
-condition, 0 or 1 on every row in scope, such as {cmd:dx==1}; a count column,
-or a flag with missing values, is r(459) and is never counted. A cell is the
-rows in scope where its condition is 1, within each {cmd:by()} stratum. A
-cell fails when its rows are 1 to {it:m}-1, and with {opt id()} also when its
-distinct values of {it:varname} are (a missing id counts as one value),
-checked in the same pass. The handbook's minimum frequency rule counts a
-frequency table's contributors, respondents rather than records (Hundepool
-et al. 2026, sec. 4.2.1 and 5.1); checking the rows as well is datamap's
-own, conservative choice. {cmd:by()} sets the strata, one per distinct value
-(or combination) of {it:varlist} with a missing value a stratum of its own (the numbering of
-{cmd:egen group(}{it:varlist}{cmd:), missing}; a strL works), independent of
+{it:Microdata audit.} An entry may end in suboptions: {it:countexp} [{it:countexp} ...] [{cmd:if}
+{it:exp}]{cmd:,} [{opt id(varname)} {opt by(varlist)} {opt margins}[{cmd:(strata}|{cmd:conditions)}]]. Any of them
+makes the entry an audit of the rows in memory, before a table is made, rather
+than of a results table. Each {it:countexp} is then a condition, 0 or 1 on every
+row in scope, such as {cmd:dx==1}; a count column, or a flag with missing values, is
+r(459) and is never counted. A cell is the rows in scope where its condition
+is 1, within each {cmd:by()} stratum. A cell fails when its rows are 1 to {it:m}-1, and
+with {opt id()} also when its distinct values of {it:varname} are (a missing id counts as
+one value), checked in the same pass. The handbook's minimum frequency rule
+counts a frequency table's contributors, respondents rather than records
+(Hundepool et al. 2026, sec. 4.2.1 and 5.1); checking the rows as well is
+datamap's own, conservative choice. {cmd:by()} sets the strata, one per distinct
+value (or combination) of {it:varlist} with a missing value a stratum of its own
+(the numbering of {cmd:egen group(}{it:varlist}{cmd:), missing}; a strL works), independent of
 the call's {opt by()}. Without {cmd:by()} the whole scope is one stratum.
 
 {pmore}
 The gate line names each failing cell, up to eight, by its condition and
 stratum, never by a count, as in
-{bf:2 cells fail, rep78==1 in foreign=0 (rows), rep78==3 in foreign=1 (rows, ids)}.
-A stratum is written as a {opt by()} group is ({it:var}{cmd:=}{it:value}, a
-string in square brackets with {cmd:\x}{it:HH} escapes). Under {opt maskrare}
-a stratum whose rows or ids in scope are 1 to {it:m}-1, and every stratum
-when a {cmd:by()} variable is in {opt exclude()}, is named by its number
-({bf:group 3}). Under {opt safe} a {cmd:by()} variable that is an identifier,
-a date, or text holding a digit is refused (r(198)). The number of failing
-cells obeys the mask as every gate count does.
+{bf:2 cells fail, rep78==1 in foreign=0 (rows), rep78==3 in foreign=1 (rows, ids)}. A
+stratum is written as a {opt by()} group is ({it:var}{cmd:=}{it:value}, a string in square brackets
+with {cmd:\x}{it:HH} escapes). Under {opt maskrare} a stratum whose rows or ids in scope are 1
+to {it:m}-1, and every stratum when a {cmd:by()} variable is in {opt exclude()}, is named by
+its number ({bf:group 3}). Under {opt safe} a {cmd:by()} variable that is an identifier, a
+date, or text holding a digit is refused (r(198)). The number of failing cells
+obeys the mask as every gate count does.
 
 {pmore}
 {opt margins} adds the margins audit, a second record labelled
@@ -834,38 +799,36 @@ applies:
 
 {phang2}o  {bf:single}: one small cell; the total minus the shown cells gives
 it back (sec. 4.1, Example 1a, and sec. 4.2.2).{p_end}
-{phang2}o  {bf:singletons}: two small cells, each a single unit (one id with
-{opt id()}, else one row); each can subtract itself from the total (sec.
-4.3.2, protection rule PS2).{p_end}
+{phang2}o {bf:singletons}: two small cells, each a single unit (one id with {opt id()}, else one
+row); each can subtract itself from the total (sec. 4.3.2, protection rule
+PS2).{p_end}
 {phang2}o  {bf:smallsum}: small cells whose sum, which the total gives back,
 is 1 to {it:m}-1 in rows or ids (datamap's own rule).{p_end}
 {phang2}o  {bf:pinned}: small cells whose sum is their number, or their number
 times {it:m}-1; with each known to lie in 1 to {it:m}-1, as {bf:<}{it:m}
 says, every one is fixed (datamap's own rule: the feasibility interval of
 sec. 4.2.2 closed to a point).{p_end}
-{phang2}o  {bf:narrowed}: small cells whose sum {it:S}, with each known to lie
-in 1 to {it:m}-1, leaves every one a range narrower than that, from the
-larger of 1 and {it:S}-({it:k}-1)({it:m}-1) to the smaller of {it:m}-1 and
-{it:S}-({it:k}-1) for {it:k} small cells; with {it:m}=10, cells of 9 and 8
-rows beside a total that gives back 17 are each 8 or 9 (datamap's own rule:
-the feasibility interval of sec. 4.2.2 tighter than {bf:<}{it:m}).{p_end}
+{phang2}o {bf:narrowed}: small cells whose sum {it:S}, with each known to lie in 1 to {it:m}-1,
+leaves every one a range narrower than that, from the larger of 1 and
+{it:S}-({it:k}-1)({it:m}-1) to the smaller of {it:m}-1 and {it:S}-({it:k}-1) for {it:k} small cells; with {it:m}=10,
+cells of 9 and 8 rows beside a total that gives back 17 are each 8 or 9
+(datamap's own rule: the feasibility interval of sec. 4.2.2 tighter than {bf:<}{it:m}).{p_end}
 
 {pmore}
 The record names up to eight exposed margins by stratum or condition, as in
-{bf:foreign=0: smallsum (rep78==1, rep78==5); rep78==3: single (foreign=1)},
-and fails the gate (exit 9). Under {opt maskrare} (and {opt safe}) every
-pattern but {bf:single} is named {bf:exposed}, as in
-{bf:g=0: exposed (dx==1, dy==1)}: {bf:singletons} would say that each hidden
-cell is 1, {bf:pinned} that each is fixed, and {bf:smallsum} and
-{bf:narrowed} what their total or range is, which the message and the record
-never carry; {bf:single} says only that one cell of the margin is small, which
-the floor record says already. Without the mask the specific name is
-printed. It is an audit: it does not mask or rewrite a
-table. Each margin is checked on its own, as the minimum standard PS1
-considers the table equations separately (sec. 4.3.2); the joint system of a
-table's margins, and tables linked across outputs, are not checked.
-{cmd:margins(strata)} needs two or more conditions, {cmd:margins(conditions)}
-needs {cmd:by()}, and {opt margins} needs one of them (r(198) otherwise).
+{bf:foreign=0: smallsum (rep78==1, rep78==5); rep78==3: single (foreign=1)}, and
+fails the gate (exit 9). Under {opt maskrare} (and {opt safe}) every pattern but {bf:single} is
+named {bf:exposed}, as in {bf:g=0: exposed (dx==1, dy==1)}: {bf:singletons} would say that
+each hidden cell is 1, {bf:pinned} that each is fixed, and {bf:smallsum} and {bf:narrowed}
+what their total or range is, which the message and the record never
+carry; {bf:single} says only that one cell of the margin is small, which the floor
+record says already. Without the mask the specific name is printed. It is an
+audit: it does not mask or rewrite a table. Each margin is checked on its own,
+as the minimum standard PS1 considers the table equations separately
+(sec. 4.3.2); the joint system of a table's margins, and tables linked across
+outputs, are not checked. {cmd:margins(strata)} needs two or more conditions,
+{cmd:margins(conditions)} needs {cmd:by()}, and {opt margins} needs one of them (r(198)
+otherwise).
 
 {dlgtab:Sanity bands}
 
@@ -937,22 +900,21 @@ date outside the window is printed. {cmd:r(coverage_outside_low)} and
 {cmd:unit()}), so a partial sum is never returned.
 
 {pmore}
-{cmd:dropoff(}{it:#}{cmd:)}, with 0 < {it:#} <= 100, adds the check
-{bf:coverage(dropoff)}: it fails each calendar year whose dates inside [{it:lo},
-{it:hi}] number fewer than {it:#}% of the median of the up to 5 complete years
-immediately before it, which catches a register whose recent years thin out
-(reporting lag, a coding change) while every year still has rows. A year is
-complete when [{it:lo}, {it:hi}] holds all of it. Every year with at least 3
-complete years before it is tested, through the year of {it:hi}; bounds that
-leave no such year are r(198). A partial final year ({it:hi} before 31
-December) is prorated: its threshold is multiplied by the share of that year's
-days inside the window, and {cmd:expected} names those days. {cmd:gap()} is not
+{cmd:dropoff(}{it:#}{cmd:)}, with 0 < {it:#} <= 100, adds the check {bf:coverage(dropoff)}: it fails each
+calendar year whose dates inside [{it:lo}, {it:hi}] number fewer than {it:#}% of the median
+of the up to 5 complete years immediately before it, which catches a register
+whose recent years thin out (reporting lag, a coding change) while every year
+still has rows. A year is complete when [{it:lo}, {it:hi}] holds all of it. Every year
+with at least 3 complete years before it is tested, through the year of
+{it:hi}; bounds that leave no such year are r(198). A partial final year ({it:hi} before
+31 December) is prorated: its threshold is multiplied by the share of that
+year's days inside the window, and {cmd:expected} names those days. {cmd:gap()} is not
 applied, so a threshold below 100 leaves room for the delivery lag. A count at
-exactly {it:#}% passes. A year whose reference median is 0 (no rows in the
-years before it, as when a register starts after {it:lo}) has no threshold: it
-is not tested, and the row names it as {cmd:not tested (reference median 0)};
-the check fails when no year is tested. The row names the years that fall
-short, never a count; under {opt exclude()} it gives only how many.
+exactly {it:#}% passes. A year whose reference median is 0 (no rows in the years
+before it, as when a register starts after {it:lo}) has no threshold: it is not
+tested, and the row names it as {cmd:not tested (reference median 0)}; the check
+fails when no year is tested. The row names the years that fall short, never a
+count; under {opt exclude()} it gives only how many.
 
 {pmore}
 {cmd:unit()} declares the unit the values are in, so a variable without a
@@ -996,10 +958,10 @@ not: a file that ends two years early still lies inside the window.
 {dlgtab:Review items}
 
 {phang}
-{opt review(spec)} prints, for each {cmd:\}-separated entry
-{it:label}{cmd::} {it:expression}, the number and share of rows in scope
-where the expression is true, masked under {opt maskrare}. It is evaluated,
-like {opt rule()}, before any sort. {cmd:review("day0": outcome == 1 & outcome_dt - entry < 1)}.
+{opt review(spec)} prints, for each {cmd:\}-separated entry {it:label}{cmd::} {it:expression}, the number
+and share of rows in scope where the expression is true, masked under
+{opt maskrare}. It is evaluated, like {opt rule()}, before any
+sort. {cmd:review("day0": outcome == 1 & outcome_dt - entry < 1)}.
 
 {phang}
 {opt heaping(spec)} prints, for each daily date in {it:datevarlist}
@@ -1018,122 +980,117 @@ share prints as {bf:[masked]} when the 1sts of the other months number 1 to
 
 {phang}
 {opt groupstat(spec)} prints a statistic by group next to its pooled value. Each
-{cmd:\}-separated entry is {it:statistic varlist}{cmd:,}
-{cmd:by(}{it:groupvars}{cmd:)} [{cmd:min(}{it:#}{cmd:)} {cmd:band(}{it:lo hi}{cmd:)}
-{cmd:relative}] [{cmd:if} {it:exp}], with the statistics of {opt stat()} other
-than {cmd:ratio}. A row whose {it:groupvars} value is missing belongs to no
-group and is left out of the groups and of the pooled value, so the pooled
-value always describes the rows of the groups. Groups with fewer than {cmd:min()} rows (default: the mask
-threshold, or 1 without masking) are pooled into one line. Under masking, an
-explicit {cmd:min()} below the mask can list a group of 1 to {it:m}-1 rows;
-its cells are masked and it is named by its number ({cmd:group 3}), never by
-its value, which would be a rare level. With {cmd:band()},
-every group's statistic must lie in [lo, hi], including a group pooled away
-under the mask, which fails as {cmd:[suppressed]}; only an explicit
-{cmd:min()} leaves the groups below it out of the band. As in {opt stat()}, a
-mean of a float variable is compared with the band exactly, so a group whose
-float values are all 0.2 fails {cmd:band(0 0.2)}; set the band a little wider
-than float resolution. With {cmd:relative}, the
-band applies to the ratio of the group's statistic to the pooled statistic, as
-in the laboratory unit-switch check
-{cmd:groupstat(median bcell, by(lab_site year) band(0.05 20) relative)}; the
-table then prints each group's ratio, the value the band tests, and the pooled
-row stays raw. Under the mask a withheld pooled value withholds the ratios as
-well, and a withheld cell reads {bf:[suppr.]}. When the pooled statistic is 0
-or undefined, the ratio is undefined for every group: the band fails once with
-"ratio to pooled undefined" and the pooled value, whatever the groups hold. {cmd:pmiss}
-comes from the same computation as
-{help datamvp:datamvp, bytable()}. A band entry whose scope has no rows, or
-whose {cmd:min()} leaves every group out, fails. {opt groupstat()} ignores
-{opt by()}.
+{cmd:\}-separated entry is {it:statistic varlist}{cmd:,} {cmd:by(}{it:groupvars}{cmd:)} [{cmd:min(}{it:#}{cmd:)}
+{cmd:band(}{it:lo hi}{cmd:)} {cmd:relative}] [{cmd:if} {it:exp}], with the statistics of {opt stat()} other than
+{cmd:ratio}. An {cmd:ess} with a negative weight in scope is r(459), as in
+{opt stat()}. A row whose {it:groupvars} value is missing belongs to no group and is left
+out of the groups and of the pooled value, so the pooled value always
+describes the rows of the groups. Groups with fewer than {cmd:min()} rows
+(default: the mask threshold, or 1 without masking) are pooled into one
+line. Under masking, an explicit {cmd:min()} below the mask can list a group of 1 to
+{it:m}-1 rows; its cells are masked and it is named by its number ({cmd:group 3}), never
+by its value, which would be a rare level. With {cmd:band()}, every group's
+statistic must lie in [lo, hi], including a group pooled away under the mask,
+which fails as {cmd:[suppressed]}; only an explicit {cmd:min()} leaves the groups below it
+out of the band. As in {opt stat()}, a mean of a float variable is compared with the
+band exactly, so a group whose float values are all 0.2 fails {cmd:band(0 0.2)}; set
+the band a little wider than float resolution. With {cmd:relative}, the band applies
+to the ratio of the group's statistic to the pooled statistic, as in the
+laboratory unit-switch check
+{cmd:groupstat(median bcell, by(lab_site year) band(0.05 20) relative)}; the table
+then prints each group's ratio, the value the band tests, and the pooled row
+stays raw. Under the mask a withheld pooled value withholds the ratios as
+well, and a withheld cell reads {bf:[suppr.]}. When the pooled statistic is 0 or
+undefined, the ratio is undefined for every group: the band fails once with
+"ratio to pooled undefined" and the pooled value, whatever the groups
+hold. {cmd:pmiss} comes from the same computation as {help datamvp:datamvp, bytable()}. A band
+entry whose scope has no rows, or whose {cmd:min()} leaves every group out,
+fails. {opt groupstat()} ignores {opt by()}.
 
 {pmore}
-When a band fails, every failing group still has its own row, and each failing message and
-ledger {cmd:observed} text also reports the direction: the groups above the band and the groups
-below it, each with its count of groups and of in-scope rows, for example
-{cmd:3 groups above (rows 1,240), 1 group below (rows <5)}. Under {opt maskrare} the row counts
-follow the rule for small counts ({bf:<}{it:m}, or {bf:all but <}{it:m} when the rest would
-recover a small cell), both counts print {bf:[suppressed]} when the rows that pass the band
-are a small cell, and a group count that would pin masked rows is masked with them. A direction
-that holds a group with fewer than the mask of rows, or a group withheld from the table, also
-prints its rows as {bf:[suppressed]}, because the total of two such groups would give back their
+When a band fails, every failing group still has its own row, and each failing
+message and ledger {cmd:observed} text also reports the direction: the groups above
+the band and the groups below it, each with its count of groups and of
+in-scope rows, for example
+{cmd:3 groups above (rows 1,240), 1 group below (rows <5)}. Under {opt maskrare} the row
+counts follow the rule for small counts ({bf:<}{it:m}, or {bf:all but <}{it:m} when the rest would
+recover a small cell), both counts print {bf:[suppressed]} when the rows that pass
+the band are a small cell, and a group count that would pin masked rows is
+masked with them. A direction that holds a group with fewer than the mask of
+rows, or a group withheld from the table, also prints its rows as
+{bf:[suppressed]}, because the total of two such groups would give back their
 sizes; a direction whose groups all reach the mask keeps its rows. A group
-whose value is undefined is reported as undefined. A passing band and an entry without a band
-read as before.
+whose value is undefined is reported as undefined. A passing band and an entry
+without a band read as before.
 
 {pmore}
-Under {opt maskrare}, a count cell ({cmd:n}, {cmd:sum}, {cmd:distinct}) reads
-{bf:[suppr.]} when the group's rows, or its nonmissing rows, minus the count
-is between 1 and {it:m}-1, and {bf:<}{it:m} when the count itself is in that
-range. A {cmd:sum} cell also reads {bf:[suppr.]} when the group's nonmissing
-rows, its nonzero rows, or, for a variable with two values in the group, the
-rows of either value number 1 to {it:m}-1: a sum is a value of its rows. An
-{cmd:n} cell is withheld as well when N minus the shown {cmd:n} cells is 1 to
-{it:m}-1, since that difference is the rows of the pooled-away groups and the
-masked cells; N is the call's N, which the output always prints or records
-(the profile header, a PASS line, a {opt review()} or {opt complete()} item,
-the ledger's {cmd:n_scope}), and the cells' own total over the entry's rows
-(its {cmd:if}, a nonmissing {cmd:by()} value), whose count another item may
-print. The same holds for the rows of the groups not shown exactly minus that
-difference (a group printed with a small complement), and in a profile for
-the profiled variable's nonmissing count and, for the {cmd:sum} of a 0/1
-categorical variable, its count of ones. The smallest shown cell (for the
-complement, the cell with the smallest complement) then reads {bf:[suppr.]}. A
-{cmd:pmiss} cell is masked when the group's missing or nonmissing
-count is 1 to {it:m}-1. An {cmd:sd} cell is masked when the group has fewer
-than {it:m} nonmissing rows or, for a variable with two or three values in the group,
-fewer than {it:m} rows of any value; an {cmd:ess} cell when the group's
-nonzero or zero weights number 1 to {it:m}-1. Two cells of one group can give
-back a count neither shows: a {cmd:sum} and a {cmd:mean} of one variable give
-its nonmissing count ({cmd:sum}/{cmd:mean}), an {cmd:n} and a {cmd:pmiss} its
-rows and missing count. When the call prints the {cmd:mean} of a variable over
-the same groups (the same {cmd:by()} and {cmd:if}: this entry, another
-{opt groupstat()} entry, or {opt stat()} with the call's {opt by()}), its
-{cmd:sum} cell reads {bf:[suppr.]} in every group where its {cmd:n} cell would
-be withheld by the rules above (a {cmd:sum} of 0 stays); when the call prints
-its {cmd:n} over the same groups, so does its {cmd:pmiss} cell, which is also
-withheld in the group with the fewest rows while the rows of the groups whose
-{cmd:pmiss} shows fall 1 to {it:m}-1 short of the entry's rows or of N. The
-{cmd:mean} and the {cmd:n} stay. Statistics over another {cmd:by()} or
-{cmd:if}, and a {opt stat()} expression set against a variable, are not
-linked. The pooled value, {cmd:pmiss} included, is withheld
-when any group cell is masked. The pooled row holds every group's rows
-whatever the {cmd:by()}, and the {cmd:sum} cells of any entry over the same
-{cmd:if} add up to its pooled {cmd:sum}: when the call prints a {cmd:sum} of a
-variable (any {opt groupstat()} entry over the same {cmd:if}, or {opt stat()}),
-the pooled {cmd:mean} of that variable reads {bf:[suppr.]} whenever its pooled
-{cmd:n} would be withheld by the rules above (a pooled {cmd:mean} of 0 stays),
-so {cmd:sum}/{cmd:mean} never gives back the pooled nonmissing count. A failing group that the table withholds is
-named by its number ({cmd:group #3}), never its values. The mean or a
+Under {opt maskrare}, a count cell ({cmd:n}, {cmd:sum}, {cmd:distinct}) reads {bf:[suppr.]} when the
+group's rows, or its nonmissing rows, minus the count is between 1 and {it:m}-1,
+and {bf:<}{it:m} when the count itself is in that range. A {cmd:sum} cell also reads {bf:[suppr.]}
+when the group's nonmissing rows, its nonzero rows, or, for a variable with
+two values in the group, the rows of either value number 1 to {it:m}-1: a sum is a
+value of its rows. An {cmd:n} cell is withheld as well when N minus the shown {cmd:n}
+cells is 1 to {it:m}-1, since that difference is the rows of the pooled-away groups
+and the masked cells; N is the call's N, which the output always prints or
+records (the profile header, a PASS line, a {opt review()} or {opt complete()} item, the
+ledger's {cmd:n_scope}), and the cells' own total over the entry's rows (its {cmd:if}, a
+nonmissing {cmd:by()} value), whose count another item may print. The same holds for
+the rows of the groups not shown exactly minus that difference (a group
+printed with a small complement), and in a profile for the profiled variable's
+nonmissing count and, for the {cmd:sum} of a 0/1 categorical variable, its count of
+ones. The smallest shown cell (for the complement, the cell with the smallest
+complement) then reads {bf:[suppr.]}. A {cmd:pmiss} cell is masked when the group's
+missing or nonmissing count is 1 to {it:m}-1. An {cmd:sd} cell is masked when the group
+has fewer than {it:m} nonmissing rows or, for a variable with two or three values
+in the group, fewer than {it:m} rows of any value; an {cmd:ess} cell when the group's
+nonzero or zero weights number 1 to {it:m}-1. Two cells of one group can give back
+a count neither shows: a {cmd:sum} and a {cmd:mean} of one variable give its nonmissing
+count ({cmd:sum}/{cmd:mean}), an {cmd:n} and a {cmd:pmiss} its rows and missing count. When the call
+prints the {cmd:mean} of a variable over the same groups (the same {cmd:by()} and {cmd:if}: this
+entry, another {opt groupstat()} entry, or {opt stat()} with the call's {opt by()}), its {cmd:sum}
+cell reads {bf:[suppr.]} in every group where its {cmd:n} cell would be withheld by the
+rules above (a {cmd:sum} of 0 stays); when the call prints its {cmd:n} over the same
+groups, so does its {cmd:pmiss} cell, which is also withheld in the group with the
+fewest rows while the rows of the groups whose {cmd:pmiss} shows fall 1 to {it:m}-1 short
+of the entry's rows or of N. The {cmd:mean} and the {cmd:n} stay. Statistics over another
+{cmd:by()} or {cmd:if}, and a {opt stat()} expression set against a variable, are not
+linked. The pooled value, {cmd:pmiss} included, is withheld when any group cell is
+masked. The pooled row holds every group's rows whatever the {cmd:by()}, and the {cmd:sum}
+cells of any entry over the same {cmd:if} add up to its pooled {cmd:sum}: when the call
+prints a {cmd:sum} of a variable (any {opt groupstat()} entry over the same {cmd:if}, or
+{opt stat()}), the pooled {cmd:mean} of that variable reads {bf:[suppr.]} whenever its pooled {cmd:n}
+would be withheld by the rules above (a pooled {cmd:mean} of 0 stays), so {cmd:sum}/{cmd:mean}
+never gives back the pooled nonmissing count. A failing group that the table
+withholds is named by its number ({cmd:group #3}), never its values. The mean or a
 percentile of a date prints as a date, at month precision under the mask, as
-the pooled value does; a date format wider than the column prints as a
-{cmd:%td} date. Every cell fits its column, and a withheld pooled value reads
-{bf:[suppr.]}. Without the mask, a failing band on a date prints a value its
-date does not show exactly at full precision with the date beside it,
-{cmd:1865.5 (08feb1965)} ({cmd:%21.0g} for {cmd:%tc}), so a value just outside
-the band never reads as the bound.
+the pooled value does; a date format wider than the column prints as a {cmd:%td}
+date. Every cell fits its column, and a withheld pooled value reads
+{bf:[suppr.]}. Without the mask, a failing band on a date prints a value its date
+does not show exactly at full precision with the date beside it,
+{cmd:1865.5 (08feb1965)} ({cmd:%21.0g} for {cmd:%tc}), so a value just outside the band never
+reads as the bound.
 
 {pmore}
-A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::} {it:var}{cmd:, by(}{it:groupvars}{cmd:)}
-[{cmd:min(}{it:#}{cmd:)}] [{cmd:if} {it:exp}]{cmd:)},
-prints one table with a column per statistic, for example
-{cmd:groupstat(n mean p1 median p99: ipw, by(arm))}. Any number of statistics
-may be listed: a table holds six columns, and the statistics after the sixth
-continue in further blocks of up to six columns below it, each with its own
-column header, group rows, and pooled row, so every line fits 80 columns; the
+A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic}
+...{cmd::} {it:var}{cmd:, by(}{it:groupvars}{cmd:)} [{cmd:min(}{it:#}{cmd:)}] [{cmd:if} {it:exp}]{cmd:)}, prints one
+table with a column per statistic, for example
+{cmd:groupstat(n mean p1 median p99: ipw, by(arm))}. Any number of statistics may be
+listed: a table holds six columns, and the statistics after the sixth continue
+in further blocks of up to six columns below it, each with its own column
+header, group rows, and pooled row, so every line fits 80 columns; the
 small-group line follows the last block. Several variables print one table
 each, in the order given, as in
-{cmd:groupstat(n mean sd p5 p25 median p75 p95: ipw bmi, by(arm))}. Each
-statistic is computed once for all the variables and recorded exactly as its
-own single-statistic entry would be, so {cmd:ledger()} gets one row per
-statistic and variable, labelled {it:statistic var}, and {cmd:checks()} rows
-stay one statistic each. Masking follows the rules above cell by cell, and
-{cmd:min()} and the entry's {cmd:if} apply to every column. {cmd:band()} and
-{cmd:relative} are declared per statistic, so an entry with two or more
-statistics takes neither and is a review item; write a separate entry for each
-banded statistic. A statistic named twice ({cmd:median} and {cmd:p50} are the
-same), a variable named twice, or an unknown statistic is an error (r(198)). The
-colon form with one statistic, and the form without a colon, behave as before.
+{cmd:groupstat(n mean sd p5 p25 median p75 p95: ipw bmi, by(arm))}. Each statistic
+is computed once for all the variables and recorded exactly as its own
+single-statistic entry would be, so {cmd:ledger()} gets one row per statistic and
+variable, labelled {it:statistic var}, and {cmd:checks()} rows stay one statistic
+each. Masking follows the rules above cell by cell, and {cmd:min()} and the entry's
+{cmd:if} apply to every column. {cmd:band()} and {cmd:relative} are declared per statistic, so
+an entry with two or more statistics takes neither and is a review item; write
+a separate entry for each banded statistic. A statistic named twice ({cmd:median}
+and {cmd:p50} are the same), a variable named twice, or an unknown statistic is an
+error (r(198)). The colon form with one statistic, and the form without a
+colon, behave as before.
 
 {phang}
 {opt complete(spec)} prints the masked complete-case count and share over
@@ -1153,18 +1110,18 @@ the data; the message then counts the persons with such ties.
 
 {phang}
 {opt by(varlist)} evaluates gates within groups defined by {it:varlist} and adds a
-groupwise completeness and missingness profile. A group is labelled by its values
-(a numeric variable by its value label if it has one); a blank string is shown as
-{cmd:(blank)} and a numeric missing as its code ({cmd:.}, {cmd:.a}). The gate messages
-and the ledger {cmd:grp} column name the group by its stored values,
-{cmd:by(site year | site=3 year=2015)}: the variables, then {it:var}{cmd:=}{it:value}
-for each, never a value label or a group number. A string is written in square
-brackets ({cmd:site=[abc]}, a blank string {cmd:[]}), with a backslash, double quote,
-apostrophe, backtick, dollar sign, square bracket or brace, and tab, line feed and
-carriage return, written as
-{cmd:\x}{it:HH} (two lowercase hex digits), so a value holding spaces, {cmd:=},
-{cmd:|} or quotes cannot be mistaken for a separator. A group withheld under
-{opt maskrare} is named by its number ({cmd:by(site group 7)}), not its values. {opt intervals()},
+groupwise completeness and missingness profile. A group is labelled by its
+values (a numeric variable by its value label if it has one); a blank string
+is shown as {cmd:(blank)} and a numeric missing as its code ({cmd:.}, {cmd:.a}). The gate
+messages and the ledger {cmd:grp} column name the group by its stored values,
+{cmd:by(site year | site=3 year=2015)}: the variables, then {it:var}{cmd:=}{it:value} for each,
+never a value label or a group number. A string is written in square brackets
+({cmd:site=[abc]}, a blank string {cmd:[]}), with a backslash, double quote, apostrophe,
+backtick, dollar sign, square bracket or brace, and tab, line feed and
+carriage return, written as {cmd:\x}{it:HH} (two lowercase hex digits), so a value
+holding spaces, {cmd:=}, {cmd:|} or quotes cannot be mistaken for a separator. A group
+withheld under {opt maskrare} is named by its number ({cmd:by(site group 7)}), not its
+values. {opt intervals()},
 
 {opt keyset()}, {opt constant()}, {opt sets()}, {opt smallcells()}, {opt coverage()},
 {opt heaping()}, {opt groupstat()}, and {opt jumps()} ignore {opt by()} and run
@@ -1174,17 +1131,19 @@ synonym for {opt by(varlist)}.
 {pmore}
 {opt byfreq} adds a GROUPWISE FREQUENCIES block to the profile: for every
 categorical and string variable, the same frequency table as the pooled one
-(descending count, ties in level order, {opt maxfreq()} levels, {opt rare()} flags)
-within each {opt by()} group, headed by the group label of the GROUPWISE SUMMARY. Under
+(descending count, ties in level order, {opt maxfreq()} levels, {opt rare()} flags) within
+each {opt by()} group, headed by the group label of the GROUPWISE SUMMARY. Under
 {opt maskrare}, each cell and the pooled {bf:[suppressed]} lines follow the pooled
 table's rules, and a group pooled away by the mask is not listed. The call's
-{cmd:if}/{cmd:in} apply, string and numeric groups work, and {opt nomissing} leaves the
-tables as they are. {opt byfreq} is an option because {opt by()} alone leaves the
-pooled tables as before; {opt gatesonly} ignores it, and it needs {opt by()} or
-{opt over()} (r(198) otherwise). Example: {cmd:dataprobe mc if cx, by(arm) byfreq maxfreq(15) maskrare}.
+{cmd:if}/{cmd:in} apply, string and numeric groups work, and {opt nomissing} leaves the tables
+as they are. {opt byfreq} is an option because {opt by()} alone leaves the pooled tables
+as before; {opt gatesonly} ignores it, and it needs {opt by()} or {opt over()} (r(198)
+otherwise). Example: {cmd:dataprobe mc if cx, by(arm) byfreq maxfreq(15) maskrare}.
 
 {phang}
-{opt check:s(filename)} reads gate specifications from {it:filename}. A row
+{opt check:s(filename)} reads gate specifications from {it:filename} (a name
+that ends in {opt .dta} is read as given, one without it as {it:filename} or
+{it:filename}{cmd:.dta}). A row
 whose text holds a backtick, or a {cmd:$} followed by a letter, underscore or
 {cmd:{c -(}}, is refused with r(198) naming the row and column, because the text
 would otherwise be expanded as a macro; write such a character as
@@ -1213,25 +1172,24 @@ suboptions in {cmd:values}; a {cmd:complete} row takes the variables in
 {it:countexp}s in {cmd:var} and the entry condition in {cmd:pattern}.
 
 {phang}
-{opt makes:pec(name[, replace])} writes a starter checks file from the
-current dataset: the observed row count, required variables, observed ranges
-or allowed values, and a candidate {cmd:isid} key. A name ending in {cmd:.do}
-writes the same gates as one {cmd:dataprobe, gatesonly} command in a do-file,
-so they can be read, edited, and compared in a diff; any other name follows
-the frame-or-file rule of {opt saving()} and writes the {opt checks()} spec. Run
-on the data it was made from, the do-file passes, and a gate that fails
-exits 9. A row whose text holds a line break, a backtick, {cmd:$}, or a comment
-opener, and the {opt allowed()} entry of a string variable with a level that
-holds a space, are left out with a comment saying so. The header comment
-names the dataset and the datamap version. If the data later lose a gated
-variable, the do-file's {opt require()} fails (exit 9) and the gates on that
-variable are skipped with a note (see {opt require()}). It describes the data as
-they are; review it before treating it as a gate contract, and never use it
-as a source of bands. Numeric bounds and levels are written at full precision
-and string levels in double quotes, so {opt checks()} reads the file back as a
-passing spec on the same data; bounds are compared at full double precision. A string variable with a level containing a
-double quote, a backtick, a dollar sign, or a backslash gets no {cmd:allowed}
-row.
+{opt makes:pec(name[, replace])} writes a starter checks file from the current
+dataset: the observed row count, required variables, observed ranges or
+allowed values, and a candidate {cmd:isid} key. A name ending in {cmd:.do} writes the same
+gates as one {cmd:dataprobe, gatesonly} command in a do-file, so they can be read,
+edited, and compared in a diff; any other name follows the frame-or-file rule
+of {opt saving()} and writes the {opt checks()} spec. Run on the data it was made from,
+the do-file passes, and a gate that fails exits 9. A row whose text holds a
+line break, a backtick, {cmd:$}, or a comment opener, and the {opt allowed()} entry of a
+string variable with a level that holds a space, are left out with a comment
+saying so. The header comment names the dataset and the datamap version. If
+the data later lose a gated variable, the do-file's {opt require()} fails (exit 9)
+and the gates on that variable are skipped with a note (see {opt require()}). It
+describes the data as they are; review it before treating it as a gate
+contract, and never use it as a source of bands. Numeric bounds and levels are
+written at full precision and string levels in double quotes, so {opt checks()}
+reads the file back as a passing spec on the same data; bounds are compared at
+full double precision. A string variable with a level containing a double
+quote, a backtick, a dollar sign, or a backslash gets no {cmd:allowed} row.
 
 {phang}
 {opt comp:are(name)} compares the current profile with a baseline: a frame, or
@@ -1253,10 +1211,10 @@ warning. It is for diagnosing a do-file interactively; a committed gate call
 should use {opt bandwarn} instead, so that invariants still halt.
 
 {phang}
-{opt minver:sion(#)} exits with r(198) unless the installed datamap version is
-at least {it:#}. Alone, {cmd:dataprobe, minversion(1.8.0)} needs no data in
-memory and returns {cmd:r(version)}; an older copy also exits r(198), because
-it does not know the option, so a do-file can reinstall on a nonzero return code.
+{opt minver:sion(#)} exits with r(198) unless the installed datamap version is at
+least {it:#}. Alone, {cmd:dataprobe, minversion(1.8.0)} needs no data in memory and
+returns {cmd:r(version)}; an older copy also exits r(198), because it does not know
+the option, so a do-file can reinstall on a nonzero return code.
 
 {dlgtab:Output}
 
@@ -1268,7 +1226,8 @@ of {help datamap##saving:datamap's saving()} table plus {cmd:varname} and
 {opt .dta} (or {cmd:.do}, for {opt makespec()}) or holds a {cmd:/} or {cmd:\}
 is a file, and any other name is a frame. {opt compare()} and {opt diff()} read
 the frame of that name when one exists, and otherwise the file ({it:name} or
-{it:name}{cmd:.dta}); {opt snapshot()} takes a frame only. The target is
+{it:name}{cmd:.dta}; a {it:name} that ends in {opt .dta} is read as
+given); {opt snapshot()} takes a frame only. The target is
 checked right after the options are parsed, before any profile output: an
 existing frame (r(110)) or file (r(602)) without {cmd:replace}, a folder that
 does not exist (r(603)), a file that cannot be found (r(601)), and the current
@@ -1305,36 +1264,34 @@ only value it accepts.
 {opt viol:ations(name[, replace])} saves one row per failed or warned gate
 entry with variables {cmd:check}, {cmd:gate}, {cmd:variable}, {cmd:label},
 {cmd:group}, {cmd:observed} (masked as printed), {cmd:expected},
-{cmd:severity}, {cmd:kind}, and {cmd:message}.
+{cmd:severity}, {cmd:kind}, and {cmd:message}. The only suboption is
+{cmd:replace}; any other word is r(198) before any work. A {it:name} that ends
+in {opt .dta} or holds a {cmd:/} or {cmd:\} is a file, quoted when it holds a
+space ({cmd:violations("my vio.dta", replace)}); any other name is a frame.
 
 {phang}
 {opt ledger(filename[, run(string)])} appends one row per gate entry, passed or
-failed, and one per review item, to a Stata dataset, creating it when absent; {opt .dta}
-is added to a filename without an extension. Quote the filename when it contains
-spaces; embedded double quotes, backticks and shell metacharacters in the actual
-filename are refused. The ledger is normally set once for a do-file with
-{help dataqa:dataqa set ledger() run()}. Its columns are {cmd:run},
-{cmd:stamp}, {cmd:seq} (call number within the run), {cmd:dataset},
-{cmd:scope} (the call's and the entry's {cmd:if}), {cmd:family}, {cmd:label},
-{cmd:variable}, {cmd:grp}, {cmd:kind} (invariant, band, or review),
-{cmd:status} (pass, fail, warn, review, or error), {cmd:observed} (masked, as
-printed), {cmd:observed_num} (missing whenever {cmd:observed} is masked),
-{cmd:expected}, {cmd:n_scope} (missing below the mask threshold),
-{cmd:version}, {cmd:signature}, {cmd:masked} (1 when the call ran under
-{opt maskrare} with a threshold of at least 5), {cmd:mincell},
-{cmd:minshown} (the smallest positive count printed unmasked),
-{cmd:obs_masked}, {cmd:message}, and {cmd:phase} (see {opt phase()}). In a
-session set with {help dataqa:dataqa set worker()} the rows go to that
-job's shard of the ledger, with one more column, {cmd:worker}, and
-{help dataqa:dataqa merge} folds the shards into the ledger;
-{cmd:r(ledger)} still names the ledger. The working ledger belongs on the server
-with the data; {help dataqa:dataqa export} writes the release copy. A
+failed, and one per review item, to a Stata dataset, creating it when
+absent; {opt .dta} is added to a filename without an extension. Quote the filename
+when it contains spaces; embedded double quotes, backticks and shell
+metacharacters in the actual filename are refused. The ledger is normally set
+once for a do-file with {help dataqa:dataqa set ledger() run()}. Its columns are {cmd:run}, {cmd:stamp},
+{cmd:seq} (call number within the run), {cmd:dataset}, {cmd:scope} (the call's and the entry's
+{cmd:if}), {cmd:family}, {cmd:label}, {cmd:variable}, {cmd:grp}, {cmd:kind} (invariant, band, or review), {cmd:status}
+(pass, fail, warn, review, or error), {cmd:observed} (masked, as printed),
+{cmd:observed_num} (missing whenever {cmd:observed} is masked), {cmd:expected}, {cmd:n_scope} (missing
+below the mask threshold), {cmd:version}, {cmd:signature}, {cmd:masked} (1 when the call ran
+under {opt maskrare} with a threshold of at least 5), {cmd:mincell}, {cmd:minshown} (the
+smallest positive count printed unmasked), {cmd:obs_masked}, {cmd:message}, and {cmd:phase} (see
+{opt phase()}). In a session set with {help dataqa:dataqa set worker()} the rows go to that job's
+shard of the ledger, with one more column, {cmd:worker}, and {help dataqa:dataqa merge} folds the
+shards into the ledger; {cmd:r(ledger)} still names the ledger. The working ledger
+belongs on the server with the data; {help dataqa:dataqa export} writes the release copy. A
 call that exits for any reason other than a gate failure (exit 9) or Break,
-such as a parse error or a missing variable, appends one row with
-{cmd:family} {cmd:call} and {cmd:status} {cmd:error} before exiting with its own
-return code, and {help dataqa:dataqa assert} halts on it. Under
-{help dataqa:dataqa set collect} a failed gate also writes its rows and the call
-returns 0, leaving the halt to {cmd:dataqa assert}.
+such as a parse error or a missing variable, appends one row with {cmd:family} {cmd:call}
+and {cmd:status} {cmd:error} before exiting with its own return code, and {help dataqa:dataqa assert}
+halts on it. Under {help dataqa:dataqa set collect} a failed gate also writes its rows and
+the call returns 0, leaving the halt to {cmd:dataqa assert}.
 
 {phang}
 {opt phase(name)} tags this call's ledger rows with a phase, such as
@@ -1393,11 +1350,12 @@ starts with the gate's family and label, such as {cmd:events(_d)},
 {pmore}{err: inrange(age): <5 obs outside [18, 110] (0 below, <5 above)  (p1 19, p99 97)}{p_end}
 
 {pstd}
-When every gate passes, {cmd:dataprobe} prints one line naming the dataset and
-the gate families that ran, for example
+When every gate passes, {cmd:dataprobe} prints one line naming the dataset and the
+gate families that ran, for example
 {cmd:PASS: dose_intervals, 3 gate(s) (isid rule binary), N = 12,000, 0 violations [masked <5]},
-so a clean log is distinguishable from one where the gates were skipped. {opt gatesonly}
-with no gate declared prints a note saying nothing was checked.
+so a clean log is distinguishable from one where the gates were
+skipped. {opt gatesonly} with no gate declared prints a note saying nothing was
+checked.
 
 {pstd}
 On any failing invariant, or any failing band without {opt bandwarn},
@@ -1446,7 +1404,8 @@ with {cmd:global qa_calib bandwarn} set only under the synthetic switch.
 
 {pstd}
 A hand-written check often has a gate of its own, with a clearer message and a
-ledger row. Each pair below gives the same pass or fail verdict on the same data.
+ledger row. Each pair below gives the same pass or fail verdict on the same
+data.
 
 {p2colset 5 52 54 2}{...}
 {p2col:Hand-written pattern}Gate{p_end}
@@ -1513,13 +1472,13 @@ always knows it. A key that is in the data but outside {it:varlist} reads
 dropped from the data reads {cmd:dropped}.
 
 {pstd}
-Under {opt maskrare} every count from 1 to {it:m}-1 prints as {bf:<}{it:m} and a
-count that would give one back is withheld; a minimum or maximum is never
-printed (the line says {cmd:range changed}); and a mean prints only when both
-sides have at least {it:m} nonmissing values and the variable is neither
-categorical nor two- or three-valued on either side (else the line says
-{cmd:mean changed}), because such a mean is a share that gives a count
-back. {opt mincell()} alone does not mask the block. The stored results {cmd:r(diff_*)} are not masked.
+Under {opt maskrare} every count from 1 to {it:m}-1 prints as {bf:<}{it:m} and a count that would
+give one back is withheld; a minimum or maximum is never printed (the line
+says {cmd:range changed}); and a mean prints only when both sides have at least {it:m}
+nonmissing values and the variable is neither categorical nor two- or
+three-valued on either side (else the line says {cmd:mean changed}), because such a
+mean is a share that gives a count back. {opt mincell()} alone does not mask the
+block. The stored results {cmd:r(diff_*)} are not masked.
 
 {pstd}
 {opt diff()} or {opt compare()} naming the current frame is r(198); naming a
@@ -1578,12 +1537,11 @@ merge with unequal rows per key, the matched-row count prints as computed. The
 stored results are not masked.
 
 {pstd}
-A {cmd:strL} key variable, in memory or in the file, is also a failed entry
-reported before any count ({cmd:strL key}), since {helpb merge} refuses a
-{cmd:strL} key with r(106) on either side. The message names the variable;
-{cmd:recast str}{it:#} or {helpb compress} on that side makes it a valid key.
-An empty sample or an empty file is compared as an empty key set: every key
-on the other side is unmatched.
+A {cmd:strL} key variable, in memory or in the file, is also a failed entry reported
+before any count ({cmd:strL key}), since {helpb merge} refuses a {cmd:strL} key with r(106) on
+either side. The message names the variable; {cmd:recast str}{it:#} or {helpb compress} on that
+side makes it a valid key. An empty sample or an empty file is compared as an
+empty key set: every key on the other side is unmatched.
 
 {marker kwindow}{...}
 {pstd}
@@ -1598,20 +1556,19 @@ preflight goes on to the link by key and date:
 {phang2}{cmd:    joinby id would create 1,234,567 pairs; 2,345 inside the window}{p_end}
 
 {pstd}
-For each row in memory, {bf:none}, {bf:one} and {bf:more} count the file rows
-of its key dated on or before {it:mdate} ({cmd:asof()}), or in
-[{it:mstart}, {it:mend}] ({cmd:window()}); they add up to the rows in memory.
-Under {cmd:asof()}, {bf:more} is a history, and the as-of pick takes the latest;
-{bf:tied} counts the rows whose latest date holds two or more file rows, where
-the pick among them is arbitrary. Under {cmd:window()}, the first count of pairs
-is what {helpb joinby} on the key makes before any date condition (every row
-of a key in memory times every row of that key in the file), the second what
-{cmd:keep if} the window leaves, so a cartesian blow-up shows before it is
-run. A row in memory with a missing date (or start or stop) links nothing and
-counts as none; a file row with a missing date is never a candidate; an
-inverted window ({it:mstart} > {it:mend}) is empty. Both lines are printed
-when either count is not zero. Missing key values are keys, as in
-{helpb merge} and {helpb joinby}. No date is printed.
+For each row in memory, {bf:none}, {bf:one} and {bf:more} count the file rows of its key
+dated on or before {it:mdate} ({cmd:asof()}), or in [{it:mstart}, {it:mend}] ({cmd:window()}); they add
+up to the rows in memory. Under {cmd:asof()}, {bf:more} is a history, and the as-of pick
+takes the latest; {bf:tied} counts the rows whose latest date holds two or more
+file rows, where the pick among them is arbitrary. Under {cmd:window()}, the first
+count of pairs is what {helpb joinby} on the key makes before any date condition
+(every row of a key in memory times every row of that key in the file), the
+second what {cmd:keep if} the window leaves, so a cartesian blow-up shows before it
+is run. A row in memory with a missing date (or start or stop) links nothing
+and counts as none; a file row with a missing date is never a candidate; an
+inverted window ({it:mstart} > {it:mend}) is empty. Both lines are printed when either
+count is not zero. Missing key values are keys, as in {helpb merge} and {helpb joinby}. No
+date is printed.
 
 {pstd}
 Nothing is joined: the keys and dates of memory are stacked once with the
@@ -1641,29 +1598,27 @@ Under {opt maskrare} with threshold {it:m}, no count from 1 to {it:m}-1 is
 printed, nor a percentage or a complement from which one could be recovered,
 nor an order statistic held by fewer than {it:m} observations:
 
-{phang2}o  every count in a gate message and in {cmd:observed} prints as
-{bf:<}{it:m}: {cmd:rule(entry_exit): <5 obs fail}. {opt isid()}
-reports only the masked number
-of duplicated rows, never the row and distinct-key counts, whose difference
-would be the small cell. A gate count whose complement in its scope is small
-prints as {bf:all but <}{it:m}, as do the {opt stat()} values {cmd:n},
-{cmd:distinct}, and {cmd:sum} and the {bf:sets(values)} count; {opt stat()}
-{cmd:pmiss} prints as {bf:.} when either the missing or the nonmissing count is
-small. A {opt stat()} {cmd:sum}, which is a value of its rows and not only a
-count, prints as {bf:[suppressed]} when its nonmissing rows, its nonzero rows,
-or, for a variable with two values, the rows of either value number 1 to
-{it:m}-1. In a {opt by()} group whose size is withheld, every count of {it:m}
-or more prints as {bf:[suppressed]} too, since it bounds the group's size. {cmd:r(n_violations)} counts gates, not persons, and is
-not masked.{p_end}
-{phang2}o  the MISSINGNESS and GROUPWISE blocks print a small missing count as
-{bf:<}{it:m} and its percentage as {bf:[masked]}; a count whose complement is small prints as
-{bf:all but <}{it:m}, while a zero count prints as {bf:0}; a {opt by()} group smaller than {it:m} is not shown and is counted
-in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}. The
-counts a {opt by()} profile prints per group are protected together; see
-{it:Linked counts in a by() profile} below. The {bf:Unique} column, a string's
-{bf:unique=} and a categorical variable's level count print as
-{bf:[masked]} when N, or the nonmissing N, minus that count is 1 to
-{it:m}-1.{p_end}
+{phang2}o every count in a gate message and in {cmd:observed} prints as
+{bf:<}{it:m}: {cmd:rule(entry_exit): <5 obs fail}. {opt isid()} reports only the masked number of
+duplicated rows, never the row and distinct-key counts, whose difference would
+be the small cell. A gate count whose complement in its scope is small prints
+as {bf:all but <}{it:m}, as do the {opt stat()} values {cmd:n}, {cmd:distinct}, and {cmd:sum} and the
+{bf:sets(values)} count; {opt stat()} {cmd:pmiss} prints as {bf:.} when either the missing or the
+nonmissing count is small. A {opt stat()} {cmd:sum}, which is a value of its rows and not
+only a count, prints as {bf:[suppressed]} when its nonmissing rows, its nonzero
+rows, or, for a variable with two values, the rows of either value number 1 to
+{it:m}-1. In a {opt by()} group whose size is withheld, every count of {it:m} or more prints
+as {bf:[suppressed]} too, since it bounds the group's size. {cmd:r(n_violations)} counts
+gates, not persons, and is not masked.{p_end}
+{phang2}o the MISSINGNESS and GROUPWISE blocks print a small missing count as {bf:<}{it:m} and
+its percentage as {bf:[masked]}; a count whose complement is small prints as
+{bf:all but <}{it:m}, while a zero count prints as {bf:0}; a {opt by()} group smaller than {it:m} is not
+shown and is counted in one line,
+{cmd:groups pooled (each <5 rows, or pooled with them): 2}. The counts a {opt by()}
+profile prints per group are protected together; see
+{it:Linked counts in a by() profile} below. The {bf:Unique} column, a string's {bf:unique=}
+and a categorical variable's level count print as {bf:[masked]} when N, or the
+nonmissing N, minus that count is 1 to {it:m}-1.{p_end}
 {phang2}o  a {opt stat()} {cmd:sum} prints as {bf:[suppressed]} when the call
 also prints the {cmd:mean} of the same variable (or expression text) over the
 same scope (the same {cmd:if}, and with {opt by()} the same group, also from a
@@ -1696,20 +1651,22 @@ rule; see {help dataprobe##snapdiff:Snapshot and diff} and
 {help dataprobe##keyset:Keyset preflight}.
 
 {pstd}
-{opt reconcile()} prints a count, the file's count and their difference as
-one triple: when any of them is 1 to {it:m}-1, every nonzero member prints as
-{bf:<}{it:m} or {bf:[suppressed]} and the difference as its direction only
-({cmd:rows: memory [suppressed], ck [suppressed]; fewer in memory}). A total
-of {cmd:sum()} is a value of its rows, so under the mask the totals are not
-printed, only their relative difference (the ledger's {cmd:observed_num} for
-that row is missing), which prints as {bf:[suppressed]}
-when the row or id difference, or either side's row count, is 1 to {it:m}-1.
-A {cmd:by()} group with 1 to {it:m}-1 rows on either side is not named but
-counted in one line, and when any group's difference in a measure is
-withheld, every group line prints that measure's direction only, since the
-group differences add up to the overall one. When a {cmd:by()} variable is in
-{opt exclude()}, and under {opt safe}, a failing group is named by its number
-({bf:group 3}), as {opt smallcells()} names a stratum.
+{opt reconcile()} prints a count, the file's count and their difference as one
+triple: when any of them is 1 to {it:m}-1, every nonzero member prints as {bf:<}{it:m} or
+{bf:[suppressed]} and the difference as its direction only
+({cmd:rows: memory [suppressed], ck [suppressed]; fewer in memory}). A total of
+{cmd:sum()} is a value of its rows, so under the mask the totals are not printed,
+only their relative difference (the ledger's {cmd:observed_num} for that row is
+missing), which prints as {bf:[suppressed]} when the row or id difference, or
+either side's row count, is 1 to {it:m}-1. A {cmd:by()} group with 1 to {it:m}-1 rows on
+either side is not named but counted in one line. Under the mask a count of
+failing groups is masked as a {opt byrule()} count is, and when the count of
+unnamed groups is masked the count of failing groups is withheld with it,
+since the named lines give back their difference. When any group's
+difference in a measure is withheld, every group line prints that measure's
+direction only, since the group differences add up to the overall one. When a
+{cmd:by()} variable is in {opt exclude()}, and under {opt safe}, a failing group is named by its
+number ({bf:group 3}), as {opt smallcells()} names a stratum.
 
 {pstd}
 {bf:Linked counts in a by() profile.} A profile with {opt by()} prints many
@@ -1759,14 +1716,13 @@ unchanged.
 
 {pstd}
 Not covered: a count read across two calls (differencing two outputs); the
-verdict of a band gate ({opt stat()} bounds, {opt complete()} {cmd:min()},
-{opt expectn()}), which says whether a count lies in a band the user chose; counts
-of user expressions ({opt rule()}, {opt byrule()}, {opt regex()},
-{opt events()}, {opt isid()}, {opt nodups}), and of {opt review()} beyond its
-own total, set against other counts; statistics (means, SDs, percentiles, sums of variables other than
-0/1), which follow the rules above; the {opt patterns} table's pattern
-totals; {opt groupstat()} over another {opt by()} or with its own {cmd:if}; counts
-of rows missing two variables at once, which are not printed; the
+verdict of a band gate ({opt stat()} bounds, {opt complete()} {cmd:min()}, {opt expectn()}), which
+says whether a count lies in a band the user chose; counts of user expressions
+({opt rule()}, {opt byrule()}, {opt regex()}, {opt events()}, {opt isid()}, {opt nodups}), and of {opt review()} beyond
+its own total, set against other counts; statistics (means, SDs, percentiles,
+sums of variables other than 0/1), which follow the rules above; the {opt patterns}
+table's pattern totals; {opt groupstat()} over another {opt by()} or with its own
+{cmd:if}; counts of rows missing two variables at once, which are not printed; the
 pooled blocks' own totals, masked by their own rules; and inference from how
 the withheld counts were chosen. The interval is computed for outputs with up
 to 700 unknown counts and 40 programs per call; beyond that a count without
@@ -1826,7 +1782,9 @@ the log unless displayed.
 {pstd}Rates, sums, and distinct counts, each with its own condition:{p_end}
 {phang2}{cmd:. dataprobe, gatesonly stat(sum foreign 22 22 \ distinct rep78 5 5 \ mean mpg 20 30 if foreign)}{p_end}
 
-{pstd}The tail percentiles {cmd:p1}, {cmd:p5}, {cmd:p95} and {cmd:p99} (with {cmd:p10} {cmd:p25} {cmd:p50} {cmd:p75} {cmd:p90}, the set {cmd:summarize, detail} reports) work in {opt stat()} and {opt groupstat()}:{p_end}
+{pstd}The tail percentiles {cmd:p1}, {cmd:p5}, {cmd:p95} and {cmd:p99} (with
+{cmd:p10} {cmd:p25} {cmd:p50} {cmd:p75} {cmd:p90}, the set {cmd:summarize, detail}
+reports) work in {opt stat()} and {opt groupstat()}:{p_end}
 {phang2}{cmd:. dataprobe, gatesonly stat(p5 price 3000 4000 \ p95 price 12000 15000)}{p_end}
 
 {pstd}Rules within groups, with the data left in its order:{p_end}
@@ -1844,12 +1802,14 @@ the log unless displayed.
 {phang2}{cmd:. dataprobe, gatesonly mincell(5) smallcells(n1 e1 n1-e1 n0 e0 n0-e0 if !suppressed)}{p_end}
 {phang2}{cmd:. restore}{p_end}
 
-{pstd}Audit the cells of a planned table on the microdata, in rows and persons, with its margins ({opt warn} reports without halting):{p_end}
+{pstd}Audit the cells of a planned table on the microdata, in rows and persons,
+with its margins ({opt warn} reports without halting):{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. generate pid = ceil(_n/2)}{p_end}
 {phang2}{cmd:. dataprobe, gatesonly mincell(5) smallcells(rep78==3 rep78==4 rep78==5, id(pid) by(foreign) margins) warn}{p_end}
 
-{pstd}List the frequent levels of a variable in place of {cmd:tabulate} or {cmd:levelsof}, which print every rare value as well:{p_end}
+{pstd}List the frequent levels of a variable in place of {cmd:tabulate} or
+{cmd:levelsof}, which print every rare value as well:{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 {phang2}{cmd:. dataprobe, topvalues(rep78 \ make, max(10))}{p_end}
 {phang2}{cmd:. generate pid = ceil(_n/2)}{p_end}
@@ -1990,8 +1950,8 @@ the log unless displayed.
 {synopt:{cmd:r(reconcile_ids_delta)}}the same for distinct {cmd:ids()}{p_end}
 {synopt:{cmd:r(inrange_n_below)}}{opt inrange()} rows below {it:lo}; missing if masked{p_end}
 {synopt:{cmd:r(inrange_n_above)}}{opt inrange()} rows above {it:hi}; missing if masked{p_end}
-{synopt:{cmd:r(coverage_outside_low)}}dates before {it:lo} in {opt coverage()} entries with {cmd:sides}{p_end}
-{synopt:{cmd:r(coverage_outside_high)}}dates after {it:hi} in {opt coverage()} entries with {cmd:sides}{p_end}
+{synopt:{cmd:r(coverage_outside_low)}}dates before {it:lo}; {opt coverage()} with {cmd:sides}{p_end}
+{synopt:{cmd:r(coverage_outside_high)}}dates after {it:hi}; {opt coverage()} with {cmd:sides}{p_end}
 {synopt:{cmd:r(diff_n_lines)}}variable lines the {opt diff()} block printed{p_end}
 {synopt:{cmd:r(diff_base_N)}}observations of the baseline{p_end}
 {synopt:{cmd:r(diff_n_delta)}}current N minus baseline N{p_end}
@@ -2071,15 +2031,14 @@ continue after violations so that later code can read the results.
 {title:References}
 
 {phang}
-Hundepool, A., J. Domingo-Ferrer, L. Franconi, S. Giessing, R. Lenz, J. Naylor,
-E. Schulte Nordholt, G. Seri, P.-P. de Wolf, R. Tent, A. Młodak, J. Gussenbauer,
-and K. Wilak. 2026. {it:Handbook on Statistical Disclosure Control}. 2nd ed. Center
-of Excellence SDC.
-{p_end}
+Hundepool, A., J. Domingo-Ferrer, L. Franconi, S. Giessing, R. Lenz,
+J. Naylor, E. Schulte Nordholt, G. Seri, P.-P. de Wolf, R. Tent, A. Młodak,
+J. Gussenbauer, and
+K. Wilak. 2026. {it:Handbook on Statistical Disclosure Control}. 2nd ed. Center of
+Excellence SDC. {p_end}
 
 {phang}
-Kish, L. 1965. {it:Survey Sampling}. New York: Wiley.
-{p_end}
+Kish, L. 1965. {it:Survey Sampling}. New York: Wiley. {p_end}
 
 
 {marker author}{...}

@@ -301,6 +301,13 @@ program define datamvp, rclass byable(recall) sortpreserve
             di as err "save() contains invalid characters"
             exit 198
         }
+        // a frame name (no . / \) naming the frame in use: -frame drop-
+        // refused it and the command stopped r(119) with no message, after
+        // printing every table
+        if !(strpos("`save'", ".") | strpos("`save'", "/") | strpos("`save'", "\")) & "`save'" == c(frame) {
+            di as err "save(`save'): `save' is the current frame; name another frame or a file"
+            exit 198
+        }
     }
     if `"`gsaving'"' != "" {
         if regexm(`"`gsaving'"', "[;&|><\$\`]") {
@@ -569,6 +576,13 @@ program define datamvp, rclass byable(recall) sortpreserve
             * (a `pct_<varname>' local would overflow the 31-char macro-name
             * limit for long variable names and error r(198))
             local pctlist `pctlist' `=100 * `thismv' / `N''
+            // the same small-count test the variable table applies, made
+            // here so it holds under notable too: Mean missing/obs x N
+            // otherwise gave back the masked count of a lone variable
+            if `_m' > 0 {
+                local _nobs1 = `N' - `thismv'
+                if (`thismv' >= 1 & `thismv' < `_m') | (`_nobs1' >= 1 & `_nobs1' < `_m') local _vmask = 1
+            }
         }
         else {
             local varnomv `varnomv' `v'
@@ -1213,21 +1227,31 @@ program define datamvp, rclass byable(recall) sortpreserve
             if "`correlate'" != "" {
                 di as txt "(tetrachoric failed (rc=`tetra_rc'); using Pearson correlations)"
             }
-            qui correlate `misslist' if `touse'
-            matrix `corrmat' = r(C)
-
-            * Rename and display
-            local rnames
-            forv i = 1/`nvar' {
-                local rnames `rnames' ``i''
+            // too few observations (N = 1) failed -correlate- r(2001) after
+            // every table had printed; the correlations are then skipped
+            capture correlate `misslist' if `touse'
+            local pw_rc = _rc
+            if `pw_rc' {
+                if "`correlate'" != "" {
+                    di as txt "(correlations not computed (rc=`pw_rc'); skipped)"
+                }
             }
-            matrix rownames `corrmat' = `rnames'
-            matrix colnames `corrmat' = `rnames'
-            if "`correlate'" != "" {
-                matrix list `corrmat', format(%6.3f) noheader
-            }
+            else {
+                matrix `corrmat' = r(C)
 
-            local _return_has_corr = 1
+                * Rename and display
+                local rnames
+                forv i = 1/`nvar' {
+                    local rnames `rnames' ``i''
+                }
+                matrix rownames `corrmat' = `rnames'
+                matrix colnames `corrmat' = `rnames'
+                if "`correlate'" != "" {
+                    matrix list `corrmat', format(%6.3f) noheader
+                }
+
+                local _return_has_corr = 1
+            }
         }
     }
 
@@ -1249,7 +1273,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         _datamap_missby `varlist', by(`bytable') touse(`_bt')
         local G = r(G)
         forvalues k = 1/`G' {
-            local _bl`k' `"`r(lab`k')'"'
+            mata: st_local("_bl`k'", st_global("r(lab`k')"))
         }
         tempname _NM _PM _NG
         matrix `_NM' = r(nmiss)
@@ -1307,13 +1331,14 @@ program define datamvp, rclass byable(recall) sortpreserve
         while `_k0' <= `G' {
             local _k1 = min(`G', `_k0' + `_per' - 1)
             local _last = (`_k1' == `G')
-            local _hdr ""
+            // group labels are abbreviated and printed in Mata: through a
+            // display directive `"' broke the line and $name was expanded
+            di as txt "{lalign 12:Variable}" "{col 14}{c |}" _c
             forvalues k = `_k0'/`_k1' {
-                local _t = abbrev(`"`_bl`k''"', 8)
-                local _hdr `"`_hdr' as txt %9s `"`_t'"'"'
+                mata: _datamvp_rjust(abbrev(st_local("_bl`k'"), 8), 9)
             }
-            if `_last' local _hdr `"`_hdr' as txt %10s "Max diff" %9s "Hi/Lo""'
-            di as txt "{lalign 12:Variable}" "{col 14}{c |}" `_hdr'
+            if `_last' di as txt %10s "Max diff" %9s "Hi/Lo"
+            else di ""
             forvalues i = 1/`nvar' {
                 local v : word `i' of `varlist'
                 local _line ""
@@ -1870,52 +1895,54 @@ program define datamvp, rclass byable(recall) sortpreserve
                     * Keep needed variables
                     keep `varlist' `gby' `gby_grp'
 
-                    * Create pattern string
+                    * Create pattern string (tempvars: a varlist or gby()
+                    * variable named _mv_n or _ng blocked the gen, r(110))
+                    tempvar _g_patt _g_mvn _g_ng _g_isf _g_id _g_ord _g_pid
                     local nskip = cond("`skip'" != "", int((`nvar'-1)/5), 0)
                     local nstr = `nvar' + `nskip'
-                    gen str`nstr' _mv_patt = ""
-                    gen int _mv_n = 0
+                    gen str`nstr' `_g_patt' = ""
+                    gen int `_g_mvn' = 0
 
                     tokenize `varlist'
                     forv i = 1/`nvar' {
                         if "`skip'" != "" & `i' > 1 & mod(`i'-1,5) == 0 {
-                            replace _mv_patt = _mv_patt + " "
+                            replace `_g_patt' = `_g_patt' + " "
                         }
-                        replace _mv_patt = _mv_patt + cond(missing(``i''), ".", "+")
-                        replace _mv_n = _mv_n + cond(missing(``i''), 1, 0)
+                        replace `_g_patt' = `_g_patt' + cond(missing(``i''), ".", "+")
+                        replace `_g_mvn' = `_g_mvn' + cond(missing(``i''), 1, 0)
                     }
 
                     * Calculate pattern frequencies by group
-                    bys `gby' _mv_patt: gen long _ng = _N
-                    bys `gby' _mv_patt: gen byte _isf = (_n == 1)
-                    keep if _isf
+                    bys `gby' `_g_patt': gen long `_g_ng' = _N
+                    bys `gby' `_g_patt': gen byte `_g_isf' = (_n == 1)
+                    keep if `_g_isf'
                     // under masking a group's pattern below m is not drawn
-                    count if _ng < `_m'
+                    count if `_g_ng' < `_m'
                     local _npwh = r(N)
-                    drop if _ng < `_m'
+                    drop if `_g_ng' < `_m'
 
                     * Get group labels (use pre-extracted texts)
-                    gen int _gbyid = .
+                    gen int `_g_id' = .
                     tempname pattern_gby_label
                     forvalues _gbi = 1/`gby_nlev' {
-                        replace _gbyid = `_gbi' if `gby_grp' == `_gbi'
+                        replace `_g_id' = `_gbi' if `gby_grp' == `_gbi'
                         mata: st_vlmodify(st_local("pattern_gby_label"), ///
                             `_gbi', st_local("_gby_gt_`_gbi'"))
                     }
-                    label values _gbyid `pattern_gby_label'
+                    label values `_g_id' `pattern_gby_label'
 
                     * Keep top patterns per group
-                    * _mv_patt breaks the remaining ties, which otherwise
+                    * the pattern string breaks the remaining ties, which otherwise
                     * fell in arbitrary order at the top() cut
-                    bys `gby' (_ng _mv_n _mv_patt): gen int _patorder = _N - _n + 1
-                    keep if _patorder <= `top'
+                    bys `gby' (`_g_ng' `_g_mvn' `_g_patt'): gen int `_g_ord' = _N - _n + 1
+                    keep if `_g_ord' <= `top'
 
                     * Create pattern ID
-                    bys `gby' (_patorder): gen str8 _patid = "P" + string(_n)
+                    bys `gby' (`_g_ord'): gen str8 `_g_pid' = "P" + string(_n)
 
                     * Get first pattern for note (overall most common)
-                    gsort -_ng _mv_n _mv_patt
-                    local pat1 = _mv_patt[1]
+                    gsort -`_g_ng' `_g_mvn' `_g_patt'
+                    local pat1 = `_g_patt'[1]
                 }
 
                 * Put graph-level titles inside by() so facet labels remain visible.
@@ -1944,8 +1971,8 @@ program define datamvp, rclass byable(recall) sortpreserve
                     di as txt "(graph not drawn: every pattern has a frequency below `_m' in its group)"
                 }
                 else {
-                    `barcmd' _ng, over(_patid, sort(_patorder) label(labsize(`patlabsz'))) ///
-                        by(_gbyid, note("") `macval(patby_titleopts)' ///
+                    `barcmd' `_g_ng', over(`_g_pid', sort(`_g_ord') label(labsize(`patlabsz'))) ///
+                        by(`_g_id', note("") `macval(patby_titleopts)' ///
                             `macval(patby_subtitleopts)') ///
                         ytitle("Frequency") ///
                         blabel(bar, format(%9.0fc) size(tiny)) ///
@@ -2124,6 +2151,10 @@ program define datamvp, rclass byable(recall) sortpreserve
             if `nvar' <= 1 {
                 di as err "correlation graph requires at least 2 variables"
                 exit 198
+            }
+            if !`_return_has_corr' {
+                di as err "correlation graph not drawn: the missingness correlations could not be computed (too few observations)"
+                exit 2001
             }
 
             * Extract correlation values to locals BEFORE preserve/clear
@@ -2359,7 +2390,15 @@ capture mata: mata drop _datamvp_axis_text()
 capture mata: mata drop _datamap_nomask_explicit()
 capture mata: mata drop _datamvp_str_levels()
 capture mata: mata drop _datamvp_pieces()
+capture mata: mata drop _datamvp_rjust()
 mata:
+// Print s right-justified in w display columns (no newline), as display
+// %ws does, without passing s through a display directive.
+void _datamvp_rjust(string scalar s, real scalar w)
+{
+	printf("{txt}%s%s", (w - udstrlen(s) > 0 ? (w - udstrlen(s)) * " " : ""), s)
+}
+
 // Cut the caller's local src into lines of at most w characters, broken at
 // blanks where possible (as -piece-), into locals <pfx>1 ... and <pfx>n.
 // Read and written in Mata, so a label holding `"' is never re-read as

@@ -188,9 +188,9 @@ spaces unambiguous.
 {phang}
 {opt man:ifest(filename)} documents the datasets named in a text file, one path
 per line. A blank line, a line starting with {cmd:#}, and a leading byte-order
-mark are skipped, and a path without {opt .dta} gets it. Each path must exist.
-A line holding {cmd:$}, a backtick, or a double quote is refused with r(198); it
-is never expanded into another path.
+mark are skipped, and a path without {opt .dta} gets it. Each path must
+exist. A line holding {cmd:$}, a backtick, or a double quote is refused with
+r(198); it is never expanded into another path.
 
 {phang}
 {opt rec:ursive} makes {opt directory()} descend into subfolders. Hidden
@@ -255,7 +255,12 @@ start a comment and a byte-order mark is ignored. Keys are
 {cmd:dateformat}, {cmd:maxfreq}, {cmd:maxcat}, {cmd:mincell}, {cmd:uniqcap},
 {cmd:samples}, {cmd:datesafe}, {cmd:nostats}, {cmd:nofreq}, {cmd:nolabels},
 {cmd:compact}, and {cmd:autodetect}. A command-line option overrides the file,
-and the numeric keys must be integers (r(198) otherwise). Two keys stop with a
+and the numeric keys must be integers (r(198) otherwise). Values are read
+literally: a path key holding {cmd:$} or a backtick is refused like the
+option, and so is a variable-name or token key ({cmd:exclude},
+{cmd:continuous}, {cmd:categorical}, {cmd:datevars}, {cmd:detect},
+{cmd:panelid}, {cmd:survivalvars}, {cmd:missing}, {cmd:dateformat},
+{cmd:columns}), r(198). Two keys stop with a
 named message: {cmd:format} (removed) and {cmd:missing} set to
 {cmd:yes}, {cmd:no}, or another switch value (datadict's Missing-column switch,
 removed). There is no {cmd:safe} key, and the {cmd:date} key is not read (it
@@ -411,7 +416,9 @@ shows only its N, and {opt samples()} prints {bf:[DATE SUPPRESSED]}. In
 {opt datesafe}, the listed values of a text variable are withheld when
 any of them contains a digit or when its values read as dates, and a date
 variable that has a placeholder candidate reads
-{bf:candidates withheld (datesafe)}.
+{bf:candidates withheld (datesafe)}. Text forced into {opt categorical()}
+follows the same rule: with a digit in a value, its levels are withheld and it
+reads {it:k}{bf: distinct; frequencies withheld (datesafe)}.
 
 {phang}
 {opt datef:ormat(fmt)} sets the format used to print dates; the default is
@@ -451,8 +458,11 @@ values; a setting you declared ({cmd:xtset}, {cmd:stset}, {cmd:svyset},
 {cmd:mi set}) prints as declared in the header. Keywords are
 {bf:panel} (repeated observations per unit), {bf:binary} (a one-line list of
 two-valued variables; a date-formatted variable is never listed),
-{bf:survival} (time and event variables), {bf:survey} (weights, strata,
-clusters; the mean of a categorical weight is withheld under {opt mincell()}),
+{bf:survival} (time and event variables; the range of the first time
+variable prints in the date format when it is date-formatted, and not at all
+under {opt datesafe}), {bf:survey} (weights, strata,
+clusters; the mean of a categorical weight is withheld under {opt mincell()},
+and a weight with no nonmissing values reads {bf:no nonmissing values}),
 and {bf:common} (identifiers, dates, demographics, exposures, and outcomes by
 name pattern).
 
@@ -463,7 +473,9 @@ adds.
 {phang}
 {opt panel:id(varname)} names the unit variable for the panel detector; otherwise
 names such as {it:*id} and {it:patient*} are used. A missing
-identifier counts toward no unit and is reported separately. {opt survival:vars(varlist)}
+identifier counts toward no unit and is reported separately; when the rows
+with or without an identifier are below {opt mincell()}, that count and the
+rows per unit are withheld. {opt survival:vars(varlist)}
 names the variables the survival detector
 considers; a listed variable matching no naming pattern is an event indicator
 when it takes at most two values and a time otherwise. An event rate prints for

@@ -226,8 +226,8 @@ archetypes: A3(iivw_weight iivw_fit iivw_balance iivw_exogtest iivw_diagnose iiv
 | `run_coverage_gate.sh`, `COVERAGE_GATE_RUNBOOK.md`, `tools/covgate_env.sh`, `tools/stub_stata_mp.sh` | Block-sharded long-run coverage workflow, plus the environment shim and stub `stata-mp` its runner regressions use. |
 | `crossval_*.R`, `crossval_irreglong.R`, `validation_iivw_exogtest_calibration_holm.R` | Independent R reference generators (the new crossvals and the Holm check call theirs at run time). |
 | `*_versions.csv` | R and package versions recorded beside each R-backed suite. |
-| `*.csv` | Tracked cross-validation inputs and generated reference values. |
-| `data/nhefs_whatif.csv` | NHEFS extract for the Hernán-Robins reproduction; its SHA-256 is asserted in the suite. |
+| `*.csv` | Tracked cross-validation inputs and generated reference values. `crossval_iivw_external.do` regenerates its R references (`survival::bladder2`, `cobalt::lalonde`, `geepack::dietox`) into a temporary directory on every run, so none of those are tracked. |
+| `data/nhefs/SOURCE.md` | Provenance of the NHEFS teaching extract the Hernán-Robins reproduction reads. The data are third-party and not distributed here: `_iivw_qa_extdata.do` finds `nhefs.dta` under `STATA_QA_DATA` (a local directory of third-party QA source data laid out `<package>/<set>/<file>`) or downloads it from the book site, checks its length and `checksum` CRC (r(459) on mismatch, r(601) when neither source is available), and the suite reduces it to the 12-column `nhefs_whatif.csv` whose SHA-256 it asserts. |
 | `data/iivw_sep_med_cases.csv` | Two separation-check cases (1,296 and 1,503 distinct pair rows, a 1e9 value) with their exactly certified `sep`. |
 | `data/iivw_sep_intdir_cases.csv` | Three separated cases whose exact direction is a small-integer column combination (44, 130 and 108 distinct pair rows), with the certified `sep`. |
 | `data/exogtest_corpus_cases.csv`, `data/exogtest_corpus_exp.csv` | Rows and exactly certified separation truth (full design and every column subset) for 1,209 corpus cases. |

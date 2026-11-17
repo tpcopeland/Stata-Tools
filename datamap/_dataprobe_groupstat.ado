@@ -165,8 +165,9 @@ program define _dataprobe_groupstat, rclass
                             local _si = si[`i']
                             local _vj = vj[`i']
                             local _kk = kk[`i']
-                            local _tx = txt[`i']
-                            local t_`_si'_`_vj'_`_kk' `"`macval(_tx)'"'
+                            // R1: copied in Mata: a label holding "' closes
+                            // a compound quote
+                            mata: st_local("t_`_si'_`_vj'_`_kk'", st_sdata(`i', "txt"))
                             if `_kk' > `nrow' local nrow = `_kk'
                         }
                     }
@@ -191,13 +192,14 @@ program define _dataprobe_groupstat, rclass
                                 }
                                 display as text "  " %-16s "Group" `hdr'
                                 forvalues k = 1/`nrow' {
-                                    if `"`macval(t_0_0_`k')'"' == "" continue
+                                    mata: st_local("_gemp", strofreal(st_local("t_0_0_`k'") == ""))
+                                    if `_gemp' continue
                                     local line ""
                                     forvalues j = `c0'/`c1' {
                                         local line `"`line' as result %10s `"`t_`j'_`_vj'_`k''"'"'
                                     }
                                     // R1: a group label prints literally (_dpgs_show)
-                                    local gshow = substr(`"`macval(t_0_0_`k')'"', 1, 16)
+                                    mata: st_local("gshow", substr(st_local("t_0_0_`k'"), 1, 16))
                                     mata: st_local("gshow", _dpgs_show(st_local("gshow"), 16))
                                     display as text "  " as result %-16s `"`macval(gshow)'"' `line'
                                 }
@@ -368,6 +370,12 @@ program define _dataprobe_groupstat, rclass
                         local keep "`keep' `gv`j'' `nn`j''"
                     }
                     else {
+                        // ess: weights of one sign (see _dataprobe_statval)
+                        quietly count if `v' < 0 & !missing(`v') & !missing(`g')
+                        if r(N) {
+                            display as error "groupstat(): ess: `v' has negative values in scope; the effective sample size needs nonnegative weights"
+                            exit 459
+                        }
                         quietly generate double `w2`j'' = `v'^2
                         quietly bysort `g': egen double `t2`j'' = total(`w2`j'') if !missing(`g')
                         quietly by `g': egen double `gv`j'' = total(`v') if !missing(`g')
@@ -518,10 +526,12 @@ program define _dataprobe_groupstat, rclass
                     local gl "`k'"
                     if "`glab'" != "" {
                         local _t : label `glab' `k'
-                        // R1: Mata, as a one-line if expands its command twice
-                        if `"`macval(_t)'"' != "" mata: st_local("gl", st_local("_t"))
+                        // R1: tested and copied in Mata: a label holding
+                        // "' closes a compound quote, and a one-line if
+                        // expands its command twice
+                        mata: st_local("gl", st_local("_t") != "" ? st_local("_t") : st_local("gl"))
                     }
-                    local gl_`k' `"`macval(gl)'"'
+                    mata: st_local("gl_`k'", st_local("gl"))
                     // an explicit min() below the mask lists a group of 1
                     // to mask-1 rows: its value is a rare level, so under
                     // the mask it is named by number, as smallcells() does
@@ -918,7 +928,7 @@ program define _dataprobe_groupstat, rclass
                         local line `"`line' as result %13s "`s_`k'_`j''""'
                     }
                     // R1: a group label prints literally (_dpgs_show)
-                    local gshow = substr(`"`macval(gl_`k')'"', 1, 24)
+                    mata: st_local("gshow", substr(st_local("gl_`k'"), 1, 24))
                     if "`cellframe'" == "" mata: st_local("gshow", _dpgs_show(st_local("gshow"), 24))
                     if "`cellframe'" == "" display as text "  " as result %-24s `"`macval(gshow)'"' `line'
                     else {
@@ -1131,12 +1141,16 @@ program define _dataprobe_groupstat, rclass
                         // a group withheld from the table is named by its
                         // number, never its values (as by() names a withheld
                         // group)
-                        local gname `"`macval(gl_`k')'"'
+                        // R1: the group label is joined in Mata: one
+                        // holding "' closes a compound quote
+                        mata: st_local("gname", st_local("gl_`k'"))
                         if `sup_`k'' & `mask' > 0 local gname "#`k'"
-                        local g2 `"by(`byv') = `macval(gname)'"'
+                        mata: st_local("g2", "by(" + st_local("byv") + ") = " + st_local("gname"))
                         if `sup_`k'' & `mask' > 0 local g2 "by(`byv' group `k')"
-                        if `"`macval(grp)'"' != "" mata: st_local("g2", st_local("grp") + "; " + st_local("g2"))
-                        local fmsg `"`macval(pfx)'groupstat(`sname' `v'): `what' `xs' in group `macval(gname)', expected `etxt' [`dsum']"'
+                        mata: st_local("g2", (st_local("grp") != "" ? st_local("grp") + "; " : "") + st_local("g2"))
+                        local _fm1 `"groupstat(`sname' `v'): `what' `xs' in group "'
+                        local _fm2 `", expected `etxt' [`dsum']"'
+                        mata: st_local("fmsg", st_local("pfx") + st_local("_fm1") + st_local("gname") + st_local("_fm2"))
                         // R1: frame post expands its arguments again, so
                         // the group and message are stored from Mata
                         frame post `rf' ("groupstat") ("`kind'") (0) ("`sname' `v'") ("`v'") ///

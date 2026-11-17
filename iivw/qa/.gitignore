@@ -22,11 +22,9 @@ run_all_expected.txt
 # claim is made against. Re-admit everything under coverage_results/.
 !coverage_results/**
 
-# Tracked oracle inputs: R reference generators, recorded R/package versions and
-# the NHEFS fixture (its SHA-256 is asserted by the Hernan-Robins suite). The
+# Tracked oracle inputs: R reference generators and recorded R/package versions. The
 # suites write their generated references, sentinels and draws to tempfiles, so
 # nothing they produce lands here; these re-admits keep a later broad pattern
 # from swallowing the sources.
 !*.R
 !*_versions.csv
-!data/nhefs_whatif.csv

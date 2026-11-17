@@ -480,8 +480,20 @@ program define _datamap_md_sections, nclass
                     if `n_units' > 0 & `n_units' < `n_idobs' {
                         local _avg = strtrim(string(`n_idobs' / `n_units', "%9.1f"))
                         local _ln "- Panel: identifier {bq}`id_var'{bq}; `n_units' units; `=_N' rows"
-                        if `n_noid' > 0 local _ln "`_ln' (`n_noid' with a missing identifier)"
-                        local _ln "`_ln'; `_avg' rows per unit"
+                        // the rows with and without an identifier are the
+                        // identifier's two margins, masked as the Variables
+                        // table masks them; rows per unit times the units
+                        // gives the identified rows back, so it goes too
+                        // (2026-11-17: printed "(2 with a missing
+                        // identifier)" beside "suppressed (<5)")
+                        if `n_noid' > 0 & `mincell' > 0 & ///
+                            (`n_noid' < `mincell' | `n_idobs' < `mincell') {
+                            local _ln "`_ln' (missing identifier: suppressed (<`mincell' in a cell)); rows per unit withheld"
+                        }
+                        else {
+                            if `n_noid' > 0 local _ln "`_ln' (`n_noid' with a missing identifier)"
+                            local _ln "`_ln'; `_avg' rows per unit"
+                        }
                         mata: _dms_add("_st", "_ln")
                     }
                 }
@@ -528,12 +540,16 @@ program define _datamap_md_sections, nclass
                 mata: _dms_add("_st", "_ln")
                 // the range of the first numeric, non-excluded one; a date
                 // in its display format, and none under datesafe
+                // a date-formatted one forced into continuous() or
+                // categorical() is a date too (2026-11-17: its exact range
+                // printed under datesafe, and as day numbers without it)
                 local first_time ""
                 foreach tv of local time_vars {
                     if `: list tv in excluded' continue
-                    if `_ds' & `: list tv in datevars' continue
                     capture confirm numeric variable `tv'
                     if _rc continue
+                    mata: st_local("_tvdf", strofreal(_dms_isdatefmt(st_varformat("`tv'"))))
+                    if `_ds' & (`: list tv in datevars' | `_tvdf') continue
                     local first_time "`tv'"
                     continue, break
                 }
@@ -541,6 +557,7 @@ program define _datamap_md_sections, nclass
                     quietly summarize `first_time'
                     if r(N) > 0 {
                         local _isd : list first_time in datevars
+                        mata: st_local("_isd", strofreal(`_isd' | _dms_isdatefmt(st_varformat("`first_time'"))))
                         mata: _dms_rangestr("`first_time'", `r(min)', `r(max)', `_isd', ///
                             st_local("dateformat"), "_rng")
                         local _ln "  - {bq}`first_time'{bq} range: `_rng'"
@@ -591,8 +608,19 @@ program define _datamap_md_sections, nclass
                     }
                     else {
                         capture confirm numeric variable `vn'
-                        if _rc == 0 {
+                        local _wnum = (_rc == 0)
+                        local _wn = 0
+                        if `_wnum' {
                             quietly summarize `vn'
+                            local _wn = r(N)
+                        }
+                        // no nonmissing weight: no range or mean to print
+                        // (2026-11-17: printed "range . to .")
+                        if `_wnum' & `_wn' == 0 {
+                            local _ln "- Survey weight {bq}`vn'{bq}: no nonmissing values"
+                            mata: _dms_add("_st", "_ln")
+                        }
+                        else if `_wnum' {
                             local w_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
                             local w_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
                             local w_mean = strtrim(string(round(r(mean), 0.1), "%14.0g"))

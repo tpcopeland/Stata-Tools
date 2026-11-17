@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.9.1  2026/11/17
+*! psdash_weights Version 1.9.2  2026/11/18
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -96,6 +96,11 @@ program define psdash_weights, rclass
          PSVars(varlist numeric) ///
          IIVWComponent(string) ///
          _PANEL]
+    * v1.9.2: estimand() is case-insensitive. Lowercase once here so every
+    * downstream comparison (weight formula, stabilize guard) sees one form;
+    * estimand(ATT) used to reach a 2000 on binary data and bypass the
+    * multi-group stabilize guard.
+    local estimand = strlower(strtrim(`"`estimand'"'))
 
     if "`xlsx'" != "" {
         _psdash_validate_path, path(`"`xlsx'"') option(xlsx) extension(xlsx)
@@ -192,7 +197,7 @@ program define psdash_weights, rclass
         local treatment "`r(treatment)'"
         local psvar ""
         local source "`r(source)'"
-        local estimand "`r(estimand)'"
+        local estimand = strlower("`r(estimand)'")
         local wvar_auto "0"
         local multigroup "`r(multigroup)'"
         local K = r(K)
@@ -222,7 +227,7 @@ program define psdash_weights, rclass
         * RB-05: estimation-sample exclusion ledger (set by detect for teffects)
         local n_estimation "`_psd_n_estimation'"
         local n_excluded "`_psd_n_excluded'"
-        if "`estimand'" == "" local estimand "`_psd_estimand'"
+        if "`estimand'" == "" local estimand = strlower("`_psd_estimand'")
         local wvar_auto "0"
 
         * Pick up multi-group detection results
@@ -232,6 +237,16 @@ program define psdash_weights, rclass
         if missing(`K') local K = 2
         local levels "`_psd_levels'"
         local mg_reference "`_psd_reference'"
+    }
+
+    * v1.9.2: psvars() names generalized-PS components, which only a
+    * multi-group treatment uses; say so instead of ignoring it silently.
+    * After mlogit on a 0/1 treatment, detect takes the PS from psvars(),
+    * so the note is only for a psvars() that was not used.
+    local _psv_used : list psvar in psvars
+    if "`psvar'" == "" local _psv_used 0
+    if "`psvars'" != "" & "`multigroup'" == "0" & "`_panel'" == "" & !`_psv_used' {
+        display as text "note: psvars() applies to multi-group treatments only; ignored for this binary treatment"
     }
 
     local iivw_component "`_psd_iivw_component'"
@@ -864,7 +879,9 @@ program define psdash_weights, rclass
     }
 
     * EXPORT TO EXCEL (binary, O1)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _xk `""Treatment" "Total N" "N (treated)" "N (control)" "Mean weight" "SD weight" "Min weight" "Max weight" "CV" "ESS" "ESS % of N" "ESS % (treated)" "ESS % (control)" "Weights > extreme (N)" "Weights > extreme (%)" "Weights > very-extreme (N)" "p1" "p5" "p95" "p99" "Max/mean weight ratio" "ESS (treated)" "ESS (control)""'
             local _xv `""`treatment'" "`N'" "`n_treated'" "`n_control'" "`=string(`mean_wt',"%8.4f")'" "`=string(`sd_wt',"%8.4f")'" "`=string(`min_wt',"%8.4f")'" "`=string(`max_wt',"%8.4f")'" "`=string(`cv',"%6.3f")'" "`=string(`ess',"%8.1f")'" "`=string(`ess_pct',"%5.1f")'" "`=string(`ess_pct_t',"%5.1f")'" "`=string(`ess_pct_c',"%5.1f")'" "`n_extreme'" "`=string(`pct_extreme',"%5.2f")'" "`n_very_extreme'" "`=string(`p1',"%8.4f")'" "`=string(`p5',"%8.4f")'" "`=string(`p95',"%8.4f")'" "`=string(`p99',"%8.4f")'" "`=string(`max_ratio',"%8.2f")'" "`=string(`ess_t',"%8.1f")'" "`=string(`ess_c',"%8.1f")'""'
@@ -877,7 +894,7 @@ program define psdash_weights, rclass
             noisily display as text _n "Weights table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
-        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+        if `xlsx_rc' & `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "binary"
@@ -1348,7 +1365,9 @@ program define psdash_weights, rclass
     }
 
     * EXPORT TO EXCEL (multi-group, O1)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _xk `""Treatment" "Groups (K)" "Total N" "Mean weight" "SD weight" "Min weight" "Max weight" "CV" "ESS" "ESS % of N""'
             local _xv `""`treatment'" "`K'" "`N'" "`=string(`mean_wt',"%8.4f")'" "`=string(`sd_wt',"%8.4f")'" "`=string(`min_wt',"%8.4f")'" "`=string(`max_wt',"%8.4f")'" "`=string(`cv',"%6.3f")'" "`=string(`ess',"%8.1f")'" "`=string(`ess_pct',"%5.1f")'""'
@@ -1363,7 +1382,7 @@ program define psdash_weights, rclass
             noisily display as text _n "Weights table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
-        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+        if `xlsx_rc' & `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "multigroup"
@@ -1534,7 +1553,9 @@ program define _psdash_weights_graph, rclass
         local user_axis = regexm(lower(`"`graphoptions'"'), "(^|[^a-z0-9_])xsc(a|al|ale)?[ ]*[(]")
         local user_xlabel = ("`xlabel'" != "")
         local graph_cap = .
-        if !`user_xlabel' {
+        * v1.9.2: with a user xscale() and no xlabel(), no cap, labels or range
+        * are injected either (they used to override a log or wider axis).
+        if !`user_xlabel' & !`user_axis' {
             local graph_cap = `maxwt'
             local tail_threshold = max(`p99', `exthi')
             if `maxwt' > 1.5 * `tail_threshold' local graph_cap = `tail_threshold'
@@ -1551,7 +1572,7 @@ program define _psdash_weights_graph, rclass
         * is recomputed over every weight).
         local _pass = 1
         while `_pass' <= 2 {
-            if !`user_xlabel' {
+            if !`user_xlabel' & !`user_axis' {
                 local raw_step = `graph_cap' / 5
                 if `raw_step' <= 0 local raw_step = 1
                 local magnitude = 10^floor(log10(`raw_step'))
@@ -1653,9 +1674,11 @@ program define _psdash_weights_graph, rclass
         * dashed weight = 1 line (and its note) only when 1 is inside it.
         local ax_lo = `x_lo'
         local ax_hi = `x_hi'
-        foreach v of numlist `xlabel' {
-            local ax_lo = min(`ax_lo', `v')
-            local ax_hi = max(`ax_hi', `v')
+        if "`xlabel'" != "" {
+            foreach v of numlist `xlabel' {
+                local ax_lo = min(`ax_lo', `v')
+                local ax_hi = max(`ax_hi', `v')
+            }
         }
         local one_shown = (`user_axis' | (`ax_lo' <= 1 & `ax_hi' >= 1))
         local xline_opt ""

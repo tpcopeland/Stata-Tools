@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.9.1  2026/11/17
+*! _psdash_detect Version 1.9.2  2026/11/18
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -55,7 +55,7 @@ program define _psdash_detect, nclass
     * Parse using anything to avoid varlist greedy parsing issues
     syntax [anything] , ///
         [COVariates(varlist numeric fv) Wvar(varname) SAMPLEvar(varname) ///
-         ESTImand(string) PSOUT(name) WOUT(name) GETWvar ///
+         ESTImand(string) PSOUT(name) WOUT(name) GETWvar CONSUMEWvar ///
          REFerence(string) PSVars(varlist numeric) ALLOWLongitudinal]
 
     * Track whether estimand was explicitly provided; validate if so.
@@ -93,6 +93,19 @@ program define _psdash_detect, nclass
         if "`3'" != "" {
             display as error "too many variables specified; maximum is 2"
             exit 103
+        }
+    }
+
+    * A positional PS and psvars() are two answers to one question. The
+    * combined dashboard forwards both (its positional PS is one of the
+    * psvars() columns); any other pairing would silently discard the
+    * positional variable, so refuse it.
+    if "`arg_psvar'" != "" & "`psvars'" != "" {
+        local _psv_has_arg : list arg_psvar in psvars
+        if !`_psv_has_arg' {
+            display as error "propensity score `arg_psvar' is not one of psvars(`psvars')"
+            display as error "  specify the propensity score either as the second variable or in psvars(), not both"
+            exit 198
         }
     }
 
@@ -405,6 +418,22 @@ program define _psdash_detect, nclass
 
             if "`iivw_estimand'" == "" local iivw_estimand "ate"
             local iivw_estimand = strlower("`iivw_estimand'")
+            * The diagnosed weight is iivw's own treatment weight, which targets
+            * the stamped estimand. An explicit estimand() that disagrees cannot
+            * relabel those weights; it is honoured only where the caller does
+            * not consume the producer weight (PS-only panels, or wvar()).
+            if `_estimand_explicit' & "`estimand'" != "`iivw_estimand'" {
+                * consumewvar: the caller (psdash combined's balance panel) uses
+                * the returned producer weight even though it did not ask for
+                * one to be generated.
+                if ("`getwvar'" != "" | "`consumewvar'" != "") & "`wvar'" == "" {
+                    display as error "estimand(`estimand') does not match the iivw contract estimand (`iivw_estimand')"
+                    display as error "  the iivw treatment weight targets `iivw_estimand'; omit estimand(),"
+                    display as error "  or supply weights for `estimand' with wvar()"
+                    exit 198
+                }
+                local iivw_estimand "`estimand'"
+            }
 
             c_local _psd_treatment "`iivw_treat'"
             c_local _psd_psvar "`iivw_psvar'"
@@ -527,6 +556,15 @@ program define _psdash_detect, nclass
 
             if "`msm_estimand'" == "" local msm_estimand "ate"
             local msm_estimand = strlower("`msm_estimand'")
+            * As for iivw: the producer weight fixes the estimand.
+            if `_estimand_explicit' & "`estimand'" != "`msm_estimand'" {
+                if "`wvar'" == "" {
+                    display as error "estimand(`estimand') does not match the msm contract estimand (`msm_estimand')"
+                    display as error "  longitudinal diagnostics use the producer's weights and cannot change the estimand"
+                    exit 198
+                }
+                local msm_estimand "`estimand'"
+            }
 
             if "`covariates'" != "" {
                 c_local _psd_covariates "`covariates'"
@@ -622,6 +660,15 @@ program define _psdash_detect, nclass
 
             if "`tte_estimand'" == "" local tte_estimand "ate"
             local tte_estimand = strlower("`tte_estimand'")
+            * As for iivw: the producer weight fixes the estimand.
+            if `_estimand_explicit' & "`estimand'" != "`tte_estimand'" {
+                if "`wvar'" == "" {
+                    display as error "estimand(`estimand') does not match the tte contract estimand (`tte_estimand')"
+                    display as error "  longitudinal diagnostics use the producer's weights and cannot change the estimand"
+                    exit 198
+                }
+                local tte_estimand "`estimand'"
+            }
 
             if "`covariates'" != "" {
                 c_local _psd_covariates "`covariates'"
@@ -662,23 +709,27 @@ program define _psdash_detect, nclass
         local _tmle_guard "_tmle_get_context, context(psdash)"
         if !`_tmle_active' local _tmle_guard "_tmle_get_context, context(psdash) persisted"
         _psdash_verify_producer tmle : `_tmle_guard'
+        * I4: active estimates are read from e() alone and persisted state
+        * from _dta[] alone; a stale characteristic never fills an e() gap.
         local tmle_treatment ""
         if `_tmle_active' local tmle_treatment "`e(treatment)'"
-        if "`tmle_treatment'" == "" {
-            local tmle_treatment : char _dta[_tmle_treatment]
-        }
+        else local tmle_treatment : char _dta[_tmle_treatment]
         if "`tmle_treatment'" == "" {
             display as error "tmle contract does not identify a treatment variable"
             exit 198
         }
         confirm variable `tmle_treatment'
         confirm numeric variable `tmle_treatment'
+        if `nargs' == 1 & "`arg_treatment'" != "`tmle_treatment'" {
+            display as error "after tmle the treatment is auto-detected as `tmle_treatment'"
+            display as error "  `arg_treatment' is not the fitted treatment; omit it, or specify"
+            display as error "  both treatment and propensity score variables explicitly"
+            exit 198
+        }
 
         local tmle_psvar ""
         if `_tmle_active' local tmle_psvar "`e(ps_var)'"
-        if "`tmle_psvar'" == "" {
-            local tmle_psvar : char _dta[_tmle_ps_var]
-        }
+        else local tmle_psvar : char _dta[_tmle_ps_var]
         if "`tmle_psvar'" == "" {
             capture confirm variable _tmle_ps
             if _rc == 0 local tmle_psvar "_tmle_ps"
@@ -704,15 +755,15 @@ program define _psdash_detect, nclass
         }
         else {
             local tmle_covariates ""
-            if `_tmle_active' local tmle_covariates "`e(covariates)'"
-            if "`tmle_covariates'" == "" {
+            if `_tmle_active' {
+                local tmle_covariates "`e(covariates)'"
+                if "`tmle_covariates'" == "" local tmle_covariates "`e(tmodel)'"
+            }
+            else {
                 local tmle_covariates : char _dta[_tmle_covariates]
-            }
-            if "`tmle_covariates'" == "" {
-                if `_tmle_active' local tmle_covariates "`e(tmodel)'"
-            }
-            if "`tmle_covariates'" == "" {
-                local tmle_covariates : char _dta[_tmle_tmodel]
+                if "`tmle_covariates'" == "" {
+                    local tmle_covariates : char _dta[_tmle_tmodel]
+                }
             }
             if "`tmle_covariates'" != "" {
                 _psdash_strip_fv `"`tmle_covariates'"'
@@ -721,27 +772,19 @@ program define _psdash_detect, nclass
         }
 
         local tmle_estimand "`estimand'"
-        * Ambient auto-detect strategy: e() and _dta[] are the same producer
-        * contract, read only after the verifier signed off; empty fails closed below.
-        if "`tmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
+        if !`_estimand_explicit' {
             if `_tmle_active' local tmle_estimand "`e(estimand)'"
-            if "`tmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
-                local tmle_estimand : char _dta[_tmle_estimand]
-            }
+            else local tmle_estimand : char _dta[_tmle_estimand]
         }
         local tmle_estimand = strlower("`tmle_estimand'")
         if "`tmle_estimand'" == "" local tmle_estimand "ate"
 
         local tmle_method ""
         if `_tmle_active' local tmle_method "`e(method)'"
-        if "`tmle_method'" == "" {
-            local tmle_method : char _dta[_tmle_method]
-        }
+        else local tmle_method : char _dta[_tmle_method]
         local tmle_contract ""
         if `_tmle_active' local tmle_contract "`e(contract_version)'"
-        if "`tmle_contract'" == "" {
-            local tmle_contract : char _dta[_tmle_contract_version]
-        }
+        else local tmle_contract : char _dta[_tmle_contract_version]
 
         local _sv_levelsof ""
         if "`samplevar'" != "" local _sv_levelsof "if `samplevar'"
@@ -780,13 +823,9 @@ program define _psdash_detect, nclass
 
         local tmle_wvar "`wvar'"
         local tmle_wvar_auto "0"
-        * Ambient auto-detect strategy: e() and _dta[] are the same producer
-        * contract, read only after the verifier signed off; empty fails closed below.
-        if "`tmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
+        if "`wvar'" == "" {
             if `_tmle_active' local tmle_wvar "`e(weight_var)'"
-            if "`tmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
-                local tmle_wvar : char _dta[_tmle_weight_var]
-            }
+            else local tmle_wvar : char _dta[_tmle_weight_var]
         }
         if "`tmle_wvar'" != "" {
             confirm variable `tmle_wvar'
@@ -868,21 +907,23 @@ program define _psdash_detect, nclass
 
         local ltmle_treatment ""
         if `_ltmle_active' local ltmle_treatment "`e(treatment)'"
-        if "`ltmle_treatment'" == "" {
-            local ltmle_treatment : char _dta[_ltmle_treatment]
-        }
+        else local ltmle_treatment : char _dta[_ltmle_treatment]
         if "`ltmle_treatment'" == "" {
             display as error "ltmle contract does not identify a treatment variable"
             exit 198
         }
         confirm variable `ltmle_treatment'
         confirm numeric variable `ltmle_treatment'
+        if `nargs' == 1 & "`arg_treatment'" != "`ltmle_treatment'" {
+            display as error "after ltmle the treatment is auto-detected as `ltmle_treatment'"
+            display as error "  `arg_treatment' is not the fitted treatment; omit it, or specify"
+            display as error "  both treatment and propensity score variables explicitly"
+            exit 198
+        }
 
         local ltmle_period ""
         if `_ltmle_active' local ltmle_period "`e(period)'"
-        if "`ltmle_period'" == "" {
-            local ltmle_period : char _dta[_ltmle_period]
-        }
+        else local ltmle_period : char _dta[_ltmle_period]
         if "`ltmle_period'" == "" {
             display as error "ltmle contract does not identify a period variable"
             exit 198
@@ -892,31 +933,24 @@ program define _psdash_detect, nclass
 
         local ltmle_id ""
         if `_ltmle_active' local ltmle_id "`e(id)'"
-        if "`ltmle_id'" == "" {
-            local ltmle_id : char _dta[_ltmle_id]
-        }
+        else local ltmle_id : char _dta[_ltmle_id]
         if "`ltmle_id'" != "" {
             confirm variable `ltmle_id'
         }
 
         local ltmle_psvar ""
         if `_ltmle_active' local ltmle_psvar "`e(ps_var)'"
-        if "`ltmle_psvar'" == "" {
-            local ltmle_psvar : char _dta[_ltmle_ps_var]
-        }
+        else local ltmle_psvar : char _dta[_ltmle_ps_var]
         if "`ltmle_psvar'" != "" {
             confirm variable `ltmle_psvar'
             confirm numeric variable `ltmle_psvar'
         }
 
+        * I4: e() alone for active estimates, _dta[] alone when persisted.
         local ltmle_wvar "`wvar'"
-        * Ambient auto-detect strategy: e() and _dta[] are the same producer
-        * contract, read only after the verifier signed off; empty fails closed below.
-        if "`ltmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
+        if "`wvar'" == "" {
             if `_ltmle_active' local ltmle_wvar "`e(weight_var)'"
-            if "`ltmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
-                local ltmle_wvar : char _dta[_ltmle_weight_var]
-            }
+            else local ltmle_wvar : char _dta[_ltmle_weight_var]
         }
         if "`ltmle_wvar'" != "" {
             confirm variable `ltmle_wvar'
@@ -941,9 +975,7 @@ program define _psdash_detect, nclass
                 local ltmle_covariates "`e(covariates)'"
                 local ltmle_baseline "`e(baseline)'"
             }
-            if "`ltmle_covariates'" == "" {
-                local ltmle_covariates : char _dta[_ltmle_tmodel]
-            }
+            else local ltmle_covariates : char _dta[_ltmle_tmodel]
             local ltmle_covariates "`ltmle_covariates' `ltmle_baseline'"
             local ltmle_covariates : list uniq ltmle_covariates
             if "`ltmle_covariates'" != "" {
@@ -953,32 +985,22 @@ program define _psdash_detect, nclass
         }
 
         local ltmle_estimand "`estimand'"
-        * Ambient auto-detect strategy: e() and _dta[] are the same producer
-        * contract, read only after the verifier signed off; empty fails closed below.
-        if "`ltmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
+        if !`_estimand_explicit' {
             if `_ltmle_active' local ltmle_estimand "`e(estimand)'"
-            if "`ltmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
-                local ltmle_estimand : char _dta[_ltmle_estimand]
-            }
+            else local ltmle_estimand : char _dta[_ltmle_estimand]
         }
         local ltmle_estimand = strlower("`ltmle_estimand'")
         if "`ltmle_estimand'" == "" local ltmle_estimand "ate"
 
         local ltmle_regime ""
         if `_ltmle_active' local ltmle_regime "`e(regime)'"
-        if "`ltmle_regime'" == "" {
-            local ltmle_regime : char _dta[_ltmle_regime]
-        }
+        else local ltmle_regime : char _dta[_ltmle_regime]
         local ltmle_contract ""
         if `_ltmle_active' local ltmle_contract "`e(contract_version)'"
-        if "`ltmle_contract'" == "" {
-            local ltmle_contract : char _dta[_ltmle_contract_version]
-        }
+        else local ltmle_contract : char _dta[_ltmle_contract_version]
         local ltmle_method ""
         if `_ltmle_active' local ltmle_method "`e(method)'"
-        if "`ltmle_method'" == "" {
-            local ltmle_method : char _dta[_ltmle_method]
-        }
+        else local ltmle_method : char _dta[_ltmle_method]
 
         c_local _psd_treatment "`ltmle_treatment'"
         c_local _psd_psvar "`ltmle_psvar'"
@@ -1059,9 +1081,18 @@ program define _psdash_detect, nclass
             local tmodel_len = `tmodel_end' - `tmodel_start' + 1
             local tmodel_contents = substr("`cmdline'", `tmodel_start', `tmodel_len')
 
-            * First token is treatment variable
-            gettoken te_treatment te_covars : tmodel_contents
+            * First token is treatment variable. Parse on the comma too, so a
+            * constant-only model "(treat, logit)" does not glue it to the name.
+            gettoken te_treatment te_covars : tmodel_contents, parse(" ,")
             c_local _psd_treatment "`te_treatment'"
+            * A lone positional variable cannot redirect auto-detection; one
+            * that is not the fitted treatment would be silently ignored.
+            if `nargs' == 1 & "`arg_treatment'" != "`te_treatment'" {
+                display as error "after teffects the treatment is auto-detected as `te_treatment'"
+                display as error "  `arg_treatment' is not the fitted treatment; omit it, or specify"
+                display as error "  both treatment and propensity score variables explicitly"
+                exit 198
+            }
 
             * Remaining tokens are covariates (strip trailing model spec like ", logit")
             * Remove everything after a comma (model specification)
@@ -1110,6 +1141,16 @@ program define _psdash_detect, nclass
             if "`samplevar'" != "" local _sv_levelsof "if `samplevar'"
             quietly levelsof `te_treatment' `_sv_levelsof', local(_trt_levels)
             local _K : word count `_trt_levels'
+
+            * I5: an if/in restriction that removes whole arms leaves predict
+            * returning PS columns of the full-arm model; the reduced sample's
+            * "P(A=1|X)" no longer partitions it. Mirror the mlogit refusal.
+            if `_K' >= 2 & !missing(e(k_levels)) & `_K' != e(k_levels) {
+                display as error "the diagnostic sample has `_K' treatment levels (`_trt_levels'), but teffects fitted `=e(k_levels)'"
+                display as error "  diagnostics on a reduced-arm teffects sample are not supported;"
+                display as error "  refit teffects on the arms to diagnose"
+                exit 198
+            }
 
             if `_K' < 2 {
                 if `_K' == 0 {
@@ -1243,6 +1284,16 @@ program define _psdash_detect, nclass
                 local te_stat = strlower("`e(stat)'")
                 if "`te_stat'" == "atet" local estimand "att"
                 else if "`te_stat'" == "atc" local estimand "atc"
+                * psdash's 0/1 formulas fix level 1 as treated. teffects
+                * control(1) makes level 0 the treated arm, so its ATET target
+                * population is psdash's ATC (and vice versa).
+                if `_is_binary01' & "`e(control)'" == "1" & ///
+                        inlist("`estimand'", "att", "atc") {
+                    local estimand = cond("`estimand'" == "att", "atc", "att")
+                    display as text "note: teffects control(1) treats level 0 as treated;" ///
+                        " teffects `te_stat' is psdash estimand `estimand'" ///
+                        " (level 1 = treated in psdash)"
+                }
             }
             * Default to ate if still unset after auto-detection
             if "`estimand'" == "" local estimand "ate"
@@ -1396,29 +1447,9 @@ program define _psdash_detect, nclass
             c_local _psd_covariates "`covariates'"
         }
         else {
-            * Parse RHS from e(cmdline): "logit depvar x1 x2 x3 [, opts]"
-            local cmdline "`e(cmdline)'"
-            * Remove command name and depvar
-            gettoken cmd cmdline : cmdline
-            gettoken depvar rhs : cmdline
-            * A weight expression ([fw=...], [pw=...], ...) is not a covariate
-            local wt_pos = strpos("`rhs'", "[")
-            if `wt_pos' > 0 local rhs = substr("`rhs'", 1, `wt_pos' - 1)
-            * Remove everything after comma (options)
-            local comma_pos = strpos("`rhs'", ",")
-            if `comma_pos' > 0 {
-                local rhs = substr("`rhs'", 1, `comma_pos' - 1)
-            }
-            * Remove if/in conditions
-            local if_pos = strpos("`rhs'", " if ")
-            if `if_pos' > 0 {
-                local rhs = substr("`rhs'", 1, `if_pos' - 1)
-            }
-            local in_pos = strpos("`rhs'", " in ")
-            if `in_pos' > 0 {
-                local rhs = substr("`rhs'", 1, `in_pos' - 1)
-            }
-            local rhs = strtrim("`rhs'")
+            * Parse RHS from e(cmdline): "<cmd> depvar x1 x2 x3 [if] [in] [wt] [, opts]"
+            _psdash_detect_rhs `"`e(cmdline)'"'
+            local rhs `"`_psd_rhs'"'
             if "`rhs'" != "" {
                 * RB-03: pass the raw factor-variable RHS through; psdash_balance
                 * expands i./c./## into design columns. Stripping here collapsed
@@ -1433,7 +1464,22 @@ program define _psdash_detect, nclass
             c_local _psd_wvar_auto "0"
         }
 
-        * Binary 0/1 from logit/probit — always binary
+        * Binary 0/1 from logit/probit. logit treats every nonzero outcome
+        * as 1, but psdash's formulas test treatment == 1, so a treatment
+        * coded e.g. 0/2 cannot be mapped onto them: refuse it.
+        local _lg_trt "`est_treatment'"
+        if "`arg_treatment'" != "" & "`arg_psvar'" != "" local _lg_trt "`arg_treatment'"
+        local _sv_levelsof ""
+        if "`samplevar'" != "" local _sv_levelsof "if `samplevar'"
+        quietly levelsof `_lg_trt' `_sv_levelsof', local(_lg_levels)
+        foreach _lv of local _lg_levels {
+            if !inlist("`_lv'", "0", "1") {
+                display as error "after `e(cmd)', the treatment `_lg_trt' must be coded 0/1"
+                display as error "  levels in the diagnostic sample: `_lg_levels'"
+                display as error "  recode it, e.g. {cmd:gen byte t = (`_lg_trt' != 0)}, and refit"
+                exit 198
+            }
+        }
         c_local _psd_multigroup "0"
         c_local _psd_K "2"
         c_local _psd_levels "0 1"
@@ -1484,25 +1530,8 @@ program define _psdash_detect, nclass
             c_local _psd_covariates "`covariates'"
         }
         else {
-            local cmdline "`e(cmdline)'"
-            gettoken cmd cmdline : cmdline
-            gettoken depvar rhs : cmdline
-            * A weight expression ([fw=...], [pw=...], ...) is not a covariate
-            local wt_pos = strpos("`rhs'", "[")
-            if `wt_pos' > 0 local rhs = substr("`rhs'", 1, `wt_pos' - 1)
-            local comma_pos = strpos("`rhs'", ",")
-            if `comma_pos' > 0 {
-                local rhs = substr("`rhs'", 1, `comma_pos' - 1)
-            }
-            local if_pos = strpos("`rhs'", " if ")
-            if `if_pos' > 0 {
-                local rhs = substr("`rhs'", 1, `if_pos' - 1)
-            }
-            local in_pos = strpos("`rhs'", " in ")
-            if `in_pos' > 0 {
-                local rhs = substr("`rhs'", 1, `in_pos' - 1)
-            }
-            local rhs = strtrim("`rhs'")
+            _psdash_detect_rhs `"`e(cmdline)'"'
+            local rhs `"`_psd_rhs'"'
             if "`rhs'" != "" {
                 * RB-03: raw factor-variable RHS; balance expands the design.
                 c_local _psd_covariates "`rhs'"
@@ -1519,7 +1548,54 @@ program define _psdash_detect, nclass
         _psdash_validate_levels, levels(`_trt_levels')
         * An mlogit treatment coded 0/1 follows the same reference() rule as
         * every other 0/1 route.
-        if "`_trt_levels'" == "0 1" _psdash_detect_ref01 `reference'
+        if "`_trt_levels'" == "0 1" & `_K' == 2 {
+            _psdash_detect_ref01 `reference'
+            * A 0/1 treatment is the binary design whichever command fitted
+            * it: report it exactly as the manual route does (multigroup 0,
+            * PS slot = P(A=1|X)), so r() does not depend on the estimator.
+            c_local _psd_multigroup "0"
+            c_local _psd_K "2"
+            c_local _psd_levels "0 1"
+            c_local _psd_reference "0"
+            local _n_psv : word count `psvars'
+            local _sv_cond "1"
+            if "`samplevar'" != "" local _sv_cond "`samplevar'"
+            if `_n_psv' == 1 {
+                quietly count if `_sv_cond' & !missing(`psvars') ///
+                    & (`psvars' < 0 | `psvars' > 1)
+                if r(N) > 0 {
+                    display as error "propensity scores must be in [0,1]"
+                    exit 198
+                }
+                c_local _psd_psvar "`psvars'"
+            }
+            else if `_n_psv' == 2 {
+                local _sample_opt ""
+                if "`samplevar'" != "" local _sample_opt "samplevar(`samplevar')"
+                _psdash_validate_psvars `psvars', levels(`_trt_levels') ///
+                    k(2) `_sample_opt'
+                c_local _psd_ps_0 "`r(ps_0)'"
+                c_local _psd_ps_1 "`r(ps_1)'"
+                c_local _psd_psvar "`r(ps_1)'"
+            }
+            else if `_n_psv' > 2 {
+                display as error "psvars() takes 1 or 2 variables for a binary 0/1 treatment"
+                display as error "  with 2, order them by treatment level: P(A=0|X) then P(A=1|X)"
+                display as error "  psvars provided: `_n_psv'"
+                exit 198
+            }
+            else c_local _psd_psvar "`arg_psvar'"
+            c_local _psd_psvar_auto "0"
+            if "`wvar'" != "" {
+                c_local _psd_wvar "`wvar'"
+                c_local _psd_wvar_auto "0"
+            }
+            if "`estimand'" == "" local estimand "ate"
+            c_local _psd_estimand "`estimand'"
+            c_local _psd_source "estimation"
+            local _psdash_early_success = 1
+            exit 498
+        }
 
         c_local _psd_multigroup "1"
         c_local _psd_K "`_K'"
@@ -1722,13 +1798,43 @@ program define _psdash_detect_mgwt
     c_local _mgwt_storage "`wt_storage'"
 end
 
+* File-private helper: covariate list from an estimation command line
+* "<cmd> depvar [rhs] [if] [in] [weight] [, options]". The depvar is split on
+* commas as well as blanks, and if/in are recognised whether or not they are
+* followed by a blank ("if(x>1)"), so option or qualifier text never lands in
+* the covariate list. Returns the RHS in the caller's local _psd_rhs.
+capture program drop _psdash_detect_rhs
+program define _psdash_detect_rhs
+    version 16.0
+    gettoken cmdline : 0
+    gettoken cmd cmdline : cmdline, parse(" ,")
+    gettoken depvar rhs : cmdline, parse(" ,")
+    local out ""
+    local stop = 0
+    while !`stop' {
+        gettoken tok rhs : rhs, parse(" ,[") bind
+        if `"`tok'"' == "" | inlist(`"`tok'"', ",", "[") local stop = 1
+        else if substr(`"`tok'"', 1, 1) == "[" local stop = 1
+        else if inlist(`"`tok'"', "if", "in") local stop = 1
+        else if regexm(`"`tok'"', "^(if|in)[(]") local stop = 1
+        else local out `"`out' `tok'"'
+    }
+    c_local _psd_rhs = strtrim(`"`out'"')
+end
+
 * File-private helper: reference() on a treatment coded 0/1. Every binary
 * formula in psdash fixes level 0 as the reference (control) arm, so only
 * reference(0) can be honoured; anything else is refused rather than ignored.
 capture program drop _psdash_detect_ref01
 program define _psdash_detect_ref01
     version 16.0
-    args reference
+    * Take the whole argument, not its first word: reference(0 junk) must
+    * not pass as reference(0).
+    local reference = strtrim(`"`0'"')
+    if `: word count `reference'' > 1 {
+        display as error "reference(`reference') takes one treatment level"
+        exit 198
+    }
     if inlist("`reference'", "", "0") exit
     if "`reference'" != "1" {
         display as error "reference(`reference') is not a treatment level"

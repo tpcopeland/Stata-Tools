@@ -113,9 +113,9 @@ multi-group treatments.
 {phang}
 {opt compact} replaces the detailed multi-group component density panels with
 one grouped box-plot region containing every GPS component. Its treatment-group
-legend uses one row, boxes use the same arm colours as the density graphs, and a
-note names the dashed red positivity floor line. It has no effect for binary
-treatments.
+legend uses one row, wrapping to two rows when the arm labels are long; boxes
+use the same arm colours as the density graphs, and a note names the
+dashed red positivity floor line. It has no effect for binary treatments.
 
 {marker examples}{...}
 {title:Examples}
@@ -164,7 +164,7 @@ treatments.
 {p2col 5 32 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable{p_end}
 {synopt:{cmd:r(psvar)}}propensity-score variable{p_end}
-{synopt:{cmd:r(estimand)}}target estimand{p_end}
+{synopt:{cmd:r(estimand)}}target estimand, lowercase{p_end}
 {synopt:{cmd:r(source)}}input-detection source{p_end}
 {synopt:{cmd:r(levels)}}treatment-group levels{p_end}
 {synopt:{cmd:r(reference)}}reference treatment group{p_end}

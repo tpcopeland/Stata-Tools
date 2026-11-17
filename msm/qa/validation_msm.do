@@ -494,7 +494,15 @@ else {
 *             smokeyrs, smokeyrs^2, exercise, active, wt71, wt71^2
 * PART A: Chapter 12 -- Point Treatment IPTW
 
-use "`data_dir'/nhefs.dta", clear
+* nhefs.dta is third-party data the repository does not distribute: see
+* data/nhefs/SOURCE.md. Resolved from $STATA_QA_DATA or downloaded, then
+* verified against the original's length and CRC.
+run "`qa_dir'/_msm_qa_extdata.do"
+_msm_qa_extfile nhefs nhefs.dta, len(844532) crc(3078715963) ///
+    url("https://miguelhernan.org/s/nhefs.dta")
+local nhefs_file `"`r(path)'"'
+
+use `"`nhefs_file'"', clear
 
 * Drop missing outcome (as per Hernan & Robins)
 drop if missing(wt82_71)
@@ -613,7 +621,7 @@ capture {
     * Outcome: death
     * Treatment: qsmk (time-fixed in this case, but structured as panel)
 
-    use "`data_dir'/nhefs.dta", clear
+    use `"`nhefs_file'"', clear
     drop if missing(wt82_71)
 
     * Generate ID

@@ -1,4 +1,4 @@
-/*  demo_datamap.do - Demo output for datamap 2.0.0
+/*  demo_datamap.do - Demo output for datamap
 
     Produces:
       1. Console output (Markdown map, privacy controls)  -> .log -> .md via logdoc

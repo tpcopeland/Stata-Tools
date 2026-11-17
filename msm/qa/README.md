@@ -37,7 +37,7 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 | `test_msm_companion_smoke.do`, `test_msm_documentation_examples.do`, `test_demo_contract.do` | Sibling package directories `../../tabtools`, `../../psdash`, `../../eplot`, `../../qba`, `../../swimlane` | Hard failure; run from the Stata-Tools layout or copy the siblings into scratch |
 | `crossval` / `full` | `Rscript`; R packages `haven`, `ipw`, `sandwich`, `survey`, `survival`, `splines` | Hard failure; install the missing package and rerun |
 | `crossval_msm.do`, `crossval_external_models.do` | Python 3; `numpy`, `pandas`, `scipy`, `statsmodels` | Hard failure; install into the interpreter used by the suite and rerun |
-| Public-data cross-validation | Tracked `data/nhefs.dta` and `data/haartdat.dta` | Hard failure; restore from the public source recorded in `fixtures_manifest.md` |
+| Public-data cross-validation | Tracked `data/haartdat.dta`; NHEFS (`validation_msm.do`, `crossval_msm_nhefs.do`) is third-party data not distributed here: `STATA_QA_DATA` (a local directory of third-party QA source data laid out `<package>/<set>/<file>`), else a test-time download from the book site, both checked against a recorded length and `checksum` CRC (`data/nhefs/SOURCE.md`) | Hard failure (r(601) when neither source is available, r(459) on a checksum mismatch); restore `haartdat.dta` from the public source recorded in `fixtures_manifest.md` |
 
 ## File index
 

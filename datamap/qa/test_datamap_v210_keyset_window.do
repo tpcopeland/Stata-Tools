@@ -835,14 +835,15 @@ capture noisily {
     dataprobe, gatesonly reconcile("`W'/c14.dta", n sum(inc)) warn ledger("`W'/l14e.dta")
     _row "`W'/l14e.dta" reconcile "c14 sum(inc)"
     assert r(n) == 1 & r(num) == -6275 & r(om) == 0
-    * a small group (3 rows) that fails is counted, not named
+    * a small group (3 rows) that fails is counted, not named; under the
+    * mask the count of 1 prints as <5 (review 2026-11-17)
     use "`W'/c14.dta", clear
     quietly drop if g == 3 & _n == 100
     capture log close t14
     log using "`W'/t14c.log", text replace name(t14)
     dataprobe, gatesonly reconcile("`W'/c14.dta", n by(g)) maskrare mincell(5) warn
     log close t14
-    _cnt "`W'/t14c.log" "groups with fewer than 5 rows on a side (not shown): 1 failing"
+    _cnt "`W'/t14c.log" "groups with fewer than 5 rows on a side (not shown): <5 failing"
     assert r(n) == 1
     _cnt "`W'/t14c.log" "gamma"
     assert r(n) == 0
@@ -857,7 +858,7 @@ capture noisily {
     log using "`W'/t14d.log", text replace name(t14)
     dataprobe, gatesonly reconcile("`W'/c14.dta", n by(g)) maskrare mincell(5) warn
     log close t14
-    _cnt "`W'/t14d.log" "groups with fewer than 5 rows on a side (not shown): 1 failing"
+    _cnt "`W'/t14d.log" "groups with fewer than 5 rows on a side (not shown): <5 failing"
     assert r(n) == 1
     _cnt "`W'/t14d.log" "gamma"
     assert r(n) == 0

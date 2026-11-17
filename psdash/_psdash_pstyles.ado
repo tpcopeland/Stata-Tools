@@ -1,4 +1,4 @@
-*! _psdash_pstyles Version 1.9.1  2026/11/17
+*! _psdash_pstyles Version 1.9.2  2026/11/18
 *! Series plot-style order for arms, groups, and strategies under a scheme
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: sclass

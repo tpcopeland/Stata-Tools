@@ -15,8 +15,14 @@ local fail_count = 0
 local failed_tests ""
 
 local qa_dir "`c(pwd)'"
-local data_file "`qa_dir'/data/daniel2011_tvc1.dta"
 do "`qa_dir'/_qa_bootstrap.do"
+* tvc1.dta is third-party data the repository does not distribute: see
+* data/daniel2011/SOURCE.md. Resolved from $STATA_QA_DATA or downloaded, then
+* verified against the original's length and CRC.
+run "`qa_dir'/_gcomp_qa_extdata.do"
+_gcomp_qa_extfile daniel2011 tvc1.dta, len(262522) crc(3347781096) ///
+    url("https://www.stata-journal.com/software/sj11-4/st0238/tvc1.dta")
+local data_file `"`r(path)'"'
 
 tempfile persistent_saved instantaneous_saved
 

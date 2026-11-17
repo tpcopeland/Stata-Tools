@@ -1167,16 +1167,32 @@ program define _dataqa_export, rclass
             local _vfam `""rule", "review", "byrule", "forbid", "notvalues", "allowed", "regex", "sets", "values""'
             local n_text_dropped = 0
             foreach v in expected label message {
-                quietly generate byte _lit_`v' = inlist(family, `_vfam') & ///
+                // smallcells() cells are expressions too (id==12345):
+                // inlist() takes at most nine strings beside family
+                quietly generate byte _lit_`v' = (inlist(family, `_vfam') | family == "smallcells") & ///
                     (regexm(`v', "[0-9][0-9][0-9][0-9]") | strpos(`v', char(34)) > 0)
             }
             quietly replace _lit_message = 1 if _lit_expected | _lit_label
+            // a smallcells() row repeats its cell expressions in variable:
+            // that copy goes with the label
+            quietly replace variable = "" if family == "smallcells" & ///
+                (_lit_label | regexm(variable, "[0-9][0-9][0-9][0-9]") | strpos(variable, char(34)) > 0)
             foreach v in expected label message {
                 quietly count if _lit_`v'
                 local n_text_dropped = `n_text_dropped' + r(N)
                 quietly replace `v' = "" if _lit_`v'
                 quietly drop _lit_`v'
             }
+            // a gate's own if is echoed at the end of its message
+            // ("expected [0, 1] (if id==12345)"): a literal there is a
+            // literal of the scope blanked above, so the message goes too
+            quietly generate long _ifp = strpos(message, " (if ")
+            quietly generate byte _lit_if = _ifp > 0 & ///
+                (regexm(substr(message, _ifp, .), "[0-9][0-9][0-9][0-9]") | strpos(substr(message, _ifp, .), char(34)) > 0)
+            quietly count if _lit_if
+            local n_text_dropped = `n_text_dropped' + r(N)
+            quietly replace message = "" if _lit_if
+            quietly drop _ifp _lit_if
             // signature leads with the dataset's N ("3:12(...)"): blank it
             // when that N is a small count the row's masking withholds
             local n_sig_dropped = 0

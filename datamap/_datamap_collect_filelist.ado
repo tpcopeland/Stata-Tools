@@ -14,7 +14,9 @@ program define _datamap_collect_filelist, nclass
 	quietly file open `fh_out' using `"`tmpfile'"', write text replace
 	local opened 1
 
-	local remaining `"`filelist'"'
+	// macval(): a $name or `name' in a file name stays literal, so the
+	// path guard below refuses it (2026-11-17)
+	local remaining `"`macval(filelist)'"'
 	while `"`remaining'"' != "" {
 		gettoken dsname remaining : remaining
 		// Callers pass filelist() -asis-, so a quoted name keeps its spaces.
@@ -50,13 +52,13 @@ program define _datamap_collect_filelist, nclass
 				// .dta extension is a list, whatever its separators
 				if `_allfiles' local _split = 1
 				if `_split' {
-					local remaining `"`dsname' `remaining'"'
+					local remaining `"`macval(dsname)' `macval(remaining)'"'
 					continue
 				}
 			}
 		}
 		if `"`dsname'"' != "" {
-			_datamap_validate_path `"`dsname'"', option("filelist()")
+			_datamap_validate_path `"`macval(dsname)'"', option("filelist()")
 			if !regexm(lower(`"`dsname'"'), "\.dta$") {
 				local dsname `"`dsname'.dta"'
 			}

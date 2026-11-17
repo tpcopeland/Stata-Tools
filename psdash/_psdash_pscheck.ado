@@ -1,4 +1,4 @@
-*! _psdash_pscheck Version 1.9.1  2026/11/17
+*! _psdash_pscheck Version 1.9.2  2026/11/18
 *! Validate propensity score ranges and positivity warnings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -49,7 +49,7 @@ program define _psdash_pscheck, rclass
         quietly count if (`warnvar' == 0 | `warnvar' == 1) & `samplevar'
         local n_ps_boundary = r(N)
         quietly count if (`warnvar' < 0.01 | `warnvar' > 0.99) & `samplevar' ///
-            & `warnvar' != 0 & `warnvar' != 1
+            & `warnvar' != 0 & `warnvar' != 1 & !missing(`warnvar')
         local n_ps_near = r(N)
 
         * nowarn suppresses display only; counts remain available to callers

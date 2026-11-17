@@ -92,7 +92,7 @@ program define dataprobe, rclass
             SMALLcells(string asis) ///
             TOPValues(string asis) ///
             BY(string) OVER(string) ///
-            CHECKs(string) MAKESpec(string) VIOLations(string) ///
+            CHECKs(string) MAKESpec(string) VIOLations(string asis) ///
             SAVing(string) CONFig(string) COMPare(string asis) ///
             SNAPshot(string) DIFF(string asis) TOL(numlist min=1 max=2 >=0) ///
             LEDGER(string asis) PHASE(name) SOFTcollect NAME(string) MINVERsion(string) SIGnature ///
@@ -230,6 +230,7 @@ program define dataprobe, rclass
                 exit 198
             }
         }
+        if `"`violations'"' != "" _dataprobe_vopt `violations'
         if "`brief'" != "" {
             foreach _o in gatesonly patterns byfreq {
                 if "``_o''" != "" {
@@ -345,7 +346,9 @@ program define dataprobe, rclass
             _dataprobe_pathok `"`single'"'
             capture confirm file `"`single'"'
             if _rc {
-                capture confirm file `"`single'.dta"'
+                // a name that already ends in .dta is the file itself: it never
+                // falls back to name.dta.dta (_rc stays the first confirm's)
+                if lower(substr(`"`single'"', -4, 4)) != ".dta" capture confirm file `"`single'.dta"'
                 if _rc {
                     display as error `"file `single' not found"'
                     exit 601
@@ -405,7 +408,9 @@ program define dataprobe, rclass
             _dataprobe_pathok `"`cfile'"'
             capture confirm file `"`cfile'"'
             if _rc {
-                capture confirm file `"`cfile'.dta"'
+                // a name that already ends in .dta is the file itself: it never
+                // falls back to name.dta.dta (_rc stays the first confirm's)
+                if lower(substr(`"`cfile'"', -4, 4)) != ".dta" capture confirm file `"`cfile'.dta"'
                 if _rc {
                     display as error `"checks() file `cfile' not found"'
                     exit 601
@@ -921,12 +926,7 @@ program define dataprobe, rclass
         // safe: the profile's likely identifiers are withheld as exclude()
         // withholds them, by the rule datamap's exclude(auto) reads
         local _safe_ex ""
-        if `_safe' {
-            _datamap_idnames `profilevars'
-            local _safe_ex "`r(names)'"
-            local exclude : list exclude | _safe_ex
-            if "`_safe_ex'" != "" display as text "note: safe excludes likely identifier(s): `_safe_ex'"
-        }
+        if `_safe' _dataprobe_safeids `profilevars', exclude(`exclude')
         if "`continuous'"  != "" unab continuous  : `continuous'
         if "`categorical'" != "" unab categorical : `categorical'
         if "`date'"        != "" unab date        : `date'
@@ -1054,21 +1054,22 @@ program define dataprobe, rclass
             while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
                 if `"`macval(part)'"' == "\" continue
+                mata: st_local("part", _dataprobe_unwrap(st_local("part")))
                 // 2.1.0 F9(b): a "(expression)" in a variable slot is
                 // evaluated into a tempvar whose name replaces it (sets
                 // part and stat_xlab# stat_xvar# stat_xops# stat_xd#)
                 tempvar _sx1 _sx2
                 _dataprobe_exprarg split `"`macval(part)'"', v1(`_sx1') v2(`_sx2') k(`=`n_stat' + 1')
-                local part = strtrim(`"`part'"')
-                if `"`part'"' == "" continue
+                local part = strtrim(`"`macval(part)'"')
+                if `"`macval(part)'"' == "" continue
                 local eif ""
-                local ip = strpos(`"`part'"', " if ")
+                local ip = strpos(`"`macval(part)'"', " if ")
                 if `ip' {
-                    local eif = strtrim(substr(`"`part'"', `ip' + 4, .))
-                    local bpart = strtrim(substr(`"`part'"', 1, `ip' - 1))
+                    local eif = strtrim(substr(`"`macval(part)'"', `ip' + 4, .))
+                    local bpart = strtrim(substr(`"`macval(part)'"', 1, `ip' - 1))
                 }
-                else local bpart `"`part'"'
-                local bpart = subinstr(`"`bpart'"', ",", " ", .)
+                else mata: st_local("bpart", st_local("part"))
+                local bpart = subinstr(`"`macval(bpart)'"', ",", " ", .)
                 local sst = lower("`: word 1 of `bpart''")
                 if "`sst'" == "median" local sst "p50"
                 local isorder = inlist("`sst'", "p1", "p5", "p10", "p25", "p50") | ///
@@ -1080,8 +1081,9 @@ program define dataprobe, rclass
                 local need = cond("`sst'" == "ratio", 5, 4)
                 local nw : word count `bpart'
                 if `nw' != `need' {
-                    if "`sst'" == "ratio" display as error `"stat() ratio spec must be "ratio num den lo hi [if exp]": `part'"'
-                    else display as error `"stat() spec must be "statistic var lo hi [if exp]": `part'"'
+                    local _sx `"spec must be "statistic var lo hi [if exp]""'
+                    if "`sst'" == "ratio" local _sx `"ratio spec must be "ratio num den lo hi [if exp]""'
+                    display as error `"stat() `_sx': `macval(part)'"'
                     exit 198
                 }
                 local sv : word 2 of `bpart'
@@ -1108,21 +1110,21 @@ program define dataprobe, rclass
                 // a lower bound of . is not open in stat(): it used to be
                 // reported as exceeding the upper bound
                 if missing(`lo_num') {
-                    display as error `"stat() lower bound is missing; give a number: `part'"'
+                    display as error `"stat() lower bound is missing; give a number: `macval(part)'"'
                     exit 198
                 }
                 if `lo_num' > `hi_num' {
-                    display as error `"stat() lower bound exceeds upper bound: `part'"'
+                    display as error `"stat() lower bound exceeds upper bound: `macval(part)'"'
                     exit 198
                 }
                 local scond "1"
-                if `"`eif'"' != "" {
+                if `"`macval(eif)'"' != "" {
                     local ++n_eif
                     tempvar eif`n_eif'
-                    capture quietly generate byte `eif`n_eif'' = ((`eif') != 0)
+                    capture quietly generate byte `eif`n_eif'' = ((`macval(eif)') != 0)
                     if _rc {
                         local _erc = _rc
-                        display as error `"stat(): cannot evaluate condition if `eif'"'
+                        display as error `"stat(): cannot evaluate condition if `macval(eif)'"'
                         exit `_erc'
                     }
                     local scond "`eif`n_eif''"
@@ -1138,7 +1140,7 @@ program define dataprobe, rclass
                 local stat_hilab`n_stat' `"`hi'"'
                 local stat_kind`n_stat' = cond("`_src'" == "main", "invariant", "band")
                 local stat_cond`n_stat' "`scond'"
-                local stat_if`n_stat' `"`eif'"'
+                local stat_if`n_stat' `"`macval(eif)'"'
                 local statvars "`statvars' `sv' `sden' `stat_xops`n_stat''"
             }
         }
@@ -1215,17 +1217,17 @@ program define dataprobe, rclass
         local n_notvalues = 0
         local n_regex = 0
         local value_gatevars ""
-        if `"`allowed'"' != "" {
-            local rest `"`allowed'"'
-            while `"`rest'"' != "" {
+        if `"`macval(allowed)'"' != "" {
+            local rest `"`macval(allowed)'"'
+            while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
-                if `"`part'"' == "\" continue
-                local part = trim(`"`part'"')
-                if `"`part'"' == "" continue
+                if `"`macval(part)'"' == "\" continue
+                local part = trim(`"`macval(part)'"')
+                if `"`macval(part)'"' == "" continue
                 gettoken vv vals : part, quotes
-                local vals = trim(`"`vals'"')
-                if `"`vv'"' == "" | `"`vals'"' == "" {
-                    display as error `"allowed() spec must be "var value [value ...]": `part'"'
+                local vals = trim(`"`macval(vals)'"')
+                if `"`vv'"' == "" | `"`macval(vals)'"' == "" {
+                    display as error `"allowed() spec must be "var value [value ...]": `macval(part)'"'
                     exit 198
                 }
                 if `: list vv in req_missing' {
@@ -1235,21 +1237,21 @@ program define dataprobe, rclass
                 unab vv : `vv'
                 local ++n_allowed
                 local allowed_var`n_allowed' "`vv'"
-                local allowed_vals`n_allowed' `"`vals'"'
+                local allowed_vals`n_allowed' `"`macval(vals)'"'
                 local value_gatevars "`value_gatevars' `vv'"
             }
         }
-        if `"`forbid'"' != "" {
-            local rest `"`forbid'"'
-            while `"`rest'"' != "" {
+        if `"`macval(forbid)'"' != "" {
+            local rest `"`macval(forbid)'"'
+            while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
-                if `"`part'"' == "\" continue
-                local part = trim(`"`part'"')
-                if `"`part'"' == "" continue
+                if `"`macval(part)'"' == "\" continue
+                local part = trim(`"`macval(part)'"')
+                if `"`macval(part)'"' == "" continue
                 gettoken vv vals : part, quotes
-                local vals = trim(`"`vals'"')
-                if `"`vv'"' == "" | `"`vals'"' == "" {
-                    display as error `"forbid() spec must be "var value [value ...]": `part'"'
+                local vals = trim(`"`macval(vals)'"')
+                if `"`vv'"' == "" | `"`macval(vals)'"' == "" {
+                    display as error `"forbid() spec must be "var value [value ...]": `macval(part)'"'
                     exit 198
                 }
                 if `: list vv in req_missing' {
@@ -1259,21 +1261,21 @@ program define dataprobe, rclass
                 unab vv : `vv'
                 local ++n_forbid
                 local forbid_var`n_forbid' "`vv'"
-                local forbid_vals`n_forbid' `"`vals'"'
+                local forbid_vals`n_forbid' `"`macval(vals)'"'
                 local value_gatevars "`value_gatevars' `vv'"
             }
         }
-        if `"`notvalues'"' != "" {
-            local rest `"`notvalues'"'
-            while `"`rest'"' != "" {
+        if `"`macval(notvalues)'"' != "" {
+            local rest `"`macval(notvalues)'"'
+            while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
-                if `"`part'"' == "\" continue
-                local part = trim(`"`part'"')
-                if `"`part'"' == "" continue
+                if `"`macval(part)'"' == "\" continue
+                local part = trim(`"`macval(part)'"')
+                if `"`macval(part)'"' == "" continue
                 gettoken vv vals : part, quotes
-                local vals = trim(`"`vals'"')
-                if `"`vv'"' == "" | `"`vals'"' == "" {
-                    display as error `"notvalues() spec must be "var value [value ...]": `part'"'
+                local vals = trim(`"`macval(vals)'"')
+                if `"`vv'"' == "" | `"`macval(vals)'"' == "" {
+                    display as error `"notvalues() spec must be "var value [value ...]": `macval(part)'"'
                     exit 198
                 }
                 if `: list vv in req_missing' {
@@ -1283,21 +1285,21 @@ program define dataprobe, rclass
                 unab vv : `vv'
                 local ++n_notvalues
                 local notvalues_var`n_notvalues' "`vv'"
-                local notvalues_vals`n_notvalues' `"`vals'"'
+                local notvalues_vals`n_notvalues' `"`macval(vals)'"'
                 local value_gatevars "`value_gatevars' `vv'"
             }
         }
-        if `"`regex'"' != "" {
-            local rest `"`regex'"'
-            while `"`rest'"' != "" {
+        if `"`macval(regex)'"' != "" {
+            local rest `"`macval(regex)'"'
+            while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
-                if `"`part'"' == "\" continue
-                local part = trim(`"`part'"')
-                if `"`part'"' == "" continue
+                if `"`macval(part)'"' == "\" continue
+                local part = trim(`"`macval(part)'"')
+                if `"`macval(part)'"' == "" continue
                 gettoken rv rpat : part, quotes
-                local rpat = trim(`"`rpat'"')
-                if `"`rv'"' == "" | `"`rpat'"' == "" {
-                    display as error `"regex() spec must be "var pattern": `part'"'
+                local rpat = trim(`"`macval(rpat)'"')
+                if `"`rv'"' == "" | `"`macval(rpat)'"' == "" {
+                    display as error `"regex() spec must be "var pattern": `macval(part)'"'
                     exit 198
                 }
                 if `: list rv in req_missing' {
@@ -1307,7 +1309,7 @@ program define dataprobe, rclass
                 unab rv : `rv'
                 local ++n_regex
                 local regex_var`n_regex' "`rv'"
-                local regex_pat`n_regex' `"`rpat'"'
+                local regex_pat`n_regex' `"`macval(rpat)'"'
                 local value_gatevars "`value_gatevars' `rv'"
             }
         }
@@ -1319,28 +1321,28 @@ program define dataprobe, rclass
         local n_ev = 0
         local evvars ""
         if `"`events'"' != "" {
-            local rest `"`events'"'
-            while `"`rest'"' != "" {
+            local rest `"`macval(events)'"'
+            while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
-                if `"`part'"' == "\" continue
-                local part = strtrim(`"`part'"')
-                if `"`part'"' == "" continue
-                local cp = strpos(`"`part'"', ":")
+                if `"`macval(part)'"' == "\" continue
+                local part = strtrim(`"`macval(part)'"')
+                if `"`macval(part)'"' == "" continue
+                local cp = strpos(`"`macval(part)'"', ":")
                 if `cp' == 0 {
-                    display as error `"events() spec must be "eventvar [if exp]: varlist [, min(#)]": `part'"'
+                    display as error `"events() spec must be "eventvar [if exp]: varlist [, min(#)]": `macval(part)'"'
                     exit 198
                 }
-                local left = strtrim(substr(`"`part'"', 1, `cp' - 1))
-                local right = strtrim(substr(`"`part'"', `cp' + 1, .))
+                local left = strtrim(substr(`"`macval(part)'"', 1, `cp' - 1))
+                local right = strtrim(substr(`"`macval(part)'"', `cp' + 1, .))
                 gettoken evv left : left
-                local left = strtrim(`"`left'"')
+                local left = strtrim(`"`macval(left)'"')
                 local eif ""
-                if `"`left'"' != "" {
-                    if substr(`"`left'"', 1, 3) != "if " {
-                        display as error `"events() spec must be "eventvar [if exp]: varlist [, min(#)]": `part'"'
+                if `"`macval(left)'"' != "" {
+                    if substr(`"`macval(left)'"', 1, 3) != "if " {
+                        display as error `"events() spec must be "eventvar [if exp]: varlist [, min(#)]": `macval(part)'"'
                         exit 198
                     }
-                    local eif = strtrim(substr(`"`left'"', 4, .))
+                    local eif = strtrim(substr(`"`macval(left)'"', 4, .))
                 }
                 unab evv : `evv', max(1)
                 capture confirm numeric variable `evv'
@@ -1359,7 +1361,7 @@ program define dataprobe, rclass
                 if `"`eopts'"' != "" {
                     if regexm(`"`eopts'"', "^min\(([^)]*)\)$") local emin = real(strtrim(regexs(1)))
                     else {
-                        display as error `"events(): the only suboption is min(#): `part'"'
+                        display as error `"events(): the only suboption is min(#): `macval(part)'"'
                         exit 198
                     }
                     if missing(`emin') | `emin' < 0 {
@@ -1380,13 +1382,13 @@ program define dataprobe, rclass
                     }
                 }
                 local econd "1"
-                if `"`eif'"' != "" {
+                if `"`macval(eif)'"' != "" {
                     local ++n_eif
                     tempvar eif`n_eif'
-                    capture quietly generate byte `eif`n_eif'' = ((`eif') != 0)
+                    capture quietly generate byte `eif`n_eif'' = ((`macval(eif)') != 0)
                     if _rc {
                         local _erc = _rc
-                        display as error `"events(): cannot evaluate condition if `eif'"'
+                        display as error `"events(): cannot evaluate condition if `macval(eif)'"'
                         exit `_erc'
                     }
                     local econd "`eif`n_eif''"
@@ -1395,7 +1397,7 @@ program define dataprobe, rclass
                 local ++n_ev
                 local ev_var`n_ev' "`evv'"
                 local ev_cond`n_ev' "`econd'"
-                local ev_if`n_ev' `"`eif'"'
+                local ev_if`n_ev' `"`macval(eif)'"'
                 local ev_covs`n_ev' "`ecovs'"
                 local ev_min`n_ev' = `emin'
                 local evvars "`evvars' `evv' `ecovs'"
@@ -1429,18 +1431,18 @@ program define dataprobe, rclass
         // threshold is the one the call resolved
         local nf_smallcells = 0
         if `"`smallcells'"' != "" {
-            local rest `"`smallcells'"'
-            while `"`rest'"' != "" {
+            local rest `"`macval(smallcells)'"'
+            while `"`macval(rest)'"' != "" {
                 gettoken part rest : rest, parse("\") quotes
-                if `"`part'"' == "\" continue
-                local part = strtrim(`"`part'"')
-                if `"`part'"' == "" continue
-                _dataprobe_smallcells, spec(`"`part'"') mcell(`_maskcell') parseonly ///
+                if `"`macval(part)'"' == "\" continue
+                local part = strtrim(`"`macval(part)'"')
+                if `"`macval(part)'"' == "" continue
+                _dataprobe_smallcells, spec(`"`macval(part)'"') mcell(`_maskcell') parseonly ///
                     safe(`_safe') excluded(`exclude')
                 local famvars "`famvars' `r(vars)'"
                 local ++nf_smallcells
                 local _k = `nf_smallcells'
-                local smallcells_spec`_k' `"`part'"'
+                local smallcells_spec`_k' `"`macval(part)'"'
             }
         }
         // topvalues() (2.1.0, O4): a frequency view under its own mask; it
@@ -1452,10 +1454,11 @@ program define dataprobe, rclass
             _dataprobe_topvalues, specs(`"`topvalues'"') mcell(`_maskcell') maxfreq(`maxfreq') ///
                 safe(`_safe') floor(`_gm') excluded(`exclude') parseonly
             local famvars "`famvars' `r(vars)'"
+            local _tvvars "`r(vars)'"
             local nf_topvalues = r(n)
             if `"`varlistspec'"' == "" & "`gatesonly'" == "" {
                 local gatesonly "gatesonly"
-                local brief ""
+                if "`brief'" != "" _dataprobe_die 198 "brief cannot be combined with topvalues() and no varlist (nothing is profiled)"
                 local patterns ""
                 local byfreq ""
                 local showflagged = 0
@@ -1552,6 +1555,7 @@ program define dataprobe, rclass
             statvars rulevars eifvars evvars famvars {
             local gatevars : list gatevars | `L'
         }
+        if `_safe' _dataprobe_safeids `gatevars', exclude(`exclude') prior(`_safe_ex') gate tv(`_tvvars')
         local _fast = ("`gatesonly'" != "" & `"`compare'`diff'"' == "" & ///
             `"`saving'`snapshot'"' == "" & `"`makespec'"' == "")
         if `_fast' {
@@ -1633,7 +1637,7 @@ program define dataprobe, rclass
         foreach _vg in allowed forbid notvalues {
             forvalues k = 1/`n_`_vg'' {
                 local av "``_vg'_var`k''"
-                local vals `"``_vg'_vals`k''"'
+                local vals `"`macval(`_vg'_vals`k')'"'
                 tempvar _vh
                 local _vhit_`_vg'`k' "`_vh'"
                 quietly gen byte `_vh' = 0 if !missing(`av')
@@ -2416,15 +2420,13 @@ program define dataprobe, rclass
         // before.
         forvalues k = 1/`n_isid' {
             tempvar _istag`k'
-            if `has_groups' quietly egen byte `_istag`k'' = tag(`dc_group' `isid_key`k'')
-            else quietly egen byte `_istag`k'' = tag(`isid_key`k'')
+            _dataprobe_tagrows tag `_istag`k'' `=cond(`has_groups', "`dc_group'", "")' `isid_key`k''
         }
         if "`nodups'" != "" {
             local _dupvars `_datavars'
             if `"`varlistspec'"' != "" local _dupvars : list _datavars & unionvars
             tempvar _dfirst
-            if `has_groups' quietly bysort `dc_group' `_dupvars': generate byte `_dfirst' = (_n == 1)
-            else quietly bysort `_dupvars': generate byte `_dfirst' = (_n == 1)
+            _dataprobe_tagrows first `_dfirst' `=cond(`has_groups', "`dc_group'", "")' `_dupvars'
         }
 
         // One pass for every by() group (P1, 2.1.0): the rows are put in
@@ -2705,6 +2707,7 @@ program define dataprobe, rclass
                         _dataprobe_qshow `iv', value(`_iq99') mask(`_xmask') ///
                             cond(`"`IF'"') stat(p99) fmt(%14.0g) scopein(`IN')
                         local omax `"`r(s)'"'
+                        if `_safe' & regexm("`: format `iv''", "^%-?(t|d)") mata: st_local("omin", "[withheld]"); st_local("omax", "[withheld]")
                     }
                     if !`: list iv in exclude' {
                         local obs "`nos' outside; `xlo' `omin', `xhi' `omax'"
@@ -2719,7 +2722,7 @@ program define dataprobe, rclass
             foreach _vg in allowed forbid notvalues {
                 forvalues k = 1/`n_`_vg'' {
                     local av "``_vg'_var`k''"
-                    local vals `"``_vg'_vals`k''"'
+                    local vals `"`macval(`_vg'_vals`k')'"'
                     // the gate's rows were marked once over the call
                     quietly count if `IF' & `_vhit_`_vg'`k'' == 1 `IN'
                     local nbad = r(N)
@@ -2739,32 +2742,33 @@ program define dataprobe, rclass
                     }
                     if "`_vg'" == "allowed" {
                         local obs "`nbs' disallowed"
-                        local exp `"`vals'"'
-                        local msg `"`PFX'allowed(`av'): `nbs' obs outside allowed values {`vals'}"'
+                        local exp `"`macval(vals)'"'
+                        local msg `"`PFX'allowed(`av'): `nbs' obs outside allowed values {`macval(vals)'}"'
                     }
                     else if "`_vg'" == "forbid" {
                         local obs "`nbs' forbidden"
-                        local exp `"none of `vals'"'
-                        local msg `"`PFX'forbid(`av'): `nbs' obs contain forbidden values {`vals'}"'
+                        local exp `"none of `macval(vals)'"'
+                        local msg `"`PFX'forbid(`av'): `nbs' obs contain forbidden values {`macval(vals)'}"'
                     }
                     else {
                         local obs "`nbs' sentinel"
-                        local exp `"none of `vals'"'
-                        local msg `"`PFX'notvalues(`av'): `nbs' obs contain sentinel values {`vals'}"'
+                        local exp `"none of `macval(vals)'"'
+                        local msg `"`PFX'notvalues(`av'): `nbs' obs contain sentinel values {`macval(vals)'}"'
                     }
+                    // the values are data: frame post would expand them again
                     frame post `RF' ("`_vg'") ("invariant") (`ok') ("`av'") ("`av'") (`"`GP'"') ///
-                        ("`obs'") (`onum') (`"`macval(exp)'"') (`scope_npost') ("") ///
-                        (`"`macval(msg)'"') (`mins') (`om')
+                        ("`obs'") (`onum') ("") (`scope_npost') ("") ("") (`mins') (`om')
+                    frame `RF': mata: st_sstore(st_nobs(), ("expected", "msg"), (st_local("exp"), st_local("msg")))
                 }
             }
 
             // regex
             forvalues k = 1/`n_regex' {
                 local rv "`regex_var`k''"
-                local pat `"`regex_pat`k''"'
+                local pat `"`macval(regex_pat`k')'"'
                 capture confirm string variable `rv'
                 if !_rc {
-                    quietly count if `IF' & !missing(`rv') & !regexm(`rv', `"`pat'"') `IN'
+                    quietly count if `IF' & !missing(`rv') & !regexm(`rv', `"`macval(pat)'"') `IN'
                 }
                 else {
                     // a numeric value is matched as written in full: an
@@ -2774,7 +2778,7 @@ program define dataprobe, rclass
                     local _rgf = cond("`: type `rv''" == "float", "%9.0g", "%16.0g")
                     quietly count if `IF' & !missing(`rv') & ///
                         !regexm(cond(`rv' == int(`rv'), string(`rv', "%21.0f"), ///
-                        string(`rv', "`_rgf'")), `"`pat'"') `IN'
+                        string(`rv', "`_rgf'")), `"`macval(pat)'"') `IN'
                 }
                 local nbad = r(N)
                 local ok = (`nbad' == 0)
@@ -2783,10 +2787,10 @@ program define dataprobe, rclass
                 local onum = r(num)
                 local om = r(masked)
                 local mins = cond(`om' | `nbad' < 1, ., `nbad')
-                local msg `"`PFX'regex(`rv'): `nbs' obs do not match `pat'"'
+                local msg `"`PFX'regex(`rv'): `nbs' obs do not match `macval(pat)'"'
                 frame post `RF' ("regex") ("invariant") (`ok') ("`rv'") ("`rv'") (`"`GP'"') ///
-                    ("`nbs' nonmatching") (`onum') (`"`macval(pat)'"') (`scope_npost') ("") ///
-                    (`"`macval(msg)'"') (`mins') (`om')
+                    ("`nbs' nonmatching") (`onum') ("") (`scope_npost') ("") ("") (`mins') (`om')
+                frame `RF': mata: st_sstore(st_nobs(), ("expected", "msg"), (st_local("pat"), st_local("msg")))
             }
 
             // rule: indicators were evaluated at parse time
@@ -2914,13 +2918,12 @@ program define dataprobe, rclass
                 local om = cond(`_sxc', `_sxm', !`sshown')
                 local mins = .
                 if `siscount' & `sshown' & `sval' >= 1 local mins = `sval'
-                local iftxt ""
-                if `"`stat_if`k''"' != "" local iftxt `" (if `stat_if`k'')"'
-                local msg `"`PFX'stat(`slab'): `sshow', expected [`stat_lolab`k'', `stat_hilab`k'']`iftxt'"'
+                mata: st_local("iftxt", st_local("stat_if`k'") == "" ? "" : " (if " + st_local("stat_if`k'") + ")")
+                local msg `"`PFX'stat(`slab'): `sshow', expected [`stat_lolab`k'', `stat_hilab`k'']`macval(iftxt)'"'
                 frame post `RF' ("stat") ("`stat_kind`k''") (`ok') ("`slab'") ("`sv' `sden'") ///
                     (`"`GP'"') (`"`sname' `sshow'"') (`onum') ///
-                    (`"[`stat_lolab`k'', `stat_hilab`k'']"') (`scope_npost') (`"`macval(stat_if`k')'"') ///
-                    (`"`macval(msg)'"') (`mins') (`om')
+                    (`"[`stat_lolab`k'', `stat_hilab`k'']"') (`scope_npost') ("") ("") (`mins') (`om')
+                frame `RF': mata: st_sstore(st_nobs(), ("scope", "msg"), (st_local("stat_if`k'"), st_local("msg")))
                 // 2.1.0 F9(b): an expression's row, posted under its tempvar's
                 // name, gets the expression's text as typed (frame post
                 // would expand a macro inside it, or stop at a backtick)
@@ -2988,7 +2991,7 @@ program define dataprobe, rclass
             forvalues k = 1/`n_ev' {
                 _dataprobe_events, rf(`RF') ev(`ev_var`k'') evcond(`ev_cond`k'') ///
                     vars(`ev_covs`k'') min(`ev_min`k'') cond(`IF') kind(invariant) ///
-                    grp(`"`GP'"') scope(`"`ev_if`k''"') pfx(`"`PFX'"') mask(`_gm') ///
+                    grp(`"`GP'"') scope(`"`macval(ev_if`k')'"') pfx(`"`PFX'"') mask(`_gm') ///
                     nscope(`scope_npost') excluded(`exclude') scopein(`IN')
             }
 
@@ -3149,7 +3152,7 @@ program define dataprobe, rclass
         }
 
         forvalues k = 1/`nf_smallcells' {
-            _dataprobe_smallcells, spec(`"`smallcells_spec`k''"') rf(`RF') kind(invariant) ///
+            _dataprobe_smallcells, spec(`"`macval(smallcells_spec`k')'"') rf(`RF') kind(invariant) ///
                 mask(`_gm') mcell(`_maskcell') nscope(`nobs') safe(`_safe') excluded(`exclude')
         }
         // topvalues() (2.1.0, O4): one TOP VALUES block, r(topvalues) one
@@ -3299,8 +3302,6 @@ program define dataprobe, rclass
         // ---- violations(): structured one-row-per-failed-gate artifact ----
         if `"`violations'"' != "" {
             gettoken vdest vrest : violations, parse(" ,")
-            local vreplace = 0
-            if regexm(`"`vrest'"', "replace") local vreplace = 1
             tempname vframe
             local _vframe "`vframe'"
             frame copy `RF' `vframe'
@@ -3948,6 +3949,9 @@ program define _dataprobe_profshow
                     scalar `_q`_st'' = `_cs`pj''[1, `_c']
                     _dataprobe_qshow `v', value(`_q`_st'') mask(`_xmask') stat(`_st') known(`: word `_c' of `_qsh'')
                     local _qs`_st' `"`r(s)'"'
+                    // a suppressed statistic is masked output (r(masked),
+                    // as the key median's is; 2026-11-17)
+                    if !r(shown) local _pmasked = 1
                     // safe: a date-formatted value is a date
                     if `_safe' & regexm("`: format `v''", "^%-?(t|d)") local _qs`_st' "[withheld]"
                 }
@@ -4066,6 +4070,7 @@ program define _dataprobe_profshow
                 local _dok1 = r(shown)
                 _dataprobe_qshow `v', value(`_dq99') mask(`_xmask') stat(p99)
                 local _dp99 `"`r(s)'"'
+                if !`_dok1' | !r(shown) local _pmasked = 1
                 local _dspan "[suppressed]"
                 if `_dok1' & r(shown) local _dspan = strtrim(string(`_dq99' - `_dq1', "%12.0g")) + " `span_unit'"
                 // safe: no date is printed, only the span (datesafe)
@@ -5248,6 +5253,76 @@ program define _dataprobe_speclevels, rclass
     local levels = strtrim(`"`macval(levels)'"')
     return local levels `"`macval(levels)'"'
     return scalar ok = `ok'
+end
+
+capture program drop _dataprobe_safeids
+local _drop_safeids_rc = _rc
+program define _dataprobe_safeids
+    // safe: the likely identifiers among varlist (the rule datamap's
+    // exclude(auto) reads) join exclude(), with a note naming them; the
+    // caller's exclude and _safe_ex get the lists back.  Called for the
+    // profile's variables, then (gate) for the gated ones: a variable only
+    // a gate reads printed its p1/p99 under safe (inrange(lopnr ...),
+    // 2026-11-17); gate notes only the ones not already excluded.
+    version 16.0
+    syntax [varlist(default=none)] [, EXclude(string) PRIOR(string) GATE TV(string)]
+    _datamap_idnames `varlist'
+    local add "`r(names)'"
+    if "`gate'" != "" local add : list add - exclude
+    // topvalues() lists values: refused now, before any output
+    local _tx : list add & tv
+    if "`_tx'" != "" {
+        display as error "topvalues(): the values of `_tx' are withheld (exclude(), or safe's likely identifiers)"
+        exit 198
+    }
+    if "`add'" != "" display as text "note: safe excludes likely identifier(s): `add'"
+    local exclude : list exclude | add
+    local prior : list prior | add
+    c_local exclude "`exclude'"
+    c_local _safe_ex "`prior'"
+end
+
+capture program drop _dataprobe_vopt
+local _drop_vopt_rc = _rc
+program define _dataprobe_vopt
+    // violations(name [, replace]): replace is the one suboption, checked
+    // before any work (a regexm() on "replace" took noreplace for it and
+    // ignored any other word, 2026-11-17); the caller's vreplace gets it
+    version 16.0
+    gettoken vdest vrest : 0, parse(" ,")
+    local vrest = strtrim(`"`vrest'"')
+    if substr(`"`vrest'"', 1, 1) == "," local vrest = strtrim(substr(`"`vrest'"', 2, .))
+    if !inlist(`"`vrest'"', "", "replace") {
+        display as error `"violations(): the only suboption is replace; got `vrest'"'
+        exit 198
+    }
+    c_local vreplace = (`"`vrest'"' == "replace")
+end
+
+capture program drop _dataprobe_die
+local _drop_die_rc = _rc
+program define _dataprobe_die
+    // _dataprobe_die rc "message": the message as an error, then exit rc
+    version 16.0
+    args rc msg
+    display as error `"`msg'"'
+    exit `rc'
+end
+
+capture program drop _dataprobe_tagrows
+local _drop_tagrows_rc = _rc
+program define _dataprobe_tagrows
+    // _dataprobe_tagrows tag|first newvar varlist: egen tag() of varlist
+    // (tag), or the first row of each group of varlist with the data left
+    // sorted by it (first).  On 0 rows (diff(), compare() or snapshot()
+    // with an empty sample) newvar is made, all 0: egen tag() and by ...:
+    // generate make no variable there, and isid() stopped with r(111)
+    version 16.0
+    gettoken kind 0 : 0
+    gettoken nv 0 : 0
+    if c(N) == 0 quietly generate byte `nv' = 0
+    else if "`kind'" == "tag" quietly egen byte `nv' = tag(`0')
+    else quietly bysort `0': generate byte `nv' = (_n == 1)
 end
 
 capture program drop _dataprobe_poolfill
@@ -7028,6 +7103,12 @@ void _dpa_poolfill()
 	real scalar G, i, g, np, ps, best, bestn, m
 	grp = st_data(., st_local("_dpa_grp"))
 	m = strtoreal(st_local("_dpa_m"))
+	// no rows (an if/in that selects none): no group, so none is pooled
+	// (max() of an empty vector is missing, and J(., 1, 0) was r(3300))
+	if (rows(grp) == 0) {
+		st_local("_dpa_out", "")
+		return
+	}
 	G = max(grp)
 	nsz = J(G, 1, 0)
 	for (i = 1; i <= rows(grp); i++) nsz[grp[i]] = nsz[grp[i]] + 1

@@ -46,11 +46,13 @@ set varabbrev off
 * recreational exercise (3), activity (3), weight and its square; reproduced
 * with indicator columns because treat_cov() takes numeric columns.
 *
-* Fixture: data/nhefs_whatif.csv, the 1,629 NHEFS rows of the book's teaching
-* extract (public, non-commercial teaching use,
-* https://miguelhernan.org/whatifbook), 12 columns, exported from the copy
-* vendored in Stata-Tools/msm/qa/data/nhefs.dta.
-* Fixture SHA-256: b61aef3c4338266dccc294e3c58d02838ccf99c3abb299be285e7777c74c44b1
+* Data: the book's NHEFS teaching extract, nhefs.dta (1,629 rows,
+* https://miguelhernan.org/whatifbook), third-party data the repository does not
+* distribute (data/nhefs/SOURCE.md). It is resolved from $STATA_QA_DATA or
+* downloaded, verified against the original's length and CRC, and reduced at run
+* time to the 12-column analysis file nhefs_whatif.csv (keep, order, export
+* delimited), whose SHA-256 H1 asserts:
+* b61aef3c4338266dccc294e3c58d02838ccf99c3abb299be285e7777c74c44b1
 *
 * Tolerance: half a unit in the last published digit (listed per test). Seeds: none;
 * the suite is deterministic.
@@ -72,9 +74,19 @@ if "`basename'" != "qa" {
 }
 iivw_qa_bootstrap
 
-local data_file "`qa_dir'/data/nhefs_whatif.csv"
+run "`qa_dir'/_iivw_qa_extdata.do"
+_iivw_qa_extfile nhefs nhefs.dta, len(844532) crc(3078715963) ///
+    url("https://miguelhernan.org/s/nhefs.dta")
+local nhefs_src `"`r(path)'"'
+tempfile whatif_stub
+local data_file "`whatif_stub'_nhefs_whatif.csv"
+quietly use `"`nhefs_src'"', clear
+keep seqn qsmk sex age race education wt71 wt82_71 smokeintensity smokeyrs active exercise
+order seqn qsmk sex age race education wt71 wt82_71 smokeintensity smokeyrs active exercise
+quietly export delimited using "`data_file'", replace
+clear
 local want_sha "b61aef3c4338266dccc294e3c58d02838ccf99c3abb299be285e7777c74c44b1"
-display as text "REFERENCE: Hernan MA, Robins JM. Causal Inference: What If, ch. 12 (NHEFS), https://miguelhernan.org/whatifbook, vendored data/nhefs_whatif.csv"
+display as text "REFERENCE: Hernan MA, Robins JM. Causal Inference: What If, ch. 12 (NHEFS), https://miguelhernan.org/whatifbook, nhefs.dta reduced to nhefs_whatif.csv"
 
 local test_count = 0
 local pass_count = 0

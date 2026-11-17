@@ -1,4 +1,4 @@
-*! psdash Version 1.9.1  2026/11/17
+*! psdash Version 1.9.2  2026/11/18
 *! Propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,8 +25,13 @@ program define psdash, rclass
 
         gettoken subcmd 0 : 0, parse(" ,")
 
-        if "`subcmd'" == "" | "`subcmd'" == "," {
+        if "`subcmd'" == "" | ("`subcmd'" == "," & strtrim(`"`0'"') == "") {
             _psdash_overview
+        }
+        else if "`subcmd'" == "," {
+            display as error "psdash takes no options; type {cmd:psdash} for the overview"
+            display as error "  or {cmd:psdash} {it:subcmd} {cmd:,} {it:options}"
+            exit 198
         }
         else {
             local known_subcmds "overlap balance weights support combined detect"

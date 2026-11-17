@@ -74,11 +74,13 @@ program define _datamap_missby, rclass
             exit 2000
         }
         local glab : value label `g'
+        // the label text moves in Mata: a group value holding `"' failed
+        // r(109) in a quoted test, and $name or `name' in it was expanded
         forvalues k = 1/`G' {
             local lab`k' "`k'"
             if "`glab'" != "" {
-                local _t : label `glab' `k'
-                if `"`_t'"' != "" local lab`k' `"`_t'"'
+                mata: st_local("_t", st_vlmap(st_local("glab"), `k'))
+                mata: st_local("lab`k'", (st_local("_t") != "" ? st_local("_t") : "`k'"))
             }
         }
         capture confirm numeric variable `vars'
@@ -135,7 +137,9 @@ program define _datamap_missby, rclass
     if `rc' exit `rc'
     return scalar G = `G'
     forvalues k = 1/`G' {
-        return local lab`k' `"`lab`k''"'
+        // copied, never re-read as quote syntax: a label holding `"'
+        // broke a compound-quoted return local
+        return local lab`k' : copy local lab`k'
     }
     return matrix nmiss = `nm'
     return matrix pmiss = `pm'

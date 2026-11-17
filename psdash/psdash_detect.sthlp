@@ -51,12 +51,15 @@ accepts factor-variable and interaction notation.
 {opt w:var(varname)} supplies an existing diagnostic weight variable.
 
 {phang}
-{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}; when
-omitted, the detector uses the supported estimation or producer context.
+{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc} (any case; {cmd:r(estimand)}
+is returned in lower case); when omitted, the detector uses the
+supported estimation or producer context. After {cmd:iivw_weight}, {cmd:msm_weight},
+or {cmd:tte_weight} without {opt wvar()}, a value that disagrees with the producer's
+estimand is an error, because the producer's weight targets its own estimand.
 
 {phang}
-{opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
-only {cmd:reference(0)} is allowed.
+{opt ref:erence(#)} selects the multi-group reference arm; it takes one level. For a
+treatment coded 0/1 only {cmd:reference(0)} is allowed.
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.
@@ -80,6 +83,8 @@ only {cmd:reference(0)} is allowed.
 {synopt:{cmd:r(multigroup)}}multi-group treatment indicator{p_end}
 {synopt:{cmd:r(longitudinal)}}longitudinal-contract indicator{p_end}
 {synopt:{cmd:r(K)}}group count, multigroup{p_end}
+{synopt:{cmd:r(n_estimation)}}estimation-sample observations{p_end}
+{synopt:{cmd:r(n_excluded)}}observations outside {cmd:e(sample)}{p_end}
 
 {p2col 5 32 34 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}input-detection source{p_end}
@@ -93,15 +98,22 @@ only {cmd:reference(0)} is allowed.
 {synopt:{cmd:r(reference)}}reference group, multigroup{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component{p_end}
 {synopt:{cmd:r(id)}}longitudinal identifier{p_end}
-{synopt:{cmd:r(riskvar)}}msm risk-set indicator, if any{p_end}
-{synopt:{cmd:r(period)}}longitudinal period variable{p_end}
-{synopt:{cmd:r(regime)}}longitudinal regime metadata{p_end}
+{synopt:{cmd:r(riskvar)}}msm risk-set indicator{p_end}
+{synopt:{cmd:r(period)}}period variable{p_end}
+{synopt:{cmd:r(regime)}}regime metadata{p_end}
 {synopt:{cmd:r(method)}}producer method metadata{p_end}
 {synopt:{cmd:r(contract_version)}}producer contract version{p_end}
 
 {pstd}
+{cmd:r(n_estimation)} counts observations in the estimation sample and
+{cmd:r(n_excluded)} counts requested observations outside {cmd:e(sample)}, both
+after {cmd:teffects}/{cmd:logit}/{cmd:probit}/{cmd:mlogit} auto-detection.
+
+{pstd}
 {cmd:r(weight_role)} is {cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}. {cmd:r(riskvar)} is set
-when the producer supplies a risk-set indicator (msm).
+when the producer supplies a risk-set indicator (msm). {cmd:r(id)}, {cmd:r(period)},
+{cmd:r(regime)}, {cmd:r(method)}, {cmd:r(contract_version)}, and {cmd:r(riskvar)} are
+posted only for longitudinal contracts ({cmd:r(longitudinal)}=1).
 
 {marker author}{...}
 {title:Author}

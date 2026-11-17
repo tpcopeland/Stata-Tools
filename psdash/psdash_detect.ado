@@ -1,4 +1,4 @@
-*! psdash_detect Version 1.9.1  2026/11/17
+*! psdash_detect Version 1.9.2  2026/11/18
 *! Report propensity-score auto-detection without running diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -29,6 +29,8 @@ STORED RESULTS:
     r(K)             - number of treatment groups
     r(multigroup)    - 1 if multi-group, 0 if binary
     r(longitudinal)  - 1 if longitudinal LTMLE contract, else 0
+    r(n_estimation), r(n_excluded) - estimation-sample ledger (teffects,
+                       logit/probit, mlogit auto-detection)
     r(id), r(period), r(regime), r(method), r(contract_version) - longitudinal only
 */
 
@@ -81,7 +83,13 @@ program define psdash_detect, rclass
     local K = `_psd_K'
     local levels "`_psd_levels'"
     local reference_grp "`_psd_reference'"
-    if "`estimand'" == "" local estimand "`_psd_estimand'"
+    * The detector validated and lowercased the estimand (and may have
+    * resolved it from a producer contract); report its value, not the case
+    * the user typed.
+    if "`_psd_estimand'" != "" local estimand "`_psd_estimand'"
+    else local estimand = strlower("`estimand'")
+    local n_estimation "`_psd_n_estimation'"
+    local n_excluded "`_psd_n_excluded'"
 
     * A successful detection report must identify at least one observation on
     * which the resolved treatment, propensity score(s), and weight (when one
@@ -99,7 +107,9 @@ program define psdash_detect, rclass
             }
         }
     }
-    else if "`psvar'" != "" {
+    * A K=2 treatment with non-0/1 levels is "multigroup" but may carry a
+    * single positional PS and no per-level columns; gate on it then too.
+    if "`detect_psvars'" == "" & "`psvar'" != "" {
         local detect_psvars "`psvar'"
     }
     local detect_psvars : list uniq detect_psvars
@@ -193,6 +203,11 @@ program define psdash_detect, rclass
     return scalar psvar_auto = ("`psvar_auto'" == "1")
     return scalar multigroup = ("`multigroup'" != "0")
     return scalar longitudinal = ("`longitudinal'" == "1")
+    * Estimation-sample ledger, as every other subcommand posts it
+    if "`n_estimation'" != "" {
+        return scalar n_estimation = `n_estimation'
+        return scalar n_excluded = `n_excluded'
+    }
     if "`multigroup'" != "0" {
         return local levels "`levels'"
         return local reference "`reference_grp'"

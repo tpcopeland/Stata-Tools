@@ -1,0 +1,4 @@
+stop,max_std_eff_sz,min_p,max_ks,min_ks_pval,ess_community_es,ess_metcbt5_es,ess_scy_es,ess_community_ks,ess_metcbt5_ks,ess_scy_ks
+unw,0.20266446,0.04161562,0.13000000,0.06809222,.,.,.,.,.,.
+es.mean,0.06494694,0.52748089,0.06650091,0.80344844,184.5216,185.9791,188.9734,.,.,.
+ks.mean,0.07219687,0.48991560,0.06526362,0.81581283,.,.,.,188.3090,187.9000,190.0047

@@ -154,6 +154,11 @@ program define datamap, rclass
 
 		// typed on the command line, before config() can set them (safe)
 		local _samp_cmd = (`samples' != -999999999)
+		// columns() and compact are one choice: the one typed on the command
+		// line overrides the other's config() key (2026-11-17: a config()
+		// compact = yes beside a typed columns() stopped rc 198)
+		local _cols_cmd = (`"`macval(columns)'"' != "")
+		local _cmp_cmd = ("`compact'" != "")
 		if `"`config'"' != "" {
 			_datamap_validate_path `"`macval(config)'"', option("config()")
 			confirm file `"`config'"'
@@ -175,9 +180,24 @@ program define datamap, rclass
 			}
 			foreach opt in output outdir suffix exclude continuous categorical ///
 				detect panelid survivalvars missing dateformat columns {
+				if "`opt'" == "columns" & `_cmp_cmd' continue
 				mata: st_local("cfgval", st_global("r(`opt')"))
-				if `"``opt''"' == "" & `"`cfgval'"' != "" {
-					local `opt' `"`cfgval'"'
+				// a variable-name or token key holding $ or a backtick is
+				// refused: the value would expand when the names are matched
+				// (2026-11-17, round 2: exclude = $x make excluded the
+				// variable named by the value of $x)
+				if !inlist("`opt'", "output", "outdir", "suffix") {
+					mata: st_local("_cfgbad", strofreal(strpos(st_local("cfgval"), char(36)) | strpos(st_local("cfgval"), char(96))))
+					if `_cfgbad' {
+						noisily di as error "config(): `opt' holds \$ or a backtick; variable names and tokens cannot contain them"
+						exit 198
+					}
+				}
+				// macval(): a $name or `name' in a config() value stays
+				// literal, so the path guard sees it (2026-11-17: output =
+				// cfg_$x.md wrote cfg_<value of $x>.md)
+				if `"`macval(`opt')'"' == "" & `"`macval(cfgval)'"' != "" {
+					local `opt' `"`macval(cfgval)'"'
 				}
 			}
 			foreach opt in title subtitle version author notes changelog docdate {
@@ -185,12 +205,25 @@ program define datamap, rclass
 				mata: st_local("_cfgset", strofreal(st_local("`opt'") == "" & st_local("cfgval") != ""))
 				if `_cfgset' mata: st_local("`opt'", _datamap_transport_encode(st_local("cfgval")))
 			}
-			if `"`date'"' == "" & `"`r(datevars)'"' != "" local date `"`r(datevars)'"'
+			mata: st_local("cfgval", st_global("r(datevars)"))
+			mata: st_local("_cfgbad", strofreal(strpos(st_local("cfgval"), char(36)) | strpos(st_local("cfgval"), char(96))))
+			if `_cfgbad' {
+				noisily di as error "config(): datevars holds \$ or a backtick; variable names cannot contain them"
+				exit 198
+			}
+			if `"`macval(date)'"' == "" & `"`macval(cfgval)'"' != "" {
+				local date `"`macval(cfgval)'"'
+			}
 			foreach opt in maxfreq maxcat mincell samples uniqcap {
-				if ``opt'' == -999999999 & `"`r(`opt')'"' != "" local `opt' = real(`"`r(`opt')'"')
+				mata: st_local("cfgval", st_global("r(`opt')"))
+				if ``opt'' == -999999999 & `"`macval(cfgval)'"' != "" {
+					mata: st_local("`opt'", strofreal(strtoreal(st_local("cfgval")), "%21.0g"))
+				}
 			}
 			foreach opt in nostats nofreq nolabels datesafe compact autodetect {
-				if "``opt''" == "" & "`r(`opt')'" != "" local `opt' "`opt'"
+				if "`opt'" == "compact" & `_cols_cmd' continue
+				mata: st_local("cfgval", st_global("r(`opt')"))
+				if "``opt''" == "" & `"`macval(cfgval)'"' != "" local `opt' "`opt'"
 			}
 		}
 		// safe (2.0.0, U2): the agent-safe preset -- mincell(5) or more,
@@ -292,10 +325,19 @@ program define datamap, rclass
 			noisily di as error "recursive requires directory()"
 			exit 198
 		}
-		if `"`single'"' != "" _datamap_validate_path `"`single'"', option("single()")
-		if `"`directory'"' != "" _datamap_validate_path `"`directory'"', option("directory()")
-		if `"`manifest'"' != "" {
-			_datamap_validate_path `"`manifest'"', option("manifest()")
+		// macval(): the guard sees a $name or `name' in a path before it can
+		// expand (2026-11-17: output("a_\$x.md") wrote a_<value of $x>.md)
+		// braced: a one-line `if cond cmd' expands cmd a second time, so the
+		// guard saw the value of $name (2026-11-17, round 2: outdir() wrote
+		// into od_<value of $x>/ at rc 0)
+		if `"`macval(single)'"' != "" {
+			_datamap_validate_path `"`macval(single)'"', option("single()")
+		}
+		if `"`macval(directory)'"' != "" {
+			_datamap_validate_path `"`macval(directory)'"', option("directory()")
+		}
+		if `"`macval(manifest)'"' != "" {
+			_datamap_validate_path `"`macval(manifest)'"', option("manifest()")
 			confirm file `"`manifest'"'
 		}
 		if `"`varspec'"' != "" & `ninput' > 0 & `"`single'"' == "" {
@@ -321,12 +363,15 @@ program define datamap, rclass
 
 		// output names
 		if "`separate'" == "" {
-			if `"`output'"' == "" local output "datamap.md"
-			_datamap_validate_path `"`output'"', option("output()")
+			if `"`macval(output)'"' == "" local output "datamap.md"
+			_datamap_validate_path `"`macval(output)'"', option("output()")
 		}
 		else {
-			if `"`suffix'"' == "" local suffix "_map"
-			if `"`outdir'"' != "" _datamap_validate_path `"`outdir'"', option("outdir()")
+			if `"`macval(suffix)'"' == "" local suffix "_map"
+			else _datamap_validate_path `"`macval(suffix)'"', option("suffix()")
+			if `"`macval(outdir)'"' != "" {
+				_datamap_validate_path `"`macval(outdir)'"', option("outdir()")
+			}
 		}
 
 		local saving_file ""
@@ -488,7 +533,7 @@ program define datamap, rclass
 			file close `fh_tmp'
 		}
 		else if `"`filelist'"' != "" {
-			_datamap_collect_filelist `"`filelist'"' `"`filelist_tmp'"'
+			_datamap_collect_filelist `"`macval(filelist)'"' `"`filelist_tmp'"'
 			_datamap_count_files `"`filelist_tmp'"'
 			local nfiles = r(nfiles)
 		}
@@ -540,8 +585,21 @@ program define datamap, rclass
 					outdir(`"`outdir'"') `memoryopt'
 				local _out`_i' `"`r(output)'"'
 				_datamap_validate_path `"`_out`_i''"', option("separate output path")
+				// compared without ./ segments or repeated slashes: a.dta,
+				// ./a.dta and d//a.dta write one file (2026-11-17: both were
+				// written, the second over the first, at rc 0)
+				local _cmp`_i' = subinstr(`"`_out`_i''"', "\", "/", .)
+				while strpos(substr(`"`_cmp`_i''"', 2, .), "//") {
+					local _cmp`_i' = substr(`"`_cmp`_i''"', 1, 1) + subinstr(substr(`"`_cmp`_i''"', 2, .), "//", "/", .)
+				}
+				while strpos(`"`_cmp`_i''"', "/./") {
+					local _cmp`_i' = subinstr(`"`_cmp`_i''"', "/./", "/", .)
+				}
+				while substr(`"`_cmp`_i''"', 1, 2) == "./" {
+					local _cmp`_i' = substr(`"`_cmp`_i''"', 3, .)
+				}
 				forvalues _j = 1/`=`_i' - 1' {
-					if `"`_out`_i''"' == `"`_out`_j''"' {
+					if `"`_cmp`_i''"' == `"`_cmp`_j''"' {
 						noisily di as error `"separate outputs collide: `_out`_i''"'
 						exit 198
 					}
@@ -555,6 +613,12 @@ program define datamap, rclass
 			}
 		}
 		else _datamap_stage check `"`output'"'
+		// saving() too: an unwritable metadata path stopped after the
+		// report was written (2026-11-17)
+		if `"`saving_file'"' != "" {
+			_datamap_stage check `"`saving_file'"'
+			if `saving_csv' _datamap_stage check `"`saving_csvfile'"'
+		}
 
 		// F1 (2.0.0): the variable names two or more input datasets share,
 		// read from each file's header before the collection; their
@@ -938,19 +1002,26 @@ program define _datamap_CollectDataset, rclass
 		// rows (missing codes, non-numeric string values) of any variable.
 		local _lf = 0
 		local _ll = 0
+		local _lvhid ""
 		frame `levframe': local _lf0 = _N + 1
 		if `needlevels' {
 			local _lvv ""
 			foreach _v of local categorical_vars {
 				_datamap_sumpolicy, class(categorical) vfmt("`: format `_v''") `datesafe'
 				if r(datehide) continue
-				// safe: text forced categorical lists no value holding a
-				// digit (the datesafe rule of the string profile)
-				if "`safe'" != "" {
+				// datesafe (safe sets it): text forced categorical lists no
+				// value holding a digit (the datesafe rule of the string
+				// profile; 2026-11-17: was under safe only, so datesafe
+				// alone listed "2020-01-15").  The row says the values are
+				// withheld (tokens_hidden), not that there are too many.
+				if "`datesafe'" != "" {
 					capture confirm string variable `_v'
 					if !_rc {
 						quietly count if ustrregexm(`_v', "\p{Nd}")
-						if r(N) continue
+						if r(N) {
+							local _lvhid "`_lvhid' `_v'"
+							continue
+						}
 					}
 				}
 				local _lvv "`_lvv' `_v'"
@@ -968,6 +1039,11 @@ program define _datamap_CollectDataset, rclass
 		_datamap_collect_levels, profile frame(`levframe') dsindex(`dsx') ///
 			varframe(`varframe') vfirst(`_vf') vlast(`_vl') lfirst(`_lfa') ///
 			mincell(`mincell') maxcat(`maxcat') `datesafe' `safe'
+		if `_vf' > 0 {
+			foreach _v of local _lvhid {
+				frame `varframe': quietly replace tokens_hidden = 1 in `_vf'/`_vl' if variable == "`_v'"
+			}
+		}
 		frame `levframe': local _ll0 = _N
 		if `_ll0' >= `_lf0' {
 			local _lf = `_lf0'

@@ -1,4 +1,4 @@
-*! _psdash_strip_fv Version 1.9.1  2026/11/17
+*! _psdash_strip_fv Version 1.9.2  2026/11/18
 *! Strip factor-variable notation from a covariate token list
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -10,6 +10,14 @@ program define _psdash_strip_fv, nclass
     set varabbrev off
     capture noisily {
         args raw_covars
+
+        * Bind-aware: drop base-level arguments such as ib(first). and
+        * ib(#2). first, then open grouped operators i.(a b) so every
+        * member is its own token (otherwise "i.(a" and "b)" fail
+        * confirm variable and are silently dropped).
+        local raw_covars = ustrregexra(`"`raw_covars'"', "\([^()]*\)\.", ".")
+        local raw_covars : subinstr local raw_covars "(" " ", all
+        local raw_covars : subinstr local raw_covars ")" " ", all
 
         local clean ""
         foreach token of local raw_covars {

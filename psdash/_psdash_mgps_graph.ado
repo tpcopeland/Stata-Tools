@@ -1,4 +1,4 @@
-*! _psdash_mgps_graph Version 1.9.1  2026/11/17
+*! _psdash_mgps_graph Version 1.9.2  2026/11/18
 *! Component-by-treatment generalized propensity score graph
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,7 +30,7 @@ program define _psdash_mgps_graph, rclass
             display as error "bins() must be positive"
             exit 198
         }
-        if `bwidth' != -1 & `bwidth' <= 0 {
+        if missing(`bwidth') | (`bwidth' != -1 & `bwidth' <= 0) {
             display as error "bwidth() must be positive"
             exit 198
         }

@@ -1,4 +1,4 @@
-*! psdash_support Version 1.9.1  2026/11/17
+*! psdash_support Version 1.9.2  2026/11/18
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -177,6 +177,9 @@ program define psdash_support, rclass
     local n_estimation "`_psd_n_estimation'"
     local n_excluded "`_psd_n_excluded'"
     if "`estimand'" == "" local estimand "`_psd_estimand'"
+    * detect validates a case-insensitive estimand() but lowercases only its
+    * own copy; normalise here so r(estimand) and the estimand branches agree.
+    local estimand = strlower("`estimand'")
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
     * psdash combined marks the temporary PS it forwards (never a user name).
@@ -373,11 +376,11 @@ program define psdash_support, rclass
                 local trim_upper = 1 - `crump_alpha'
             }
             else {
-                * Fallback to standard 0.1 threshold
-                local crump_alpha = 0.1
-                local trim_lower = 0.1
-                local trim_upper = 0.9
-                noisily display as text "note: Crump search did not converge; using alpha = 0.1"
+                * The helper returns missing only when no PS lies strictly
+                * inside (0,1); the Crump objective is then undefined.
+                noisily display as error "crump: no propensity score lies strictly inside (0,1);"
+                noisily display as error "  the Crump et al. (2009) trimming rule is undefined for these data"
+                exit 459
             }
 
             * Count trimmed observations
@@ -428,23 +431,37 @@ program define psdash_support, rclass
             display as error "  a common-support region must keep both arms to remain identifiable."
             exit 459
         }
+        * compare computes post-trim covariate balance, which needs at least
+        * two retained observations per arm. Fail before generate() touches
+        * the caller's data.
+        if "`compare'" != "" {
+            local _pre_covs "`covariates'"
+            if "`_pre_covs'" == "" local _pre_covs "`_psd_covariates'"
+            if "`_pre_covs'" != "" & (`n_ret_t' < 2 | `n_ret_c' < 2) {
+                display as error "compare: the trimmed sample keeps `n_ret_t' treated and `n_ret_c' control observation(s);"
+                display as error "  post-trimming covariate balance needs at least 2 per arm."
+                display as error "  Widen the threshold or drop compare. (Without covariates, compare"
+                display as error "  reports only sample size and ESS and has no per-arm minimum.)"
+                exit 459
+            }
+        }
     }
 
     * GENERATE SUPPORT INDICATOR
+    * Built in a temporary variable and committed to generate() only after
+    * compare succeeds, so a failing comparison never destroys a replace()
+    * target or leaks a new variable.
     if "`generate'" != "" {
-        if "`replace'" != "" {
-            capture drop `generate'  // safe: capture swallows 111 when the variable is absent
-        }
-
+        tempvar _gen_new
         if `has_trimming' {
-            quietly gen byte `generate' = ///
+            quietly gen byte `_gen_new' = ///
                 (`psvar' >= `trim_lower' & `psvar' <= `trim_upper') if `touse'
-            label variable `generate' "In trimmed support [`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
+            label variable `_gen_new' "In trimmed support [`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
         }
         else {
-            quietly gen byte `generate' = ///
+            quietly gen byte `_gen_new' = ///
                 (`psvar' >= `cs_lower' & `psvar' <= `cs_upper') if `touse'
-            label variable `generate' "In common support [`=string(`lower_bound', "%5.3f")', `=string(`upper_bound', "%5.3f")']"
+            label variable `_gen_new' "In common support [`=string(`lower_bound', "%5.3f")', `=string(`upper_bound', "%5.3f")']"
         }
     }
 
@@ -512,10 +529,6 @@ program define psdash_support, rclass
             as result %10.0f `n_trimmed' as text " (" as result %5.2f `pct_trimmed' as text "%)"
         display as text "Remaining sample:      " as result %10.0f `=`N' - `n_trimmed''
         display as text "{hline 55}"
-    }
-
-    if "`generate'" != "" {
-        display as text _n "Support indicator generated: " as result "`generate'"
     }
 
     * Warnings (RB-01: every warning-worthy condition becomes a machine-readable
@@ -617,6 +630,10 @@ program define psdash_support, rclass
             capture _psdash_weights_stats, wvar(`_cmpw') treatment(`treatment') ///
                 samplevar(`_tt') n(`_npost')
             if _rc == 0 local cmp_ess_post = r(ess_pct)
+            * A treated PS of 0 (ATE/ATC) or a control PS of 1 (ATE/ATT) has an
+            * undefined IPTW weight; such rows are left out of the ESS.
+            local _ess_excl_pre = `N' - `_npre'
+            local _ess_excl_post = `cmp_n_post' - `_npost'
 
             * Max |SMD| (raw) pre/post when covariates are available
             local cmp_smd_pre = .
@@ -661,6 +678,11 @@ program define psdash_support, rclass
                 display as text %28s "ESS (% of N)" ///
                     as result %13.1f `cmp_ess_pre' %13.1f `cmp_ess_post'
             }
+            if `_ess_excl_pre' > 0 | `_ess_excl_post' > 0 {
+                display as text "note: ESS excludes " as result `_ess_excl_pre' ///
+                    as text " obs pre-trim, " as result `_ess_excl_post' ///
+                    as text " post-trim (PS at 0/1, weight undefined)"
+            }
             if !missing(`cmp_smd_pre') {
                 display as text %28s "Max |SMD| (raw)" ///
                     as result %13.3f `cmp_smd_pre' %13.3f `cmp_smd_post'
@@ -670,6 +692,20 @@ program define psdash_support, rclass
             }
             local _has_compare = 1
         }
+    }
+
+    * Commit the support indicator now that every step that can fail has run.
+    if "`generate'" != "" {
+        quietly count if !missing(`_gen_new')
+        if r(N) == 0 {
+            display as error "support indicator has no nonmissing observations; `generate' not created"
+            exit 2000
+        }
+        if "`replace'" != "" {
+            capture drop `generate'  // safe: capture swallows 111 when the variable is absent
+        }
+        rename `_gen_new' `generate'
+        display as text _n "Support indicator generated: " as result "`generate'"
     }
 
     * GRAPH
@@ -742,7 +778,9 @@ program define psdash_support, rclass
     }
 
     * EXPORT TO EXCEL (binary, O1)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _xk `""Treatment" "PS variable" "Total N" "N (treated)" "N (control)" "Lower bound" "Upper bound" "Outside support (N)" "Outside support (%)" "Treated outside" "Control outside""'
             local _xv `""`treatment'" "`psvar_label'" "`N'" "`n_treated'" "`n_control'" "`=string(`lower_bound',"%6.4f")'" "`=string(`upper_bound',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'" "`n_outside_t'" "`n_outside_c'""'
@@ -759,7 +797,7 @@ program define psdash_support, rclass
             noisily display as text _n "Support table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
-        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+        if `xlsx_rc' & `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "binary"
@@ -965,15 +1003,21 @@ program define psdash_support, rclass
 
     * Like-for-like GPS summary: every column is one fixed e_j(X), evaluated
     * within every observed treatment group (McCaffrey et al. 2013).
-    local col_width = 13
-    local hline_width = 30 + `K' * `col_width'
+    * Each column widens to its own "e(label)" header (minimum 13) so a
+    * long label never runs into the N column or its neighbours, and
+    * short-label columns stay narrow.
+    local hline_width = 30
+    foreach lev of local levels {
+        local cw_`lev' = max(13, ustrlen(`"e(`lbl_`lev'')"') + 2)
+        local hline_width = `hline_width' + `cw_`lev''
+    }
     display as text "{hline `hline_width'}"
     display as text "Mean GPS by Observed Treatment Group"
     display as text "{hline `hline_width'}"
 
     display as text %20s "Observed group" %10s "N" _c
     foreach lev of local levels {
-        display as text %`col_width's "e(`lbl_`lev'')" _c
+        display as text %`cw_`lev''s "e(`lbl_`lev'')" _c
     }
     display ""
     display as text "{hline `hline_width'}"
@@ -984,7 +1028,8 @@ program define psdash_support, rclass
         display as text %20s "`lbl_`observed_level''" ///
             as result %10.0fc `n_group_`observed_level'' _c
         forvalues cidx = 1/`K' {
-            display as result %`col_width'.4f ///
+            local _clev : word `cidx' of `levels'
+            display as result %`cw_`_clev''.4f ///
                 `gps_means'[`ridx', `cidx'] _c
         }
         display ""
@@ -1109,7 +1154,9 @@ program define psdash_support, rclass
     }
 
     * EXPORT TO EXCEL (multi-group, O1)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _xk `""Treatment" "PS variable" "Groups (K)" "Reference" "Total N""'
             local _xv `""`treatment'" "`psvar_label'" "`K'" "`reference_grp'" "`N'""'
@@ -1140,7 +1187,7 @@ program define psdash_support, rclass
             noisily display as text _n "Support table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
-        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+        if `xlsx_rc' & `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "multigroup"

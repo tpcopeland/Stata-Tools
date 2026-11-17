@@ -1,7 +1,7 @@
 # msm QA fixtures manifest
 
 Provenance, licence, checksum, transformations, and regeneration for every
-dataset the QA lane reads. Governed per audit Q07. Checksums are MD5 of the
+dataset the QA lane reads. Governed per audit Q07. Checksums of tracked fixtures are MD5 of the
 committed file; regenerate them with `md5sum` after any deliberate change.
 
 ## Tracked fixtures
@@ -9,9 +9,14 @@ committed file; regenerate them with `md5sum` after any deliberate change.
 | File | Rows / shape | Source & licence | MD5 | Transformations | Regeneration |
 |---|---|---|---|---|---|
 | `../msm_example.dta` | 4,586 person-periods, 500 ids, periods 0–9 | Synthetic, generated for this package (no external data; no licence constraint) | `25115665578f38c4e242b17bd7c75623` | None — used as-shipped by the pipeline examples and the QA suites | Deterministic generator not committed; the file is the canonical artifact (also shipped to users via `net get msm`) |
-| `data/nhefs.dta` | 1,629 subjects, one row per subject | NHEFS — the National Health and Nutrition Examination Survey Epidemiologic Follow-up Study teaching extract distributed with Hernán & Robins, *Causal Inference: What If* (public, non-commercial teaching use; https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/) | `3dfc7dc06acb9d2b565bebb63874174a` | Used as downloaded in `validation_msm.do`; `crossval_msm_nhefs.do` restricts to the published complete-case weight-gain example and sends the same rows to R `ipwpoint`/`survey` | Re-download from the Causal Inference book site |
-| `data/haartdat.dta` | 19,175 person-period rows, 1,200 patients | Simulated public teaching dataset distributed with R package `ipw` and documented in van der Wal & Geskus (2011), JSS 43(13), Section 4.2; GPL-2/GPL-3 package distribution | `8d4cac22e5a79be70d6cc70afbf2f19c` | `validation_msm.do` builds the package pipeline; `crossval_msm_haart.do` compares joint treatment/censoring weights and Cox estimates with an independent R implementation and the published worked-example anchors | Restore from the `ipw` package data distribution and export without changing rows or values |
+| `data/haartdat.dta` | 19,175 person-period rows, 1,200 patients | Simulated public teaching dataset distributed with R package `ipw` (1.3.0, licence "MIT + file LICENSE"; copyright the `ipw` authors) and documented in van der Wal & Geskus (2011), JSS 43(13), Section 4.2 | `8d4cac22e5a79be70d6cc70afbf2f19c` | `validation_msm.do` builds the package pipeline; `crossval_msm_haart.do` compares joint treatment/censoring weights and Cox estimates with an independent R implementation and the published worked-example anchors | Restore from the `ipw` package data distribution and export without changing rows or values |
 | `data/diagnose_fixture_1412.mmat` | Mata `fputmatrix` stream: for each of 3 scenarios, presence flags and the `r(treatment_balance)`, `r(support)`, `r(censor_balance)` matrices plus the three positivity scalars | Generated from msm 1.4.12 (Stata-Tools tree before the 2.0.0 slim-down) on `msm_example.dta` | `e6f577761a48f125dfa09dbaf25e9e4d` | Scenarios in `_diagnose_fixture_scenarios.do` | `_make_diagnose_fixture.do` run once against the 1.4.12 tree; do not regenerate against 2.x (it would copy current behaviour into the oracle) |
+
+## Third-party data (not committed)
+
+| File | Rows / shape | Source & licence | Read by | How the suites find it |
+|---|---|---|---|---|
+| `nhefs.dta` (set `nhefs`) | 1,629 subjects, one row per subject | NHEFS teaching extract distributed with Hernán & Robins, *Causal Inference: What If* (https://miguelhernan.org/whatifbook); no licence stated, redistribution not granted. Provenance and checksums: `data/nhefs/SOURCE.md` | `validation_msm.do` (V3, used as downloaded); `crossval_msm_nhefs.do` (complete-case weight-gain example, same rows to R `ipwpoint`/`survey`) | `_msm_qa_extdata.do`: `$STATA_QA_DATA/msm/nhefs/nhefs.dta`, else a test-time download from https://miguelhernan.org/s/nhefs.dta; either is verified against length 844532 and Stata `checksum` CRC 3078715963 (r(459) on mismatch), and neither available is r(601) |
 
 ## Generated fixtures (not committed)
 
@@ -23,7 +28,7 @@ committed file; regenerate them with `md5sum` after any deliberate change.
 
 - `nhefs_personperiod.dta` (an 8.3 MB pre-expanded person-period copy of NHEFS)
   was an **untracked orphan**: `validation_msm.do` rebuilds the person-period
-  panel from `nhefs.dta` into a `tempfile`, so the disk copy was never loaded.
+  panel from NHEFS into a `tempfile`, so the disk copy was never loaded.
   Removed 2026-07-18 (audit Q07).
 - Only `msm_example.dta` is shipped to users (via `net get msm`); the `data/`
   fixtures are QA-only and are not in `msm.pkg`.

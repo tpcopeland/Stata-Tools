@@ -112,7 +112,14 @@ program define _dataprobe_diff, rclass
                     if _rc local kgone = 1
                 }
             }
-            if !`kgone' & !`kout' {
+            if !`kgone' & !`kout' & c(N) == 0 {
+                // no rows: no key value repeats.  by ...: generate makes
+                // no variable on 0 rows, so the count below failed inside
+                // capture and left the key "unknown after" (2026-11-17)
+                local ksur = 0
+                local ka = 1
+            }
+            else if !`kgone' & !`kout' {
                 // the data's row order is put back: nothing after this may
                 // see the key's sort
                 tempvar kt ko

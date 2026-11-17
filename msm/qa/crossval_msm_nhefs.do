@@ -10,10 +10,17 @@ log using "crossval_msm_nhefs.log", replace text nomsg
 
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
-local data_file "`qa_dir'/data/nhefs.dta"
 local r_script "`qa_dir'/crossval_msm_nhefs.R"
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
+
+* nhefs.dta is third-party data the repository does not distribute: see
+* data/nhefs/SOURCE.md. Resolved from $STATA_QA_DATA or downloaded, then
+* verified against the original's length and CRC.
+run "`qa_dir'/_msm_qa_extdata.do"
+_msm_qa_extfile nhefs nhefs.dta, len(844532) crc(3078715963) ///
+    url("https://miguelhernan.org/s/nhefs.dta")
+local data_file `"`r(path)'"'
 
 local test_count = 0
 local pass_count = 0
@@ -25,7 +32,7 @@ local r_result "`r_result'.dta"
 
 **# External reference
 
-**## R computes the reference from the tracked public NHEFS extract
+**## R computes the reference from the public NHEFS extract
 local ++test_count
 capture noisily {
     shell Rscript "`r_script'" "`data_file'" "`r_result'"

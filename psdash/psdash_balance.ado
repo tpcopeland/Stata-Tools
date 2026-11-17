@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.9.1  2026/11/17
+*! psdash_balance Version 1.9.2  2026/11/18
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -94,6 +94,11 @@ program define psdash_balance, rclass
          VRBounds(numlist min=2 max=2 >0 ascending) ///
          PSVars(varlist numeric) ///
          _PANEL]
+    * v1.9.2: estimand() is case-insensitive. Lowercase once here so every
+    * downstream comparison (weight formula, stabilize guard) sees one form;
+    * estimand(ATT) used to reach a 2000 on binary data and bypass the
+    * multi-group stabilize guard.
+    local estimand = strlower(strtrim(`"`estimand'"'))
     if `"`sheet'"' != "" _psdash_validate_sheet, sheet(`"`sheet'"')
 
     * _panel (undocumented, set by psdash combined): the graph is drawn as a
@@ -176,7 +181,7 @@ program define psdash_balance, rclass
         local treatment "`r(treatment)'"
         local psvar ""
         local source "`r(source)'"
-        local estimand "`r(estimand)'"
+        local estimand = strlower("`r(estimand)'")
         local wvar_auto "0"
         local multigroup "`r(multigroup)'"
         local K = r(K)
@@ -202,7 +207,7 @@ program define psdash_balance, rclass
         * RB-05: estimation-sample exclusion ledger (set by detect for teffects)
         local n_estimation "`_psd_n_estimation'"
         local n_excluded "`_psd_n_excluded'"
-        if "`estimand'" == "" local estimand "`_psd_estimand'"
+        if "`estimand'" == "" local estimand = strlower("`_psd_estimand'")
         local wvar_auto "0"
 
         * Pick up multi-group detection results
@@ -212,6 +217,16 @@ program define psdash_balance, rclass
         if missing(`K') local K = 2
         local levels "`_psd_levels'"
         local mg_reference "`_psd_reference'"
+    }
+
+    * v1.9.2: psvars() names generalized-PS components, which only a
+    * multi-group treatment uses; say so instead of ignoring it silently.
+    * After mlogit on a 0/1 treatment, detect takes the PS from psvars(),
+    * so the note is only for a psvars() that was not used.
+    local _psv_used : list psvar in psvars
+    if "`psvar'" == "" local _psv_used 0
+    if "`psvars'" != "" & "`multigroup'" == "0" & "`_panel'" == "" & !`_psv_used' {
+        display as text "note: psvars() applies to multi-group treatments only; ignored for this binary treatment"
     }
 
     * Use detected covariates if not explicitly provided
@@ -700,8 +715,14 @@ program define psdash_balance, rclass
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash support, crump}"
     }
     else {
-        display as text _n "Balance: " as result "Adequate" ///
-            as text " (max |SMD| = " as result `format' `_verdict_smd' as text ")"
+        if missing(`_verdict_smd') {
+            display as text _n "Balance: " as result "Adequate" ///
+                as text " (no covariate has a defined SMD)"
+        }
+        else {
+            display as text _n "Balance: " as result "Adequate" ///
+                as text " (max |SMD| = " as result `format' `_verdict_smd' as text ")"
+        }
     }
 
     * LOVE PLOT (binary) — standard raw/adjusted; superseded by strategies() overlay
@@ -1019,8 +1040,17 @@ program define psdash_balance, rclass
                     * A temporary name: `name'_distlegend could exceed 32
                     * characters for a long name(); dropped after combining.
                     tempname _lgname
+                    * v1.9.2: the legend cell and the combined figure use the
+                    * scheme the panels were drawn in. A scheme() inside
+                    * graphoptions() comes last in each panel's twoway, so it
+                    * wins over scheme(); before, the legend cell and the
+                    * combine background fell back to the default scheme.
+                    local _effsch `"`scheme'"'
+                    if regexm(`"`_graphopts0'"', "(^|[ ,])sch(e|em|eme)?[(] *([^ )]+) *[)]") {
+                        local _effsch = regexs(3)
+                    }
                     local _lgsch ""
-                    if "`scheme'" != "" local _lgsch "scheme(`scheme')"
+                    if `"`_effsch'"' != "" local _lgsch "scheme(`_effsch')"
                     if `has_adj' {
                         noisily twoway ///
                             (function y = ., range(0 1) pstyle(p1) lpattern(solid) lwidth(medthick)) ///
@@ -1052,7 +1082,7 @@ program define psdash_balance, rclass
                         local _dtitle "Covariate Distributions: Treated vs Control"
                     }
                     graph combine `_dist_names' `_lgname', cols(`_dcols') name(`name'_dist, replace) ///
-                        title(`"`_dtitle'"')
+                        title(`"`_dtitle'"') `_lgsch'
                 }
                 if "`saving'" != "" & !`_other_graph' {
                     _psdash_graph_export, saving("`saving'")
@@ -1070,7 +1100,9 @@ program define psdash_balance, rclass
     }
 
     * EXPORT TO EXCEL (binary)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _adjopt ""
             if `has_adj' local _adjopt "hasadj"
@@ -1082,7 +1114,7 @@ program define psdash_balance, rclass
         local xlsx_rc = _rc
         if `xlsx_rc' {
             capture restore
-            local _psdash_side_rc = `xlsx_rc'
+            if `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
         }
     }
 
@@ -1538,8 +1570,14 @@ program define psdash_balance, rclass
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash support, crump}"
     }
     else {
-        display as text _n "Balance: " as result "Adequate" ///
-            as text " (max |SMD| = " as result `format' `_verdict_smd' as text ")"
+        if missing(`_verdict_smd') {
+            display as text _n "Balance: " as result "Adequate" ///
+                as text " (no covariate has a defined SMD)"
+        }
+        else {
+            display as text _n "Balance: " as result "Adequate" ///
+                as text " (max |SMD| = " as result `format' `_verdict_smd' as text ")"
+        }
     }
 
     * LOVE PLOT (multi-group)
@@ -1659,10 +1697,12 @@ program define psdash_balance, rclass
                 foreach clev of local contrasts {
                     local cnum = `cnum' + 1
                     local col : word `=mod(`cnum' - 1, 15) + 1' of `_pso'
-                    local sym : word `cnum' of `symbol_list'
-                    local hsym : word `cnum' of `hollow_list'
-                    local hsz : word `cnum' of `hsize_list'
-                    if "`hsz'" == "" local hsz "medium"
+                    * v1.9.2: the 8 marker shapes cycle (colours cycle over 15);
+                    * a 9th contrast (K >= 10) used to get an empty msymbol().
+                    local _si = mod(`cnum' - 1, 8) + 1
+                    local sym : word `_si' of `symbol_list'
+                    local hsym : word `_si' of `hollow_list'
+                    local hsz : word `_si' of `hsize_list'
                     local lbl `"`macval(_gl_`clev')' vs `macval(_gl_`mg_reference')'"'
                     * A dashboard cell keys each comparison by its arm alone;
                     * the note names the reference arm.
@@ -1741,7 +1781,9 @@ program define psdash_balance, rclass
     }
 
     * EXPORT TO EXCEL (multi-group)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _adjopt ""
             if `has_adj' local _adjopt "hasadj"
@@ -1754,7 +1796,7 @@ program define psdash_balance, rclass
         local xlsx_rc = _rc
         if `xlsx_rc' {
             capture restore
-            local _psdash_side_rc = `xlsx_rc'
+            if `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
         }
     }
 

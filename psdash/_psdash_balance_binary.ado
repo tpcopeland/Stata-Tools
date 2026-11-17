@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.9.1  2026/11/17
+*! _psdash_balance_binary Version 1.9.2  2026/11/18
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -331,8 +331,10 @@ program define _psdash_balance_binary, rclass
 
         restore
 
-        local max_smd_raw = 0
-        local max_smd_adj = 0
+        * v1.9.2: start the SMD/KS maxima missing, like the VR maxima, so a
+        * covariate set with no defined SMD or KS returns missing, not a fake 0.
+        local max_smd_raw = .
+        local max_smd_adj = .
         * No assessable VR (every covariate two-level, constant or with an
         * undefined ratio) leaves the maximum missing rather than a fake 1.
         * The -1 start lets the first assessable VR, even exactly 1, register.
@@ -340,8 +342,8 @@ program define _psdash_balance_binary, rclass
         local max_vr_adj = .
         local max_vr_raw_dev = -1
         local max_vr_adj_dev = -1
-        local max_ks_raw = 0
-        local max_ks_adj = 0
+        local max_ks_raw = .
+        local max_ks_adj = .
         local n_imbalanced = 0
         local n_vr_imbalanced_raw = 0
         local n_vr_imbalanced_adj = 0
@@ -351,7 +353,7 @@ program define _psdash_balance_binary, rclass
         forvalues i = 1/`nvars' {
             if !missing(`balance_mat'[`i', 3]) {
                 local abs_smd_raw = abs(`balance_mat'[`i', 3])
-                if `abs_smd_raw' > `max_smd_raw' local max_smd_raw = `abs_smd_raw'
+                if missing(`max_smd_raw') | `abs_smd_raw' > `max_smd_raw' local max_smd_raw = `abs_smd_raw'
             }
 
             if `_isbin_`i'' {
@@ -373,13 +375,13 @@ program define _psdash_balance_binary, rclass
 
             if !missing(`balance_mat'[`i', 5]) {
                 local ks_i = `balance_mat'[`i', 5]
-                if `ks_i' > `max_ks_raw' local max_ks_raw = `ks_i'
+                if missing(`max_ks_raw') | `ks_i' > `max_ks_raw' local max_ks_raw = `ks_i'
             }
 
             if `has_adj' {
                 if !missing(`balance_mat'[`i', 8]) {
                     local abs_smd_adj = abs(`balance_mat'[`i', 8])
-                    if `abs_smd_adj' > `max_smd_adj' local max_smd_adj = `abs_smd_adj'
+                    if missing(`max_smd_adj') | `abs_smd_adj' > `max_smd_adj' local max_smd_adj = `abs_smd_adj'
                     if `abs_smd_adj' > `threshold' local n_imbalanced = `n_imbalanced' + 1
                 }
                 else {
@@ -388,7 +390,7 @@ program define _psdash_balance_binary, rclass
 
                 if !missing(`balance_mat'[`i', 10]) {
                     local ks_a_i = `balance_mat'[`i', 10]
-                    if `ks_a_i' > `max_ks_adj' local max_ks_adj = `ks_a_i'
+                    if missing(`max_ks_adj') | `ks_a_i' > `max_ks_adj' local max_ks_adj = `ks_a_i'
                 }
 
                 if !`_isbin_`i'' & (!missing(`balance_mat'[`i', 9]) | `balance_mat'[`i', 9] == .a) {

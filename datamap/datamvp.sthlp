@@ -194,7 +194,9 @@ each pattern.
 {phang}
 {opt correlate} displays tetrachoric correlations (or Pearson correlations
 if {cmd:tetrachoric} is unavailable) among the missingness indicators. This
-helps identify variables whose missingness tends to co-occur.
+helps identify variables whose missingness tends to co-occur. When neither
+can be computed (a single observation), the correlations are skipped with a
+note, and {opt graph(correlation)} exits with r(2001).
 
 {phang}
 {opt monotone} tests whether the missing data pattern is monotone. A pattern is
@@ -266,10 +268,10 @@ the output. It does not guard against differencing across the outputs of one
 call, and correlations, which are not counts, are shown as computed.
 
 {pstd}
-{cmd:r(N_patterns)} still counts every pattern that passes the filters; {cmd:r(N_patterns_pooled)}
-counts the pooled ones. {opt save()} and {opt generate()} are not masked: the
-saved pattern file holds small cells and belongs with the data, not in a
-shared folder.
+{cmd:r(N_patterns)} still counts every pattern that passes the
+filters; {cmd:r(N_patterns_pooled)} counts the pooled ones. {opt save()} and {opt generate()}
+are not masked: the saved pattern file holds small cells and belongs with the
+data, not in a shared folder.
 
 {dlgtab:Output}
 
@@ -284,7 +286,8 @@ variables that would collide with the two reserved summary names are rejected.
 {phang}
 {opt save(name)} saves the pattern data. If {it:name} contains a period,
 slash, or backslash, it is treated as a filename and the data is saved
-as a Stata dataset. Otherwise, it is treated as a frame name.
+as a Stata dataset. Otherwise, it is treated as a frame name: an existing
+frame of that name is replaced, and naming the current frame is an error.
 
 {dlgtab:Graphics}
 
@@ -349,9 +352,9 @@ with no text, as in {cmd:title(, ring(0))}, restyle the default title.{p_end}
 o  {cmd:title("")} draws no title.{p_end}
 
 {pmore}
-Quotes, dollar signs, and backticks inside the text are printed as written. Braces
-are not escaped: as in any graph text, SMCL directives in braces, such as
-bold and italic markup, are interpreted.
+Quotes, dollar signs, and backticks inside the text are printed as
+written. Braces are not escaped: as in any graph text, SMCL directives in
+braces, such as bold and italic markup, are interpreted.
 
 {phang}
 {opt sub:title(tinfo)} specifies a custom subtitle for the graph, with the

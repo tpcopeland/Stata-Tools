@@ -31,6 +31,85 @@
 // scope are 1 to m-1 under maskrare, or every stratum when a by() variable
 // is in exclude(), is named by its number, not its values.  safe(1) refuses
 // a by() variable whose values safe would withhold.
+// The entry is split in Mata (2026-11-17): its text is data, so "a$b" or a
+// backtick in an expression or the if condition reaches the evaluator as
+// typed (a Stata-level character loop re-expanded the macros in it).  Sets
+// s (the entry before a top-level comma), subopts, _cp (the comma's
+// position, 0 for none), nexp and ex1..ex#, ifexp, done (an if was given)
+// and _scerr (1 for unbalanced parentheses).
+capture mata: mata drop _dpsc_split()
+mata:
+void _dpsc_split()
+{
+	string scalar s, c, tok
+	real scalar L, i, iq, dp, cp, nexp, done
+	s = strtrim(st_local("spec"))
+	// suboptions after a comma outside parentheses and double quotes
+	L = strlen(s)
+	iq = 0
+	dp = 0
+	cp = 0
+	for (i = 1; i <= L; i++) {
+		c = substr(s, i, 1)
+		if (c == char(34)) iq = !iq
+		else if (!iq) {
+			if (c == "(") dp++
+			else if (c == ")") dp--
+			else if (c == "," & dp == 0) {
+				cp = i
+				break
+			}
+		}
+	}
+	st_local("subopts", "")
+	if (cp) {
+		st_local("subopts", strtrim(substr(s, cp + 1, .)))
+		s = strtrim(substr(s, 1, cp - 1))
+	}
+	st_local("s", s)
+	st_local("_cp", strofreal(cp))
+	// countexps: split at a blank outside parentheses, up to an "if"
+	L = strlen(s)
+	dp = 0
+	c = ""
+	tok = ""
+	nexp = 0
+	done = 0
+	st_local("ifexp", "")
+	st_local("_scerr", "0")
+	for (i = 1; i <= L + 1; i++) {
+		if (i <= L) {
+			c = substr(s, i, 1)
+			if (c == "(") dp++
+			if (c == ")") dp--
+			if (dp < 0) {
+				st_local("_scerr", "1")
+				break
+			}
+		}
+		if (i > L | (c == " " & dp == 0)) {
+			if (dp != 0) {
+				st_local("_scerr", "1")
+				break
+			}
+			if (tok != "") {
+				if (strlower(tok) == "if") {
+					st_local("ifexp", strtrim(substr(s, i + 1, .)))
+					done = 1
+					break
+				}
+				nexp++
+				st_local("ex" + strofreal(nexp), tok)
+				tok = ""
+			}
+		}
+		else tok = tok + c
+	}
+	st_local("nexp", strofreal(nexp))
+	st_local("done", strofreal(done))
+}
+end
+
 program define _dataprobe_smallcells, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -50,46 +129,28 @@ program define _dataprobe_smallcells, rclass
             display as error "smallcells() needs a threshold of 2 or more (resolved mincell/rare is `mcell'): a gate on counts in 1..`=`mcell'-1' tests nothing"
             exit 198
         }
-        // ---- split the entry into countexps and an optional if ----
-        local s = strtrim(`"`spec'"')
-        // ---- 2.1.0 (F7): suboptions after a comma outside parentheses
-        // and double quotes (no valid 2.0.0 entry has one) ----
+        // ---- split the entry into countexps and an optional if, and
+        // 2.1.0 (F7) suboptions after a comma outside parentheses and
+        // double quotes (no valid 2.0.0 entry has one); see _dpsc_split ----
         local _cm = 0
         local id ""
         local by ""
         local margins ""
-        local subopts ""
-        local _L0 = strlen(`"`s'"')
-        local _dp = 0
-        local _iq = 0
-        local _cp = 0
-        forvalues i = 1/`_L0' {
-            if substr(`"`s'"', `i', 1) == char(34) local _iq = !`_iq'
-            else if !`_iq' {
-                if substr(`"`s'"', `i', 1) == "(" local ++_dp
-                else if substr(`"`s'"', `i', 1) == ")" local --_dp
-                else if substr(`"`s'"', `i', 1) == "," & `_dp' == 0 {
-                    local _cp = `i'
-                    continue, break
-                }
-            }
-        }
+        mata: _dpsc_split()
         if `_cp' {
-            local subopts = strtrim(substr(`"`s'"', `_cp' + 1, .))
-            local s = strtrim(substr(`"`s'"', 1, `_cp' - 1))
-            if `"`subopts'"' == "" {
+            if `"`macval(subopts)'"' == "" {
                 display as error "smallcells(): nothing after the comma; the suboptions are id(varname), by(varlist) and margins[(strata|conditions)]"
                 exit 198
             }
             // a bare margins is margins(both)
             local _so ""
-            local _r `"`subopts'"'
-            while `"`_r'"' != "" {
+            local _r `"`macval(subopts)'"'
+            while `"`macval(_r)'"' != "" {
                 gettoken _t _r : _r, bind
-                if regexm(`"`_t'"', "^mar(g|gi|gin|gins)?$") local _t "margins(both)"
-                local _so `"`_so' `_t'"'
+                if regexm(`"`macval(_t)'"', "^mar(g|gi|gin|gins)?$") local _t "margins(both)"
+                local _so `"`macval(_so)' `macval(_t)'"'
             }
-            local 0 `", `_so'"'
+            local 0 `", `macval(_so)'"'
             capture noisily syntax , [ID(varname) BY(varlist) MARgins(string)]
             if _rc {
                 local _erc = _rc
@@ -125,48 +186,15 @@ program define _dataprobe_smallcells, rclass
                 }
             }
         }
-        local L = strlen(`"`s'"')
-        local depth = 0
-        local tok ""
-        local nexp = 0
-        local ifexp ""
-        local done = 0
-        forvalues i = 1/`=`L' + 1' {
-            if `done' continue
-            local atend = (`i' > `L')
-            if !`atend' {
-                if substr(`"`s'"', `i', 1) == "(" local ++depth
-                if substr(`"`s'"', `i', 1) == ")" local --depth
-                if `depth' < 0 {
-                    display as error `"smallcells(): unbalanced parentheses in `spec'"'
-                    exit 198
-                }
-            }
-            local isblank = (!`atend' & substr(`"`s'"', `i', 1) == " " & `depth' == 0)
-            if `atend' | `isblank' {
-                if `depth' != 0 {
-                    display as error `"smallcells(): unbalanced parentheses in `spec'"'
-                    exit 198
-                }
-                if `"`tok'"' != "" {
-                    if lower(`"`tok'"') == "if" {
-                        local ifexp = strtrim(substr(`"`s'"', `i' + 1, .))
-                        local done = 1
-                    }
-                    else {
-                        local ++nexp
-                        local ex`nexp' `"`tok'"'
-                    }
-                    local tok ""
-                }
-            }
-            else local tok `"`tok'`=substr(`"`s'"', `i', 1)'"'
-        }
-        if `nexp' == 0 {
-            display as error `"smallcells() spec must be "countexp [countexp ...] [if exp]": `spec'"'
+        if `_scerr' {
+            display as error `"smallcells(): unbalanced parentheses in `macval(spec)'"'
             exit 198
         }
-        if `done' & `"`ifexp'"' == "" {
+        if `nexp' == 0 {
+            display as error `"smallcells() spec must be "countexp [countexp ...] [if exp]": `macval(spec)'"'
+            exit 198
+        }
+        if `done' & `"`macval(ifexp)'"' == "" {
             display as error "smallcells(): empty if condition"
             exit 198
         }
@@ -186,13 +214,13 @@ program define _dataprobe_smallcells, rclass
         // ---- the variables the expressions read (kept by dataprobe) ----
         local full ""
         forvalues j = 1/`nexp' {
-            local full `"`full' `ex`j''"'
+            local full `"`macval(full)' `macval(ex`j')'"'
         }
-        local full `"`full' `ifexp'"'
-        local rest `"`full'"'
-        while regexm(`"`rest'"', "([A-Za-z_][A-Za-z0-9_]*)") {
+        local full `"`macval(full)' `macval(ifexp)'"'
+        local rest `"`macval(full)'"'
+        while regexm(`"`macval(rest)'"', "([A-Za-z_][A-Za-z0-9_]*)") {
             local w = regexs(1)
-            local rest = substr(`"`rest'"', strpos(`"`rest'"', "`w'") + strlen("`w'"), .)
+            local rest = substr(`"`macval(rest)'"', strpos(`"`macval(rest)'"', "`w'") + strlen("`w'"), .)
             capture confirm variable `w', exact
             if !_rc local vars "`vars' `w'"
         }
@@ -201,20 +229,20 @@ program define _dataprobe_smallcells, rclass
         // ---- every expression must evaluate; checked on parse and on run ----
         tempvar sc
         quietly generate byte `sc' = 1
-        if `"`ifexp'"' != "" {
-            capture quietly replace `sc' = ((`ifexp') != 0)
+        if `"`macval(ifexp)'"' != "" {
+            capture quietly replace `sc' = ((`macval(ifexp)') != 0)
             if _rc {
                 local _erc = _rc
-                display as error `"smallcells(): cannot evaluate condition if `ifexp'"'
+                display as error `"smallcells(): cannot evaluate condition if `macval(ifexp)'"'
                 exit `_erc'
             }
         }
         forvalues j = 1/`nexp' {
             tempvar v`j'
-            capture quietly generate double `v`j'' = (`ex`j'')
+            capture quietly generate double `v`j'' = (`macval(ex`j')')
             if _rc {
                 local _erc = _rc
-                display as error `"smallcells(): cannot evaluate `ex`j''; a countexp is a variable or an expression with no spaces"'
+                display as error `"smallcells(): cannot evaluate `macval(ex`j')'; a countexp is a variable or an expression with no spaces"'
                 exit `_erc'
             }
             // a cell condition is 0 or 1: a count column (a results table)
@@ -222,7 +250,7 @@ program define _dataprobe_smallcells, rclass
             if `_cm' {
                 quietly count if `sc' & !inlist(`v`j'', 0, 1)
                 if r(N) {
-                    display as error `"smallcells(): with id(), by() or margins each countexp is a condition, 0 or 1 on every row in scope; `ex`j'' is missing or takes another value on some rows (write the condition, as in x == 1)"'
+                    display as error `"smallcells(): with id(), by() or margins each countexp is a condition, 0 or 1 on every row in scope; `macval(ex`j')' is missing or takes another value on some rows (write the condition, as in x == 1)"'
                     exit 459
                 }
             }
@@ -259,7 +287,9 @@ program define _dataprobe_smallcells, rclass
                         cond("`r'" == "kneg", "negative", "non-integer"))
                     local why "`why'`=cond("`why'" == "", "", ", ")'`rs' `lab'"
                 }
-                if "`why'" != "" local pieces `"`pieces'`=cond(`"`pieces'"' == "", "", "; ")'`ex`j'' (`why')"'
+                if "`why'" != "" {
+                    mata: st_local("pieces", st_local("pieces") + (st_local("pieces") == "" ? "" : "; ") + st_local("ex" + st_local("j")) + " (" + st_local("why") + ")")
+                }
             }
             quietly count if `anyf'
             local nbad = r(N)
@@ -273,18 +303,29 @@ program define _dataprobe_smallcells, rclass
                 local anymask = 1
             }
             else if `nbad' >= 1 local mins = min(`mins', `nbad')
-            local vtxt `"`ex1'"'
+            local vtxt `"`macval(ex1)'"'
             forvalues j = 2/`nexp' {
-                local vtxt `"`vtxt' `ex`j''"'
+                local vtxt `"`macval(vtxt)' `macval(ex`j')'"'
             }
-            if `"`ifexp'"' != "" local vtxt `"`vtxt' if `ifexp'"'
-            if length(`"`vtxt'"') > 60 local vtxt = substr(`"`vtxt'"', 1, 57) + "..."
+            if `"`macval(ifexp)'"' != "" {
+                local vtxt `"`macval(vtxt)' if `macval(ifexp)'"'
+            }
+            if length(`"`macval(vtxt)'"') > 60 {
+                local vtxt = substr(`"`macval(vtxt)'"', 1, 57) + "..."
+            }
             local exptxt "no released count in 1..`m1' (m=`mcell')"
-            if `ok' local msg `"`pfx'smallcells(`vtxt'): `exptxt'"'
-            else local msg `"`pfx'smallcells(`vtxt'): `nbs' table rows fail, `pieces'; expected `exptxt'"'
-            frame post `rf' ("smallcells") ("`kind'") (`ok') (`"`macval(vtxt)'"') (`"`macval(vtxt)'"') ///
+            if `ok' {
+                local msg `"`macval(pfx)'smallcells(`macval(vtxt)'): `exptxt'"'
+            }
+            else {
+                local msg `"`macval(pfx)'smallcells(`macval(vtxt)'): `nbs' table rows fail, `macval(pieces)'; expected `exptxt'"'
+            }
+            // frame post expands its arguments again: the text from Mata
+            frame post `rf' ("smallcells") ("`kind'") (`ok') ("") ("") ///
                 (`"`macval(grp)'"') ("`nbs' rows fail") (`onum') ("`exptxt'") ///
-                (`nscope') (`"`macval(ifexp)'"') (`"`macval(msg)'"') (`mins') (`om')
+                (`nscope') ("") ("") (`mins') (`om')
+            frame `rf': mata: st_sstore(st_nobs(), ("label", "variable", "scope", "msg"), ///
+                (st_local("vtxt"), st_local("vtxt"), st_local("ifexp"), st_local("msg")))
         }
         if "`parseonly'" == "" & `_cm' {
             // ---- 2.1.0 (F7): cells counted on microdata ----
@@ -332,13 +373,17 @@ program define _dataprobe_smallcells, rclass
                     else local sl`gg' `"`r(led`gg')'"'
                 }
             }
-            local vtxt `"`ex1'"'
+            local vtxt `"`macval(ex1)'"'
             forvalues j = 2/`nexp' {
-                local vtxt `"`vtxt' `ex`j''"'
+                local vtxt `"`macval(vtxt)' `macval(ex`j')'"'
             }
-            if `"`ifexp'"' != "" local vtxt `"`vtxt' if `ifexp'"'
-            local vtxt `"`vtxt', `subopts'"'
-            if length(`"`vtxt'"') > 60 local vtxt = substr(`"`vtxt'"', 1, 57) + "..."
+            if `"`macval(ifexp)'"' != "" {
+                local vtxt `"`macval(vtxt)' if `macval(ifexp)'"'
+            }
+            local vtxt `"`macval(vtxt)', `macval(subopts)'"'
+            if length(`"`macval(vtxt)'"') > 60 {
+                local vtxt = substr(`"`macval(vtxt)'"', 1, 57) + "..."
+            }
             // the floor: one record, as a results table's
             local unit = cond("`id'" != "", "rows or ids", "rows")
             local exptxt "no cell of 1..`m1' `unit' (m=`mcell')"
@@ -354,16 +399,26 @@ program define _dataprobe_smallcells, rclass
             local pieces ""
             forvalues k = 1/`nfl' {
                 local jj = `f`k'_j'
-                local pc `"`ex`jj''"'
-                if "`by'" != "" local pc `"`pc' in `sl`f`k'_g''"'
-                local pieces `"`pieces'`=cond(`k' == 1, "", ", ")'`pc' (`f`k'_u')"'
+                local pc `"`macval(ex`jj')'"'
+                if "`by'" != "" {
+                    local pc `"`macval(pc)' in `macval(sl`f`k'_g')'"'
+                }
+                local pieces `"`macval(pieces)'`=cond(`k' == 1, "", ", ")'`macval(pc)' (`f`k'_u')"'
             }
-            if `nbad' > `nfl' local pieces `"`pieces', and more"'
-            if `ok' local msg `"`pfx'smallcells(`vtxt'): `exptxt'"'
-            else local msg `"`pfx'smallcells(`vtxt'): `nbs' cells fail, `pieces'; expected `exptxt'"'
-            frame post `rf' ("smallcells") ("`kind'") (`ok') (`"`macval(vtxt)'"') (`"`macval(vtxt)'"') ///
+            if `nbad' > `nfl' {
+                local pieces `"`macval(pieces)', and more"'
+            }
+            if `ok' {
+                local msg `"`macval(pfx)'smallcells(`macval(vtxt)'): `exptxt'"'
+            }
+            else {
+                local msg `"`macval(pfx)'smallcells(`macval(vtxt)'): `nbs' cells fail, `macval(pieces)'; expected `exptxt'"'
+            }
+            frame post `rf' ("smallcells") ("`kind'") (`ok') ("") ("") ///
                 (`"`macval(grp)'"') ("`nbs' cells fail") (`onum') ("`exptxt'") ///
-                (`nscope') (`"`macval(ifexp)'"') (`"`macval(msg)'"') (`mins') (`om')
+                (`nscope') ("") ("") (`mins') (`om')
+            frame `rf': mata: st_sstore(st_nobs(), ("label", "variable", "scope", "msg"), ///
+                (st_local("vtxt"), st_local("vtxt"), st_local("ifexp"), st_local("msg")))
             // the margins audit: a second record
             if "`margins'" != "" {
                 local exp2 "no small cell recoverable from a margin (m=`mcell')"
@@ -388,27 +443,37 @@ program define _dataprobe_smallcells, rclass
                     local cs ""
                     if `x`k'_t' == 1 {
                         if "`by'" == "" local rel "total"
-                        else local rel `"`sl`x`k'_i''"'
+                        else {
+                            local rel `"`macval(sl`x`k'_i')'"'
+                        }
                         foreach jj of local x`k'_c {
-                            local cs `"`cs'`=cond(`"`cs'"' == "", "", ", ")'`ex`jj''"'
+                            mata: st_local("cs", st_local("cs") + (st_local("cs") == "" ? "" : ", ") + st_local("ex" + st_local("jj")))
                         }
                     }
                     else {
                         local jj = `x`k'_i'
-                        local rel `"`ex`jj''"'
+                        local rel `"`macval(ex`jj')'"'
                         foreach gg of local x`k'_c {
-                            local cs `"`cs'`=cond(`"`cs'"' == "", "", ", ")'`sl`gg''"'
+                            mata: st_local("cs", st_local("cs") + (st_local("cs") == "" ? "" : ", ") + st_local("sl" + st_local("gg")))
                         }
                     }
-                    local xp `"`xp'`=cond(`k' == 1, "", "; ")'`rel': `pn' (`cs')"'
+                    local xp `"`macval(xp)'`=cond(`k' == 1, "", "; ")'`macval(rel)': `pn' (`macval(cs)')"'
                 }
-                if `nx' > `nxl' local xp `"`xp'; and more"'
-                local lab2 `"`vtxt' [margins]"'
-                if `ok2' local msg2 `"`pfx'smallcells(`vtxt') margins: `exp2'"'
-                else local msg2 `"`pfx'smallcells(`vtxt') margins: `nxs' exposed, `xp'; expected `exp2'"'
-                frame post `rf' ("smallcells") ("`kind'") (`ok2') (`"`macval(lab2)'"') (`"`macval(vtxt)'"') ///
+                if `nx' > `nxl' {
+                    local xp `"`macval(xp)'; and more"'
+                }
+                local lab2 `"`macval(vtxt)' [margins]"'
+                if `ok2' {
+                    local msg2 `"`macval(pfx)'smallcells(`macval(vtxt)') margins: `exp2'"'
+                }
+                else {
+                    local msg2 `"`macval(pfx)'smallcells(`macval(vtxt)') margins: `nxs' exposed, `macval(xp)'; expected `exp2'"'
+                }
+                frame post `rf' ("smallcells") ("`kind'") (`ok2') ("") ("") ///
                     (`"`macval(grp)'"') ("`nxs' margins exposed") (`onum2') ("`exp2'") ///
-                    (`nscope') (`"`macval(ifexp)'"') (`"`macval(msg2)'"') (`mins2') (`om2')
+                    (`nscope') ("") ("") (`mins2') (`om2')
+                frame `rf': mata: st_sstore(st_nobs(), ("label", "variable", "scope", "msg"), ///
+                    (st_local("lab2"), st_local("vtxt"), st_local("ifexp"), st_local("msg2")))
             }
         }
     }

@@ -1,6 +1,6 @@
 * crossval_daniel2011_published.do - Published-example replication for gcomp
 * Source: Daniel, De Stavola, and Cousens (2011), Stata Journal 11:479-517,
-* pp. 503-507. Public fixture: Stata Journal st0238/tvc1.dta.
+* pp. 503-507. Public data: Stata Journal st0238/tvc1.dta (not distributed; data/daniel2011/SOURCE.md).
 * Fixture SHA-256: 14341aa076691bb2ba8b2f36b40543b1edad1a89a6708a46ce6be884fa38c5f5
 * Manual run: cd gcomp/qa && stata-mp -b do crossval_daniel2011_published.do
 
@@ -15,10 +15,16 @@ local fail_count = 0
 local failed_tests ""
 
 local qa_dir "`c(pwd)'"
-local data_file "`qa_dir'/data/daniel2011_tvc1.dta"
 do "`qa_dir'/_qa_bootstrap.do"
+* tvc1.dta is third-party data the repository does not distribute: see
+* data/daniel2011/SOURCE.md. Resolved from $STATA_QA_DATA or downloaded, then
+* verified against the original's length and CRC.
+run "`qa_dir'/_gcomp_qa_extdata.do"
+_gcomp_qa_extfile daniel2011 tvc1.dta, len(262522) crc(3347781096) ///
+    url("https://www.stata-journal.com/software/sj11-4/st0238/tvc1.dta")
+local data_file `"`r(path)'"'
 
-**# D1: The vendored public fixture is the study dataset
+**# D1: The public tvc1 data is the study dataset
 
 local ++test_count
 capture noisily {

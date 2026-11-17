@@ -49,13 +49,19 @@ local suites_quick validation_fixture_truth.do validation_fixture_routes.do test
     test_v190_balance_graphs.do test_v190_dashboard_summary.do ///
     test_v191_balance.do test_v191_detect_weights.do ///
     test_v191_overlap_support_combined.do ///
+    test_v192_weights_balance_combined.do test_v192_detect.do ///
+    test_v192_overlap_support.do ///
     test_release_detect.do test_release_numeric.do test_release_combined.do ///
     test_producer_contracts.do ///
     test_real_producer_integrations.do ///
     test_excel_fidelity.do test_return_surface_remaining.do
 
 local suites_external crossval_python_psdash.do crossval_cobalt.do ///
-    crossval_external_references.do crossval_public_studies.do
+    crossval_external_references.do crossval_public_studies.do ///
+    crossval_binary_balance_cobalt.do crossval_longitudinal_cobalt_weightit.do ///
+    crossval_binary_balance_published_imbens2015.do ///
+    crossval_crump_rhc_published_support.do ///
+    crossval_multigroup_published_twang.do
 
 if "`mode'" == "quick" local suite_files "`suites_quick'"
 else if "`mode'" == "external" local suite_files "`suites_external'"

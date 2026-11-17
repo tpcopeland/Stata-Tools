@@ -1,4 +1,4 @@
-*! _psdash_require_meta Version 1.9.1  2026/11/17
+*! _psdash_require_meta Version 1.9.2  2026/11/18
 *! Fail closed when an explicitly named source does not carry a required field
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass (errors, or returns silently)

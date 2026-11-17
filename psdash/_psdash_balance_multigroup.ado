@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.9.1  2026/11/17
+*! _psdash_balance_multigroup Version 1.9.2  2026/11/18
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -364,16 +364,18 @@ program define _psdash_balance_multigroup, rclass
 
         restore
 
-        local max_smd_raw = 0
-        local max_smd_adj = 0
+        * v1.9.2: start the SMD/KS maxima missing, like the VR maxima, so a
+        * covariate set with no defined SMD or KS returns missing, not a fake 0.
+        local max_smd_raw = .
+        local max_smd_adj = .
         * No assessable VR leaves the maximum missing rather than a fake 1;
         * the -1 start lets the first assessable VR, even exactly 1, register.
         local max_vr_raw = .
         local max_vr_adj = .
         local max_vr_raw_dev = -1
         local max_vr_adj_dev = -1
-        local max_ks_raw = 0
-        local max_ks_adj = 0
+        local max_ks_raw = .
+        local max_ks_adj = .
         local n_imbalanced = 0
         * RB-08: count imbalanced COVARIATES (the documented unit), not pairwise
         * contrasts. A single covariate with two out-of-bounds contrasts is one
@@ -409,7 +411,7 @@ program define _psdash_balance_multigroup, rclass
                 if !missing(`balance_mat'[`i', `col_smd_raw']) {
                     local abs_smd = abs(`balance_mat'[`i', `col_smd_raw'])
                     if `abs_smd' > `worst_smd_raw_i' local worst_smd_raw_i = `abs_smd'
-                    if `abs_smd' > `max_smd_raw' local max_smd_raw = `abs_smd'
+                    if missing(`max_smd_raw') | `abs_smd' > `max_smd_raw' local max_smd_raw = `abs_smd'
                 }
 
                 if !`_isbin_`i'' & (!missing(`balance_mat'[`i', `col_vr_raw']) | `balance_mat'[`i', `col_vr_raw'] == .a) {
@@ -428,20 +430,20 @@ program define _psdash_balance_multigroup, rclass
 
                 if !missing(`balance_mat'[`i', `col_ks_raw']) {
                     local ks_i = `balance_mat'[`i', `col_ks_raw']
-                    if `ks_i' > `max_ks_raw' local max_ks_raw = `ks_i'
+                    if missing(`max_ks_raw') | `ks_i' > `max_ks_raw' local max_ks_raw = `ks_i'
                 }
 
                 if `has_adj' {
                     local col_ks_adj = `ncols_raw' + (`cnum' - 1) * 5 + 5
                     if !missing(`balance_mat'[`i', `col_ks_adj']) {
                         local ks_a_i = `balance_mat'[`i', `col_ks_adj']
-                        if `ks_a_i' > `max_ks_adj' local max_ks_adj = `ks_a_i'
+                        if missing(`max_ks_adj') | `ks_a_i' > `max_ks_adj' local max_ks_adj = `ks_a_i'
                     }
                     local col_smd_adj = `ncols_raw' + (`cnum' - 1) * 5 + 3
                     if !missing(`balance_mat'[`i', `col_smd_adj']) {
                         local abs_smd_a = abs(`balance_mat'[`i', `col_smd_adj'])
                         if `abs_smd_a' > `worst_smd_adj_i' local worst_smd_adj_i = `abs_smd_a'
-                        if `abs_smd_a' > `max_smd_adj' local max_smd_adj = `abs_smd_a'
+                        if missing(`max_smd_adj') | `abs_smd_a' > `max_smd_adj' local max_smd_adj = `abs_smd_a'
                         if `abs_smd_a' > `threshold' local cov_imbalanced = 1
                     }
                     else {

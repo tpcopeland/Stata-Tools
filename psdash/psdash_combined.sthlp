@@ -161,7 +161,7 @@ with the write error.
 {opt ti:tle(string)} sets the combined graph title.
 
 {phang}
-{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
+{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc} (case does not matter).
 
 {phang}
 {opt ref:erence(#)} selects the multi-group reference arm. For a treatment coded 0/1
@@ -222,6 +222,48 @@ only {cmd:reference(0)} is allowed.
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component{p_end}
 {synopt:{cmd:r(levels)}}treatment-group levels{p_end}
 {synopt:{cmd:r(reference)}}reference treatment group{p_end}
+
+{pstd}
+The longitudinal route (an {cmd:ltmle}, {cmd:ltmle_surv}, {cmd:msm}, or
+{cmd:tte} contract) also stores:
+
+{p2col 5 32 34 2: Scalars}{p_end}
+{synopt:{cmd:r(N)}}longitudinal diagnostic-sample N{p_end}
+{synopt:{cmd:r(N_input)}}rows in the input sample{p_end}
+{synopt:{cmd:r(N_complete)}}rows with complete contract fields{p_end}
+{synopt:{cmd:r(N_periods)}}number of longitudinal periods{p_end}
+{synopt:{cmd:r(n_missing_treatment)}}rows missing the treatment{p_end}
+{synopt:{cmd:r(n_missing_period)}}rows missing the period{p_end}
+{synopt:{cmd:r(n_missing_ps)}}rows missing the propensity score{p_end}
+{synopt:{cmd:r(n_missing_weight)}}rows missing the contract weight{p_end}
+{synopt:{cmd:r(n_outside_risk)}}rows outside the producer risk set{p_end}
+{synopt:{cmd:r(mean_wt)}}mean of the contract weights{p_end}
+{synopt:{cmd:r(sd_wt)}}SD of the contract weights{p_end}
+{synopt:{cmd:r(min_wt)}}minimum contract weight{p_end}
+{synopt:{cmd:r(max_wt)}}maximum contract weight{p_end}
+{synopt:{cmd:r(cv)}}contract-weight CV{p_end}
+{synopt:{cmd:r(ess)}}overall effective sample size{p_end}
+{synopt:{cmd:r(ess_pct)}}ESS as a percentage of {cmd:r(N)}{p_end}
+{synopt:{cmd:r(min_period_ess_pct)}}minimum period-specific ESS percentage{p_end}
+{synopt:{cmd:r(min_period_arm_ess_pct)}}minimum period-by-arm ESS percentage{p_end}
+{synopt:{cmd:r(n_single_arm_periods)}}periods with only one arm{p_end}
+{synopt:{cmd:r(n_estimable_periods)}}periods with both arms{p_end}
+{synopt:{cmd:r(p1)}, {cmd:r(p5)}, {cmd:r(p50)}, {cmd:r(p95)}, {cmd:r(p99)}}contract-weight percentiles{p_end}
+{synopt:{cmd:r(n_extreme)}}contract weights above 10{p_end}
+{synopt:{cmd:r(pct_extreme)}}percentage of contract weights above 10{p_end}
+
+{p2col 5 32 34 2: Macros}{p_end}
+{synopt:{cmd:r(periods)}}included period values{p_end}
+{synopt:{cmd:r(riskvar)}}msm risk-set indicator, when supplied{p_end}
+{synopt:{cmd:r(weight_role)}}{cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}{p_end}
+
+{p2col 5 32 34 2: Matrices}{p_end}
+{synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table{p_end}
+{synopt:{cmd:r(weights_by_period)}}period weight and arm-ESS table{p_end}
+
+{pstd}
+Rows of both matrices are named for the period value ({cmd:p0}, {cmd:p1}, ...),
+in the order of {cmd:r(periods)}. See {help psdash##results:psdash Stored results}.
 
 {pstd}
 The longitudinal scalars are posted only by the longitudinal route. A

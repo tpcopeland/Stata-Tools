@@ -136,6 +136,14 @@ program define _dataprobe_statval, rclass
             else scalar `val' = `nmiss' / `n'
         }
         else if "`st'" == "ess" {
+            // Kish's (sum w)^2/sum(w^2) is an effective size for weights
+            // of one sign: a negative weight gave a number (1.8 from -1 1 1
+            // 1 1) that describes no sample, so it is an error (2026-11-17)
+            quietly count if (`cond') & `v' < 0 & !missing(`v') `scopein'
+            if r(N) {
+                display as error "ess: `v' has negative values in scope; the effective sample size needs nonnegative weights"
+                exit 459
+            }
             tempvar w2
             quietly generate double `w2' = `v'^2 if (`cond') & !missing(`v') `scopein'
             quietly summarize `v' if (`cond') & !missing(`v') `scopein', meanonly

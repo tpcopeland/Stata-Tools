@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.9.1  2026/11/17
+*! psdash_overlap Version 1.9.2  2026/11/18
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -104,7 +104,7 @@ program define psdash_overlap, rclass
     if `"`sheet'"' == "" local sheet "Overlap"
     if "`bwidth'" != "" {
         capture confirm number `bwidth'
-        if _rc | real("`bwidth'") <= 0 {
+        if _rc | missing(real("`bwidth'")) | real("`bwidth'") <= 0 {
             display as error "bwidth() must be a positive number"
             exit 198
         }
@@ -142,6 +142,9 @@ program define psdash_overlap, rclass
     local n_estimation "`_psd_n_estimation'"
     local n_excluded "`_psd_n_excluded'"
     if "`estimand'" == "" local estimand "`_psd_estimand'"
+    * detect validates a case-insensitive estimand() but lowercases only its
+    * own copy; normalise here so r(estimand) and the estimand branches agree.
+    local estimand = strlower("`estimand'")
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
     * psdash combined marks the temporary PS it forwards (never a user name).
@@ -461,7 +464,9 @@ program define psdash_overlap, rclass
     }
 
     * EXPORT TO EXCEL (binary, O1)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _xk `""Treatment" "PS variable" "Total N" "N (treated)" "N (control)" "Mean PS (treated)" "Mean PS (control)" "Min PS (treated)" "Max PS (treated)" "Min PS (control)" "Max PS (control)" "Overlap lower" "Overlap upper" "Outside support (N)" "Outside support (%)""'
             local _xv `""`treatment'" "`psvar_label'" "`N'" "`n_treated'" "`n_control'" "`=string(`mean_ps_t',"%6.4f")'" "`=string(`mean_ps_c',"%6.4f")'" "`=string(`min_ps_t',"%6.4f")'" "`=string(`max_ps_t',"%6.4f")'" "`=string(`min_ps_c',"%6.4f")'" "`=string(`max_ps_c',"%6.4f")'" "`=string(`overlap_lower',"%6.4f")'" "`=string(`overlap_upper',"%6.4f")'" "`n_outside'" "`=string(`pct_outside',"%5.2f")'""'
@@ -474,7 +479,7 @@ program define psdash_overlap, rclass
             noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
-        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+        if `xlsx_rc' & `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "binary"
@@ -579,15 +584,21 @@ program define psdash_overlap, rclass
 
     * Like-for-like GPS summary: every column is one fixed e_j(X), evaluated
     * within every observed treatment group (McCaffrey et al. 2013).
-    local col_width = 13
-    local hline_width = 30 + `K' * `col_width'
+    * Each column widens to its own "e(label)" header (minimum 13) so a
+    * long label never runs into the N column or its neighbours, and
+    * short-label columns stay narrow.
+    local hline_width = 30
+    foreach lev of local levels {
+        local cw_`lev' = max(13, ustrlen(`"e(`lbl_`lev'')"') + 2)
+        local hline_width = `hline_width' + `cw_`lev''
+    }
     display as text "{hline `hline_width'}"
     display as text "Mean GPS by Observed Treatment Group"
     display as text "{hline `hline_width'}"
 
     display as text %20s "Observed group" %10s "N" _c
     foreach lev of local levels {
-        display as text %`col_width's "e(`lbl_`lev'')" _c
+        display as text %`cw_`lev''s "e(`lbl_`lev'')" _c
     }
     display ""
     display as text "{hline `hline_width'}"
@@ -598,7 +609,8 @@ program define psdash_overlap, rclass
         display as text %20s "`lbl_`observed_level''" ///
             as result %10.0fc `n_group_`observed_level'' _c
         forvalues cidx = 1/`K' {
-            display as result %`col_width'.4f ///
+            local _clev : word `cidx' of `levels'
+            display as result %`cw_`_clev''.4f ///
                 `gps_means'[`ridx', `cidx'] _c
         }
         display ""
@@ -699,7 +711,9 @@ program define psdash_overlap, rclass
     }
 
     * EXPORT TO EXCEL (multi-group, O1)
-    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
+    * v1.9.2: the table export does not depend on the graph: a failed
+    * saving() no longer skips xlsx(); the first failing rc is still returned.
+    if "`xlsx'" != "" {
         capture noisily {
             local _xk `""Treatment" "PS variable" "Groups (K)" "Reference" "Total N""'
             local _xv `""`treatment'" "`psvar_label'" "`K'" "`reference_grp'" "`N'""'
@@ -726,7 +740,7 @@ program define psdash_overlap, rclass
             noisily display as text _n "Overlap table exported to: " as result "`xlsx'"
         }
         local xlsx_rc = _rc
-        if `xlsx_rc' local _psdash_side_rc = `xlsx_rc'
+        if `xlsx_rc' & `_psdash_side_rc' == 0 local _psdash_side_rc = `xlsx_rc'
     }
 
     local _psdash_return_mode "multigroup"

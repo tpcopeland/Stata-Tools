@@ -501,6 +501,10 @@ string scalar _dmv_values(string rowvector sv, real rowvector dv,
 	if (cls == "categorical") {
 		if (datesafe & isdf) return("frequencies withheld (datesafe)")
 		if (nofreq) return(_dmv_uniq(dv[3], dv[4]) + " distinct")
+		// text whose levels datamap withheld under datesafe (a value holds
+		// a digit; datamap.ado sets tokens_hidden): not "more than
+		// maxfreq()" (2026-11-17)
+		if (isstr & datesafe & dv[23] == 1) return(_dmv_uniq(dv[3], dv[4]) + " distinct; frequencies withheld (datesafe)")
 		// length(), not rows(): with one levels row (a lone missing-code
 		// row) selectindex() returns 1 x 0, whose rows() is 1
 		nm = (rows(LD) ? selectindex(LD[., 6] :== 0) : J(0, 1, .))

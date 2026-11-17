@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.9.1  2026/11/17
+*! psdash_combined Version 1.9.2  2026/11/18
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,6 +62,13 @@ program define psdash_combined, rclass
          REFerence(string) ///
          GPSFLOOR(real 0.01) ///
          PSVars(varlist numeric)]
+    * v1.9.2: estimand() is case-insensitive. Lowercase once here so every
+    * downstream comparison (weight formula, stabilize guard) sees one form;
+    * estimand(ATT) used to reach a 2000 on binary data and bypass the
+    * multi-group stabilize guard.
+    * Keep the spelling the user typed for error messages.
+    local _typed_estimand = strtrim(`"`estimand'"')
+    local estimand = strlower(strtrim(`"`estimand'"'))
 
     * RB-12: the multi-arm practical-positivity floor is now used by BOTH the
     * overlap and support panels, so the dashboard has to be able to set it;
@@ -134,6 +141,9 @@ program define psdash_combined, rclass
     * the full PS sample.
     local _getwvar_opt ""
     if "`noweights'" == "" local _getwvar_opt "getwvar"
+    * The balance panel consumes a detected producer weight (iivw) even under
+    * noweights, so detect must refuse an estimand() that would relabel it.
+    else if "`nobalance'" == "" local _getwvar_opt "consumewvar"
     _psdash_detect `anything' , covariates(`covariates') wvar(`wvar') ///
         samplevar(`touse') estimand(`estimand') ///
         psout(`ps_auto') wout(`wt_auto') `_getwvar_opt' ///
@@ -161,7 +171,7 @@ program define psdash_combined, rclass
     local regime "`_psd_regime'"
     local riskvar "`_psd_riskvar'"
     local weight_role "`_psd_weight_role'"
-    if "`estimand'" == "" local estimand "`_psd_estimand'"
+    if "`estimand'" == "" local estimand = strlower("`_psd_estimand'")
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
     * The panels receive the PS and weight as explicit variables, so they cannot
@@ -267,14 +277,14 @@ program define psdash_combined, rclass
         }
         if "`_user_estimand'" != "" {
             if lower("`_user_estimand'") != lower("`_prod_est'") {
-                display as error "estimand(`_user_estimand') does not match the `source' contract estimand (`_prod_est')"
+                display as error "estimand(`_typed_estimand') does not match the `source' contract estimand (`_prod_est')"
                 display as error "  longitudinal diagnostics use the producer's weights and cannot change the estimand"
                 exit 198
             }
             * report the producer's spelling, not the case the user typed
             local estimand "`_prod_est'"
         }
-        if "`title'" == "" local title "Longitudinal Propensity Score Diagnostics"
+        if `"`title'"' == "" local title "Longitudinal Propensity Score Diagnostics"
         local id_opt ""
         if "`idvar'" != "" local id_opt `"id("`idvar'")"'
         local method_opt ""
@@ -351,7 +361,7 @@ program define psdash_combined, rclass
     local N_common_excluded = `N_requested' - `N_analysis'
 
     * Set defaults
-    if "`title'" == "" local title "Propensity Score Diagnostics Dashboard"
+    if `"`title'"' == "" local title "Propensity Score Diagnostics Dashboard"
 
     * Build scheme option for subcommands
     local scheme_opt ""
@@ -372,6 +382,14 @@ program define psdash_combined, rclass
     }
     else if "`psvars'" != "" {
         local psvars_subcmd_opt "psvars(`psvars')"
+    }
+    * v1.9.2: one note for the dashboard; the panels stay quiet under _panel.
+    * After mlogit on a 0/1 treatment, detect takes the PS from psvars(),
+    * so the note is only for a psvars() that was not used.
+    local _psv_used : list psvar in psvars
+    if "`psvar'" == "" local _psv_used 0
+    if "`psvars'" != "" & "`multigroup'" == "0" & !`_psv_used' {
+        display as text "note: psvars() applies to multi-group treatments only; ignored for this binary treatment"
     }
     local compact_subcmd_opt ""
     if "`multigroup'" != "0" local compact_subcmd_opt "compact"
