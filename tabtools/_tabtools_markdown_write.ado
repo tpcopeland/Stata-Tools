@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 1.1.0  2026/10/31
+*! _tabtools_markdown_write Version 1.2.0  2026/11/19
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -46,8 +46,20 @@ program define _tabtools_markdown_write, rclass
             exit 198
         }
 
-        capture _tabtools_validate_path `"`using'"' "markdown()"
-        if _rc exit _rc
+        * Not captured: the helper's own message names the bad path; under
+        * capture the caller got a bare r(198).
+        _tabtools_validate_path `"`using'"' "markdown()"
+
+        * A labelvar() that names no variable was dropped silently by
+        * _tabtools_visible_vars, so the table lost its stub column at rc 0.
+        * The CSV and LaTeX writers refuse it; so does this one.
+        if `"`labelvar'"' != "" {
+            capture confirm variable `labelvar', exact
+            if _rc {
+                noisily display as error "labelvar(): variable `labelvar' not found; nothing was written"
+                exit 111
+            }
+        }
 
         local _visible_opts ""
         if `"`labelvar'"' != "" local _visible_opts "labelvar(`labelvar')"

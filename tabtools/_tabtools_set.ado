@@ -1,4 +1,4 @@
-*! _tabtools_set Version 1.1.0  2026/10/31
+*! _tabtools_set Version 1.2.0  2026/11/19
 *! Session destinations and defaults behind tabtools set / tabtools query
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -203,11 +203,14 @@ program define _tabtools_set, rclass
                     display as error `"tabtools set smallcells # [primary]: unknown mode `_mode'"'
                     exit 198
                 }
+                * Stored as the number, not as typed: the table writers print
+                * it in the masks and the footnote (+5 or 05 would read <+5).
+                local _k = real("`_k'")
                 if `"`_mode'"' == "" local _mode "full"
                 global TABTOOLS_set_smallcells `_k'
                 global TABTOOLS_set_smallcells_mode "`_mode'"
                 display as text "tabtools: session smallcells " as result "`_k'" ///
-                    as text " (`_mode'; desctab, table1_tc, crosstab; nosmallcells skips it)"
+                    as text " (`_mode'; table commands with smallcells(); nosmallcells skips it)"
                 return scalar smallcells = `_k'
                 return local smallcells_mode "`_mode'"
             }

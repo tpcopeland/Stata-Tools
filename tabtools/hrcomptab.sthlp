@@ -76,6 +76,8 @@ and {cmd:regtab} frames
 {synopt:{opt foot:note(string)}}footnote text below the table{p_end}
 {synopt:{opt eff:ect(string)}}effect-column header; default {cmd:aHR}{p_end}
 {synopt:{opt refl:abel(string)}}text for inferred reference rows{p_end}
+{synopt:{opt smallc:ells(#[, primary])}}mask event counts from 1 to #-1{p_end}
+{synopt:{opt nosmallc:ells}}ignore session and frame thresholds{p_end}
 
 {syntab:Formatting}
 {synopt:{opt font(string)}}set the Excel font family{p_end}
@@ -309,14 +311,16 @@ frames must have been created by {cmd:regtab} with {opt eplotframe()}{p_end}
 specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
 
 {phang}
-{opt excel(filename)} synonym for {opt xlsx()}{p_end}
+{opt excel(filename)} synonym for {opt xlsx()}; giving the two different file names is an error (r(198)){p_end}
 
 {phang}
 {opt foot:note(string)} footnote text below the table{p_end}
 
 {phang}
 {opt forest} draw an {helpb eplot} forest plot from the companion frame; requires the separate
-{cmd:eplot} package{p_end}
+{cmd:eplot} package. A composite with no effect row to plot is an error (r(2000)),
+including one where {opt smallcells()} withholds every effect; the check runs before
+the table is printed or any file or frame is written{p_end}
 
 {phang}
 {opt fra:me(name)} save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
@@ -363,6 +367,18 @@ document is an error.{p_end}
 
 {phang}
 {opt sheet(string)} Excel sheet name; default {cmd:"Composite"}{p_end}
+
+{phang}
+{opt smallc:ells(#[, primary])} and {opt nosmallc:ells} are forwarded to
+{helpb comptab}, with the same meaning as {helpb stratetab}'s
+{opt smallcells()}: an event count from 1 to #-1 prints as {cmd:<}#, its
+person-time and rate are withheld, and the effect, interval and p-value of a
+row are withheld when its own or its section's reference count is masked.
+A total row (a one-category section whose count equals another section's
+sum) brings complementary suppression ({cmd:≥}#) unless {cmd:primary} is
+given. A rate frame masked by {cmd:stratetab} keeps its masks, and its
+threshold applies without {opt smallcells()}; {opt nosmallcells} withholds
+nothing further. See {helpb comptab} for the full contract.{p_end}
 
 {phang}
 {opt font(string)} sets the Excel font family. The default is Arial unless a
@@ -477,6 +493,10 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown (if exported){p_end}
 {synopt:{cmd:r(latex_rows)}}body rows written to LaTeX (if exported){p_end}
 {synopt:{cmd:r(latex_cols)}}columns written to LaTeX (if exported){p_end}
+{synopt:{cmd:r(smallcells)}}small-cell threshold applied (0 = none){p_end}
+{synopt:{cmd:r(N_primary_suppressed)}}event cells printed as {cmd:<}# (with a threshold){p_end}
+{synopt:{cmd:r(N_secondary_suppressed)}}event cells printed as {cmd:≥}# (with a threshold){p_end}
+{synopt:{cmd:r(N_withheld)}}effect and p-value cells withheld{p_end}
 
 {p2col 5 22 28 2: Macros}{p_end}
 {synopt:{cmd:r(rateframe)}}source stratetab frame name{p_end}
@@ -489,6 +509,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(frame)}}output frame name, when {cmd:frame()} specified{p_end}
 {synopt:{cmd:r(eplotframe)}}graph-ready companion frame name{p_end}
+{synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary} (with a threshold){p_end}
 
 
 {marker author}{...}

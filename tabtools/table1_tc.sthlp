@@ -41,7 +41,7 @@ heuristics. This is the simplest way to use {cmd:table1_tc}.{p_end}
 {p2colset 8 16 18 2}{...}
 {p2col:{cmd:auto}}automatic type detection (default when vartype omitted){p_end}
 {p2col:{cmd:contn}}continuous, normally distributed (mean and SD will be reported){p_end}
-{p2col:{cmd:contln}}continuous, log normally distributed (geometric mean and GSD reported){p_end}
+{p2col:{cmd:contln}}continuous, log normally distributed (geometric mean and GSD reported); every value in the analysis sample must be positive, and a zero or negative value is an error (r(411)){p_end}
 {p2col:{cmd:conts}}continuous, neither log normally nor normally distributed (median, Q1 and Q3 reported){p_end}
 {p2col:{cmd:cat}}categorical, groups compared using Pearson's chi-square test{p_end}
 {p2col:{cmd:cate}}categorical, groups compared using Fisher's exact test{p_end}
@@ -248,7 +248,8 @@ document is an error.{p_end}
 {phang}
 {opt mis:sing} treat missing values as another category for categorical variables. All
 missing codes ({cmd:.} and {cmd:.a}-{cmd:.z}) form the one Missing category shown, and the
-chi-square or Fisher test uses that same coding{p_end}
+chi-square or Fisher test and the categorical SMD use that same coding: the SMD
+compares the level shares including the Missing level, as printed{p_end}
 
 {phang}
 {opt missings:ummary} add missing data summary row per variable{p_end}
@@ -403,6 +404,16 @@ may not be combined with {opt smdthreshold()}.{p_end}
 {phang}
 {opt test} include column describing the significance test used{p_end}
 
+{pmore}
+Tests by type: {cmd:contn} rows use the independent t test (two groups) or
+one-way ANOVA, {cmd:contln} rows the same on the logged values, {cmd:conts} rows the
+Wilcoxon rank-sum test (two groups) or the Kruskal-Wallis test, and categorical and
+binary rows Pearson's chi-square or Fisher's exact test. The Wilcoxon p-value
+is the two-sided normal approximation with the tie-corrected variance -- the
+{cmd:Prob > |z|} of {helpb ranksum}, {cmd:r(p)} -- not the exact p-value that
+{cmd:ranksum} also reports for {it:n} <= 200; in small samples the two can differ
+(4 vs 4 observations: 0.043 vs 0.057).{p_end}
+
 {phang}
 
 {phang}
@@ -432,7 +443,7 @@ Technical notes){p_end}
 
 {phang}
 {opt xlsx("filename")} save table to Excel file; {opt excel()} is a synonym; target must end in
-{cmd:.xlsx}{p_end}
+{cmd:.xlsx}; giving {opt xlsx()} and {opt excel()} different file names is an error (r(198)){p_end}
 
 {phang}
 {opt zebra} alternating row shading{p_end}
@@ -679,7 +690,9 @@ rules before publication.{p_end}
 {pstd}{bf:SMD methodology:} Standardized mean differences are computed as follows:{p_end}
 {p 8 8 2}Continuous variables: {it:d} = (mean1 - mean2) / sqrt((sd1^2 + sd2^2)/2),
 whose denominator is the root mean of the two group variances (Yang and Dalton,
-2012, eq. 1), not the degrees-of-freedom-weighted pooled SD{p_end}
+2012, eq. 1), not the degrees-of-freedom-weighted pooled SD. For a {cmd:contln}
+row the means and SDs are those of the logged values, so its SMD is on the log
+scale{p_end}
 {p 8 8 2}Binary variables: difference in proportions / pooled SD of proportions{p_end}
 {p 8 8 2}Categorical variables: the Yang-Dalton multinomial Mahalanobis distance{p_end}
 
@@ -707,7 +720,14 @@ See Yang, D. and J. E. Dalton (2012),
 SAS Global Forum Paper 335-2012.{p_end}
 
 {pstd}When {opt wt()} is specified, SMDs use weighted means, weighted standard
-deviations, and weighted proportions for the compared {opt by()} groups (see
+deviations, and weighted proportions for the compared {opt by()} groups. The
+weighted SD, in the table and in the SMD, is that of {helpb summarize} with an
+{cmd:aweight}: {it:s}^2 = {it:n}/(({it:n}-1) sum {it:w}) * sum {it:w}({it:x}-{it:xbar_w})^2, where {it:n} is the
+number of records. Austin and Stuart (2015) and {cmd:cobalt} use the
+reliability-weight form sum {it:w}/((sum {it:w})^2 - sum {it:w}^2) * sum {it:w}({it:x}-{it:xbar_w})^2;
+the two differ by the factor {it:n}/({it:n}-1) against ESS/(ESS-1), so the SMD can
+differ from theirs in the third decimal for small or highly variable-weight
+groups (see
 {help table1_tc##multismd:Multi-group SMD} for {cmd:smdtype(population)}).{p_end}
 
 {pstd}{bf:Weight type.} {opt wt()} is intended for probability / inverse-probability weights
@@ -741,7 +761,12 @@ whose squares overflow is shown as {cmd:.}.{p_end}
 
 {pstd}With {opt wtcompare} the crude columns always show {it:n (%)} (real counts), while
 the weighted columns follow the same rule: percent-only by default, {opt wtn} or
-{opt percent_n} to add the weighted effective count.{p_end}
+{opt percent_n} to add the weighted effective count. The crude columns describe
+the unweighted cohort: they keep the records whose {opt wt()} is zero or missing
+(for example the unmatched records under matching weights), which the weighted
+columns leave out, so a crude and a weighted header N can differ. Records in a
+{opt by()} group with no positive weight have no weighted column and are left
+out of the crude columns too, with a note.{p_end}
 
 {pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel
 output; Markdown, CSV, and frame output are not highlighted. Specify {opt nosmdhighlight}
@@ -815,6 +840,10 @@ such names with rc=498. Reserved exact names are {cmd:N}, {cmd:m}, {cmd:_}, {cmd
 {phang}Austin PC. Balance diagnostics for comparing the distribution of baseline
 covariates between treatment groups in propensity-score matched
 samples. Statistics in Medicine 2009; 28: 3083-3107. doi:10.1002/sim.3697.{p_end}
+{phang}Austin PC, Stuart EA. Moving towards best practice when using inverse
+probability of treatment weighting (IPTW) using the propensity score to estimate
+causal treatment effects in observational studies. Statistics in Medicine
+2015; 34(28): 3661-3679. doi:10.1002/sim.6607.{p_end}
 {phang}Lopez MJ, Gutman R. Estimation of causal effects with multiple treatments: a
 review and new ideas. Statistical Science
 2017; 32: 432-454. doi:10.1214/17-STS612.{p_end}

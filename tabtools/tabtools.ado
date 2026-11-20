@@ -1,4 +1,4 @@
-*! tabtools Version 1.1.0  2026/10/31
+*! tabtools Version 1.2.0  2026/11/19
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -170,6 +170,8 @@ program define tabtools, rclass
                 display as error "fontsize must be between 6 and 72"
                 exit 198
             }
+            * Stored as the number, not as typed (+9 or 09 reads 9).
+            local setval = real("`setval'")
             global TABTOOLS_FONTSIZE `setval'
             display as text "tabtools: default font size set to " as result "`setval'"
             return scalar fontsize = `setval'
@@ -222,6 +224,8 @@ program define tabtools, rclass
                 display as error "digits must be between 0 and 6"
                 exit 198
             }
+            * Stored as the number, not as typed (+9 or 09 reads 9).
+            local setval = real("`setval'")
             global TABTOOLS_DIGITS `setval'
             display as text "tabtools: default digits set to " as result "`setval'"
             return scalar digits = `setval'
@@ -368,7 +372,9 @@ program define tabtools, rclass
                 display as error "specify the profile path with using or profile(), not both"
                 exit 198
             }
-            local _profile_path `"`_use_rest'"'
+            * Unquote once here: removing " characters below would turn a
+            * compound-quoted `"path"' into a macro reference `path'.
+            local _profile_path `_use_rest'
         }
         if `"`_profile_path'"' == "" {
             local _profile_path `"`c(sysdir_personal)'tabtools_profile.do"'
@@ -618,7 +624,30 @@ program define _tabtools_use_profile, nclass
             exit 198
         }
         confirm file `"`profile'"'
-        quietly do `"`profile'"'
+        * A profile holds formatting defaults only. Its first line is
+        * "tabtools set clear", which also clears the session settings
+        * (destinations, texopts, headershade, smallcells). Keep them: a key
+        * the profile left empty gets its earlier value back, with its
+        * _fresh or _mode companion. Copied in Mata so a texopts value
+        * holding $ or a backtick is not expanded.
+        local _sess "workbook markdown latex texopts headershade smallcells"
+        foreach _k of local _sess {
+            foreach _s in "" _fresh _mode {
+                mata: _tt_use_`_k'`_s' = st_global("TABTOOLS_set_`_k'`_s'")
+            }
+        }
+        capture noisily quietly do `"`profile'"'
+        local _do_rc = _rc
+        foreach _k of local _sess {
+            mata: st_local("_lost", strofreal(st_global("TABTOOLS_set_`_k'") == "" & _tt_use_`_k' != ""))
+            if `_lost' {
+                foreach _s in "" _fresh _mode {
+                    mata: st_global("TABTOOLS_set_`_k'`_s'", _tt_use_`_k'`_s')
+                }
+            }
+        }
+        capture mata: mata drop _tt_use_*
+        if `_do_rc' exit `_do_rc'
     }
     local _rc = _rc
     set varabbrev `_orig_varabbrev'

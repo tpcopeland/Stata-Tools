@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 1.1.0  2026/10/31
+*! _tabtools_xlsx_write Version 1.2.0  2026/11/19
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,6 +35,16 @@ program define _tabtools_xlsx_write, rclass
             exit 2000
         }
 
+        * Excel's sheet limits, checked before anything touches the file. xl()
+        * opened (or created) the workbook and cleared an existing sheet
+        * before put_string() failed on an oversize table, so the earlier
+        * table was gone and nothing replaced it, or a new path was left as
+        * an empty workbook, under a generic r(16116)/r(16122). The session
+        * workbook is erased by xlsxstart below, so the check precedes it.
+        local _tt_xlsx_over 0
+        mata: _tt_xlsx_limits(st_local("_vars"))
+        if `_tt_xlsx_over' exit 198
+
         * tabtools set workbook: the first write to the session workbook,
         * from any command and however the path was given, starts it over.
         _tabtools_set_sinks xlsxstart, path(`"`using'"')
@@ -66,6 +76,7 @@ end
 version 17.0
 capture mata: mata drop _tt_xlsx_write_mata()
 capture mata: mata drop _tt_cur_strmat()
+capture mata: mata drop _tt_xlsx_limits()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -114,6 +125,45 @@ class xl scalar _tt_xlsx_write_mata(
     b.put_string(1, 1, table)
 
     return(b)
+}
+
+// Refuse a table that exceeds an Excel worksheet: 1,048,576 rows, 16,384
+// columns, 32,767 characters per cell. xl() counts characters (ustrlen), not
+// bytes. Prints the reason and posts _tt_xlsx_over = 1; nothing is written.
+void _tt_xlsx_limits(string scalar varlist)
+{
+    string rowvector vars
+    real colvector len
+    real scalar j, N, K, at
+
+    vars = tokens(varlist)
+    N = st_nobs()
+    K = cols(vars)
+    if (N > 1048576) {
+        errprintf("table has %s rows; an Excel worksheet holds at most 1,048,576; nothing was written\n",
+            strtrim(strofreal(N, "%20.0fc")))
+        st_local("_tt_xlsx_over", "1")
+        return
+    }
+    if (K > 16384) {
+        errprintf("table has %s columns; an Excel worksheet holds at most 16,384; nothing was written\n",
+            strtrim(strofreal(K, "%20.0fc")))
+        st_local("_tt_xlsx_over", "1")
+        return
+    }
+    for (j = 1; j <= K; j++) {
+        // str# holds at most 2,045 bytes; only strL can exceed the limit
+        if (st_vartype(vars[j]) != "strL") continue
+        len = ustrlen(st_sdata(., vars[j]))
+        if (max(len) > 32767) {
+            // the first offending row
+            at = select(1::N, len :> 32767)[1]
+            errprintf("cell at row %s, column %s (%s) holds %s characters; an Excel cell holds at most 32,767; nothing was written\n",
+                strofreal(at), strofreal(j), vars[j], strtrim(strofreal(len[at], "%20.0fc")))
+            st_local("_tt_xlsx_over", "1")
+            return
+        }
+    }
 }
 
 string matrix _tt_cur_strmat(string scalar varlist)

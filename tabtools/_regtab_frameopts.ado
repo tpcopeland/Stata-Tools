@@ -1,4 +1,4 @@
-*! _regtab_frameopts Version 1.1.0  2026/10/31
+*! _regtab_frameopts Version 1.2.0  2026/11/19
 *! parse and check frame() and eplotframe()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -89,6 +89,12 @@ program define _regtab_frameopts, nclass
 			if `"``_dest''"' != "" & ///
 				`"``_dest''"' == `"`c(frame)'"' {
 				noisily display as error "output frames cannot replace the current frame"
+				exit 198
+			}
+			* The default frame holds the user's data too: from another
+			* frame, frame(default, replace) dropped it for the table.
+			if `"``_dest''"' == "default" {
+				noisily display as error "output frames cannot replace the default frame"
 				exit 198
 			}
 		}

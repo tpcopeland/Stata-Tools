@@ -112,7 +112,10 @@ collection must remain unchanged.{p_end}
 values. Use backslash to separate multiple rows{p_end}
 
 {phang}
-{opt bold:p(#)} bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}){p_end}
+{opt bold:p(#)} bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}). The test uses
+the numeric p-value, not its displayed text: p = 0.0496 shown as {cmd:0.050} is bolded
+by {cmd:boldp(0.05)}, and a p-value shown as {cmd:<0.001} is bolded only when it is below
+the threshold{p_end}
 
 {phang}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
@@ -144,7 +147,7 @@ included, is refused (r(198)); use, for example, {cmd:sep(" to ")}. P-values,
 
 {phang}
 {opt effect(string)} header for the effect column (e.g., {cmd:ATE}, {cmd:RD}, {cmd:RR}, {cmd:AME}); default
-"Effect"/"Estimate"{p_end}
+"Effect"/"Estimate". The header is shown as typed, including double quotes{p_end}
 
 {phang}
 {opt eplotf:rame(name[, replace])} store a graph-ready companion frame for {helpb eplot} (see
@@ -187,7 +190,8 @@ triplet (e.g., {cmd:"219 229 241"}){p_end}
 {opt headers:hade} apply background fill to the header row{p_end}
 
 {phang}
-{opt high:light(#)} apply yellow fill to rows where p-value < threshold{p_end}
+{opt high:light(#)} apply yellow fill to rows where p-value < threshold; as with
+{opt boldp()}, the numeric p-value is tested, not its displayed text{p_end}
 
 {phang}
 {opt highpdp(#)} maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range
@@ -246,7 +250,11 @@ document is an error.{p_end}
 {opt texopts(string)} sets the layout of the LaTeX table; see {help tabtools##texopts:LaTeX layout} in {help tabtools}.{p_end}
 
 {phang}
-{opt models(string)} labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}{p_end}
+{opt models(string)} labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}.
+Each name is shown as typed, including double quotes (pass them in compound quotes).
+Naming more models than the table holds is an error, r(198); with fewer names than models,
+the models after the last name (every model, when no name is given) are labelled {cmd:Model} {it:#}
+by position, as in {helpb regtab}{p_end}
 
 {phang}
 {opt open} open the Excel file in the default application after export. Requires {opt xlsx()} or
@@ -295,7 +303,8 @@ style to {cmd:", "} whatever {opt sep()} is.{p_end}
 Remarks){p_end}
 
 {phang}
-{opt xlsx(string)} output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym{p_end}
+{opt xlsx(string)} output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym,
+and giving {opt xlsx()} and {opt excel()} different file names is an error (r(198)){p_end}
 
 {phang}
 {opt zebra} apply alternating light gray row shading for readability{p_end}
@@ -402,7 +411,13 @@ metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one
 collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()},
 {cmd:auto} uses margins-style defaults and does not relabel the active collection.{p_end}
 {p 4 8 2}- {opt from()}: read results from a named matrix instead of {cmd:collect}; the matrix must
-hold estimate, lower CI, upper CI, and p-value columns in that order. This
+hold estimate, lower CI, upper CI, and p-value columns in that order. The one
+exception is the column stripe of {cmd:r(table)'} ({cmd:b se z pvalue ll ul ...}):
+such a matrix is read by its column names {cmd:b}, {cmd:ll}, {cmd:ul}, and
+{cmd:pvalue}, with a note. A matrix whose second or third column is named
+{cmd:se}, {cmd:z}, or {cmd:t} but that lacks those four names is refused with
+error 198, because reading it by position would print the standard error and
+the test statistic as the confidence limits. This
 path leaves any active {cmd:collect} labels and layout unchanged. Before anything
 is shown or written, every row is checked: a nonmissing p-value must lie in
 [0, 1] and a nonmissing lower limit must not exceed the upper limit; otherwise
@@ -514,9 +529,11 @@ displayed text, so they are the same whatever {opt digits()} is.{p_end}
 
 {pstd}Row names of {cmd:r(table)} are the displayed row labels with periods and
 spaces replaced by underscores, backticks, apostrophes, dollar signs and double
-quotes replaced by underscores, commas removed, and truncated to 32 characters. When
+quotes replaced by underscores, commas removed, and truncated to 32 bytes (Stata's
+name limit) at a character boundary, so a label with accented letters or symbols keeps
+whole characters and may hold fewer than 32 of them. When
 two rows would get the same name, the later one takes a suffix
-{cmd:_2}, {cmd:_3}, ... (still within 32 characters), so a lookup such as
+{cmd:_2}, {cmd:_3}, ... (still within 32 bytes), so a lookup such as
 {cmd:rownumb(r(table), "}{it:name}{cmd:")} finds exactly one row.{p_end}
 
 {pstd}The {cmd:r(methods)} description names the {cmd:teffects} estimator only

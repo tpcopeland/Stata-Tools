@@ -1,4 +1,4 @@
-*! comptab Version 1.1.0  2026/10/31
+*! comptab Version 1.2.0  2026/11/19
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -98,13 +98,42 @@ program define comptab, rclass
             XLSX(string) EXCEL(string) SHEET(string) ///
             TITLE(string) FOOTnote(string) COMPact ///
             SEParator(numlist >0 integer sort) SECtion(string asis) ///
-            RELAbel(string asis) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
-            OPEN ZEBRA HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
+            RELAbel(string asis) FONT(string) FONTSIZE(string) BORDERstyle(string) ///
+            OPEN ZEBRA HEADERShade HIGHlight(string) BOLDp(string) ///
             HEADERColor(string) ZEBRAColor(string) CSV(string) ///
             MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string asis) ///
             EPLOTFrame(string asis) FOREST EPLOTOptions(string asis) ///
             LABELWidth(integer 0) CFormat(string) CISep(string) ///
-            KEYed MODELOnly ALLModels *]
+            KEYed MODELOnly ALLModels ///
+            SMALLCells(string asis) NOSMALLCells *]
+
+        * excel() is a synonym for xlsx(); two different workbooks are two
+        * destinations, so the pair is refused rather than one silently dropped.
+        if `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != "" & `"`macval(xlsx)'"' != `"`macval(excel)'"' {
+            noisily display as error "xlsx() and excel() are synonyms; specify one"
+            exit 198
+        }
+        * highlight() and boldp() are read as text so that an option not given
+        * (-1 below) cannot collide with a typed value: with -1 defaults, a
+        * typed -1 was taken as no option at rc 0. Every typed value is
+        * range-checked by _comptab_vertical.
+        foreach _nopt in highlight boldp {
+            local _nval = strtrim(`"``_nopt''"')
+            if `"`_nval'"' == "" {
+                local `_nopt' -1
+                continue
+            }
+            capture confirm number `_nval'
+            if _rc {
+                noisily display as error "option `_nopt'() incorrectly specified"
+                exit 198
+            }
+            if `_nval' == -1 {
+                noisily display as error "`_nopt'() must be between 0 and 1"
+                exit 198
+            }
+            local `_nopt' = `_nval'
+        }
 
         local _common_opts ""
         if `"`rows'"' != "" {
@@ -131,7 +160,7 @@ program define comptab, rclass
         if `"`font'"' != "" {
             local _common_opts `"`macval(_common_opts)' font(`"`font'"')"'
         }
-        if `fontsize' != -1 {
+        if `"`fontsize'"' != "" {
             local _common_opts `"`macval(_common_opts)' fontsize(`fontsize')"'
         }
         if `"`borderstyle'"' != "" {
@@ -184,6 +213,21 @@ program define comptab, rclass
         }
         if `"`eplotoptions'"' != "" {
             local _common_opts `"`macval(_common_opts)' eplotoptions(`macval(eplotoptions)')"'
+        }
+
+        * An empty smallcells() reads as absent to syntax and would be
+        * dropped here; refuse it (r(198)) rather than fall through to no
+        * masking or the session default.
+        if `"`smallcells'"' == "" {
+            _tabtools_smallcells_opt __empty `macval(0)'
+        }
+        * smallcells() and nosmallcells apply in both modes; each mode
+        * resolves them (and the session default) against its sources.
+        if `"`smallcells'"' != "" {
+            local _common_opts `"`macval(_common_opts)' smallcells(`smallcells')"'
+        }
+        if "`nosmallcells'" != "" {
+            local _common_opts `"`macval(_common_opts)' nosmallcells"'
         }
 
         * cformat() and cisep() (O1) apply in both modes; keyed, modelonly
@@ -330,13 +374,18 @@ program define _comptab_rates, rclass
             XLSX(string) EXCEL(string) SHEET(string) ///
             TITLE(string) FOOTnote(string) ///
 	            EFFect(string) REFLabel(string) OUTCOMEMap(string asis) ///
-            BORDERstyle(string) FONT(string) FONTSIZE(integer -1) ///
+            BORDERstyle(string) FONT(string) FONTSIZE(string) ///
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
             CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) ///
             FRAme(string) EPLOTFrame(string asis) ///
             FOREST EPLOTOptions(string asis) CFormat(string) CISep(string) ///
-            KEYed MODELOnly ALLModels]
+            KEYed MODELOnly ALLModels SMALLCells(string asis) NOSMALLCells]
+
+        * smallcells(# [, primary]) / nosmallcells / session default
+        _tabtools_smallcells_opt, smallcells(`smallcells') `nosmallcells'
+        local _sc_req `"`_sc_k'"'
+        local _sc_req_mode `"`_sc_mode'"'
 
         * F4: keyed placement (modelonly implies it), K models per outcome.
         local _modelonly = ("`modelonly'" != "")
@@ -477,7 +526,7 @@ program define _comptab_rates, rclass
         _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
         * Resolve formatting
-        _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') ///
+        _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') fsexplicit borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
 
         _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
@@ -801,6 +850,40 @@ program define _comptab_rates, rclass
 	        * The level as shown: at most 15 significant digits, so 99.9 never
 	        * prints as the double's 17-digit 99.90000000000001.
 	        local _ci_level_label = strtrim(ustrregexra(string(`_ci_level', "%21.15g"), "-(?=[0.,]+\z)", ""))
+
+	        * Small cells. The rate frame holds stratetab's printed text: when
+	        * stratetab masked it (char tabtools_smallcells), its masked cells
+	        * stay masked whatever comptab is told. Without smallcells() (and
+	        * no session default) comptab applies the frame's threshold, so the
+	        * effects of those rows are withheld too; an explicit threshold is
+	        * raised to the frame's; nosmallcells withholds nothing further.
+	        frame `rateframe': local _sc_framek : char _dta[tabtools_smallcells]
+	        local _sc_framek = real(`"`_sc_framek'"')
+	        if missing(`_sc_framek') | `_sc_framek' < 0 local _sc_framek 0
+	        local _sc_framek = floor(`_sc_framek')
+	        * a frame masked below 3 prints <2, which identifies the count 1;
+	        * stratetab refuses such thresholds, so the frame predates that
+	        if inlist(`_sc_framek', 1, 2) {
+	            display as error "rate frame '`_rateframe_original'' was masked by stratetab at smallcells(`_sc_framek'), whose <`_sc_framek' identifies a count;"
+	            display as error "rebuild it with smallcells(3) or more, or without smallcells() and give smallcells() to comptab"
+	            exit 459
+	        }
+	        local _sc_k 0
+	        local _sc_mode "full"
+	        if "`nosmallcells'" != "" {
+	            if `_sc_framek' > 0 display as text "(comptab: rate frame '`_rateframe_original'' was masked by stratetab at smallcells(`_sc_framek'); its masked cells stay masked, and nosmallcells withholds nothing further)"
+	        }
+	        else if `"`_sc_req'"' != "" {
+	            local _sc_k = max(`_sc_req', `_sc_framek')
+	            local _sc_mode `"`_sc_req_mode'"'
+	            if `_sc_framek' > `_sc_req' {
+	                display as text "(comptab: rate frame '`_rateframe_original'' was masked by stratetab at smallcells(`_sc_framek'); applying smallcells(`_sc_k'))"
+	            }
+	        }
+	        else if `_sc_framek' > 0 {
+	            local _sc_k = `_sc_framek'
+	            display as text "(comptab: rate frame '`_rateframe_original'' was masked by stratetab at smallcells(`_sc_framek'); applying it to every column; nosmallcells overrides)"
+	        }
 	        forvalues _o = 1/`outcomes' {
 	            frame `rateframe': local _rate_outcome_id_`_o' : char _dta[tabtools_outcome_id_`_o']
 	            local _rate_header_col = 2 + (`_o' - 1) * 3
@@ -1543,7 +1626,30 @@ program define _comptab_rates, rclass
         local nonref_rows : list clean nonref_rows
         } // end positional placement
 
+        * Small cells (rate mode): which event cells print masked and which
+        * effects are withheld, from the rate frame's printed counts
+        * (_comptab_sc_rates). Printed output only; r() is not masked.
+        tempname _sc_S _sc_W
+        local _sc_on = (`_sc_k' > 0)
+        local _sc_np 0
+        local _sc_ns 0
+        local _sc_nw 0
+        if `_sc_on' {
+            local _sc_cats ""
+            forvalues _s = 1/`_n_sec_scan' {
+                local _sc_cats `"`_sc_cats' `_sec_cats_`_s'' |"'
+            }
+            _comptab_sc_rates, frame(`rateframe') nrows(`_rate_rows') ///
+                outcomes(`outcomes') k(`_sc_k') framek(`_sc_framek') ///
+                mode(`_sc_mode') cats(`_sc_cats') refs(`ref_rows')
+            matrix `_sc_S' = r(state)
+            matrix `_sc_W' = r(withhold)
+            local _sc_np = r(N_primary_suppressed)
+            local _sc_ns = r(N_secondary_suppressed)
+        }
+
 	        local _eplot_build_name ""
+	        local _sc_ep_obs ""
 	        if `"`_eplotframe_name'"' != "" {
 	            tempname _eplot_build
 	            local _eplot_build_name `"`_eplot_build'"'
@@ -1668,6 +1774,12 @@ program define _comptab_rates, rclass
 	                                        mata: st_sstore(st_nobs(), "model_label", st_local("_ep_model_label"))
 	                                        mata: st_sstore(st_nobs(), "section", st_local("_current_section"))
 	                                    }
+	                                    if `_sc_on' {
+	                                        if `_sc_W'[`_r', `_o'] {
+	                                            frame `_eplot_build_name': local _sc_epn = _N
+	                                            local _sc_ep_obs "`_sc_ep_obs' `_sc_epn'"
+	                                        }
+	                                    }
 	                                    }
 	                                }
 	                            }
@@ -1690,6 +1802,27 @@ program define _comptab_rates, rclass
 	                frame `_eplot_build_name': char _dta[tabtools_effect_scale_`_o'] "`_scale_family'"
 	            }
 	        }
+
+        * forest: refuse before anything is printed or written when no effect
+        * row would be drawn, either because the companion has none or because
+        * smallcells() withholds every one (the plot draws a withheld effect
+        * as a row without estimate, so none would be left to plot)
+        if "`forest'" != "" & `"`_eplot_build_name'"' != "" {
+            frame `_eplot_build_name': quietly count if rowtype == "effect"
+            local _forest_n_eff = r(N)
+            foreach _sc_i of local _sc_ep_obs {
+                frame `_eplot_build_name' {
+                    if rowtype[`_sc_i'] == "effect" local --_forest_n_eff
+                }
+            }
+            if `_forest_n_eff' <= 0 {
+                display as error "forest requires an eplotframe with effect rows"
+                if `"`_sc_ep_obs'"' != "" {
+                    display as error "smallcells() withholds every effect estimate, so the forest plot has nothing to draw"
+                }
+                exit 2000
+            }
+        }
 
         * Build output table: per outcome events, person-time, rate, then K
         * effect columns (each with its p-value when the model frames have one).
@@ -1785,6 +1918,21 @@ program define _comptab_rates, rclass
                 quietly replace c`_out_s' = `"`macval(_rate_events)'"' in `_r'
                 quietly replace c`=`_out_s' + 1' = `"`macval(_rate_py)'"' in `_r'
                 quietly replace c`=`_out_s' + 2' = `"`macval(_rate_rate)'"' in `_r'
+                * small cells: <# (primary) or >=# (complementary), with the
+                * person-time and rate withheld, as stratetab prints them
+                if `_sc_on' {
+                    local _sc_st = `_sc_S'[`_r', `_o']
+                    if inlist(`_sc_st', 1, 2) {
+                        if `_sc_k' >= 3 {
+                            _tabtools_smallcells_render, value(0) mask(`_sc_st') smallcells(`_sc_k')
+                            local _sc_txt `"`r(display)'"'
+                        }
+                        else local _sc_txt "<`_sc_k'"
+                        quietly replace c`_out_s' = `"`_sc_txt'"' in `_r'
+                        quietly replace c`=`_out_s' + 1' = uchar(8211) in `_r'
+                        quietly replace c`=`_out_s' + 2' = uchar(8211) in `_r'
+                    }
+                }
             }
 
             if strpos("`_section_rows_sp'", " `_r' ") continue
@@ -1814,6 +1962,19 @@ program define _comptab_rates, rclass
                     mata: st_local("_ec_text", st_global("r(text)"))
                     quietly replace c`_ec' = `"`macval(_ec_text)'"' in `_r'
                     if `_has_p' quietly replace c`=`_ec' + 1' = `"`r(p)'"' in `_r'
+                    * small cells: the effect, interval and p-value of a row
+                    * whose own or reference event count is masked are withheld
+                    if `_sc_on' {
+                        if `_sc_W'[`_r', `_o'] {
+                            local _sc_last = `_ec' + `_has_p'
+                            forvalues _sc_c = `_ec'/`_sc_last' {
+                                if strtrim(c`_sc_c'[`_r']) != "" {
+                                    quietly replace c`_sc_c' = uchar(8211) in `_r'
+                                    local ++_sc_nw
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1886,6 +2047,13 @@ program define _comptab_rates, rclass
         return local rateframe "`_rateframe_original'"
         return local modelframes "`_modelframes_original'"
         return local effect "`effect'"
+        return scalar smallcells = `_sc_k'
+        if `_sc_on' {
+            return local smallcells_mode "`_sc_mode'"
+            return scalar N_primary_suppressed = `_sc_np'
+            return scalar N_secondary_suppressed = `_sc_ns'
+            return scalar N_withheld = `_sc_nw'
+        }
 
         * CSV export
         if "`csv'" != "" {
@@ -2000,6 +2168,9 @@ program define _comptab_rates, rclass
 	            }
 	            frame `_display_build_name': char _dta[tabtools_statistic_ids] "`_disp_stats'"
 	            frame `_display_build_name': char _dta[tabtools_models_per_outcome] "`_K'"
+	            * the threshold its cells are masked at (a masked rate frame's,
+	            * under nosmallcells too), for a later consumer's fail-safe
+	            frame `_display_build_name': char _dta[tabtools_smallcells] "`=max(`_sc_k', `_sc_framek')'"
 	            if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
 	                frame `_display_build_name': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
 	            }
@@ -2240,10 +2411,29 @@ program define _comptab_rates, rclass
                     local _forest_rc_hold 2000
                 }
                 else {
-                    capture noisily eplot, frame(`_eplot_build_name') labels(label) rowtype(rowtype) ///
+                    * small cells: the plot is printed output, so a withheld
+                    * effect is drawn from a copy as a row without estimate;
+                    * the eplotframe() companion keeps the numbers
+                    local _forest_src `"`_eplot_build_name'"'
+                    if `"`_sc_ep_obs'"' != "" {
+                        tempname _sc_forest
+                        frame copy `_eplot_build_name' `_sc_forest'
+                        foreach _sc_i of local _sc_ep_obs {
+                            frame `_sc_forest' {
+                                quietly replace estimate = . in `_sc_i'
+                                quietly replace ll = . in `_sc_i'
+                                quietly replace ul = . in `_sc_i'
+                                quietly replace pvalue = . in `_sc_i'
+                                quietly replace rowtype = "missing" in `_sc_i'
+                            }
+                        }
+                        local _forest_src `"`_sc_forest'"'
+                    }
+                    capture noisily eplot, frame(`_forest_src') labels(label) rowtype(rowtype) ///
                         style(forest) effect("`effect'") values `_eplotoptions_clean'
                     local _eplot_rc = _rc
                     if `_eplot_rc' local _forest_rc_hold = `_eplot_rc'
+                    if `"`_sc_ep_obs'"' != "" capture frame drop `_sc_forest'
                 }
             }
         }
@@ -2303,6 +2493,13 @@ program define _comptab_rates, rclass
     return local rateframe "`_rateframe_original'"
     return local modelframes "`_modelframes_original'"
     return local effect "`effect'"
+    return scalar smallcells = `_sc_k'
+    if `_sc_on' {
+        return local smallcells_mode "`_sc_mode'"
+        return scalar N_primary_suppressed = `_sc_np'
+        return scalar N_secondary_suppressed = `_sc_ns'
+        return scalar N_withheld = `_sc_nw'
+    }
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
     if "`csv'" != "" return local csv "`csv'"
     if `"`_ret_markdown'"' != "" {
@@ -2360,13 +2557,18 @@ program define _comptab_vertical, rclass
         [title(string) FOOTnote(string) COMPact ///
         SEParator(numlist >0 integer sort) SECtion(string asis) ///
         RELAbel(string asis) ///
-        FONT(string) FONTSIZE(integer -1) BORDERstyle(string) open zebra HEADERShade ///
+        FONT(string) FONTSIZE(string) BORDERstyle(string) open zebra HEADERShade ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
         csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) ///
         FRAme(string) EPLOTFrame(string asis) ///
         FOREST EPLOTOptions(string asis) LABELWidth(integer 0) ///
-        CFormat(string) CISep(string)]
+        CFormat(string) CISep(string) SMALLCells(string asis) NOSMALLCells]
+
+    * smallcells(# [, primary]) / nosmallcells / session default
+    _tabtools_smallcells_opt, smallcells(`smallcells') `nosmallcells'
+    local _sc_req `"`_sc_k'"'
+    local _sc_req_mode `"`_sc_mode'"'
 
     * cformat()/cisep() (O1): re-render each selected estimate and interval.
     * cformat() needs the numbers, so it reads the numeric companions;
@@ -2437,7 +2639,7 @@ program define _comptab_vertical, rclass
     * =====================================================================
     * RESOLVE FORMATTING OPTIONS
     * =====================================================================
-    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') fsexplicit borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     local has_highlight = `highlight' != -1
@@ -2628,6 +2830,33 @@ program define _comptab_vertical, rclass
 	        local framelist `"`framelist' `_source_snapshot_`f''"'
 	    }
 	    local framelist : list clean framelist
+
+	    * Small cells (vertical mode). A comptab-made source carries the
+	    * threshold it was masked at (char tabtools_smallcells): without
+	    * smallcells() it is applied again, an explicit one is raised to it,
+	    * and nosmallcells withholds nothing further.
+	    local _sc_framek 0
+	    forvalues f = 1/`n_frames' {
+	        local _sc_fk ""
+	        frame `_source_snapshot_`f'': local _sc_fk : char _dta[tabtools_smallcells]
+	        local _sc_fk = real(`"`_sc_fk'"')
+	        if !missing(`_sc_fk') & `_sc_fk' > `_sc_framek' local _sc_framek = floor(`_sc_fk')
+	    }
+	    local _sc_k 0
+	    local _sc_mode "full"
+	    if "`nosmallcells'" != "" {
+	        if `_sc_framek' > 0 noisily display as text "(comptab: a source frame was masked at smallcells(`_sc_framek'); its masked cells stay masked, and nosmallcells withholds nothing further)"
+	    }
+	    else if `"`_sc_req'"' != "" {
+	        local _sc_k = max(`_sc_req', `_sc_framek')
+	        local _sc_mode `"`_sc_req_mode'"'
+	        if `_sc_framek' > `_sc_req' noisily display as text "(comptab: a source frame was masked at smallcells(`_sc_framek'); applying smallcells(`_sc_k'))"
+	    }
+	    else if `_sc_framek' > 0 {
+	        local _sc_k = `_sc_framek'
+	        noisily display as text "(comptab: a source frame was masked at smallcells(`_sc_framek'); applying it; nosmallcells overrides)"
+	    }
+	    local _sc_np 0
 
 	    local _displayframe_target `"`_displayframe_name'"'
 	    local _eplotframe_target ""
@@ -3344,6 +3573,26 @@ program define _comptab_vertical, rclass
     use `_build', clear
 
     * =====================================================================
+    * SMALLCELLS() — COUNT ROWS OF THE SELECTED MODEL STATISTICS
+    * =====================================================================
+    * As regtab's mincell(): a count statistic cell (a whole number or an
+    * "a (b)" pair with the rest of the model's block empty, in any
+    * selected statistic row) prints a count from 1 to #-1 as <#. Source
+    * frames carry no per-level counts, so a level's estimate is masked in
+    * regtab with mincount(), not here.
+    if `_sc_k' > 0 {
+        capture confirm variable __srcf
+        if !_rc {
+            _comptab_sc_vertical, k(`_sc_k') nmodels(`n_models') cpm(`_source_cols_per_model')
+            local _sc_np = r(N_primary_suppressed)
+            mata: st_local("_sc_other", st_global("r(other_rows)"))
+            if `"`macval(_sc_other)'"' != "" {
+                noisily display as text `"(comptab: smallcells(`_sc_k'): whole numbers in row(s) `macval(_sc_other)' are masked as counts; comptab cannot tell a count statistic from another whole number)"'
+            }
+        }
+    }
+
+    * =====================================================================
     * CFORMAT()/CISEP() — RE-RENDER SELECTED ESTIMATES (O1)
     * =====================================================================
     capture confirm variable __srcf
@@ -3578,6 +3827,12 @@ program define _comptab_vertical, rclass
     return scalar N_models = `n_models'
     return scalar N_frames = `n_frames'
     return scalar ci_level = real("`_ci_level_ref'")
+    return scalar smallcells = `_sc_k'
+    if `_sc_k' > 0 {
+        return local smallcells_mode "`_sc_mode'"
+        return scalar N_primary_suppressed = `_sc_np'
+        return scalar N_secondary_suppressed = 0
+    }
 
     * =====================================================================
     * CSV EXPORT
@@ -3692,6 +3947,7 @@ program define _comptab_vertical, rclass
         frame `frame': char _dta[tabtools_ci_level] "`_ci_level_ref'"
         frame `frame': char _dta[tabtools_n_models] "`n_models'"
         frame `frame': char _dta[tabtools_statistic_ids] "`_stat_ids_ref'"
+        frame `frame': char _dta[tabtools_smallcells] "`=max(`_sc_k', `_sc_framek')'"
         forvalues _meta_m = 1/`n_models' {
             frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_model_id_ref_`_meta_m''"'
             frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] `"`_outcome_id_ref_`_meta_m''"'
@@ -4013,6 +4269,12 @@ program define _comptab_vertical, rclass
     return scalar N_models = `n_models'
     return scalar N_frames = `n_frames'
     return scalar ci_level = real("`_ci_level_ref'")
+    return scalar smallcells = `_sc_k'
+    if `_sc_k' > 0 {
+        return local smallcells_mode "`_sc_mode'"
+        return scalar N_primary_suppressed = `_sc_np'
+        return scalar N_secondary_suppressed = 0
+    }
 	    if `"`_eplotframe_target'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_target'"
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
@@ -4031,6 +4293,321 @@ program define _comptab_vertical, rclass
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
+
+* =============================================================================
+* _comptab_sc_vertical: mask count statistic rows in comptab's vertical mode
+* =============================================================================
+* Runs on the composite being built (A, c*, __srcf marking selected source
+* rows). A model cell of a selected row is a count statistic when it holds
+* a whole number, or a pair "a (b)" of whole numbers as regtab prints
+* stats(e(a|b)), and the rest of that model's block is empty: regtab's
+* built-in rows (Observations, Subjects, Events, People) and any e() or
+* text() statistic row whatever its label. Each count from 1 to #-1 prints
+* as <#, as regtab's stats(e(N, mincell(#))) does. comptab cannot tell a
+* count statistic from another whole number, so it masks every such cell
+* and returns the rows outside the built-in four in r(other_rows), which
+* the caller names in a note (a note printed here would be swallowed by
+* the caller's quietly). Text that is
+* already masked or is not a whole count is left as it is.
+capture program drop _comptab_sc_vertical
+program define _comptab_sc_vertical, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , K(integer) NMODELS(integer) CPM(integer)
+        local _np 0
+        local _other ""
+        local _whole "([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)"
+        if `k' >= 3 {
+            _tabtools_smallcells_render, value(1) mask(1) smallcells(`k')
+            local _txt `"`r(display)'"'
+        }
+        else local _txt "<`k'"
+        forvalues _i = 1/`=_N' {
+            if missing(__srcf[`_i']) continue
+            mata: st_local("_lab", strtrim(st_sdata(`_i', "A")))
+            mata: st_local("_builtin", strofreal(anyof(("observations", "subjects", "events", "people"), strlower(st_local("_lab")))))
+            local _rowhit 0
+            forvalues _m = 1/`nmodels' {
+                local _c = (`_m' - 1) * `cpm' + 1
+                * the rest of the model's block (interval, p-value) is empty
+                local _rest_empty 1
+                forvalues _j = 2/`cpm' {
+                    local _cj = `_c' + `_j' - 1
+                    capture confirm variable c`_cj'
+                    if !_rc {
+                        mata: st_local("_e", strofreal(strtrim(st_sdata(`_i', "c`_cj'")) != ""))
+                        if `_e' local _rest_empty 0
+                    }
+                }
+                if !`_rest_empty' continue
+                mata: st_local("_cell", strtrim(st_sdata(`_i', "c`_c'")))
+                local _a ""
+                local _b ""
+                local _sre "^`_whole'$"
+                mata: st_local("_a", ustrregexm(st_local("_cell"), st_local("_sre")) ? ustrregexs(1) : "")
+                if `"`_a'"' == "" {
+                    local _pre "^`_whole' [(]`_whole'[)]$"
+                    mata: st_local("_a", ustrregexm(st_local("_cell"), st_local("_pre")) ? ustrregexs(1) : "")
+                    mata: st_local("_b", ustrregexm(st_local("_cell"), st_local("_pre")) ? ustrregexs(2) : "")
+                }
+                if `"`_a'"' == "" continue
+                local _changed 0
+                local _out ""
+                foreach _part in a b {
+                    if `"`_`_part''"' == "" continue
+                    local _v = real(subinstr(`"`_`_part''"', ",", "", .))
+                    local _ptxt `"`_`_part''"'
+                    if `_v' >= 1 & `_v' < `k' {
+                        local _ptxt `"`_txt'"'
+                        local _changed 1
+                        local ++_np
+                    }
+                    if "`_part'" == "a" local _out `"`_ptxt'"'
+                    else local _out `"`_out' (`_ptxt')"'
+                }
+                local _rowhit 1
+                if `_changed' quietly replace c`_c' = `"`_out'"' in `_i'
+            }
+            if `_rowhit' & !`_builtin' {
+                mata: st_local("_other", st_local("_other") + (st_local("_other") == "" ? "" : ", ") + char(34) + st_local("_lab") + char(34))
+            }
+        }
+        return scalar N_primary_suppressed = `_np'
+        return local other_rows `"`_other'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* =============================================================================
+* _comptab_sc_rates: small-cell masks for comptab's rate mode
+* =============================================================================
+* Reads the event and person-time text of every category row of the rate
+* frame (stratetab's printed cells) and returns, per row and outcome:
+*   r(state)    0 printed, 1 primary (<#), 2 complementary (>=#), 9 masked
+*               already by the frame's producer (text kept as stored)
+*   r(withhold) 1 when the row's effect, interval and p-value are withheld:
+*               its own event count or its section's reference count is
+*               masked (state != 0), as stratetab withholds a rate ratio
+* Primary masking: a count from 1 to #-1. Complementary suppression only
+* where the block prints a total row: a section with one category whose
+* count equals the sum of another section's counts (an "Overall" row).
+* There the engine (_tabtools_smallcells, the row total as an exact margin)
+* masks a second cell, or the total row itself when no unmasked cell of
+* the section can serve (r(rowmask)), so no masked count is recoverable; a
+* total masked that way is an error when a second section also sums to
+* it (the total would follow from that section). Without such a
+* row, primary masking is complete, as in stratetab. A section whose
+* masked counts are unknown (masked by the producer) beside a feasible
+* total row cannot be certified and is an error.
+capture program drop _comptab_sc_rates
+program define _comptab_sc_rates, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , FRAME(name) NROWS(integer) OUTcomes(integer) K(integer) ///
+            FRAMEK(integer) MODE(string) CATS(string) [REFs(numlist)]
+        tempname S W C M
+        matrix `S' = J(`nrows', `outcomes', 0)
+        matrix `W' = J(`nrows', `outcomes', 0)
+        local _dash = uchar(8211)
+        local _kmax = max(`k', `framek')
+
+        * sections: "r r r | r r | ..." in scaffold order
+        local _ns 0
+        local _rest `"`cats'"'
+        while strpos(`"`_rest'"', "|") {
+            local _at = strpos(`"`_rest'"', "|")
+            local ++_ns
+            local _cats_`_ns' = strtrim(substr(`"`_rest'"', 1, `_at' - 1))
+            local _rest = substr(`"`_rest'"', `_at' + 1, .)
+            local _nc_`_ns' : word count `_cats_`_ns''
+            local _ref_`_ns' 0
+            foreach _r of local _cats_`_ns' {
+                if strpos(" `refs' ", " `_r' ") local _ref_`_ns' = `_r'
+            }
+        }
+
+        local _np 0
+        local _ns2 0
+        forvalues _o = 1/`outcomes' {
+            local _ec = 2 + (`_o' - 1) * 3
+            local _pc = `_ec' + 1
+            * event count of every category row: a number, 0, or unknown
+            forvalues _s = 1/`_ns' {
+                foreach _r of local _cats_`_s' {
+                    frame `frame': mata: st_local("_ev", strtrim(st_sdata(`_r', "c`_ec'"))); st_local("_py", strtrim(st_sdata(`_r', "c`_pc'")))
+                    mata: st_local("_v", strofreal(regexm(st_local("_ev"), "^[0-9][0-9,]*([.][0-9]+)?$") ? strtoreal(subinstr(st_local("_ev"), ",", "")) : .))
+                    local _unk 0
+                    if missing(`_v') {
+                        mata: st_local("_isdash", strofreal(st_local("_ev") == st_local("_dash")))
+                        mata: st_local("_pydash", strofreal(st_local("_py") == st_local("_dash")))
+                        mata: st_local("_islt", strofreal(regexm(st_local("_ev"), "^<")))
+                        if `"`_ev'"' == "" local _v 0
+                        else if `_isdash' & !(`framek' > 0 & `_pydash') local _v 0
+                        else if `framek' > 0 | `_islt' local _unk 1
+                        else {
+                            display as error `"smallcells(): the event count "`macval(_ev)'" in row `_r' of the rate frame is not a number"'
+                            exit 459
+                        }
+                    }
+                    local _v_`_r' = `_v'
+                    local _u_`_r' = `_unk'
+                    if `_unk' matrix `S'[`_r', `_o'] = 9
+                    else if `k' > 0 & `_v' >= 1 & `_v' < `k' matrix `S'[`_r', `_o'] = 1
+                }
+            }
+
+            * complementary suppression beside a printed total row
+            if "`mode'" == "full" {
+                * anchors: how many sections' known counts sum exactly to
+                * each single-category (total) row, masked or not. A total
+                * the engine must mask is recoverable when a second section
+                * also sums to it.
+                forvalues _t = 1/`_ns' {
+                    if `_nc_`_t'' != 1 continue
+                    local _tr = strtrim("`_cats_`_t''")
+                    local _anc_`_tr' 0
+                    local _tm_`_tr' 0
+                    if `S'[`_tr', `_o'] != 0 continue
+                    forvalues _s = 1/`_ns' {
+                        if `_s' == `_t' | `_nc_`_s'' < 2 continue
+                        local _sum 0
+                        local _nu 0
+                        foreach _r of local _cats_`_s' {
+                            if `_u_`_r'' local ++_nu
+                            else local _sum = `_sum' + `_v_`_r''
+                        }
+                        if `_nu' == 0 & reldif(`_v_`_tr'', `_sum') < 1e-12 local ++_anc_`_tr'
+                    }
+                }
+                forvalues _s = 1/`_ns' {
+                    if `_nc_`_s'' < 2 continue
+                    local _any 0
+                    local _sum 0
+                    local _nu 0
+                    foreach _r of local _cats_`_s' {
+                        if `S'[`_r', `_o'] != 0 local _any 1
+                        if `_u_`_r'' local ++_nu
+                        else local _sum = `_sum' + `_v_`_r''
+                    }
+                    if !`_any' continue
+                    local _total 0
+                    local _trs ""
+                    forvalues _t = 1/`_ns' {
+                        if `_t' == `_s' | `_nc_`_t'' != 1 continue
+                        local _tr = strtrim("`_cats_`_t''")
+                        * a total masked as small (state 1) is still the
+                        * section's total: its bounds 1..k-1 and the cells'
+                        * can pin every count (cox-2009 sec. 2.3), so the
+                        * engine checks it as a sensitive margin. A total
+                        * whose value is unknown (9, masked by stratetab)
+                        * cannot be checked.
+                        if `S'[`_tr', `_o'] == 9 continue
+                        if `_nu' == 0 {
+                            if reldif(`_v_`_tr'', `_sum') < 1e-12 {
+                                local _total 1
+                                local _trs "`_trs' `_tr'"
+                            }
+                        }
+                        else {
+                            local _gap = `_v_`_tr'' - `_sum'
+                            if `_gap' >= 0 & `_gap' <= `_nu' * (`_kmax' - 1) {
+                                display as error "smallcells(): the rate frame holds counts masked by stratetab in a section beside a total row;"
+                                display as error "comptab cannot protect them without their values; rerun stratetab without smallcells() and give comptab smallcells()"
+                                exit 459
+                            }
+                        }
+                    }
+                    if !`_total' continue
+                    if `k' < 3 {
+                        display as error "smallcells(): complementary suppression beside a total row needs a threshold of 3 or more"
+                        exit 198
+                    }
+                    matrix `C' = J(1, `_nc_`_s'', 0)
+                    local _j 0
+                    foreach _r of local _cats_`_s' {
+                        local ++_j
+                        if `_v_`_r'' != floor(`_v_`_r'') {
+                            display as error "smallcells(): complementary suppression needs whole event counts; row `_r' holds `_v_`_r''"
+                            exit 459
+                        }
+                        matrix `C'[1, `_j'] = `_v_`_r''
+                    }
+                    tempname RE
+                    matrix `RE' = (1)
+                    capture noisily _tabtools_smallcells, counts(`C') smallcells(`k') ///
+                        rowexact(`RE') rowsensitive(`RE')
+                    if _rc == 498 {
+                        display as error "smallcells(): outcome `_o': the event counts in rows `_cats_`_s'' of the rate frame add up to the total in row(s)`_trs'"
+                        display as error "and no mask leaves each masked count two feasible values; drop the total row from the rate frame, or use smallcells(#, primary)"
+                        exit 498
+                    }
+                    else if _rc exit _rc
+                    matrix `M' = r(mask)
+                    tempname RM
+                    matrix `RM' = r(rowmask)
+                    * the engine masks the total itself (no unmasked cell of
+                    * the section can serve as the complement): the total
+                    * row prints <# or >=#, which is safe only while no other
+                    * section's printed counts add up to it
+                    if `RM'[1, 1] != 0 {
+                        foreach _tr of local _trs {
+                            if `_anc_`_tr'' > 1 {
+                                display as error "smallcells(): the total in row `_tr' of the rate frame must itself be masked to protect a section's counts,"
+                                display as error "but another section's counts add up to it; comptab cannot certify masks that span sections."
+                                display as error "Tabulate the sections in separate comptab calls, or build the rate frame without the total row"
+                                exit 459
+                            }
+                            matrix `S'[`_tr', `_o'] = `RM'[1, 1]
+                            local _tm_`_tr' 1
+                        }
+                    }
+                    local _j 0
+                    foreach _r of local _cats_`_s' {
+                        local ++_j
+                        if `M'[1, `_j'] == 2 matrix `S'[`_r', `_o'] = 2
+                        else if `M'[1, `_j'] == 1 & `S'[`_r', `_o'] != 1 {
+                            display as error "smallcells(): internal mask disagreement in row `_r'"
+                            exit 459
+                        }
+                    }
+                }
+            }
+
+            * effects withheld: own or reference count masked
+            forvalues _s = 1/`_ns' {
+                local _rr = `_ref_`_s''
+                foreach _r of local _cats_`_s' {
+                    if `_r' == `_rr' continue
+                    local _wh = (`S'[`_r', `_o'] != 0)
+                    if `_rr' > 0 {
+                        if `S'[`_rr', `_o'] != 0 local _wh 1
+                    }
+                    if `_wh' matrix `W'[`_r', `_o'] = 1
+                    if inlist(`S'[`_r', `_o'], 1, 9) local ++_np
+                    if `S'[`_r', `_o'] == 2 local ++_ns2
+                }
+                if `_rr' > 0 {
+                    if inlist(`S'[`_rr', `_o'], 1, 9) local ++_np
+                    if `S'[`_rr', `_o'] == 2 local ++_ns2
+                }
+            }
+        }
+        return scalar N_primary_suppressed = `_np'
+        return scalar N_secondary_suppressed = `_ns2'
+        return matrix withhold = `W'
+        return matrix state = `S'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 
 * =============================================================================
 * _comptab_frame_spec: parse frame(name[, replace flat]) for both modes

@@ -1,4 +1,4 @@
-*! survtab Version 1.1.0  2026/10/31
+*! survtab Version 1.2.0  2026/11/19
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -74,17 +74,48 @@ capture noisily {
     _tabtools_require_helpers
 
 **# Syntax and Validation
-    syntax, times(numlist >0) [by(varname) RMST(real -1) MEDian RISKset ///
+    syntax, times(numlist >0) [by(varname) RMST(string) MEDian RISKset ///
         TIMEUnit(string) REVerse DIFFerence EVents ///
         Level(cilevel) ///
         xlsx(string) excel(string) sheet(string) title(string) ///
-        FOOTnote(string) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
+        FOOTnote(string) FONT(string) FONTSIZE(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
-        BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
-        csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) open pdp(integer -1) highpdp(integer -1) ///
+        BOLDp(string) zebra HIGHlight(string) DIGits(string) ///
+        csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) open pdp(string) highpdp(string) ///
         ADDRow(string asis)]
 
-    * Accept excel() as synonym for xlsx()
+    * Numeric options are read as strings so that no typed value can equal
+    * the "not specified" state: with RMST(real -1) an explicit rmst(-1),
+    * digits(-1), pdp(-1) or boldp(-1) was taken as unset and skipped the
+    * range check. Unset is missing here; every typed value is range-checked.
+    foreach _nopt in rmst boldp highlight digits pdp highpdp fontsize {
+        if `"``_nopt''"' == "" {
+            local `_nopt' = .
+            continue
+        }
+        local _nval = real(strtrim(`"``_nopt''"'))
+        if missing(`_nval') {
+            noisily display as error "option `_nopt'() incorrectly specified"
+            exit 198
+        }
+        if inlist("`_nopt'", "digits", "pdp", "highpdp", "fontsize") & `_nval' != int(`_nval') {
+            noisily display as error "option `_nopt'() incorrectly specified"
+            exit 198
+        }
+        local `_nopt' = `_nval'
+    }
+    if !missing(`fontsize') & (`fontsize' < 1 | `fontsize' > 72) {
+        noisily display as error "fontsize() must be between 1 and 72"
+        exit 198
+    }
+    local _fontsize_arg = cond(missing(`fontsize'), -1, `fontsize')
+
+    * Accept excel() as synonym for xlsx(); two different workbooks are two
+    * destinations, so the pair is refused rather than one silently dropped.
+    if `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != "" & `"`macval(xlsx)'"' != `"`macval(excel)'"' {
+        noisily display as error "xlsx() and excel() are synonyms; specify one"
+        exit 198
+    }
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     * Session destinations (tabtools set workbook/markdown) apply only when
     * sheet() asks for a sheet; an explicit option wins. Without this a
@@ -102,9 +133,9 @@ capture noisily {
     local _has_xlsx = "`xlsx'" != ""
 
     * Resolve persistent defaults
-    if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
-    if `pdp' == -1 local pdp = 3
-    if `highpdp' == -1 local highpdp = 2
+    if missing(`boldp') & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
+    if missing(`pdp') local pdp = 3
+    if missing(`highpdp') local highpdp = 2
     if `pdp' < 1 | `pdp' > 10 {
         noisily display as error "pdp() must be between 1 and 10"
         exit 198
@@ -114,7 +145,7 @@ capture noisily {
         exit 198
     }
 
-    if `digits' == -1 {
+    if missing(`digits') {
         if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
         else local digits = 1
     }
@@ -251,12 +282,12 @@ capture noisily {
     local _ci_z = invnormal(1 - `_ci_alpha')
 
     * Validate boldp
-    local has_boldp = `boldp' != -1
+    local has_boldp = !missing(`boldp')
     if `has_boldp' & (`boldp' <= 0 | `boldp' >= 1) {
         noisily display as error "boldp() must be between 0 and 1"
         exit 198
     }
-    local has_highlight = `highlight' != -1
+    local has_highlight = !missing(`highlight')
     if `has_highlight' & (`highlight' <= 0 | `highlight' >= 1) {
         noisily display as error "highlight() must be between 0 and 1"
         exit 198
@@ -269,14 +300,14 @@ capture noisily {
     }
 
     * RMST validation
-    if `rmst' != -1 & `rmst' <= 0 {
+    if !missing(`rmst') & `rmst' <= 0 {
         noisily display as error "rmst() must be greater than 0"
         exit 198
     }
-    local has_rmst = `rmst' != -1
+    local has_rmst = !missing(`rmst')
 
     * Resolve formatting
-    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`_fontsize_arg') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     * Count timepoints
@@ -381,19 +412,15 @@ capture noisily {
     if "`events'" != "" {
         forvalues g = 1/`n_groups' {
             local _glv : word `g' of `group_levels'
-            if "`st_id'" != "" {
-                tempvar _event_tag
-                qui egen byte `_event_tag' = tag(`st_id') ///
-                    if `groupvar' == `_glv' & _st & _d == 1
-                qui summarize `_st_weight' if `_event_tag', meanonly
+            * Events are failures, the events the Kaplan-Meier estimate
+            * counts: with stset id() and multiple failures per subject each
+            * failure counts (one per subject would undercount them), while
+            * N stays the number of subjects.
+            if `has_by' {
+                qui summarize `_st_weight' if `groupvar' == `_glv' & _st & _d == 1, meanonly
             }
             else {
-                if `has_by' {
-                    qui summarize `_st_weight' if `groupvar' == `_glv' & _st & _d == 1, meanonly
-                }
-                else {
-                    qui summarize `_st_weight' if _st & _d == 1, meanonly
-                }
+                qui summarize `_st_weight' if _st & _d == 1, meanonly
             }
             local events_g`g' = r(sum)
             local atrisk_g`g' = `gn_`g''
@@ -483,20 +510,29 @@ capture noisily {
     }
 
 **# Compute Median Survival
+    * [ST] stci, Methods and formulas: the median is the minimum t with
+    * S(t) <= 0.5 on the Kaplan-Meier estimate; its lower (upper) limit is
+    * the first t at which the lower (upper) limit of S(t), on the
+    * ln{-ln S(t)} scale, is <= 0.5. That is computed here from sts generate
+    * exactly as stci does it (first _t with float(.) <= float(0.5)) rather
+    * than by calling stci, which refuses stset weights with r(101): a
+    * captured stci call printed every fweighted median as NR. sts generate
+    * honours the stset frequency weights. A median or limit the curve never
+    * reaches is missing (NR).
     if "`median'" != "" {
         forvalues g = 1/`n_groups' {
             local _glv : word `g' of `group_levels'
-            capture qui stci if `groupvar' == `_glv', level(`level')
-            if !_rc {
-                local med_g`g' = r(p50)
-                local med_lo_g`g' = r(lb)
-                local med_hi_g`g' = r(ub)
-            }
-            else {
-                local med_g`g' = .
-                local med_lo_g`g' = .
-                local med_hi_g`g' = .
-            }
+            tempvar _md_s _md_lb _md_ub
+            qui sts generate `_md_s' = s if `groupvar' == `_glv'
+            qui sts generate `_md_lb' = lb(s) if `groupvar' == `_glv', level(`level')
+            qui sts generate `_md_ub' = ub(s) if `groupvar' == `_glv', level(`level')
+            qui summarize _t if `groupvar' == `_glv' & _st & float(`_md_s') <= float(0.5), meanonly
+            local med_g`g' = r(min)
+            qui summarize _t if `groupvar' == `_glv' & _st & float(`_md_lb') <= float(0.5), meanonly
+            local med_lo_g`g' = r(min)
+            qui summarize _t if `groupvar' == `_glv' & _st & float(`_md_ub') <= float(0.5), meanonly
+            local med_hi_g`g' = r(min)
+            drop `_md_s' `_md_lb' `_md_ub'
         }
     }
 
@@ -776,7 +812,9 @@ capture noisily {
     if `has_rmst' {
         local row = `row' + 1
         qui set obs `row'
-        local _rmst_str = cond(mod(`rmst', 1) == 0, ustrregexra(string(`rmst', "%3.0f"), "-(?=[0.,]+\z)", ""), ustrregexra(string(`rmst', "%5.1f"), "-(?=[0.,]+\z)", ""))
+        * The horizon is printed as given (%12.0g, leading 0 restored): with
+        * %5.1f, rmst(0.05) was labelled 0.1 and rmst(12.25) 12.2.
+        local _rmst_str = cond(mod(`rmst', 1) == 0, ustrregexra(string(`rmst', "%3.0f"), "-(?=[0.,]+\z)", ""), ustrregexra(strtrim(string(`rmst', "%12.0g")), "^\.", "0."))
         qui replace c1 = "RMST (`_rmst_str'-`tu_short'), `tu_short' (`_level_txt'% CI)" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
@@ -935,9 +973,11 @@ capture noisily {
         * C1: built in Mata from the literal label. strtoname() keeps a
         * backtick, so the name is also cleared of macro characters
         * (backtick, apostrophe, dollar, double quote) before it is used.
-        mata: st_local("_cname", substr(subinstr(subinstr(subinstr(subinstr( ///
+        * strtoname() cuts at 32 bytes and can split a multibyte UTF-8
+        * character, so the name is trimmed back to a character boundary.
+        mata: st_local("_cname", _survtab_ucut(subinstr(subinstr(subinstr(subinstr( ///
             strtoname(st_local("glabel_`g'")), char(96), "_"), char(39), "_"), ///
-            char(36), "_"), char(34), "_"), 1, 32))
+            char(36), "_"), char(34), "_"), 32, ustrinvalidcnt(st_local("glabel_`g'"))))
         if `"`_cname'"' == "" | strtrim(subinstr(`"`_cname'"', "_", "", .)) == "" {
             local _cname "group`g'"
         }
@@ -947,7 +987,8 @@ capture noisily {
             local ++_cname_i
             local _suffix "_`_cname_i'"
             local _stem_len = 32 - strlen("`_suffix'")
-            local _cname = substr(`"`_base_cname'"', 1, `_stem_len')
+            mata: st_local("_cname", _survtab_ucut(st_local("_base_cname"), ///
+                `_stem_len', ustrinvalidcnt(st_local("_base_cname"))))
             local _cname `"`_cname'`_suffix'"'
         }
         local _used_cnames `"`_used_cnames' `_cname'"'
@@ -1069,7 +1110,7 @@ capture noisily {
         local _methods `"`macval(_methods)' Median survival time with `_level_txt'% confidence intervals is reported."'
     }
     if `has_rmst' {
-        local _rmst_mstr = cond(mod(`rmst', 1) == 0, ustrregexra(string(`rmst', "%3.0f"), "-(?=[0.,]+\z)", ""), ustrregexra(string(`rmst', "%5.1f"), "-(?=[0.,]+\z)", ""))
+        local _rmst_mstr = cond(mod(`rmst', 1) == 0, ustrregexra(string(`rmst', "%3.0f"), "-(?=[0.,]+\z)", ""), ustrregexra(strtrim(string(`rmst', "%12.0g")), "^\.", "0."))
         local _methods `"`macval(_methods)' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `_level_txt'% confidence intervals based on the Greenwood variance formula."'
         if "`difference'" != "" & `has_by' & `n_groups' == 2 {
             local _methods `"`macval(_methods)' The between-group RMST difference is reported as `macval(glabel_1)' minus `macval(glabel_2)' (the first minus the second by() group in ascending order of `by'), with a `_level_txt'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
@@ -1308,7 +1349,19 @@ end
 * var = sum_j d_j / (n_j (n_j - d_j)) * A_j^2, A_j the area beyond t_j.
 * Results go back as %21.17g locals _rmst_area and _rmst_var.
 capture mata: mata drop _survtab_rmst_mata()
+capture mata: mata drop _survtab_ucut()
 mata:
+// _survtab_ucut(s, n, ninv): the first n bytes of s, trimmed back until the
+// result holds no more invalid UTF-8 sequences than ninv (the count in the
+// source text), so a byte cut never ends inside a multibyte character.
+string scalar _survtab_ucut(string scalar s, real scalar n, real scalar ninv)
+{
+    string scalar t
+    t = substr(s, 1, n)
+    while (strlen(t) > 0 & ustrinvalidcnt(t) > ninv) t = substr(t, 1, strlen(t) - 1)
+    return(t)
+}
+
 void _survtab_rmst_mata(string scalar ename, string scalar nname,
     real scalar tau)
 {

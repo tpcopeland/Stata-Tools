@@ -1,4 +1,4 @@
-*! ratetab Version 1.1.0  2026/10/31
+*! ratetab Version 1.2.0  2026/11/19
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -48,17 +48,60 @@ program define ratetab, rclass
     local _own_r_posted 0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    tempname _work _est _clus _save
+    tempname _work _est _clus _save _ehold_nm
     local _work_made 0
     local _save_made 0
+    local _ehold 0
     local _files ""
     capture noisily {
         syntax varlist(min=1) [if] [in] , [EVents(varlist numeric) ///
-            EXPosure(varlist numeric) PER(real 1000) CI(string) Level(real -1) ///
-            SMALLcells(integer -1) NOSMALLcells CFormat(string) DIGits(integer -1) ///
+            EXPosure(varlist numeric) PER(real 1000) CI(string) Level(string) ///
+            SMALLcells(string) NOSMALLcells CFormat(string) DIGits(string) ///
             PYDigits(integer 0) PYScale(string) SEP(string) ///
             OUTLabels(string) EXPLabels(string) UNITlabel(string) PTUnit(string) ///
             ZEROCells(string) MASKtext(string) EXCLUDEMasked SAVing(string asis) *]
+
+        * An empty smallcells() (smallcells( ), smallcells(`k') with k
+        * undefined) reads as absent to syntax; refuse it (r(198)) rather
+        * than fall through to no masking or the session default.
+        if `"`smallcells'"' == "" {
+            _tabtools_smallcells_opt __empty `macval(0)'
+        }
+        * level(), smallcells() and digits() are read as text so that an
+        * option not given (-1 below) cannot collide with a typed value: as
+        * -1 defaults, level(-1), smallcells(-1) and digits(-1) were taken as
+        * no option at rc 0. smallcells() is checked here, before the fit,
+        * against the rule stratetab applies when it renders (0, or 3 or more).
+        foreach _nopt in level smallcells digits {
+            local _nval = strtrim(`"``_nopt''"')
+            if `"`_nval'"' == "" {
+                local `_nopt' -1
+                continue
+            }
+            if "`_nopt'" == "level" capture confirm number `_nval'
+            else capture confirm integer number `_nval'
+            if _rc {
+                display as error "option `_nopt'() incorrectly specified"
+                exit 198
+            }
+            if "`_nopt'" == "level" & (`_nval' < 10 | `_nval' > 99.99) {
+                display as error "level() must be between 10 and 99.99"
+                exit 198
+            }
+            if "`_nopt'" == "digits" & (`_nval' < 0 | `_nval' > 10) {
+                display as error "digit options must be 0-10"
+                exit 198
+            }
+            if "`_nopt'" == "smallcells" & `_nval' < 0 {
+                display as error "smallcells() must be a nonnegative integer"
+                exit 198
+            }
+            if "`_nopt'" == "smallcells" & inlist(`_nval', 1, 2) {
+                display as error "smallcells() must be 3 or more (0 = none): smallcells(2) prints <2, which identifies a count of 1"
+                exit 198
+            }
+            local `_nopt' = `_nval'
+        }
 
         * rateratio is refused, not passed to stratetab. stratetab's rate
         * ratio divides the rate of one exposure group by the same-labelled
@@ -197,8 +240,27 @@ program define ratetab, rclass
             local _save_file `"`_sv_fn'"'
             local _save_replace = lower(`"`_sv_rest'"')
             local _sv_dta `"`_save_file'"'
-            if !strmatch(lower(`"`_sv_dta'"'), "*.dta") local _sv_dta `"`_sv_dta'.dta"'
+            * the file save writes: .dta only when the name has no suffix
+            * (save foo.bar writes foo.bar, so checking foo.bar.dta missed it)
+            mata: st_local("_sv_dta", st_local("_sv_dta") + (pathsuffix(st_local("_sv_dta")) == "" ? ".dta" : ""))
             if "`_save_replace'" == "" confirm new file `"`_sv_dta'"'
+            else {
+                * with replace the file must still be writable: checked now,
+                * so an unwritable path or a missing directory is refused
+                * before the table, the frame() and r() are produced
+                capture confirm file `"`_sv_dta'"'
+                if _rc confirm new file `"`_sv_dta'"'
+                else {
+                    tempname _svh
+                    capture file open `_svh' using `"`_sv_dta'"', write append
+                    if _rc {
+                        local _svrc = _rc
+                        display as error `"saving(): file `_sv_dta' cannot be written"'
+                        exit `_svrc'
+                    }
+                    file close `_svh'
+                }
+            }
             * each grouping variable is saved under its own name, beside the
             * fixed columns. One that has a fixed column's name (a 2.3.1
             * call such as -ratetab group, saving()- must still save) is
@@ -271,8 +333,8 @@ program define ratetab, rclass
             else if "`nosmallcells'" == "" & `"$TABTOOLS_set_smallcells"' != "" {
                 local _sc_fit = real(`"$TABTOOLS_set_smallcells"')
             }
-            if missing(`_sc_fit') | `_sc_fit' < 2 {
-                display as error "excludemasked requires a small-cell threshold of 2 or more (smallcells() or tabtools set smallcells)"
+            if missing(`_sc_fit') | `_sc_fit' < 3 {
+                display as error "excludemasked requires a small-cell threshold of 3 or more (smallcells() or tabtools set smallcells)"
                 exit 198
             }
             local _dmin = `_sc_fit'
@@ -287,11 +349,41 @@ program define ratetab, rclass
         quietly egen int `_nm' = rownonmiss(`varlist'), strok
         quietly replace `touse' = 0 if `_nm' == 0  // stata-dev-ignore: unchecked-commit — narrows the sample marker; a zero-row sample is refused at the count below (no observations, exit 2000)
         drop `_nm'
+        * stset weights: frequency weights replicate the observation, so
+        * events and person-time are weighted sums and every interval is the
+        * one of the expanded data (strate applies the stset weights too).
+        * Probability and importance weights have no count interpretation for
+        * the exact, poisson or cluster intervals, so they are refused (as
+        * survtab does); strate gives jackknife limits for them.
+        local _st_fw ""
+        if `_st' {
+            local _st_wspec : char _dta[st_w]
+            if `"`_st_wspec'"' != "" {
+                local _st_wtype ""
+                local _st_weq = strpos(`"`_st_wspec'"', "=")
+                if `_st_weq' > 2 local _st_wtype = lower(substr(`"`_st_wspec'"', 2, `_st_weq' - 2))
+                if "`_st_wtype'" != "fweight" {
+                    display as error "ratetab supports only frequency weights in stset data"
+                    display as error "  the data are stset with `_st_wspec'; for probability or importance weights use"
+                    display as error "  {helpb strate}, which gives jackknife confidence limits under stset weights"
+                    exit 101
+                }
+                local _st_fw : char _dta[st_wv]
+                confirm numeric variable `_st_fw', exact
+            }
+        }
         if `_st' {
             quietly replace `touse' = 0 if _st != 1
+            if "`_st_fw'" != "" quietly replace `touse' = 0 if missing(`_st_fw')
             tempvar _ev _py
-            quietly gen double `_ev' = _d if `touse'
-            quietly gen double `_py' = _t - _t0 if `touse'
+            if "`_st_fw'" != "" {
+                quietly gen double `_ev' = _d * `_st_fw' if `touse'
+                quietly gen double `_py' = (_t - _t0) * `_st_fw' if `touse'
+            }
+            else {
+                quietly gen double `_ev' = _d if `touse'
+                quietly gen double `_py' = _t - _t0 if `touse'
+            }
             local events "`_ev'"
             local exposure "`_py'"
             local _n_exp 1
@@ -314,6 +406,11 @@ program define ratetab, rclass
             exit 2000
         }
         local _N = r(N)
+        * under stset fweights r(N) counts the observations the data represent
+        if "`_st_fw'" != "" {
+            quietly summarize `_st_fw' if `touse', meanonly
+            local _N = r(sum)
+        }
         foreach _x of local exposure {
             quietly count if `touse' & `_x' < 0
             if r(N) {
@@ -351,17 +448,19 @@ program define ratetab, rclass
                 }
                 else {
                     local _lab : variable label `_en'
-                    if `"`_lab'"' == "" local _lab "`_en'"
+                    if `"`macval(_lab)'"' == "" local _lab "`_en'"
                 }
-                local outlabels = cond(`_o' == 1, `"`_lab'"', `"`outlabels' \ `_lab'"')
+                * in Mata: a plain `_lab' (or `outlabels') re-expands
+                * "$name" in a variable label
+                mata: st_local("outlabels", st_local("outlabels") + (`_o' == 1 ? "" : " \ ") + st_local("_lab"))
             }
         }
         if `"`explabels'"' == "" {
             forvalues _g = 1/`n_grp' {
                 local _gv : word `_g' of `varlist'
                 local _lab : variable label `_gv'
-                if `"`_lab'"' == "" local _lab "`_gv'"
-                local explabels = cond(`_g' == 1, `"`_lab'"', `"`explabels' \ `_lab'"')
+                if `"`macval(_lab)'"' == "" local _lab "`_gv'"
+                mata: st_local("explabels", st_local("explabels") + (`_g' == 1 ? "" : " \ ") + st_local("_lab"))
             }
         }
         * default rate-header label: per() as typed (a fraction or 1500.5 keeps
@@ -374,6 +473,13 @@ program define ratetab, rclass
         }
 
         **# Per level counts and intervals, in a work frame
+        * ci(cluster()) fits poisson; estimation results are not frame-local,
+        * so the caller's e() is held here and put back in the cleanup zone
+        * (on success and on error), as outtab and regtab do
+        if "`_ci'" == "cluster" {
+            _estimates hold `_ehold_nm', nullok
+            local _ehold 1
+        }
         local _alpha = (1 - `level' / 100) / 2
         local _z = invnormal(1 - `_alpha')
         local _keep "`varlist' `events' `exposure' `_clusvar'"
@@ -562,7 +668,7 @@ program define ratetab, rclass
         local _mt_opt ""
         if `"`masktext'"' != "" local _mt_opt `"masktext(`"`masktext'"')"'
         capture noisily stratetab, using(`_files') outcomes(`n_out') ///
-            outlabels(`"`outlabels'"') explabels(`"`explabels'"') level(`level') ///
+            outlabels(`"`macval(outlabels)'"') explabels(`"`macval(explabels)'"') level(`level') ///
             ratescale(`per') unitlabel(`"`unitlabel'"') pydigits(`pydigits') ///
             `_pt_opt' `_fmt_opt' `macval(_sep_opt)' `_sc_opt' `_zc_opt' `_mt_opt' `macval(options)'
         local _st_rc = _rc
@@ -600,6 +706,7 @@ program define ratetab, rclass
         if `_n_zero' & "`zerocells'" != "" & !`_zc_pt' local _m "`_m'; cells with no events are printed without a count or rate"
         if `_n_zero' & "`zerocells'" != "" & `_zc_pt' local _m "`_m'; cells with no events are printed without a count, person-time or rate"
         if `_n_nopt' local _m "`_m'; levels with no person-time for an outcome have no rate and are left empty"
+        if "`_st_fw'" != "" local _m "`_m'; events and person-time are weighted by the stset frequency weight `_st_fw'"
         local _mtxt "<`_sc_used'"
         if `"`masktext'"' != "" local _mtxt `"`masktext'"'
         if `_sc_used' > 0 local _m "`_m'; cells with 1 to `=`_sc_used' - 1' events are shown as `_mtxt' with their person-time and rate withheld"
@@ -622,13 +729,14 @@ program define ratetab, rclass
         **# saving(): one row per printed level, as numbers
         if `"`_save_file'"' != "" {
             * outcome labels as stratetab splits them
-            local _ol = subinstr(`"`outlabels'"', " \ ", "\", .)
-            tokenize `"`_ol'"', parse("\")
+            * (macval(): the labels are data, never re-expanded)
+            local _ol = subinstr(`"`macval(outlabels)'"', " \ ", "\", .)
+            tokenize `"`macval(_ol)'"', parse("\")
             local _k 0
             forvalues _i = 1/`=2 * `n_out''  {
-                if `"``_i''"' == "\" continue
+                if `"`macval(`_i')'"' == "\" continue
                 local ++_k
-                local _olab`_k' = strtrim(`"``_i''"')
+                local _olab`_k' = strtrim(`"`macval(`_i')'"')
             }
             frame create `_save'
             local _save_made 1
@@ -745,6 +853,13 @@ program define ratetab, rclass
         return matrix estimates = `_est'
     }
     local rc = _rc
+    if `_ehold' {
+        capture _estimates unhold `_ehold_nm'
+        if _rc & !`rc' {
+            local rc = _rc
+            display as error "ratetab: could not restore the previous estimation results (r(`rc'))"
+        }
+    }
     if `_work_made' capture frame drop `_work'
     if `_save_made' capture frame drop `_save'
     foreach _f of local _files {

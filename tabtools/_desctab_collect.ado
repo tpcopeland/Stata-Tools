@@ -1,4 +1,4 @@
-*! _desctab_collect Version 1.1.0  2026/10/31
+*! _desctab_collect Version 1.2.0  2026/11/19
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -252,6 +252,19 @@ program define _desctab_collect, rclass
                     }
                 }
 
+                * The geometric mean, GSD, logged-data test and log-scale SMD
+                * are defined for positive values only (Limpert et al. 2001).
+                * Dropping zeros and negatives silently described an unstated
+                * subset and counted the dropped records as Missing.
+                if "`vartype'" == "contln" {
+                    quietly count if `touse' & `by' < . & `workvar' <= 0
+                    if r(N) > 0 {
+                        display as error "contln variable `varname' has `r(N)' zero or negative value(s) in the analysis sample"
+                        display as error "the geometric mean is defined for positive values only; use contn or conts, or analyse a positive transformation"
+                        exit 411
+                    }
+                }
+
                 if inlist("`vartype'", "bin", "bine") {
                     quietly count if `touse' & `by' < . & `workvar' < .
                     if r(N) == 0 {
@@ -427,8 +440,14 @@ program define _desctab_collect, rclass
                     local _tt_w ""
                     if `has_fw' local _tt_w "[fw=`fwvar']"
                     local _tt_bad 0
+                    local _tt_fail 0
+                    * Fit on a 1..G index of the groups, in ascending code
+                    * order: factor variables refuse codes above c(maxlong)
+                    * (anova r(452)), which desctab keeps as valid groups.
+                    tempvar _tt_g
+                    quietly egen long `_tt_g' = group(`by') if `_tt_exp'
                     if `nglevels' == 2 {
-                        capture quietly regress `testvar' ib(first).`by' `_tt_w' if `touse' & `by' < . & `testvar' < .
+                        capture quietly regress `testvar' ib(first).`_tt_g' `_tt_w' if `touse' & `by' < . & `testvar' < .
                         if _rc == 0 {
                             * r(table) first: count below overwrites r()
                             tempname Tmat
@@ -448,9 +467,10 @@ program define _desctab_collect, rclass
                             }
                             else local _tt_bad 1
                         }
+                        else local _tt_fail 1
                     }
                     else {
-                        capture quietly anova `testvar' `by' `_tt_w' if `touse' & `by' < . & `testvar' < .
+                        capture quietly anova `testvar' `_tt_g' `_tt_w' if `touse' & `by' < . & `testvar' < .
                         if _rc == 0 {
                             local _tt_f = e(F)
                             local df1 = e(df_m)
@@ -468,10 +488,15 @@ program define _desctab_collect, rclass
                             }
                             else local _tt_bad 1
                         }
+                        else local _tt_fail 1
                     }
                     if `_tt_bad' {
                         display as text "note: the comparison test for `orig' was not computed; the fitted sample differs from the tabulated sample"
                     }
+                    if `_tt_fail' {
+                        display as text "note: the comparison test for `orig' was not computed; the model could not be fitted"
+                    }
+                    drop `_tt_g'
                 }
                 else if "`typ'" == "conts" & `nglevels' >= 2 {
                     if `has_fw' {
@@ -606,10 +631,26 @@ program define _desctab_collect, rclass
                 }
             }
 
+            * Under missing, a categorical variable's Missing level is part
+            * of the distribution the table prints and the chi-square or
+            * Fisher test compares, so the SMD takes it as one more level
+            * (all missing codes together, as in the table): the SMD runs
+            * on a 1..K index of the levels with Missing as its own level.
+            local _smd_cv `"`v'"'
+            if "`smd'" != "" & `include_missing' & inlist("`typ'", "cat", "cate") {
+                quietly count if `touse' & `by' < . & missing(`v')
+                if r(N) > 0 {
+                    tempvar _smd_mc _smd_mv
+                    quietly generate double `_smd_mc' = cond(missing(`v'), ., `v') if `touse' & `by' < .
+                    quietly egen long `_smd_mv' = group(`_smd_mc') if `touse' & `by' < ., missing
+                    local _smd_cv `"`_smd_mv'"'
+                }
+            }
             if "`smd'" != "" & `_smd_multi' {
                 * Population SB or max pairwise SMD over every by() group.
                 local _smd_y `"`testvar'"'
-                if inlist("`typ'", "bin", "bine", "cat", "cate") local _smd_y `"`v'"'
+                if inlist("`typ'", "bin", "bine") local _smd_y `"`v'"'
+                if inlist("`typ'", "cat", "cate") local _smd_y `"`_smd_cv'"'
                 local _smd_class = cond(inlist("`typ'", "bin", "bine"), 1, ///
                     cond(inlist("`typ'", "cat", "cate"), 2, 0))
                 tempvar _smd_sel
@@ -686,8 +727,8 @@ program define _desctab_collect, rclass
                     * seen only in a third group has zero share in both, so it
                     * would make the pooled covariance singular and blank an
                     * SMD whose correct value is defined.
-                    quietly levelsof `v' if `touse' & inlist(`by', `level1', `level2') ///
-                        & `v' < ., local(_smd_lvls)
+                    quietly levelsof `_smd_cv' if `touse' & inlist(`by', `level1', `level2') ///
+                        & `_smd_cv' < ., local(_smd_lvls)
                     local _smd_k : word count `_smd_lvls'
                     * Level j is selected by its index in the same ascending
                     * order, never by the levelsof text: a fractional float
@@ -695,26 +736,26 @@ program define _desctab_collect, rclass
                     * stored value, so its share was counted as 0 and the SMD
                     * was blank at rc 0.
                     tempvar _smd_ix
-                    quietly egen long `_smd_ix' = group(`v') ///
-                        if `touse' & inlist(`by', `level1', `level2') & `v' < .
+                    quietly egen long `_smd_ix' = group(`_smd_cv') ///
+                        if `touse' & inlist(`by', `level1', `level2') & `_smd_cv' < .
                     local _tot1 .
                     local _tot2 .
                     if `has_wt' {
-                        quietly summarize `_smd_wvar' if `touse' & `by' == `level1' & `v' < .
+                        quietly summarize `_smd_wvar' if `touse' & `by' == `level1' & `_smd_cv' < .
                         local _tot1 = r(sum)
-                        quietly summarize `_smd_wvar' if `touse' & `by' == `level2' & `v' < .
+                        quietly summarize `_smd_wvar' if `touse' & `by' == `level2' & `_smd_cv' < .
                         local _tot2 = r(sum)
                     }
                     else if `has_fw' {
-                        quietly summarize `fwvar' if `touse' & `by' == `level1' & `v' < ., meanonly
+                        quietly summarize `fwvar' if `touse' & `by' == `level1' & `_smd_cv' < ., meanonly
                         local _tot1 = r(sum)
-                        quietly summarize `fwvar' if `touse' & `by' == `level2' & `v' < ., meanonly
+                        quietly summarize `fwvar' if `touse' & `by' == `level2' & `_smd_cv' < ., meanonly
                         local _tot2 = r(sum)
                     }
                     else {
-                        quietly count if `touse' & `by' == `level1' & `v' < .
+                        quietly count if `touse' & `by' == `level1' & `_smd_cv' < .
                         local _tot1 = r(N)
-                        quietly count if `touse' & `by' == `level2' & `v' < .
+                        quietly count if `touse' & `by' == `level2' & `_smd_cv' < .
                         local _tot2 = r(N)
                     }
 

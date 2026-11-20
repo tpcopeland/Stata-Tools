@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.1.0  2026/10/31
+*! _tabtools_common Version 1.2.0  2026/11/19
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -493,8 +493,14 @@ end
 * Sets c_local variables in the caller's scope:
 *   _font, _fontsize, borderstyle, _hborder, headershade, zebra
 *
-* Usage: _tabtools_resolve_format, [font(string) fontsize(integer) borderstyle(string)
-*            headershade(string) zebra(string)]
+* Usage: _tabtools_resolve_format, [font(string) fontsize(string) fsexplicit
+*            borderstyle(string) headershade(string) zebra(string)]
+*
+* fontsize(): empty = not given. A caller that declares FONTSIZE(integer -1)
+* passes -1 when the option was not given, so without fsexplicit "-1" also
+* means not given. A caller that declares FONTSIZE(string) passes the user's
+* own text with fsexplicit; then -1 is a typed value and is range-checked
+* like any other (fontsize(-1) used to be taken as no option at rc 0).
 
 capture program drop _tabtools_resolve_format
 program _tabtools_resolve_format, nclass
@@ -502,7 +508,7 @@ program _tabtools_resolve_format, nclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-    syntax , [FONT(string) FONTSIZE(integer -1) BORDERstyle(string) HEADERShade(string) ZEBra(string)]
+    syntax , [FONT(string) FONTSIZE(string) FSEXPlicit BORDERstyle(string) HEADERShade(string) ZEBra(string)]
 
     * Font defaults: global -> default
     local _font "Arial"
@@ -510,7 +516,17 @@ program _tabtools_resolve_format, nclass
     if "$TABTOOLS_FONT" != "" local _font "$TABTOOLS_FONT"
     if "$TABTOOLS_FONTSIZE" != "" local _fontsize $TABTOOLS_FONTSIZE
     if `"`font'"' != "" local _font `"`font'"'
-    if `fontsize' != -1 local _fontsize `fontsize'
+    local fontsize = strtrim(`"`fontsize'"')
+    local _fs_given = (`"`fontsize'"' != "")
+    if `_fs_given' & "`fsexplicit'" == "" & `"`fontsize'"' == "-1" local _fs_given 0
+    if `_fs_given' {
+        capture confirm integer number `fontsize'
+        if _rc {
+            display as error "option fontsize() incorrectly specified"
+            exit 198
+        }
+        local _fontsize `fontsize'
+    }
     capture confirm integer number `_fontsize'
     if _rc {
         display as error "fontsize() must be between 1 and 72"
@@ -1080,9 +1096,13 @@ program _tabtools_frame_preflight, rclass
         exit 198
     }
 
+    * confirm name reads only the first word, so "res replace" (comma
+    * forgotten) used to pass as frame res with replace ignored.
     capture confirm name `_pfl_name'
-    if _rc {
-        display as error "`label': invalid frame name `_pfl_name'"
+    if _rc | wordcount(`"`_pfl_name'"') != 1 {
+        display as error `"`label': invalid frame name `_pfl_name'"'
+        if wordcount(`"`_pfl_name'"') > 1 & lower(word(`"`_pfl_name'"', -1)) == "replace" ///
+            display as error `"  did you mean `=subinstr("`label'", "()", "", 1)'(`=word(`"`_pfl_name'"', 1)', replace)?"'
         exit 198
     }
 
@@ -1097,6 +1117,11 @@ program _tabtools_frame_preflight, rclass
     }
     if `_pfl_exists' & `_pfl_repl' & "`_pfl_name'" == "`c(frame)'" {
         display as error "`label': cannot replace the current frame (`_pfl_name')"
+        exit 198
+    }
+    * The default frame holds the user's data too (regtab refuses it the same way)
+    if `_pfl_exists' & `_pfl_repl' & "`_pfl_name'" == "default" {
+        display as error "`label': output frames cannot replace the default frame"
         exit 198
     }
 
@@ -1131,10 +1156,13 @@ program _tabtools_frame_put, nclass
         exit 198
     }
 
-    * Validate frame name
+    * Validate frame name: one word (confirm name reads only the first,
+    * so "res replace" used to create frame res with replace ignored).
     capture confirm name `_fr_name'
-    if _rc {
-        display as error "frame(): invalid frame name `_fr_name'"
+    if _rc | wordcount(`"`_fr_name'"') != 1 {
+        display as error `"frame(): invalid frame name `_fr_name'"'
+        if wordcount(`"`_fr_name'"') > 1 & lower(word(`"`_fr_name'"', -1)) == "replace" ///
+            display as error `"  did you mean frame(`=word(`"`_fr_name'"', 1)', replace)?"'
         exit 198
     }
 
@@ -1144,6 +1172,10 @@ program _tabtools_frame_put, nclass
         if "`_fr_opts'" == "replace" {
             if "`_fr_name'" == "`c(frame)'" {
                 display as error "frame(): cannot replace the current frame (`_fr_name')"
+                exit 198
+            }
+            if "`_fr_name'" == "default" {
+                display as error "frame(): output frames cannot replace the default frame"
                 exit 198
             }
         }

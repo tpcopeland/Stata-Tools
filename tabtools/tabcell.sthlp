@@ -79,6 +79,14 @@ With {opt generate()}, every numeric option ({opt b()}, {opt ll()}, {opt ul()},
 {opt median()}, {opt q1()}, {opt q3()}) is an expression in the data,
 evaluated row by row; {opt per()} stays a number.
 
+{pstd}
+Without {opt generate()}, each is a number or scalar expression. One that
+reads a variable at an implied observation, alone or inside an expression
+({cmd:n(x)}, {cmd:n(x+1)}, {cmd:b(ln(x))}), is refused (error 198), because it
+would silently read the first observation. An explicit subscript
+({cmd:x[2]}), {cmd:_N}, scalars, matrix elements, {cmd:_b[]}, {cmd:_se[]}, and
+stored results such as {cmd:r(N)} are allowed.
+
 
 {synoptset 22 tabbed}{...}
 {synopthdr}
@@ -203,15 +211,16 @@ names the result (default: the first).
 {opt matrix(M row)} reads one row of a matrix or matrix expression; {it:row}
 is a row name or number. The columns named {cmd:b}, {cmd:ll}, and {cmd:ul} are
 used, as in {cmd:r(table)'}, unless {opt cols(# # #)} gives the column
-numbers of the estimate, lower, and upper limit. The values are printed as
-stored, so {opt level()} is not allowed.
+numbers of the estimate, lower, and upper limit; {opt cols()} is refused with
+any other source. The values are printed as stored, so {opt level()} is not
+allowed.
 
 {phang}
 {opt b(#)}, {opt ll(#)}, and {opt ul(#)} give the numbers directly; {opt se(#)}
 in place of {opt ll()} and {opt ul()} gives a normal interval at
 {opt level()}. Without {opt generate()} each is a number or scalar expression; naming
-a variable is refused, because a variable name would silently read the
-first observation.
+a variable, alone or inside an expression, is refused, because it would
+silently read the first observation.
 
 {dlgtab:Format}
 
@@ -232,7 +241,13 @@ scale). {cmd:r(estimate)}, {cmd:r(lb)}, and {cmd:r(ub)} are the scaled numbers, 
 estimate and both limits (or the median and quartiles, or the rate and its
 limits); {cmd:%12.0fc} prints thousands separators. The default is
 {cmd:%9.2f}, and {cmd:%9.1f} for {cmd:tabcell rate}. String and date formats are refused. The printed
-numbers are trimmed of padding. {opt cformat()} is a synonym.
+numbers are trimmed of padding, and the width of a fixed format ({cmd:f},
+{cmd:fc}) never shortens a number: one wider than the format prints in full,
+so {cmd:%9.2f} prints {cmd:1234567.25}, not {cmd:1.23e+06}, up to the 26
+characters Stata's {cmd:string()} writes (about 10^21 at two decimals), beyond
+which it prints in e-notation. A zero-padded format ({cmd:%09.2f}) keeps its
+width, and the width of a {cmd:g} or {cmd:e} format sets its digits as
+usual. {opt cformat()} is a synonym.
 
 {phang}
 {opt digits(#)} is shorthand for {cmd:format(%9.}{it:#}{cmd:f)}, # from 0 to 10,
@@ -341,7 +356,8 @@ names are not case-sensitive. The number is the same in every style, so
 {opt nformat(%fmt)} and {opt pformat(%fmt)} format the counts and the
 percentage of {cmd:np} and {cmd:enp}; {opt nformat()} also formats the count of
 {cmd:tabcell n} (default {cmd:%12.0fc}, as in {helpb table1_tc}, so 12345 prints
-as {cmd:12,345}). The percentage is omitted when the denominator is
+as {cmd:12,345}, and 1234567890 as {cmd:1,234,567,890}: the width of a
+fixed format never drops its thousands separators). The percentage is omitted when the denominator is
 0. A percentage above 0 and below 100 never prints as 0 or 100: where the
 format would round it there, it gains one decimal at a time, up to two or the
 format's own decimals if more ({cmd:0.3}, {cmd:0.04}, {cmd:99.6}), and if it

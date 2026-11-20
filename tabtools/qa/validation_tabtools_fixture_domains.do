@@ -112,7 +112,7 @@ local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37)
-    qa_option_domain, command(crosstab group y, digits(@v@) frame(domain_frame)) inside("-1;0;6") outside("-2;7;3.5;.;.a") setup(_tt_domain_setup) check(_tt_domain_cross_check digits)
+    qa_option_domain, command(crosstab group y, digits(@v@) frame(domain_frame)) inside("0;6") outside("-1;-2;7;3.5;.;.a") setup(_tt_domain_setup) check(_tt_domain_cross_check digits)
     assert r(n_cells)==8 & r(n_violations)==0
 }
 local outcome=_rc
@@ -131,7 +131,7 @@ local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37)
-    qa_option_domain, command(crosstab group y, boldp(@v@) frame(domain_frame)) inside("0.000001;0.999999;-1") outside("0;1;.;.a") setup(_tt_domain_setup) check(_tt_domain_cross_check boldp)
+    qa_option_domain, command(crosstab group y, boldp(@v@) frame(domain_frame)) inside("0.000001;0.999999") outside("-1;0;1;.;.a") setup(_tt_domain_setup) check(_tt_domain_cross_check boldp)
     assert r(n_cells)==7 & r(n_violations)==0
 }
 local outcome=_rc

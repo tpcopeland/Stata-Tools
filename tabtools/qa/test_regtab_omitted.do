@@ -605,6 +605,8 @@ capture noisily {
         * zinb prints equation-qualified row labels; since 2.1.12 a factor
         * level in that layout is an indented level label under its header
         local lab "1"
+        * plain intreg keeps lnsigma:_cons, so its rows are equation-qualified
+        if `k' == 1 local lab "model:   1"
         if `k' == 2 local lab "Price:   1"
         _rto_cell _rto17 "`lab'" c1
         if "`r(cell)'" != "Reference" {

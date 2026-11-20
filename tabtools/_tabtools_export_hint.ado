@@ -1,4 +1,4 @@
-*! _tabtools_export_hint Version 1.1.0  2026/10/31
+*! _tabtools_export_hint Version 1.2.0  2026/11/19
 *! the hint printed after a failed file export: a missing directory, or a file held open
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

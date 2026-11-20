@@ -176,17 +176,20 @@ capture noisily {
     quietly import excel using "$BFC_OUT/bfc_e.xlsx", sheet("S") allstring clear
     quietly count if E == "`want'"
     assert r(N) == 1
-    * both given: xlsx() wins and the excel() file is not written
+    * both given, naming two workbooks: refused (r(198)) and neither file is
+    * written (1.2.0 audit follow-up; xlsx() used to win silently)
     _bfc_data
     capture erase "$BFC_OUT/bfc_unused.xlsx"
-    outtab y1, exposure(expo) estimator(logit, or) excel("$BFC_OUT/bfc_unused.xlsx") xlsx("$BFC_OUT/bfc_used.xlsx")
-    assert `"`r(xlsx)'"' == "$BFC_OUT/bfc_used.xlsx"
-    confirm file "$BFC_OUT/bfc_used.xlsx"
+    capture erase "$BFC_OUT/bfc_used.xlsx"
+    capture noisily outtab y1, exposure(expo) estimator(logit, or) excel("$BFC_OUT/bfc_unused.xlsx") xlsx("$BFC_OUT/bfc_used.xlsx")
+    assert _rc == 198
+    capture confirm file "$BFC_OUT/bfc_used.xlsx"
+    assert _rc == 601
     capture confirm file "$BFC_OUT/bfc_unused.xlsx"
     assert _rc == 601
 }
 if _rc == 0 {
-    display as result "  PASS: C1 excel() writes the same workbook as xlsx(); xlsx() wins when both are given"
+    display as result "  PASS: C1 excel() writes the same workbook as xlsx(); two different workbooks are refused"
     local ++pass_count
 }
 else {

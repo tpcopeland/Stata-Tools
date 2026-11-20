@@ -66,6 +66,11 @@ variable and reports the incidence rate with its confidence interval, one
 section per grouping variable and one column group per outcome. It reads
 {helpb stset} data directly ({cmd:_d} and {cmd:_t - _t0} on {cmd:_st == 1}) or event and
 person-time variables named in {opt events()} and {opt exposure()}.
+Frequency weights declared in {cmd:stset} are honored: events, person-time,
+every interval, and {cmd:r(N)} are those of the data expanded by the weight.
+Probability and importance weights in {cmd:stset} are refused (r(101)); use
+{helpb strate}, which gives jackknife confidence limits under {cmd:stset}
+weights.
 
 {pstd}
 The table is laid out and written by {helpb stratetab}, so its Excel, CSV,
@@ -160,7 +165,9 @@ governs printed output only; {cmd:r()} keeps the numbers. Masking is primary
 only: with several grouping variables over one sample, a masked count can be
 recovered from another variable's totals. Without it, a
 session default set by {cmd:tabtools set smallcells #} applies and is echoed
-in the log; {opt nosmallcells} ignores that default.
+in the log; {opt nosmallcells} ignores that default. # is 3 or more, or 0
+for none: {cmd:smallcells(2)} would print {cmd:<2}, which identifies a count
+of 1; ratetab refuses 1 and 2 before it fits.
 
 {phang}
 {opt masktext(string)} is printed in place of a masked event count, for
@@ -170,7 +177,7 @@ requires a small-cell threshold.
 
 {phang}
 {opt excludemasked}, with {cmd:ci(cluster(}{it:varname}{cmd:))} and a small-cell
-threshold # of 2 or more, leaves the levels with 1 to #-1 events out of the
+threshold # of 3 or more, leaves the levels with 1 to #-1 events out of the
 clustered Poisson fit, as levels with no events always are. Those levels
 then have no interval in {cmd:r(estimates)} (they print masked anyway) and
 are counted in {cmd:r(N_maskfit)}, not {cmd:r(N_noci)}. See {it:Methods} for
@@ -236,7 +243,8 @@ characteristic {cmd:ratetab_groupvar} and the dataset characteristic
 {cmd:ratetab_renamed} record the original name, and {cmd:groupvar} holds it
 on every row. The numbers are the unmasked numbers of {cmd:r(estimates)}, so the
 file is an analysis file, not a release table. The file is checked before
-any work and written after the table.
+any work (that it can be written and, without {cmd:replace}, that it does not
+exist) and written after the table.
 
 {phang}
 All other options are passed to {helpb stratetab}: {opt xlsx()},
@@ -324,6 +332,7 @@ and clustered fit use that outcome's own person-time.
 {synopt:{cmd:r(N_noci)}}cells without a clustered interval{p_end}
 {synopt:{cmd:r(N_nopt)}}cells with no person-time (no rate; printed empty){p_end}
 {synopt:{cmd:r(N_maskfit)}}masked cells left out of the clustered fit{p_end}
+{p 8 8 2}Under {cmd:stset} frequency weights, {cmd:r(N)} is the sum of the weights.{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(ci_method)}}{cmd:exact}, {cmd:poisson}, or {cmd:cluster}{p_end}

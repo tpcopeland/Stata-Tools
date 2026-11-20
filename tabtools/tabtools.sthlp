@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  31oct2026}{...}
+{* *! version 1.2.0  19nov2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -206,11 +206,15 @@ stops with r(198) "unmatched quote" before anything is written; end the text
 with another character.
 
 {pstd}
-{helpb table1_tc}, {helpb desctab}, and {helpb crosstab} accept
-{opt smallcells(#)} for strict disclosure control. They replace protected
+{helpb table1_tc}, {helpb desctab}, {helpb crosstab}, {helpb puttab},
+{helpb comptab}, and {helpb hrcomptab} accept
+{opt smallcells(#)} for strict disclosure control. {cmd:puttab} masks only the
+columns named in {opt counts()} and protects only the sums it is told about
+({opt fraction()}, {opt rowtotal()}, {opt totalrow()}). They replace protected
 positive counts with {cmd:<#}, use {cmd:≥#} for complementary suppression, and
 withhold dependent results before console, Excel, CSV, Markdown, LaTeX, frame, or
-stored-result output is built. See each command's help for its supported
+stored-result output is built; {cmd:puttab}, {cmd:comptab}, and {cmd:hrcomptab}
+mask what they print and keep the numbers in {cmd:r()} and the data in memory. See each command's help for its supported
 layouts and fail-closed limits. A deterministic final pass removes every
 individually redundant complementary marker; the retained set is irredundant
 but not guaranteed globally minimum.
@@ -437,7 +441,8 @@ others print {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)
 and {helpb stacktab} use the session workbook whenever
 {cmd:using} is omitted. {cmd:smallcells} is honoured by
 {helpb desctab}, {helpb table1_tc}, {helpb crosstab}, {helpb stratetab},
-{helpb ratetab}, and {helpb outtab}; {opt nosmallcells} turns it off for one
+{helpb ratetab}, {helpb outtab}, {helpb comptab}, {helpb hrcomptab}, and
+{helpb puttab} (with {opt counts()}); {opt nosmallcells} turns it off for one
 call. {cmd:borderstyle} is both a settings key and a session key: it takes the
 values the {opt borderstyle()} option takes ({cmd:default}, {cmd:thin},
 {cmd:medium}, {cmd:academic}, in lower case), every command with a
@@ -534,7 +539,15 @@ commands, so it can be read, version controlled, and run as a do-file.
 {pstd}
 {cmd:tabtools use} loads a saved profile into the current session. With no
 {cmd:using} file, it reads the default PERSONAL profile; with {cmd:using}, it
-reads the named project profile.
+reads the named project profile. The profile replaces the formatting defaults
+(font, fontsize, borderstyle, headercolor, zebracolor, digits, boldp): one the
+profile does not set is cleared. Session settings (workbook, markdown, latex,
+texopts, headershade, smallcells) are kept.
+
+{pstd}
+{cmd:fontsize}, {cmd:digits}, and {cmd:smallcells} are stored as the number,
+not as typed: {cmd:tabtools set smallcells +5} or {cmd:05} is stored as
+{cmd:5}, and masked cells and footnotes read {cmd:<5}.
 
 {pstd}
 After {cmd:tabtools set clear} or in a fresh session, the baseline resolved
@@ -678,12 +691,19 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {synopt:{cmd:r(fontsize)}}font size (when setting fontsize){p_end}
 {synopt:{cmd:r(digits)}}digits (when setting digits){p_end}
 {synopt:{cmd:r(boldp)}}boldp threshold (when setting boldp){p_end}
+{synopt:{cmd:r(smallcells)}}small-cell threshold (a macro under {cmd:query}){p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(font)}}font name (when setting font){p_end}
 {synopt:{cmd:r(borderstyle)}}border style (when setting borderstyle){p_end}
 {synopt:{cmd:r(headercolor)}}header color (when setting headercolor){p_end}
 {synopt:{cmd:r(zebracolor)}}zebra color (when setting zebracolor){p_end}
+{synopt:{cmd:r(workbook)}}absolute path of the session workbook{p_end}
+{synopt:{cmd:r(markdown)}}absolute path of the session Markdown file{p_end}
+{synopt:{cmd:r(latex)}}absolute path of the session LaTeX file{p_end}
+{synopt:{cmd:r(texopts)}}session LaTeX layout sub-options{p_end}
+{synopt:{cmd:r(headershade)}}{cmd:on} or {cmd:off}{p_end}
+{synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary}{p_end}
 {synopt:{cmd:r(action)}}{cmd:"cleared"} (when using {cmd:set clear} or {cmd:set} {it:key} {cmd:clear}){p_end}
 {synopt:{cmd:r(key)}}the key removed by {cmd:set} {it:key} {cmd:clear}{p_end}
 {synopt:{cmd:r(permanent)}}{cmd:"permanent"} (when saving a disk profile){p_end}
@@ -749,7 +769,7 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-10-31{p_end}
+{pstd}Version 1.2.0, 2026-11-19{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

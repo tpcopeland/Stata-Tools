@@ -1,4 +1,4 @@
-*! tabcell Version 1.1.0  2026/10/31
+*! tabcell Version 1.2.0  2026/11/19
 *! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR), rate (CI)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -84,18 +84,45 @@ program define tabcell, rclass
             exit 198
         }
         syntax [anything(name=coef)] [if] [in] [, ///
-            Format(string) CFormat(string) SEP(string) Level(real -1) EFORM ///
+            Format(string) CFormat(string) SEP(string) Level(string) EFORM ///
             MISSing(string asis) GENerate(name) ///
-            B(string) LL(string) UL(string) SE(string) ///
+            B(string asis) LL(string asis) UL(string asis) SE(string asis) ///
             LINcom NLcom MATrix(string) COLs(numlist min=3 max=3 integer >0) ///
-            P(string) PDP(integer 3) HIGHPDP(integer 2) PSTYle(string) ///
-            N(string) D(string) E(string) MEDian(string) Q1(string) Q3(string) ///
-            MINcell(integer 0) NFormat(string) PFormat(string) SCALE(string) ///
-            LOCal(name) GLOBal(name) CI(string) PT(string) PER(string) NOCount ///
-            DIGits(integer -1)]
+            P(string asis) PDP(string) HIGHPDP(string) PSTYle(string) ///
+            N(string asis) D(string asis) E(string asis) MEDian(string asis) ///
+            Q1(string asis) Q3(string asis) ///
+            MINcell(string) NFormat(string) PFormat(string) SCALE(string) ///
+            LOCal(name) GLOBal(name) CI(string) PT(string asis) PER(string) NOCount ///
+            DIGits(string)]
+        * The numeric options are expressions, read asis: a plain string
+        * option drops the quotes of a blank-delimited piece, so
+        * n(colnumb(M, "ul")) reached the code as colnumb(M, ul ).
         * sep() is data (help tabtools##sep): read and written in Mata only,
         * never re-expanded; _sep_opt hands it to _tabcell_render unchanged
         mata: st_local("_sep_given", strofreal(st_local("sep") != ""))
+        foreach _o in b ll ul se p n d e median q1 q3 pt {
+            mata: st_local("`_o'", strtrim(st_local("`_o'")))
+        }
+        * level(), digits(), pdp(), highpdp() and mincell() are read as text,
+        * so a given option is told from an absent one by its presence, never
+        * by a magic default value: level(-1) and digits(-1) reach the range
+        * checks, and pdp(3) on a form that takes no p-value is refused.
+        foreach _o in level digits pdp highpdp mincell {
+            local `_o' = strtrim(`"``_o''"')
+            local _`_o'_given = (`"``_o''"' != "")
+        }
+        foreach _o in digits pdp highpdp mincell {
+            if `_`_o'_given' {
+                capture confirm integer number ``_o''
+                if _rc {
+                    display as error `"`_o'(): "``_o''" is not an integer"'
+                    exit 198
+                }
+            }
+        }
+        if !`_pdp_given' local pdp 3
+        if !`_highpdp_given' local highpdp 2
+        if !`_mincell_given' local mincell 0
 
         **# local()/global(): validate the names before anything else, so the
         * cleanup zone clears only a macro the caller could have named.
@@ -127,9 +154,13 @@ program define tabcell, rclass
             display as error "tabcell `form': coefficient, lincom, nlcom and matrix() belong to tabcell est"
             exit 198
         }
-        if `level' == -1 local _level_given 0
+        if !`_level_given' local level = c(level)
         else {
-            local _level_given 1
+            capture confirm number `level'
+            if _rc {
+                display as error `"level(): "`level'" is not a number"'
+                exit 198
+            }
             if `level' < 10 | `level' > 99.99 {
                 display as error "level() must be between 10 and 99.99"
                 exit 198
@@ -355,7 +386,7 @@ program define tabcell, rclass
         }
         if `"`cformat'"' != "" local format `"`cformat'"'
         * digits(#): shorthand for format(%9.#f)
-        if `digits' != -1 {
+        if `_digits_given' {
             if `"`format'"' != "" {
                 display as error "digits() and format() may not be combined"
                 exit 198
@@ -380,8 +411,16 @@ program define tabcell, rclass
             if `"`format'"' != "" local _not_est "`_not_est' format()"
             if `_sep_given' & `"`ci'"' == "" local _not_est "`_not_est' sep()"
         }
-        if "`form'" != "p" & (`pdp' != 3 | `highpdp' != 2 | `"`p'`pstyle'"' != "") local _not_est "`_not_est' p()/pdp()/highpdp()/pstyle()"
-        if !inlist("`form'", "n", "np", "enp", "rate") & `mincell' != 0 local _not_est "`_not_est' mincell()"
+        * cols() picks the columns of matrix(): refused with any other source
+        if `"`cols'"' != "" & "`_src'" != "matrix" {
+            if "`form'" == "est" {
+                display as error "cols() goes with matrix(): it numbers the matrix columns of the estimate and limits"
+                exit 198
+            }
+            local _not_est "`_not_est' cols()"
+        }
+        if "`form'" != "p" & (`_pdp_given' | `_highpdp_given' | `"`p'`pstyle'"' != "") local _not_est "`_not_est' p()/pdp()/highpdp()/pstyle()"
+        if !inlist("`form'", "n", "np", "enp", "rate") & `_mincell_given' local _not_est "`_not_est' mincell()"
         if !inlist("`form'", "n", "np", "enp") & `"`nformat'"' != "" local _not_est "`_not_est' nformat()"
         if !inlist("`form'", "np", "enp") & `"`pformat'"' != "" local _not_est "`_not_est' pformat()"
         if !inlist("`form'", "n", "np", "enp") & `"`n'"' != "" local _not_est "`_not_est' n()"
@@ -544,7 +583,7 @@ program define tabcell, rclass
                 local _k = 0
                 local _rest `"`_exps'"'
                 while `"`_rest'"' != "" {
-                    gettoken _x _rest : _rest, parse("\")
+                    gettoken _x _rest : _rest, parse("\") quotes
                     if `"`_x'"' == "\" continue
                     local ++_k
                     tempvar v`_k'
@@ -586,9 +625,9 @@ program define tabcell, rclass
             if "`form'" == "est" & "`_src'" == "numbers" {
                 foreach _o in b ll ul se {
                     if `"``_o''"' == "" continue
-                    capture confirm variable ``_o'', exact
-                    if !_rc {
-                        display as error `"`_o'() names a variable; use generate() to format a variable"'
+                    _tabcell_barevar _bv : ``_o''
+                    if "`_bv'" != "" {
+                        display as error `"`_o'() names a variable (`_bv'), which would be read at its first observation; use generate() to format a variable"'
                         exit 198
                     }
                     capture scalar `_s1' = (``_o'')
@@ -620,12 +659,12 @@ program define tabcell, rclass
                 local _k = 0
                 local _rest `"`_exps'"'
                 while `"`_rest'"' != "" {
-                    gettoken _x _rest : _rest, parse("\")
+                    gettoken _x _rest : _rest, parse("\") quotes
                     if `"`_x'"' == "\" continue
                     local ++_k
-                    capture confirm variable `_x', exact
-                    if !_rc {
-                        display as error `"tabcell: "`_x'" is a variable; use generate() to format a variable"'
+                    _tabcell_barevar _bv : `_x'
+                    if "`_bv'" != "" {
+                        display as error `"tabcell: "`_x'" names a variable (`_bv'), which would be read at its first observation; use generate() to format a variable"'
                         exit 198
                     }
                     capture scalar `_s`_k'' = (`_x')
@@ -728,6 +767,63 @@ program define tabcell, rclass
     * a failed call clears the requested macro: never a stale cell
     if `rc' & "`_set_local'" != "" c_local `_set_local'
     if `rc' & "`_set_global'" != "" global `_set_global'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* _tabcell_barevar lmacname : exp
+* Puts in the caller's local lmacname the first variable that exp reads at
+* an implied observation (a bare name: x, x+1, ln(x)), or "" if none. A
+* scalar expression reads such a variable at observation 1 without error, so
+* the scalar forms refuse it. Not data references, and so skipped: string
+* literals, subscripts (x[2], _b[x], [eq]_b[x]), the arguments of r(), e(),
+* s(), c(), scalar() and the matrix functions, names called as functions,
+* and numbers. Sets no r(), e() or s(): the caller's r() may still be read.
+capture program drop _tabcell_barevar
+program define _tabcell_barevar, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        gettoken _lm 0 : 0
+        gettoken _colon 0 : 0, parse(":")
+        c_local `_lm' ""
+        local _s : copy local 0
+        * string literals
+        mata: st_local("_s", ustrregexra(st_local("_s"), char(34) + "[^" + char(34) + "]*" + char(34), " 0 "))
+        * subscripts, innermost first, become a # after their name
+        local _prev ""
+        local _guard 0
+        while `"`macval(_s)'"' != `"`macval(_prev)'"' & `_guard' < 500 {
+            local _prev : copy local _s
+            mata: st_local("_s", ustrregexra(st_local("_s"), "\[[^\[\]]*\]", "#"))
+            local ++_guard
+        }
+        * numbers, then the system and extended missing values
+        mata: st_local("_s", ustrregexra(st_local("_s"), "(?<![A-Za-z0-9_])[0-9]*\.?[0-9]+(?:[eE][+-]?[0-9]+)?", " "))
+        mata: st_local("_s", ustrregexra(st_local("_s"), "(?<![A-Za-z0-9_])\.[a-z]?(?![A-Za-z0-9_])", " "))
+        * stored results and matrix functions: their arguments are names of
+        * results, scalars or matrices, never data (innermost call first)
+        local _prev ""
+        local _guard 0
+        while `"`macval(_s)'"' != `"`macval(_prev)'"' & `_guard' < 500 {
+            local _prev : copy local _s
+            mata: st_local("_s", ustrregexra(st_local("_s"), "\b(?:r|e|s|c|scalar|el|rownumb|colnumb|rowsof|colsof|matrix|issymmetric|diag0cnt|trace|det|matmissing|mreldif)\s*\([^()]*\)", " 0 "))
+            local ++_guard
+        }
+        * names called as functions or subscripted
+        mata: st_local("_s", ustrregexra(st_local("_s"), "[A-Za-z_][A-Za-z0-9_]*\s*[(#]", " "))
+        mata: st_local("_s", ustrregexra(st_local("_s"), "[^A-Za-z0-9_]+", " "))
+        foreach _w of local _s {
+            if !ustrregexm("`_w'", "^[A-Za-z_]") continue
+            capture confirm variable `_w', exact
+            if !_rc {
+                c_local `_lm' "`_w'"
+                continue, break
+            }
+        }
+    }
+    local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

@@ -1,4 +1,4 @@
-*! puttab Version 1.1.0  2026/10/31
+*! puttab Version 1.2.0  2026/11/19
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -48,6 +48,10 @@ program define puttab, rclass
     local _ret_latex ""
     local _ret_latex_rows .
     local _ret_latex_cols .
+    local _ret_sc 0
+    local _ret_sc_k 0
+    local _ret_sc_np 0
+    local _ret_sc_nc 0
     local _sink ""
     capture noisily {
 
@@ -81,28 +85,61 @@ program define puttab, rclass
                 [ FRAme(string) Matrix(string) ///
                   SHeet(string) ///
                   TItle(string) FOOTnote(string) ///
-                  FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
+                  FONT(string) FONTSIZE(string) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra NOHEADERShade HEADERShade ///
-                  DIGits(integer -1) NFormat(string) VARLabels NOHeader NOEMBedheader ///
+                  DIGits(string) NFormat(string) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) open ///
                   PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ///
-                  BLOCKheader ]
+                  BLOCKheader ///
+                  SMALLCells(string asis) NOSMALLCells COUNTs(string) WITHhold(string) ///
+                  FRACtion(string) ROWTotal(string) TOTALrow(string asis) ]
         }
         else {
             syntax [anything(name=vlist)] [if] [in] [using/] , ///
                 [ FRAme(string) Matrix(string) ///
                   SHeet(string) ///
                   TItle(string) FOOTnote(string) ///
-                  FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
+                  FONT(string) FONTSIZE(string) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra NOHEADERShade HEADERShade ///
-                  DIGits(integer -1) NFormat(string) VARLabels NOHeader NOEMBedheader ///
+                  DIGits(string) NFormat(string) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) open ///
                   PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ///
-                  BLOCKheader ]
+                  BLOCKheader ///
+                  SMALLCells(string asis) NOSMALLCells COUNTs(string) WITHhold(string) ///
+                  FRACtion(string) ROWTotal(string) TOTALrow(string asis) ]
+        }
+
+        * digits() is read as text so that an option not given
+        * (-1 below) cannot collide with a typed value: with -1 defaults, a
+        * typed -1 was taken as no option at rc 0. Every typed value is
+        * range-checked below.
+        foreach _nopt in digits {
+            local _nval = strtrim(`"``_nopt''"')
+            if `"`_nval'"' == "" {
+                local `_nopt' -1
+                continue
+            }
+            capture confirm number `_nval'
+            if _rc {
+                noisily display as error "option `_nopt'() incorrectly specified"
+                exit 198
+            }
+            if `_nval' == -1 {
+                local _nmsg "between 0 and 6"
+                noisily display as error "`_nopt'() must be `_nmsg'"
+                exit 198
+            }
+            * an integer typed with a decimal point (2.0, 1e0) is accepted, as
+            * the integer syntax type did
+            if `_nval' != int(`_nval') {
+                noisily display as error "`_nopt'() must be an integer"
+                exit 198
+            }
+            local `_nopt' = `_nval'
         }
 
         * matrix(): a matrix name, r(name), or e(name); copy it now.
@@ -281,7 +318,7 @@ program define puttab, rclass
         }
 
         * ----- shared formatting / colors -----
-        _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') ///
+        _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') fsexplicit borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
         _tabtools_resolve_colors, headercolor(`"`headercolor'"') ///
             zebracolor(`"`zebracolor'"')
@@ -334,6 +371,52 @@ program define puttab, rclass
             * before preserve, so a typo fails without a restore.
             unab _keepvars : `vlist'
             local _src "data"
+        }
+
+        * An empty smallcells() reads as absent to syntax; refuse it (r(198))
+        * rather than fall through to no masking or the session default.
+        if `"`smallcells'"' == "" {
+            _tabtools_smallcells_opt __empty `macval(0)'
+        }
+        * ----- smallcells() disclosure control (counts() columns only) -----
+        * puttab cannot tell which columns are person counts, so masking
+        * applies only to the columns counts() names; the threshold comes
+        * from smallcells(), nosmallcells, or the session default.
+        local counts = strtrim(`"`counts'"')
+        local _sc_on = (`"`counts'"' != "")
+        local _sc_k ""
+        local _sc_mode ""
+        foreach _o in withhold fraction rowtotal totalrow {
+            if strtrim(`"``_o''"') != "" & !`_sc_on' {
+                noisily display as error "`_o'() requires counts()"
+                exit 198
+            }
+        }
+        if `_sc_on' {
+            if "`_src'" == "matrix" {
+                noisily display as error "counts() is not allowed with a matrix() source; it names variables"
+                exit 198
+            }
+            _tabtools_smallcells_opt, smallcells(`smallcells') `nosmallcells'
+            * counts() without a threshold would print every count raw at
+            * rc 0; raw counts must be asked for with nosmallcells
+            if "`_sc_k'" == "" & "`nosmallcells'" == "" {
+                noisily display as error "counts() requires smallcells(#) or a session default (tabtools set smallcells #); specify nosmallcells to print the counts unmasked"
+                exit 198
+            }
+            if "`_sc_k'" != "" & "`_sc_mode'" == "full" & ///
+                strtrim(`"`rowtotal'"') == "" & strtrim(`"`totalrow'"') == "" {
+                noisily display as text "(puttab: smallcells(`_sc_k'): no rowtotal() or totalrow() declared; a printed total that is not declared is not protected)"
+            }
+            local _ret_sc 1
+            local _ret_sc_k = cond("`_sc_k'" == "", 0, 0`_sc_k')
+        }
+        else if strtrim(`"`smallcells'"') != "" {
+            noisily display as error "smallcells() requires counts(): name the columns that hold counts of persons"
+            exit 198
+        }
+        else if "`nosmallcells'" == "" & `"$TABTOOLS_set_smallcells"' != "" {
+            noisily display as text "(puttab: session smallcells($TABTOOLS_set_smallcells) not applied: puttab masks only the columns named in counts())"
         }
 
         * ----- panel()/panelheader()/spanheader() (O2, O3) -----
@@ -539,6 +622,25 @@ program define puttab, rclass
                 quietly keep if `_touse'
                 quietly drop `_touse'
             }
+            * smallcells(): resolve the counts(), fraction(), withhold() and
+            * rowtotal() names and mark the totalrow() rows now, while every
+            * source variable is in memory (the expression may use a column
+            * the varlist does not export).
+            local _sc_trvar ""
+            if `_sc_on' {
+                _puttab_sc_parse, counts(`counts') fraction(`fraction') ///
+                    withhold(`withhold') rowtotal(`rowtotal')
+                if strtrim(`"`macval(totalrow)'"') != "" {
+                    tempvar _sc_trvar
+                    quietly gen byte `_sc_trvar' = 0
+                    capture noisily quietly replace `_sc_trvar' = 1 if (`totalrow')
+                    if _rc {
+                        local _sc_rc = _rc
+                        noisily display as error "totalrow() must be an expression true for the total rows"
+                        exit `_sc_rc'
+                    }
+                }
+            }
             if `"`vlist'"' != "" {
                 unab _keepvars : `vlist'
                 local _keepvars : list _keepvars - _pt_pvars
@@ -547,16 +649,45 @@ program define puttab, rclass
                     noisily display as error "source contains no variables to export"
                     exit 111
                 }
-                keep `_keepvars' `_pt_pvars'
+                keep `_keepvars' `_pt_pvars' `_sc_trvar'
                 order `_keepvars'
             }
             quietly ds
             local _srcvars `r(varlist)'
             local _srcvars : list _srcvars - _pt_pvars
             local _srcvars : list _srcvars - _pt_keys
+            local _srcvars : list _srcvars - _sc_trvar
             if "`_srcvars'" == "" {
                 noisily display as error "source contains no variables to export"
                 exit 111
+            }
+            * smallcells(): masks from the _tabtools_smallcells engine, then
+            * one rendered text column per count, fraction and withheld
+            * column (_sc_ovr pairs "column textvar"); a fraction()
+            * denominator is printed inside its fraction, not on its own.
+            local _sc_ovr ""
+            if `_sc_on' {
+                quietly count
+                if r(N) > 0 {
+                    local _sc_pv ""
+                    if `_has_panel' local _sc_pv "`panel'"
+                    * names for the rendered text variables, owned here so
+                    * they live until the table is built
+                    local _sc_pool ""
+                    foreach _v of local _srcvars {
+                        tempvar _sc_t
+                        local _sc_pool `_sc_pool' `_sc_t'
+                    }
+                    _puttab_sc_apply, srcvars(`_srcvars') k(`_sc_k') ///
+                        mode(`_sc_mode') panelvar(`_sc_pv') ///
+                        trvar(`_sc_trvar') digits(`digits') nformat(`nformat') ///
+                        counts(`_sc_counts') fnum(`_sc_fnum') fden(`_sc_fden') ///
+                        rttot(`_sc_rttot') rtadd(`_sc_rtadd') withhold(`_sc_w') ///
+                        pool(`_sc_pool')
+                    local _srcvars : list _srcvars - _sc_consumed
+                    local _ret_sc_np = `_sc_np'
+                    local _ret_sc_nc = `_sc_nc'
+                }
             }
             * blockheader: spans from the exported columns' characteristics,
             * read now, while the source variables still exist
@@ -610,7 +741,7 @@ program define puttab, rclass
             }
             mata: _puttab_data_table("`_srcvars'", `digits', `_titlerows', ///
                 `_headerrows', `_uselbl', "`_pt_headvar'", "`_pt_newvar'", ///
-                "`_pt_phvars'", "`nformat'")
+                "`_pt_phvars'", "`nformat'", "`_sc_ovr'")
             if `"`macval(_pt_inl_err)'"' != "" {
                 noisily display as error `"panelinline: panel "`macval(_pt_inl_err)'" has text in the first cell of its panel header, where the heading goes; blank that cell or drop panelinline"'
                 exit 198
@@ -1137,6 +1268,11 @@ program define puttab, rclass
         return local  source    "`_ret_source'"
         return scalar n_panels  = `_ret_npanels'
         return scalar n_spans   = `_ret_nspan'
+        if `_ret_sc' {
+            return scalar smallcells      = `_ret_sc_k'
+            return scalar n_primary       = `_ret_sc_np'
+            return scalar n_complementary = `_ret_sc_nc'
+        }
         if `"`_ret_file'"' != "" {
             return local  sheet     `"`macval(_ret_sheet)'"'
             return local  file      `"`_ret_file'"'
@@ -1178,6 +1314,287 @@ end
 
 
 * ============================================================================
+* smallcells(): option parsing and masking (private to puttab)
+* ============================================================================
+
+* Resolve the counts(), fraction(), rowtotal() and withhold() names against
+* the source (every variable still in memory) and check how they combine.
+* Sets in the caller: _sc_counts, _sc_fnum, _sc_fden (paired lists),
+* _sc_rttot (the rowtotal() totals), _sc_rtadd (the addends of each total,
+* separated by ";"), and _sc_w (normalized "\ key: vars \ key: vars").
+capture program drop _puttab_sc_parse
+program define _puttab_sc_parse, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _c ""
+    local _fn ""
+    local _fd ""
+    local _rt ""
+    local _ra ""
+    local _w ""
+    capture noisily {
+        syntax , COUNTs(string) [FRACtion(string) WITHhold(string) ROWTotal(string)]
+
+        capture unab _c : `counts'
+        if _rc {
+            display as error "counts(): `counts' does not name variables of the source"
+            exit 111
+        }
+        local _dup : list dups _c
+        if "`_dup'" != "" {
+            display as error "counts(): `_dup' is listed more than once"
+            exit 198
+        }
+
+        * fraction(num/denom ...): both are counts() columns
+        foreach _t of local fraction {
+            if !regexm(`"`_t'"', "^([^/]+)/([^/]+)$") {
+                display as error `"fraction(): `_t' is not num/denom; write each pair without spaces, e.g. e1/n1"'
+                exit 198
+            }
+            local _a = regexs(1)
+            local _b = regexs(2)
+            foreach _s in a b {
+                capture unab _u : `_`_s''
+                if _rc | `: word count `_u'' != 1 {
+                    display as error "fraction(): `_`_s'' does not name one variable of the source"
+                    exit 111
+                }
+                if !`: list _u in _c' {
+                    display as error "fraction(): `_u' must also be named in counts()"
+                    exit 198
+                }
+                local _`_s' `_u'
+            }
+            if "`_a'" == "`_b'" {
+                display as error "fraction(): `_a'/`_b' divides a column by itself"
+                exit 198
+            }
+            local _fn `_fn' `_a'
+            local _fd `_fd' `_b'
+        }
+        local _fall `_fn' `_fd'
+        local _dup : list dups _fall
+        if "`_dup'" != "" {
+            display as error "fraction(): `_dup' is in more than one fraction"
+            exit 198
+        }
+
+        * rowtotal(totvar [: addends] [\ totvar: addends ...]): in every
+        * row the addends add up to totvar; one specification without
+        * ": addends" means every other counts() column. Several sums are
+        * disjoint groups (_rt lists the totals, _ra the addends of each
+        * total separated by ";").
+        local _rtspecs : copy local rowtotal
+        local _nrt 0
+        local _rtall ""
+        local _rtadds ""
+        while strtrim(`"`_rtspecs'"') != "" {
+            gettoken _spec _rtspecs : _rtspecs, parse("\")
+            local _spec = strtrim(`"`_spec'"')
+            if `"`_spec'"' == "\" | `"`_spec'"' == "" continue
+            local ++_nrt
+            local _rtspec`_nrt' `"`_spec'"'
+        }
+        forvalues _i = 1/`_nrt' {
+            local _spec `"`_rtspec`_i''"'
+            gettoken _rtv _rest : _spec, parse(":")
+            capture unab _t : `_rtv'
+            if _rc | `: word count `_t'' != 1 {
+                display as error "rowtotal(): `_rtv' does not name one variable of the source"
+                exit 111
+            }
+            if !`: list _t in _c' {
+                display as error "rowtotal(): `_t' must also be named in counts()"
+                exit 198
+            }
+            local _a ""
+            local _rest = strtrim(`"`_rest'"')
+            if `"`_rest'"' != "" {
+                local _rest = strtrim(substr(`"`_rest'"', 2, .))
+                capture unab _a : `_rest'
+                if _rc | `"`_rest'"' == "" {
+                    display as error "rowtotal(): `_rest' does not name variables of the source"
+                    exit 111
+                }
+                foreach _v of local _a {
+                    if !`: list _v in _c' {
+                        display as error "rowtotal(): addend `_v' must also be named in counts()"
+                        exit 198
+                    }
+                }
+            }
+            else {
+                if `_nrt' > 1 {
+                    display as error "rowtotal(): name the addends of every sum when you declare more than one, as in rowtotal(etot: e1 e0 \ ntot: n1 n0)"
+                    exit 198
+                }
+                local _a : list _c - _t
+                local _clash : list _a & _fall
+                if "`_clash'" != "" {
+                    display as error "rowtotal(): `_clash' is in a fraction(); name the addends, as in rowtotal(`_t': varlist)"
+                    exit 198
+                }
+            }
+            if `: list _t in _a' {
+                display as error "rowtotal(): `_t' cannot be one of its own addends"
+                exit 198
+            }
+            if "`_a'" == "" {
+                display as error "rowtotal(): no counts() column adds up to `_t'"
+                exit 198
+            }
+            local _dup : list dups _a
+            if "`_dup'" != "" {
+                display as error "rowtotal(): `_dup' is listed more than once"
+                exit 198
+            }
+            local _rall `_t' `_a'
+            local _clash : list _rall & _fall
+            if "`_clash'" != "" {
+                display as error "rowtotal() and fraction() may not share a column (`_clash')"
+                exit 198
+            }
+            local _clash : list _rall & _rtall
+            if "`_clash'" != "" {
+                display as error "rowtotal(): `_clash' is in more than one sum; the sums must not share a column"
+                exit 198
+            }
+            local _rtall `_rtall' `_rall'
+            local _rt `_rt' `_t'
+            local _ra = cond(`"`_ra'"' == "", "`_a'", "`_ra' ; `_a'")
+        }
+
+        * withhold(countvar: varlist [\ countvar: varlist ...])
+        local _rest : copy local withhold
+        while strtrim(`"`_rest'"') != "" {
+            gettoken _spec _rest : _rest, parse("\")
+            local _spec = strtrim(`"`_spec'"')
+            if `"`_spec'"' == "\" | `"`_spec'"' == "" continue
+            gettoken _key _cols : _spec, parse(":")
+            local _cols = strtrim(`"`_cols'"')
+            if substr(`"`_cols'"', 1, 1) != ":" {
+                display as error `"withhold(): `_spec' is not countvar: varlist; separate specifications with \"'
+                exit 198
+            }
+            local _cols = strtrim(substr(`"`_cols'"', 2, .))
+            capture unab _k : `_key'
+            if _rc | `: word count `_k'' != 1 {
+                display as error "withhold(): `_key' does not name one variable of the source"
+                exit 111
+            }
+            if !`: list _k in _c' {
+                display as error "withhold(): `_k' must be named in counts()"
+                exit 198
+            }
+            capture unab _wc : `_cols'
+            if _rc | `"`_cols'"' == "" {
+                display as error "withhold(): `_cols' does not name variables of the source"
+                exit 111
+            }
+            local _w `"`_w' \ `_k': `_wc'"'
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    c_local _sc_counts "`_c'"
+    c_local _sc_fnum "`_fn'"
+    c_local _sc_fden "`_fd'"
+    c_local _sc_rttot "`_rt'"
+    c_local _sc_rtadd "`_ra'"
+    c_local _sc_w `"`_w'"'
+end
+
+* Check the parsed names against the exported columns, mask through the
+* _tabtools_smallcells engine (Mata _puttab_sc_run), and add one rendered
+* text variable per count, fraction and withheld column. Sets in the caller:
+* _sc_ovr ("column textvar" pairs), _sc_consumed (the fraction()
+* denominators, printed inside their fraction), _sc_np and _sc_nc.
+capture program drop _puttab_sc_apply
+program define _puttab_sc_apply, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _sc_ovr ""
+    local _sc_np 0
+    local _sc_nc 0
+    capture noisily {
+        syntax , SRCvars(string) COUNTs(string) [K(string) MODE(string) ///
+            PANELvar(string) TRvar(string) DIGits(integer 2) NFormat(string) ///
+            FNUM(string) FDEN(string) RTTOT(string) RTADD(string) WITHhold(string) ///
+            POOL(string)]
+
+        foreach _v of local counts {
+            if !`: list _v in srcvars' {
+                display as error "counts(): `_v' is not an exported column of the table"
+                exit 198
+            }
+            capture confirm numeric variable `_v', exact
+            if _rc {
+                display as error "counts(): `_v' is not numeric"
+                exit 109
+            }
+        }
+        * withheld columns: exported, and not a denominator printed inside
+        * its fraction (withhold the numerator column to blank the fraction)
+        local _rest : copy local withhold
+        while strtrim(`"`_rest'"') != "" {
+            gettoken _spec _rest : _rest, parse("\")
+            local _spec = strtrim(`"`_spec'"')
+            if `"`_spec'"' == "\" | `"`_spec'"' == "" continue
+            gettoken _key _cols : _spec, parse(":")
+            local _cols = substr(strtrim(`"`_cols'"'), 2, .)
+            foreach _v of local _cols {
+                if !`: list _v in srcvars' {
+                    display as error "withhold(): `_v' is not an exported column of the table"
+                    exit 198
+                }
+                if `: list _v in fden' {
+                    display as error "withhold(): `_v' is printed inside its fraction(); withhold the numerator column instead"
+                    exit 198
+                }
+            }
+        }
+
+        local _lt ""
+        local _ge ""
+        local _k = 0
+        if "`k'" != "" {
+            local _k = `k'
+            _tabtools_smallcells_render, value(1) mask(1) smallcells(`_k')
+            local _lt `"`r(display)'"'
+            _tabtools_smallcells_render, value(`_k') mask(2) smallcells(`_k')
+            local _ge `"`r(display)'"'
+        }
+        local _prim = ("`mode'" == "primary")
+        local _printed : list srcvars - fden
+        tempname _t1 _t2 _t3 _t4 _t5 _t6 _t7
+        local _sc_rc 0
+        local _sc_err ""
+        mata: _puttab_sc_run("`counts'", "`fnum'", "`fden'", "`rttot'", ///
+            "`rtadd'", st_local("withhold"), "`trvar'", "`panelvar'", ///
+            "`_printed'", `_k', `_prim', st_local("_lt"), st_local("_ge"), ///
+            `digits', "`nformat'", "`_t1' `_t2' `_t3' `_t4' `_t5' `_t6' `_t7'", ///
+            "`pool'")
+        if `_sc_rc' {
+            if `"`_sc_err'"' != "" display as error `"`_sc_err'"'
+            exit `_sc_rc'
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    c_local _sc_ovr "`_sc_ovr'"
+    c_local _sc_consumed "`fden'"
+    c_local _sc_np = `_sc_np'
+    c_local _sc_nc = `_sc_nc'
+end
+
+
+
+* ============================================================================
 * Mata: build the c1..cK string table from a dataset or a matrix
 * ============================================================================
 version 17.0
@@ -1193,6 +1610,13 @@ capture mata: mata drop _puttab_fn_locals()
 capture mata: mata drop _puttab_span_err()
 capture mata: mata drop _puttab_block_spans()
 capture mata: mata drop _puttab_put()
+capture mata: mata drop _puttab_sc_run()
+capture mata: mata drop _puttab_sc_fail()
+capture mata: mata drop _puttab_sc_engine()
+capture mata: mata drop _puttab_sc_text()
+capture mata: mata drop _puttab_sc_undeclared()
+capture mata: mata drop _puttab_sc_lonetotal()
+capture mata: mata drop _puttab_sc_copies()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -1370,15 +1794,19 @@ void _puttab_data_table(
     string scalar headvar,
     string scalar newvar,
     string scalar phvars,
-    string scalar nfmt)
+    string scalar nfmt,
+    | string scalar ovr)
 {
-    string rowvector vars
+    string rowvector vars, ov
     string matrix out
     string colvector scol
     real colvector ncol
-    real scalar j, K, N, total, hdr, datatop
+    real scalar i, j, K, N, total, hdr, datatop, o
     string scalar lbl, hdrtext
 
+    // ovr: "column textvar ..." pairs (smallcells()); a listed column is
+    // printed from its rendered text variable instead of its own values
+    ov = tokens(ovr)
     vars = tokens(varlist)
     K = cols(vars)
     N = st_nobs()
@@ -1399,7 +1827,17 @@ void _puttab_data_table(
             out[hdr, j] = hdrtext
         }
         // body
-        if (st_isstrvar(vars[j])) {
+        o = 0
+        for (i = 1; i < cols(ov); i = i + 2) {
+            if (ov[i] == vars[j]) {
+                o = i
+                break
+            }
+        }
+        if (o) {
+            scol = st_sdata(., ov[o + 1])
+        }
+        else if (st_isstrvar(vars[j])) {
             scol = st_sdata(., vars[j])
         }
         else {
@@ -1726,6 +2164,747 @@ void _puttab_matrix_table(
     }
 
     _puttab_emit_table(out)
+}
+
+// smallcells(): an error for the caller to print (rc, message).
+void _puttab_sc_fail(real scalar rc, string scalar msg)
+{
+    st_local("_sc_rc", strofreal(rc))
+    st_local("_sc_err", msg)
+}
+
+// One call of the _tabtools_smallcells engine on count block X. The flags
+// say what is printed: cells (E), row margins (re), column margins (ce),
+// the grand total (ge); every count is tested (sensitive), and so is each
+// column total when the block has a total row (hast). pm = 1 runs the
+// engine's primary mode. Returns the rc; the masks come back in mk (cells),
+// rmk (rows), cmk (columns), tmk (grand), with the engine's counts added to
+// np and nc.
+real scalar _puttab_sc_engine(
+    real matrix X,
+    real matrix E,
+    real scalar re,
+    real rowvector ce,
+    real scalar ge,
+    real scalar hast,
+    real scalar k,
+    real scalar pm,
+    string rowvector tn,
+    real matrix mk,
+    real colvector rmk,
+    real rowvector cmk,
+    real scalar tmk,
+    real scalar np,
+    real scalar nc)
+{
+    real scalar nr, rc
+    string scalar cmd
+
+    nr = rows(X)
+    st_matrix(tn[1], X)
+    st_matrix(tn[2], E)
+    st_matrix(tn[3], J(nr, cols(X), 1))
+    st_matrix(tn[4], J(nr, 1, re))
+    st_matrix(tn[5], (ce :!= 0))
+    st_matrix(tn[6], J(1, cols(X), hast))
+    cmd = "_tabtools_smallcells, counts(" + tn[1] + ") exact(" + tn[2] +
+        ") sensitive(" + tn[3] + ") rowexact(" + tn[4] + ") rowsensitive(" +
+        tn[4] + ") colexact(" + tn[5] + ") colsensitive(" + tn[6] +
+        ") grandexact(" + strofreal(ge) + ") grandsensitive(" + strofreal(ge) +
+        ") smallcells(" + strofreal(k) + ")" + (pm ? " primary" : "")
+    rc = _stata(cmd)
+    if (rc) return(rc)
+    mk = st_matrix("r(mask)")
+    rmk = st_matrix("r(rowmask)")
+    cmk = st_matrix("r(colmask)")
+    tmk = st_numscalar("r(totalmask)")
+    np = np + st_numscalar("r(N_primary_suppressed)")
+    nc = nc + st_numscalar("r(N_secondary_suppressed)")
+    return(0)
+}
+
+// smallcells(): a counts() column -- a single count, a fraction()'s
+// numerator or denominator, or a rowtotal() total -- that equals the row
+// sum of two or more other columns in every exported row where all are
+// nonmissing, and is printed in a row where one of those addends is
+// unknown, gives the masked addend back. The addends are the other
+// counts() columns and each fraction()'s denom-num (unknown where num,
+// denom or it is masked). A declared group wholly among the addends (a
+// fraction's num and denom-num, a rowtotal()'s addends) adds up to its
+// printed total, so it is unknown only where that total is masked, and the
+// declared identity itself (denom = num + denom-num, total = its addends)
+// is skipped, as is one that reduces to a single column (a copy). Returns
+// the error message, or "" when there is none. Subsets
+// are enumerated in full for up to 12 other columns, else pairs and
+// triples.
+string scalar _puttab_sc_undeclared(
+    real matrix C,
+    real matrix M,
+    real matrix Q,
+    string rowvector cv,
+    string rowvector fn,
+    string rowvector fd,
+    string rowvector ra,
+    string rowvector rtt,
+    real rowvector gtype,
+    real matrix gcell,
+    real rowvector gnc,
+    real rowvector gmarg)
+{
+    real scalar m, nf, mm, g, c, mo, smax, s, i, q, r, f, jn, jd, h, ngr
+    real scalar triv, single
+    real rowvector oth, ix, S, inS, mem, gt, used
+    real colvector ok, leak, unk
+    real matrix X, U, Gm
+    string rowvector nm
+    string scalar inner, msg, fallback, what
+
+    m = cols(cv)
+    nf = cols(fn)
+    mm = m + nf
+    X = C
+    U = (M :> 0)
+    nm = cv
+    Gm = J(0, mm, 0)
+    gt = J(1, 0, .)
+    for (f = 1; f <= nf; f++) {
+        jn = selectindex(cv :== fn[f])[1]
+        jd = selectindex(cv :== fd[f])[1]
+        X = X, C[., jd] - C[., jn]
+        U = U, ((Q[., f] :+ M[., jn] :+ M[., jd]) :> 0)
+        nm = nm, fd[f] + " - " + fn[f]
+        Gm = Gm \ J(1, mm, 0)
+        Gm[rows(Gm), jn] = 1
+        Gm[rows(Gm), m + f] = 1
+        gt = gt, jd
+    }
+    for (g = 1; g <= cols(gtype); g++) {
+        if (gtype[g] != 2) continue
+        Gm = Gm \ J(1, mm, 0)
+        Gm[rows(Gm), gcell[g, (1..gnc[g])]] = J(1, gnc[g], 1)
+        gt = gt, gmarg[g]
+    }
+    ngr = rows(Gm)
+    fallback = ""
+    for (c = 1; c <= m; c++) {
+        oth = select(1..mm, (1..mm) :!= c)
+        mo = cols(oth)
+        if (mo < 2) continue
+        smax = (mo <= 12 ? mo : 3)
+        for (s = 2; s <= smax; s++) {
+            ix = 1..s
+            while (1) {
+                S = oth[ix]
+                ok = (X[., c] :< .) :& (rowmissing(X[., S]) :== 0)
+                if (any(ok)) {
+                    if (!any(ok :& (X[., c] :!= rowsum(X[., S])))) {
+                        inS = J(1, mm, 0)
+                        inS[S] = J(1, s, 1)
+                        mem = J(1, mm, 0)
+                        used = J(1, 0, .)
+                        unk = J(rows(X), 1, 0)
+                        triv = 0
+                        for (h = 1; h <= ngr; h++) {
+                            if (any(Gm[h, .] :& !inS)) continue
+                            if (any(Gm[h, .] :& mem)) continue
+                            if (gt[h] == c & sum(Gm[h, .]) == s) triv = 1
+                            mem = mem :| Gm[h, .]
+                            used = used, h
+                            unk = unk :| U[., gt[h]]
+                        }
+                        // terms after the collapse: one left means c equals
+                        // a single column, a copy relation, which
+                        // _puttab_sc_copies judges (equal fraction()
+                        // denominators are allowed there by design)
+                        if (!triv & cols(used) + sum(!mem[S]) < 2) triv = 1
+                        if (!triv) {
+                            for (i = 1; i <= s; i++) {
+                                if (!mem[S[i]]) unk = unk :| U[., S[i]]
+                            }
+                            leak = ok :& (U[., c] :== 0) :& unk
+                            if (any(leak)) {
+                                r = selectindex(leak)[1]
+                                what = ""
+                                for (i = 1; i <= s; i++) {
+                                    if (!mem[S[i]] & U[r, S[i]]) {
+                                        what = nm[S[i]]
+                                        break
+                                    }
+                                }
+                                if (what == "") {
+                                    for (q = 1; q <= cols(used); q++) {
+                                        if (U[r, gt[used[q]]]) {
+                                            what = nm[gt[used[q]]]
+                                            break
+                                        }
+                                    }
+                                }
+                                inner = ""
+                                for (i = 1; i <= s; i++) {
+                                    if (S[i] > m) inner = nm[S[i]]
+                                    else if (anyof(fn, cv[S[i]]) | anyof(fd, cv[S[i]]) |
+                                        anyof(ra, cv[S[i]]) | anyof(rtt, cv[S[i]])) inner = cv[S[i]]
+                                    if (inner != "") break
+                                }
+                                single = !(anyof(fn, cv[c]) | anyof(fd, cv[c]) |
+                                    anyof(ra, cv[c]) | anyof(rtt, cv[c]))
+                                msg = "counts(): " + cv[c] + " equals " +
+                                    invtokens(nm[S], " + ") + " in every exported row, " +
+                                    "so it gives back the masked " + what +
+                                    " in exported row " + strofreal(r) + "; "
+                                // a sum that can be declared is reported first
+                                if (single & inner == "") return(msg +
+                                    "declare the sum in rowtotal() as " + cv[c] +
+                                    ": " + invtokens(cv[S]))
+                                if (fallback == "") {
+                                    if (!single) fallback = msg + cv[c] +
+                                        " is already in a fraction() or rowtotal(), " +
+                                        "so this sum cannot be declared; leave " +
+                                        "an addend out of the table"
+                                    else fallback = msg + inner +
+                                        " is in a fraction() or another sum, so this " +
+                                        "total cannot be declared; leave " + cv[c] +
+                                        " out of the table"
+                                }
+                            }
+                        }
+                    }
+                }
+                // next combination of s indices out of mo
+                i = s
+                while (i >= 1) {
+                    if (ix[i] < mo - s + i) break
+                    i--
+                }
+                if (i < 1) break
+                ix[i] = ix[i] + 1
+                for (q = i + 1; q <= s; q++) ix[q] = ix[q - 1] + 1
+            }
+        }
+    }
+    return(fallback)
+}
+
+// smallcells(): a totalrow() row alone in its panel (an overall total
+// after the panels) is protected as a count of its own, panel by panel.
+// When, in some counts() column (or a fraction()'s denom-num), it equals
+// the sum over the other panels -- all of them, those before it, or those
+// after it, other lone total rows left out -- of each panel's total row
+// (or, without one, its rows), and one of those terms is masked, it gives
+// a masked count back. Returns the error message, or "" when there is none.
+string scalar _puttab_sc_lonetotal(
+    real matrix C,
+    real matrix M,
+    real matrix Q,
+    string rowvector cv,
+    string rowvector fn,
+    string rowvector fd,
+    real colvector tr,
+    real colvector pid,
+    real scalar npan)
+{
+    real scalar m, nf, f, jn, jd, j, p, q, t, set, tot, any1, n1
+    real colvector lone, tpos, idx, tix, dix, val, msk, sel
+    real matrix X, U
+    string rowvector nm
+
+    m = cols(cv)
+    nf = cols(fn)
+    X = C
+    U = (M :> 0)
+    nm = cv
+    for (f = 1; f <= nf; f++) {
+        jn = selectindex(cv :== fn[f])[1]
+        jd = selectindex(cv :== fd[f])[1]
+        X = X, C[., jd] - C[., jn]
+        U = U, ((Q[., f] :+ M[., jn] :+ M[., jd]) :> 0)
+        nm = nm, fd[f] + " - " + fn[f]
+    }
+    tpos = J(npan, 1, 0)
+    for (p = 1; p <= npan; p++) {
+        idx = selectindex(pid :== p)
+        tix = select(idx, tr[idx])
+        if (length(tix)) tpos[p] = tix[1]
+    }
+    for (j = 1; j <= cols(X); j++) {
+        // a panel is lone in column j when its total row is its only row
+        // with a value there
+        lone = J(npan, 1, 0)
+        val = J(npan, 1, 0)
+        msk = J(npan, 1, 0)
+        for (p = 1; p <= npan; p++) {
+            idx = selectindex(pid :== p)
+            dix = select(idx, (!tr[idx]) :& (X[idx, j] :< .))
+            t = tpos[p]
+            if (t) {
+                if (X[t, j] >= .) t = 0
+            }
+            if (t & !length(dix)) lone[p] = 1
+            if (t) {
+                val[p] = X[t, j]
+                msk[p] = U[t, j]
+            }
+            else if (length(dix)) {
+                val[p] = sum(X[dix, j])
+                msk[p] = any(U[dix, j])
+            }
+        }
+        for (p = 1; p <= npan; p++) {
+            if (!lone[p]) continue
+            for (set = 1; set <= 3; set++) {
+                sel = (!lone) :& ((1::npan) :!= p)
+                if (set == 2) sel = sel :& ((1::npan) :< p)
+                if (set == 3) sel = sel :& ((1::npan) :> p)
+                n1 = sum(sel)
+                if (n1 < 1) continue
+                tot = sum(select(val, sel))
+                any1 = any(select(msk, sel))
+                if (tot == val[p] & any1) {
+                    return("totalrow(): the total row in exported row " +
+                        strofreal(tpos[p]) + " is alone in its panel and equals " +
+                        "the sum of the other panels' " + nm[j] + ", one of which " +
+                        "is masked, so it gives a masked count back; puttab " +
+                        "protects each panel on its own and cannot certify masks " +
+                        "across panels: leave that row out of the table")
+                }
+            }
+        }
+    }
+    return("")
+}
+
+// smallcells(): a counts() column outside fraction() that equals another
+// counts() column, or a fraction()'s denom-num, in every exported row
+// where both are nonmissing is a copy of it: printed in a row where the
+// other is masked,
+// it gives the masked count back (a copy is a separate count to the
+// engine, so its own mask does not follow the original's). Returns the
+// error message, or "" when there is none. Q holds the denom-num masks;
+// a copy of denom-num counts as masked where num, denom or it is masked.
+string scalar _puttab_sc_copies(
+    real matrix C,
+    real matrix M,
+    real matrix Q,
+    string rowvector cv,
+    string rowvector fn,
+    string rowvector fd)
+{
+    real scalar m, nf, c, d, r, jn, jd
+    real colvector ok, leak, dv, dm
+    string scalar dname
+
+    m = cols(cv)
+    nf = cols(fn)
+    for (c = 1; c <= m; c++) {
+        // a fraction() member is not taken for a copy: two denominators
+        // (or numerators) may agree in every row by design
+        if (anyof(fn, cv[c]) | anyof(fd, cv[c])) continue
+        for (d = 1; d <= m + nf; d++) {
+            if (d == c) continue
+            if (d <= m) {
+                dv = C[., d]
+                dm = M[., d]
+                dname = cv[d]
+            }
+            else {
+                jn = selectindex(cv :== fn[d - m])[1]
+                jd = selectindex(cv :== fd[d - m])[1]
+                dv = C[., jd] - C[., jn]
+                // denom-num is never printed, so the engine treats it as
+                // unknown: printing it gives back a masked num or denom
+                dm = Q[., d - m] :+ M[., jn] :+ M[., jd]
+                dname = fd[d - m] + " - " + fn[d - m]
+            }
+            ok = (C[., c] :< .) :& (dv :< .)
+            if (!any(ok)) continue
+            if (any(ok :& (C[., c] :!= dv))) continue
+            leak = ok :& (M[., c] :== 0) :& (dm :> 0)
+            if (!any(leak)) continue
+            r = selectindex(leak)[1]
+            return("counts(): " + cv[c] + " equals " + dname +
+                " in every exported row, so it gives back the masked " +
+                (d <= m ? dname : fn[d - m] + "/" + fd[d - m]) +
+                " in exported row " + strofreal(r) +
+                "; a copy of a count is masked as a count of its own, not " +
+                "with the original, so leave " + cv[c] + " out of the table")
+        }
+    }
+    return("")
+}
+
+// smallcells() for puttab. The counts() columns form disjoint groups:
+//   fraction(num/den)      cells num and den-num, row margin den (printed
+//                          as num/den in the numerator's column; den-num is
+//                          never printed but follows from the two)
+//   rowtotal(tot: adds)    cells adds, row margin tot (one group per sum)
+//   any other count        a single cell per row
+// Within a panel (panel(), else the whole table) a totalrow() row gives the
+// column margins and, for the first two kinds, the grand total. A group's
+// row is in the block when all its values are nonmissing; partly missing
+// is an error, and so is any identity that the declared margins do not
+// satisfy. Without column margins rows are independent, so each row is
+// its own block (a single-cell group: one primary-mode call, which is exact
+// when nothing is margined). Masks are 0 printed, 1 small, 2 complementary.
+// Posts _sc_ovr (column / rendered text variable pairs), _sc_np, _sc_nc,
+// or _sc_rc and _sc_err.
+void _puttab_sc_run(
+    string scalar cvars,
+    string scalar fnums,
+    string scalar fdens,
+    string scalar rttot,
+    string scalar rtadds,
+    string scalar wspec,
+    string scalar trvar,
+    string scalar pvar,
+    string scalar printed,
+    real scalar k,
+    real scalar prim,
+    string scalar lt,
+    string scalar ge,
+    real scalar digits,
+    string scalar nfmt,
+    string scalar tnames,
+    string scalar pool)
+{
+    string rowvector cv, fn, fd, ra, rtt, rap, pr, tn, wc, pieces, gv, pl
+    string colvector ps, s, s2, txt
+    string scalar ovr, nm, piece, v
+    real matrix C, M, Q, V, X, E, mk, gcell
+    real colvector tr, pid, pres, nm2, idx, tix, bix, B, rmk, trig, pc, bad
+    real rowvector cmk, cells, ce, gtype, gmarg, gfr, gnc
+    real scalar n, m, nf, ng, g, j, jj, f, p, npan, t, r, rc, np, nc
+    real scalar tmk, hast, ty, jn, jd, jt, w, nw, pos, isnum, i, re, gE, pm
+    real scalar lim, ff
+    string scalar umsg
+
+    st_local("_sc_rc", "0")
+    st_local("_sc_err", "")
+    cv = tokens(cvars)
+    fn = tokens(fnums)
+    fd = tokens(fdens)
+    rtt = tokens(rttot)
+    ra = tokens(subinstr(rtadds, ";", " "))
+    rap = J(1, 0, "")
+    pieces = tokens(rtadds, ";")
+    for (i = 1; i <= cols(pieces); i++) {
+        if (pieces[i] != ";") rap = rap, pieces[i]
+    }
+    pr = tokens(printed)
+    tn = tokens(tnames)
+    pl = tokens(pool)
+    m = cols(cv)
+    nf = cols(fn)
+    n = st_nobs()
+    C = st_data(., cv)
+    np = 0
+    nc = 0
+
+    for (j = 1; j <= m; j++) {
+        bad = selectindex((C[., j] :< .) :& ((C[., j] :< 0) :| (C[., j] :!= floor(C[., j]))))
+        if (length(bad)) {
+            _puttab_sc_fail(459, "counts(): " + cv[j] + " is " +
+                strofreal(C[bad[1], j]) + " in exported row " + strofreal(bad[1]) +
+                "; counts must be nonnegative integers")
+            return
+        }
+    }
+
+    // panels and total rows
+    tr = (trvar != "" ? (st_data(., trvar) :!= 0) : J(n, 1, 0))
+    if (trvar != "" & !any(tr)) {
+        _puttab_sc_fail(459, "totalrow(): no exported row is a total row")
+        return
+    }
+    pid = J(n, 1, 1)
+    if (pvar != "") {
+        if (st_isstrvar(pvar)) {
+            ps = st_sdata(., pvar)
+            for (i = 2; i <= n; i++) pid[i] = pid[i - 1] + (ps[i] != ps[i - 1])
+        }
+        else {
+            pc = st_data(., pvar)
+            for (i = 2; i <= n; i++) pid[i] = pid[i - 1] + (pc[i] != pc[i - 1])
+        }
+    }
+    npan = pid[n]
+    for (p = 1; p <= npan; p++) {
+        if (sum(tr :& (pid :== p)) > 1) {
+            idx = selectindex(pid :== p)
+            _puttab_sc_fail(459, "totalrow(): the panel that starts at exported row " +
+                strofreal(idx[1]) + " has more than one total row")
+            return
+        }
+    }
+
+    // groups: gtype 1 fraction, 2 rowtotal, 3 single count
+    gtype = J(1, 0, .)
+    gmarg = J(1, 0, .)
+    gfr = J(1, 0, .)
+    gnc = J(1, 0, .)
+    gcell = J(0, m, 0)
+    for (f = 1; f <= nf; f++) {
+        gtype = gtype, 1
+        gcell = gcell \ (selectindex(cv :== fn[f])[1], J(1, m - 1, 0))
+        gnc = gnc, 1
+        gmarg = gmarg, selectindex(cv :== fd[f])[1]
+        gfr = gfr, f
+    }
+    for (r = 1; r <= cols(rtt); r++) {
+        gtype = gtype, 2
+        wc = tokens(rap[r])
+        cells = J(1, m, 0)
+        for (j = 1; j <= cols(wc); j++) cells[j] = selectindex(cv :== wc[j])[1]
+        gcell = gcell \ cells
+        gnc = gnc, cols(wc)
+        gmarg = gmarg, selectindex(cv :== rtt[r])[1]
+        gfr = gfr, 0
+    }
+    for (j = 1; j <= m; j++) {
+        if (anyof(fn, cv[j]) | anyof(fd, cv[j]) | anyof(ra, cv[j]) | anyof(rtt, cv[j])) continue
+        gtype = gtype, 3
+        gcell = gcell \ (j, J(1, m - 1, 0))
+        gnc = gnc, 1
+        gmarg = gmarg, 0
+        gfr = gfr, 0
+    }
+    ng = cols(gtype)
+
+    M = J(n, m, 0)
+    Q = J(n, max((nf, 1)), 0)
+    for (g = 1; g <= ng; g++) {
+        ty = gtype[g]
+        cells = gcell[g, (1..gnc[g])]
+        jn = cells[1]
+        jd = gmarg[g]
+        f = gfr[g]
+        gv = cv[cells]
+        if (jd) gv = gv, cv[jd]
+        V = C[., cells]
+        if (jd) V = V, C[., jd]
+        nm2 = rowmissing(V)
+        bad = selectindex((nm2 :> 0) :& (nm2 :< cols(V)))
+        if (length(bad)) {
+            _puttab_sc_fail(416, "counts(): in exported row " + strofreal(bad[1]) +
+                " some but not all of " + invtokens(gv) + " are missing")
+            return
+        }
+        pres = (nm2 :== 0)
+        if (ty == 1) {
+            bad = selectindex(pres :& (C[., jn] :> C[., jd]))
+            if (length(bad)) {
+                _puttab_sc_fail(459, "fraction(): " + cv[jn] + " exceeds " +
+                    cv[jd] + " in exported row " + strofreal(bad[1]))
+                return
+            }
+            X = C[., jn], C[., jd] - C[., jn]
+        }
+        else X = C[., cells]
+        if (ty == 2) {
+            bad = selectindex(pres :& (rowsum(X) :!= C[., jd]))
+            if (length(bad)) {
+                _puttab_sc_fail(459, "rowtotal(): in exported row " + strofreal(bad[1]) +
+                    " " + invtokens(cv[cells], " + ") + " does not equal " + cv[jd])
+                return
+            }
+        }
+        for (p = 1; p <= npan; p++) {
+            idx = selectindex(pid :== p)
+            tix = select(idx, tr[idx])
+            bix = select(idx, (!tr[idx]) :& pres[idx])
+            t = 0
+            if (length(tix)) {
+                if (pres[tix[1]]) t = tix[1]
+            }
+            if (t & !length(bix)) {
+                bix = t
+                t = 0
+            }
+            if (t) {
+                bad = selectindex(colsum(V[bix, .]) :!= V[t, .])
+                if (length(bad)) {
+                    _puttab_sc_fail(459, "totalrow(): in the panel that starts at exported row " +
+                        strofreal(idx[1]) + " the rows do not add up to the total row in " +
+                        gv[bad[1]])
+                    return
+                }
+            }
+            if (!k | !length(bix)) continue
+            hast = (t > 0)
+            // blocks: the panel when it has column margins; else each row
+            // (or, for a single count, all rows at once)
+            nw = (hast | ty == 3 ? 1 : length(bix))
+            for (w = 1; w <= nw; w++) {
+                B = (nw == 1 ? bix : bix[w])
+                if (!any((X[B, .] :> 0) :& (X[B, .] :< k))) continue
+                E = J(rows(B), cols(X), 1)
+                ce = J(1, cols(X), hast)
+                if (ty == 1 & !prim) {
+                    // den-num is never printed: the engine derives it from
+                    // num and den (still testing it), and its column total
+                    // from the total row's num and den
+                    E[., 2] = J(rows(B), 1, 0)
+                    ce[2] = 0
+                }
+                re = (ty != 3)
+                gE = (hast & ty != 3)
+                pm = prim | (ty == 3 & !hast)
+                // the exact check behind complementary masking with a total
+                // row grows steeply with the block (measured: rowtotal()
+                // with 3 addends, 20 rows 9 s, 30 rows 72 s; one count, 100
+                // rows 8-14 s, 200 rows 160 s), so refuse a block that
+                // would appear to hang
+                lim = (ty == 2 ? rows(B) * cols(X) : rows(B))
+                if (hast & !pm & lim > 60) {
+                    _puttab_sc_fail(459, "smallcells(): the panel that starts at exported row " +
+                        strofreal(idx[1]) + " has " + strofreal(rows(B)) +
+                        " rows above its total row" + (ty == 2 ? " and " +
+                        strofreal(cols(X)) + " rowtotal() addends" : "") +
+                        "; complementary masking with a total row is limited to " +
+                        (ty == 2 ? "60 cells (rows times addends) for each rowtotal() sum" :
+                        "60 rows") + " in a panel; split the table into panels with " +
+                        "panel(), each with its own total row")
+                    return
+                }
+                mk = J(0, 0, .)
+                rmk = J(0, 1, .)
+                cmk = J(1, 0, .)
+                tmk = 0
+                rc = _puttab_sc_engine(X[B, .], E, re, ce, gE, hast, k, pm, tn,
+                    mk, rmk, cmk, tmk, np, nc)
+                if (rc) {
+                    st_local("_sc_rc", strofreal(rc))
+                    return
+                }
+                for (r = 1; r <= rows(B); r++) {
+                    for (jj = 1; jj <= gnc[g]; jj++) {
+                        if (ty == 1) {
+                            M[B[r], jn] = mk[r, 1]
+                            Q[B[r], f] = mk[r, 2]
+                        }
+                        else M[B[r], cells[jj]] = mk[r, jj]
+                    }
+                    if (jd) M[B[r], jd] = rmk[r]
+                }
+                if (hast) {
+                    if (ty == 1) {
+                        M[t, jn] = cmk[1]
+                        Q[t, f] = cmk[2]
+                    }
+                    else {
+                        for (jj = 1; jj <= gnc[g]; jj++) M[t, cells[jj]] = cmk[jj]
+                    }
+                    if (jd) M[t, jd] = tmk
+                }
+            }
+        }
+    }
+
+    // primary mode: a small den-num with num and den printed would be
+    // given back by the fraction, so num is shown as >=k (it is k or more,
+    // since den is printed and den-num is below k). Full mode never leaves
+    // this case; the rule is a guard there.
+    for (f = 1; f <= nf; f++) {
+        jn = selectindex(cv :== fn[f])[1]
+        jd = selectindex(cv :== fd[f])[1]
+        bad = selectindex((M[., jn] :== 0) :& (Q[., f] :> 0) :& (M[., jd] :== 0))
+        if (length(bad)) M[bad, jn] = J(length(bad), 1, 2)
+    }
+
+    // a printed count that copies a masked count (or a fraction's
+    // denom-num), or is an undeclared exact sum of other counts, gives a
+    // masked count back: refuse it (full mode only; primary mode protects
+    // printed counts alone, by request)
+    if (k & !prim) {
+        if (trvar != "" & npan > 1) {
+            umsg = _puttab_sc_lonetotal(C, M, Q, cv, fn, fd, tr, pid, npan)
+            if (umsg != "") {
+                _puttab_sc_fail(459, umsg)
+                return
+            }
+        }
+        umsg = _puttab_sc_copies(C, M, Q, cv, fn, fd)
+        if (umsg != "") {
+            _puttab_sc_fail(459, umsg)
+            return
+        }
+        umsg = _puttab_sc_undeclared(C, M, Q, cv, fn, fd, ra, rtt, gtype,
+            gcell, gnc, gmarg)
+        if (umsg != "") {
+            _puttab_sc_fail(459, umsg)
+            return
+        }
+    }
+
+    // rendered text: every printed count, fraction and withheld column
+    ovr = ""
+    for (i = 1; i <= cols(pr); i++) {
+        v = pr[i]
+        j = (anyof(cv, v) ? selectindex(cv :== v)[1] : 0)
+        f = (anyof(fn, v) ? selectindex(fn :== v)[1] : 0)
+        // the withhold() keys that list this column
+        trig = J(n, 1, 0)
+        isnum = 0
+        pieces = tokens(wspec, char(92))
+        for (w = 1; w <= cols(pieces); w++) {
+            piece = strtrim(pieces[w])
+            if (piece == char(92) | piece == "") continue
+            pos = strpos(piece, ":")
+            nm = strtrim(substr(piece, 1, pos - 1))
+            wc = tokens(substr(piece, pos + 1, .))
+            if (!anyof(wc, v)) continue
+            isnum = 1
+            jj = selectindex(cv :== nm)[1]
+            trig = trig :| (M[., jj] :> 0)
+            // a fraction()'s numerator or denominator key covers the whole
+            // fraction: num, denom-num and denom
+            ff = (anyof(fn, nm) ? selectindex(fn :== nm)[1] :
+                (anyof(fd, nm) ? selectindex(fd :== nm)[1] : 0))
+            if (ff) trig = trig :| (Q[., ff] :> 0) :|
+                (M[., selectindex(cv :== fn[ff])[1]] :> 0) :|
+                (M[., selectindex(cv :== fd[ff])[1]] :> 0)
+        }
+        if (!j & !isnum) continue
+        if (f) {
+            jd = selectindex(cv :== fd[f])[1]
+            s = _puttab_sc_text(C[., j], M[., j], v, digits, nfmt, lt, ge)
+            s2 = _puttab_sc_text(C[., jd], M[., jd], fd[f], digits, nfmt, lt, ge)
+            txt = J(n, 1, "")
+            for (r = 1; r <= n; r++) {
+                if (C[r, j] < . & C[r, jd] < .) txt[r] = s[r] + "/" + s2[r]
+            }
+        }
+        else if (j) txt = _puttab_sc_text(C[., j], M[., j], v, digits, nfmt, lt, ge)
+        else if (st_isstrvar(v)) txt = st_sdata(., v)
+        else txt = _puttab_fmt_num(st_data(., v), digits, st_varvaluelabel(v),
+            st_varformat(v), nfmt)
+        if (any(trig)) txt[selectindex(trig)] = J(sum(trig), 1, "")
+        nm = pl[i]
+        (void) st_addvar("strL", nm)
+        st_sstore(., nm, txt)
+        ovr = ovr + " " + v + " " + nm
+    }
+    st_local("_sc_ovr", strtrim(ovr))
+    st_local("_sc_np", strofreal(np))
+    st_local("_sc_nc", strofreal(nc))
+}
+
+// A count column as printed: formatted as puttab formats any numeric
+// column, with a masked cell shown as <k (1) or >=k (2).
+string colvector _puttab_sc_text(
+    real colvector x,
+    real colvector mk,
+    string scalar v,
+    real scalar digits,
+    string scalar nfmt,
+    string scalar lt,
+    string scalar ge)
+{
+    string colvector out
+
+    out = _puttab_fmt_num(x, digits, st_varvaluelabel(v), st_varformat(v), nfmt)
+    if (any(mk :== 1)) out[selectindex(mk :== 1)] = J(sum(mk :== 1), 1, lt)
+    if (any(mk :== 2)) out[selectindex(mk :== 2)] = J(sum(mk :== 2), 1, ge)
+    return(out)
 }
 
 end

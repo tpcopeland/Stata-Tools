@@ -1,4 +1,4 @@
-*! stratetab Version 1.1.0  2026/10/31
+*! stratetab Version 1.2.0  2026/11/19
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -75,13 +75,54 @@ _tabtools_require_helpers
 
 syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	[sheet(string) title(string) outlabels(string) OUTCOMEIDs(string asis) explabels(string) ///
-	digits(integer -1) eventdigits(integer 0) pydigits(integer 0) ///
+	digits(string) eventdigits(integer 0) pydigits(integer 0) ///
 	unitlabel(string) PTUnit(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
-	BORDERstyle(string) FONT(string) FONTSIZE(integer -1) HEADERShade ///
+	BORDERstyle(string) FONT(string) FONTSIZE(string) HEADERShade ///
 	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) ///
-	Level(real -1) CFormat(string) SEP(string) SMALLcells(integer -1) NOSMALLcells ///
+	Level(string) CFormat(string) SEP(string) SMALLcells(string) NOSMALLcells ///
 	ZEROexact ZEROCells(string) MASKtext(string)]
+
+* An empty smallcells() (smallcells( ), smallcells(`k') with k undefined)
+* reads as absent to syntax; refuse it (r(198)) rather than fall through to
+* no masking or the session default, as crosstab does.
+if `"`smallcells'"' == "" {
+	_tabtools_smallcells_opt __empty `macval(0)'
+}
+* digits(), fontsize(), smallcells() and level() are read as text so that an
+* option not given (-1 below) cannot collide with a typed value: as
+* integer -1 defaults, digits(-1), smallcells(-1), fontsize(-1) and level(-1)
+* were taken as no option at rc 0.
+foreach _nopt in digits fontsize smallcells level {
+	local _nval = strtrim(`"``_nopt''"')
+	if `"`_nval'"' == "" {
+		local `_nopt' -1
+		continue
+	}
+	if "`_nopt'" == "level" capture confirm number `_nval'
+	else capture confirm integer number `_nval'
+	if _rc {
+		di as err "option `_nopt'() incorrectly specified"
+		exit 198
+	}
+	if "`_nopt'" == "digits" & (`_nval' < 0 | `_nval' > 10) {
+		di as err "digit options must be 0-10"
+		exit 198
+	}
+	if "`_nopt'" == "fontsize" & (`_nval' < 1 | `_nval' > 72) {
+		di as err "fontsize() must be between 1 and 72"
+		exit 198
+	}
+	if "`_nopt'" == "smallcells" & `_nval' < 0 {
+		di as err "smallcells() must be a nonnegative integer"
+		exit 198
+	}
+	if "`_nopt'" == "level" & (`_nval' <= 0 | `_nval' >= 100) {
+		di as err "level() must be between 0 and 100"
+		exit 198
+	}
+	local `_nopt' = `_nval'
+}
 
 * O1: cformat() is a full display format for the rate and both bounds; it
 * replaces digits(), so giving both is an error.
@@ -126,6 +167,12 @@ if `smallcells' < 0 {
 	di as err "smallcells() must be a nonnegative integer"
 	exit 198
 }
+* A threshold of 2 prints <2, which names the count 1, and 1 masks nothing:
+* as in the other commands, a threshold is 3 or more (0 = none).
+if inlist(`smallcells', 1, 2) {
+	di as err "smallcells() must be 3 or more (0 = none): smallcells(2) prints <2, which identifies a count of 1"
+	exit 198
+}
 * zerocells(): a level with no events prints a dash or nothing in place of
 * its count and rate (CI); its person-time stays unless the persontime
 * suboption withholds it too. masktext(): the text of a masked event count,
@@ -146,7 +193,12 @@ if `_mask_given' & `smallcells' == 0 {
 	exit 198
 }
 
-* Accept excel() as synonym for xlsx()
+* Accept excel() as synonym for xlsx(); two different workbooks are two
+* destinations, so the pair is refused rather than one silently dropped.
+if `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != "" & `"`macval(xlsx)'"' != `"`macval(excel)'"' {
+	noisily display as error "xlsx() and excel() are synonyms; specify one"
+	exit 198
+}
 if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" {
     local xlsx `"`macval(excel)'"'
 }
@@ -913,11 +965,11 @@ forvalues e = 1/`n_exposures' {
 				matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
 			}
 				mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr(strtoname(st_local("cat_e`e'_`i'")), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
-				local _rname = substr(`"`_rname'"', 1, 32)
+				local _rname = ustrfix(substr(`"`_rname'"', 1, 32), "")
 				if `"`_rname'"' == "" | strtrim(subinstr(`"`_rname'"', "_", "", .)) == "" local _rname "row`_rr'"
 					if `n_exposures' > 1 {
 						local _rname = "e`e'_`_rname'"
-						local _rname = substr("`_rname'", 1, 32)
+						local _rname = ustrfix(substr("`_rname'", 1, 32), "")
 					}
 					local _base_rname `"`_rname'"'
 					local _rname_i = 1
@@ -925,7 +977,7 @@ forvalues e = 1/`n_exposures' {
 						local ++_rname_i
 						local _suffix "_`_rname_i'"
 						local _stem_len = 32 - strlen("`_suffix'")
-						local _rname = substr("`_base_rname'", 1, `_stem_len')
+						local _rname = ustrfix(substr("`_base_rname'", 1, `_stem_len'), "")
 						local _rname `"`_rname'`_suffix'"'
 					}
 					local _used_rnames `"`_used_rnames' `_rname'"'
@@ -955,11 +1007,11 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 					matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
 				}
 					mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr(strtoname(st_local("cat_e`e'_`i'")), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
-					local _rname = substr(`"`_rname'"', 1, 32)
+					local _rname = ustrfix(substr(`"`_rname'"', 1, 32), "")
 					if `"`_rname'"' == "" | strtrim(subinstr(`"`_rname'"', "_", "", .)) == "" local _rname "row`_rr'"
 						if `n_exposures' > 2 {
 							local _rname = "e`e'_`_rname'"
-							local _rname = substr("`_rname'", 1, 32)
+							local _rname = ustrfix(substr("`_rname'", 1, 32), "")
 						}
 						local _base_rname `"`_rname'"'
 						local _rname_i = 1
@@ -967,7 +1019,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 							local ++_rname_i
 							local _suffix "_`_rname_i'"
 							local _stem_len = 32 - strlen("`_suffix'")
-							local _rname = substr("`_base_rname'", 1, `_stem_len')
+							local _rname = ustrfix(substr("`_base_rname'", 1, `_stem_len'), "")
 							local _rname `"`_rname'`_suffix'"'
 						}
 						local _used_rnames `"`_used_rnames' `_rname'"'

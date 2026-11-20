@@ -535,7 +535,7 @@ capture noisily {
         sheet("BadMerge3") ///
         columnmerge(B+Z as "HR") ///
         sheetreplace
-    assert _rc == 111
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: malformed columnmerge() rules are rejected cleanly"

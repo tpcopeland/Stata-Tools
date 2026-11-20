@@ -1,4 +1,4 @@
-*! effecttab Version 1.1.0  2026/10/31
+*! effecttab Version 1.2.0  2026/11/19
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -84,12 +84,44 @@ program define effecttab, rclass
 
 	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string) type(string) effect(string) ///
 	        models(string) title(string) clean TLABels(string asis) ///
-	        FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
-	        BORDERstyle(string) full FONT(string) FONTSIZE(integer -1) digits(integer -1) ///
+	        FOOTnote(string) open zebra HEADERShade HIGHlight(string) BOLDp(string) ///
+	        BORDERstyle(string) full FONT(string) FONTSIZE(string) digits(string) ///
 		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) EPLOTFrame(string asis) ///
-	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
-	        LABELWidth(integer 0) Level(real -1) REFcat(string) ///
+	        FROM(name) ADDRow(string asis) pdp(string) highpdp(string) ///
+	        LABELWidth(integer 0) Level(string) REFcat(string) ///
 	        OMITLabel(string) EMPTYLabel(string) CFormat(string)]
+
+	* digits(), boldp(), highlight(), pdp(), highpdp() and level() are read
+	* as text so that an option not given (-1 below) cannot collide with a
+	* typed value: with -1 defaults, a typed -1 was taken as no option at
+	* rc 0. Every typed value is range-checked below.
+	foreach _nopt in digits boldp highlight pdp highpdp level {
+		local _nval = strtrim(`"``_nopt''"')
+		if `"`_nval'"' == "" {
+			local `_nopt' -1
+			continue
+		}
+		capture confirm number `_nval'
+		if _rc {
+			noisily display as error "option `_nopt'() incorrectly specified"
+			exit 198
+		}
+		if `_nval' == -1 {
+			local _nmsg "between 0 and 6"
+			if inlist("`_nopt'", "boldp", "highlight") local _nmsg "between 0 and 1"
+			if inlist("`_nopt'", "pdp", "highpdp") local _nmsg "between 1 and 10"
+			if "`_nopt'" == "level" local _nmsg "between 0 and 100"
+			noisily display as error "`_nopt'() must be `_nmsg'"
+			exit 198
+		}
+		* an integer typed with a decimal point (2.0, 1e0) is accepted, as
+		* the integer syntax type did
+		if inlist("`_nopt'", "digits", "pdp", "highpdp") & `_nval' != int(`_nval') {
+			noisily display as error "`_nopt'() must be an integer"
+			exit 198
+		}
+		local `_nopt' = `_nval'
+	}
 
 	* Label used for reference (base-category) rows; matches regtab's refcat()
 	if `"`refcat'"' == "" local refcat "Reference"
@@ -106,7 +138,12 @@ program define effecttab, rclass
 		exit 198
 	}
 
-	* Accept excel() as synonym for xlsx()
+	* Accept excel() as synonym for xlsx(); two different workbooks are two
+	* destinations, so the pair is refused rather than one silently dropped.
+	if `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != "" & `"`macval(xlsx)'"' != `"`macval(excel)'"' {
+		noisily display as error "xlsx() and excel() are synonyms; specify one"
+		exit 198
+	}
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
 	* Session destinations (tabtools set workbook/markdown/latex) apply only when
 	* sheet() asks for a sheet; an explicit option wins. Without this a
@@ -284,7 +321,51 @@ quietly {
 		noisily display as error "level() must be between 0 and 100"
 		exit 198
 	}
+	local _from_name `"`from'"'
 	if `_from_matrix' {
+		* A missing from() matrix is refused here: rowsof() and colsof() on
+		* it below would fail inside macro expansion, which ends the
+		* captured block without its cleanup (varabbrev stayed off).
+		capture confirm matrix `from'
+		if _rc {
+			noisily display as error `"from(): matrix `_from_name' not found"'
+			exit 111
+		}
+		* The columns are read by position (estimate, lower limit, upper
+		* limit, p-value), except for the stripe r(table)' carries: b se z
+		* pvalue ll ul ..., whose second and third columns are a standard
+		* error and a test statistic. Such a matrix is read by its column
+		* names, b ll ul pvalue; one that names se, z or t as its second or
+		* third column without ll, ul and pvalue to read instead is refused,
+		* since its positions would print (se, z) as the interval.
+		capture confirm matrix `from'
+		if !_rc {
+			mata: st_local("_fcn", invtokens(st_matrixcolstripe(st_local("from"))[., 2]'))
+			local _fc2 : word 2 of `_fcn'
+			local _fc3 : word 3 of `_fcn'
+			local _fstat = inlist("`_fc2'", "se", "z", "t") | inlist("`_fc3'", "se", "z", "t")
+			local _fnamed = 1
+			foreach _fw in b ll ul pvalue {
+				local _fpos_`_fw' : list posof "`_fw'" in _fcn
+				local _fdup : list _fcn - _fw
+				if `_fpos_`_fw'' == 0 | `: word count `_fcn'' - `: word count `_fdup'' != 1 local _fnamed = 0
+			}
+			if `_fstat' & `_fnamed' {
+				tempname _from_sel
+				matrix `_from_sel' = `from'[1..., `_fpos_b'], `from'[1..., `_fpos_ll'], ///
+					`from'[1..., `_fpos_ul'], `from'[1..., `_fpos_pvalue']
+				local from `"`_from_sel'"'
+				noisily display as text ///
+					`"(effecttab: from(`_from_name') has the r(table)' column stripe; read columns b, ll, ul and pvalue by name)"'
+			}
+			else if `_fstat' {
+				noisily display as error ///
+					`"from(`_from_name') names `_fc2' and `_fc3' as its second and third columns; from() reads columns 1-4 as estimate, lower limit, upper limit and p-value"'
+				noisily display as error ///
+					`"pass the b, ll, ul and pvalue columns of r(table)', or the whole of r(table)'"'
+				exit 198
+			}
+		}
 		local _ci_level_num = cond(`level' == -1, 95, `level')
 		* C7 (codex audit 2026-09-26): a from() row must describe a possible
 		* result before anything is shown or written. A nonmissing p-value
@@ -428,7 +509,7 @@ quietly {
 	if `"`_cfmt'"' != "" local _from_fmt "%21.0g"
 
 	* Resolve formatting
-	_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+	_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') fsexplicit borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
 	_tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
 		* sep() is data (help tabtools##sep): syntax read it as it reads every
@@ -601,7 +682,7 @@ quietly {
 	}
 
 	* Set default effect label based on type
-	if "`effect'" == "" {
+	if `"`macval(effect)'"' == "" {
 		if "`type'" == "teffects" {
 			local effect "Effect"
 		}
@@ -717,7 +798,11 @@ quietly {
 	* =========================================================================
 
 	* Apply formatting to result items
-	collect label levels result _r_b "`effect'", modify
+	* The collection's label is only a working value: effect() text with a
+	* double quote or a backtick cannot pass through -collect label levels-,
+	* so the header cells take effect() as typed after rendering (below).
+	capture collect label levels result _r_b `"`macval(effect)'"', modify
+	if _rc collect label levels result _r_b "Effect", modify
 	collect label levels result _r_ci "`_ci_level'% CI", modify
 	collect label levels result _r_p "p-value", modify
 		* Internal rendering deliberately avoids the comma-grouped fc format.
@@ -822,7 +907,7 @@ quietly {
 		qui replace A = "" in 1
 		* Row 2: headers
 		qui replace A = "" in 2
-		qui replace c1 = `"`effect'"' in 2
+		mata: st_sstore(2, "c1", st_local("effect"))
 		* The collect path's and regtab's header text
 		qui replace c2 = "`_ci_level'% CI" in 2
 		qui replace c3 = "p-value" in 2
@@ -1077,6 +1162,14 @@ quietly {
 		local n `=`n'+1'
 		}
 		local n `=`n'-1'
+		* Row 2 holds the statistic headers; each model's estimate header is
+		* effect() exactly as typed (quotes and backticks included), stored
+		* through Mata so it is never re-read as macro or string syntax.
+		if !`_from_matrix' {
+			forvalues _ec = 1(3)`n' {
+				mata: st_sstore(2, "c`_ec'", st_local("effect"))
+			}
+		}
 
 		if `_from_matrix' {
 			gen double _eplot_est1 = .
@@ -1093,23 +1186,35 @@ quietly {
 		}
 
 	* Apply model labels if provided
-	if "`models'" != "" {
-		* Split models string by backslashes
-		local models : subinstr local models " \ " "\", all
-		local models : subinstr local models "\  " "\", all
-		local models : subinstr local models "  \" "\", all
-		tokenize `"`models'"', parse("\")
-		local model_idx = 1
-		local col_idx = 1
-
-		* Loop through tokenized results
-		while "``model_idx''" != "" {
-			if "``model_idx''" != "\" {
-				* Apply label to appropriate column
-				replace c`col_idx' = "``model_idx''" if _n == 1
-				local col_idx = `col_idx' + 3
-			}
-			local model_idx = `model_idx' + 1
+	if `"`macval(models)'"' != "" {
+		* Split on backslashes in Mata, so a name keeps its double quotes
+		* and backticks as typed; each name is trimmed of surrounding blanks.
+		* More names than models is refused before anything is written.
+		local _mdl_ncol = 0
+		forvalues _mi = 1(3)`=`n' - 2' {
+			local ++_mdl_ncol
+		}
+		* tokeninit(): backslash is the only separator; blanks and quotes
+		* bind nothing. Empty names (\ \) are skipped, as before.
+		mata: _effecttab_tok = tokeninit("", char(92), "")
+		mata: tokenset(_effecttab_tok, st_local("models"))
+		mata: _effecttab_mdl = strtrim(tokengetall(_effecttab_tok))
+		mata: _effecttab_mdl = select(_effecttab_mdl, (_effecttab_mdl :!= char(92)) :& (_effecttab_mdl :!= ""))
+		mata: st_local("_mdl_n", strofreal(cols(_effecttab_mdl)))
+		if `_mdl_n' > `_mdl_ncol' {
+			capture mata: mata drop _effecttab_mdl _effecttab_tok
+			noisily display as error ///
+				"models() names `_mdl_n' models but the table holds `_mdl_ncol'"
+			exit 198
+		}
+		forvalues _mi = 1/`_mdl_n' {
+			mata: st_sstore(1, "c`=(`_mi' - 1) * 3 + 1'", _effecttab_mdl[`_mi'])
+		}
+		capture mata: mata drop _effecttab_mdl _effecttab_tok
+		* Fewer names than models: the models after the last name take the
+		* "Model #" header (regtab's rule) rather than an empty one.
+		forvalues _mi = `=`_mdl_n' + 1'/`_mdl_ncol' {
+			quietly replace c`=(`_mi' - 1) * 3 + 1' = "Model `_mi'" in 1
 		}
 	}
 
@@ -1285,14 +1390,19 @@ quietly {
 			local _rname = subinstr("`_rname'", ".", "_", .)
 			local _rname = subinstr("`_rname'", " ", "_", .)
 			local _rname = subinstr("`_rname'", ",", "", .)
-			local _rname = substr("`_rname'", 1, 32)
+			* 32 bytes, cut on a character boundary: a byte cut through a
+			* multibyte character left an invalid UTF-8 name.
+			_effecttab_ucut _rname 32 `"`_rname'"'
 			if "`_rname'" == "" local _rname "row`_mr'"
 			* F03: an equation-keyed row is named eq:name, as in e(b)
 			if `_et_eqrows' {
 				mata: st_local("_reqn", subinstr(subinstr(subinstr(subinstr(subinstr(subinstr( ///
 				    st_sdata(`_obs', "_eplot_sec"), char(96), "_"), char(39), "_"), char(36), "_"), ///
 				    char(34), "_"), " ", "_"), ":", "_"))
-				if `"`_reqn'"' != "" local _rname = substr("`_reqn'", 1, 32) + ":" + "`_rname'"
+				if `"`_reqn'"' != "" {
+					_effecttab_ucut _reqn 32 `"`_reqn'"'
+					local _rname = "`_reqn'" + ":" + "`_rname'"
+				}
 			}
 			* A label can still be a name matrix stripes refuse ("#1" before "[",
 			* read as factor-variable notation): that row takes row#, so one odd label
@@ -1301,12 +1411,13 @@ quietly {
 			if _rc local _rname "row`_mr'"
 			* Sanitizing and truncation can map two rows to one name, and a
 			* name lookup would then silently return the first row. Keep the
-			* names unique: a repeat takes _2, _3, ... within 32 characters.
+			* names unique: a repeat takes _2, _3, ... within 32 bytes.
 			local _rbase "`_rname'"
 			local _rsfx = 1
 			while `: list _rname in _rnames' {
 				local ++_rsfx
-				local _rname = substr("`_rbase'", 1, 32 - strlen("_`_rsfx'")) + "_`_rsfx'"
+				_effecttab_ucut _rname `=32 - strlen("_`_rsfx'")' `"`_rbase'"'
+				local _rname = "`_rname'" + "_`_rsfx'"
 			}
 			local _rnames `"`_rnames' `_rname'"'
 		}
@@ -1536,13 +1647,27 @@ quietly {
 			frame `_eplotframe_name': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
 				forvalues _meta_m = 1/`_n_models' {
 					local _meta_id `"`collect_cmdline_`_meta_m''"'
-					if `_from_matrix' local _meta_id "matrix:`from':`_meta_m'"
+					if `_from_matrix' local _meta_id "matrix:`_from_name':`_meta_m'"
 					local _meta_label_col = (`_meta_m' - 1) * 3 + 1
 					mata: st_local("_meta_label", st_sdata(1, "c`_meta_label_col'"))
 					frame `_eplotframe_name': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_id'"'
 					frame `_eplotframe_name': char _dta[tabtools_outcome_id_`_meta_m'] ""
-					frame `_eplotframe_name': char _dta[tabtools_effect_scale_`_meta_m'] `"`effect'"'
+					frame `_eplotframe_name': char _dta[tabtools_effect_scale_`_meta_m'] `"`macval(effect)'"'
 					frame `_eplotframe_name': mata: st_global("_dta[tabtools_model_label_`_meta_m']", st_local("_meta_label"))
+			}
+		}
+		* boldp() and highlight() test the numeric p-value, not its display
+		* text: "0.050" can be p = .0496, and "<0.001" any p below .001. Each
+		* body row's p is kept (exact, as %21x) under the row it will have
+		* in the sheet, one below its row here once the title row is added.
+		if `has_boldp' | `has_highlight' {
+			forvalues _bpm = 1/`_n_models' {
+				capture confirm variable _eplot_p`_bpm'
+				if !_rc {
+					forvalues _bpo = 3/`=_N' {
+						local _bpv_m`_bpm'_r`=`_bpo' + 1' = string(_eplot_p`_bpm'[`_bpo'], "%21x")
+					}
+				}
 			}
 		}
 		capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p* _eplot_sec
@@ -1666,7 +1791,7 @@ quietly {
 	return scalar N_rows = `num_rows'
 	return scalar N_cols = `num_cols'
 		return scalar ci_level = `_ci_level_num'
-		return local effect_label "`effect'"
+		return local effect_label `"`macval(effect)'"'
 		return local type "`type'"
 		return local methods "`_methods'"
 		if `"`_eplotframe_name'"' != "" return local eplotframe "`_eplotframe_name'"
@@ -1712,7 +1837,7 @@ quietly {
 	sum factor_length, d
 	local factor_length = ceil(r(max) * 0.95) + 2
 	* Include effect label length in factor_length calculation
-	local _effect_len = strlen(`"`effect'"')
+	local _effect_len = strlen(`"`macval(effect)'"')
 	if ceil(`_effect_len' * 0.85) + 2 > `factor_length' {
 	    local factor_length = ceil(`_effect_len' * 0.85) + 2
 	}
@@ -1872,12 +1997,12 @@ quietly {
 		frame `frame': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
 			forvalues _meta_m = 1/`_n_models' {
 				local _meta_id `"`collect_cmdline_`_meta_m''"'
-				if `_from_matrix' local _meta_id "matrix:`from':`_meta_m'"
+				if `_from_matrix' local _meta_id "matrix:`_from_name':`_meta_m'"
 				local _meta_label_col = (`_meta_m' - 1) * 3 + 1
 				mata: st_local("_meta_label", st_sdata(2, "c`_meta_label_col'"))
 				frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_id'"'
 				frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] ""
-				frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`effect'"'
+				frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`macval(effect)'"'
 				frame `frame': mata: st_global("_dta[tabtools_model_label_`_meta_m']", st_local("_meta_label"))
 		}
 			if `"`_eplotframe_name'"' != "" {
@@ -1905,23 +2030,14 @@ quietly {
 	* APPLY EXCEL FORMATTING (MATA)
 	* =========================================================================
 
-	* Pre-extract p-value data for conditional formatting
+	* p-values for conditional formatting: the numeric p kept above for each
+	* body row (rows added by addrow() have none and are never styled)
 	if `has_boldp' | `has_highlight' {
 		local _n_models = `n' / 3
 		forvalues _m = 1/`_n_models' {
 			forvalues _dr = 4/`num_rows' {
-				* stata-dev-ignore: capture-rc — _rc is consumed by the "if _rc" on the first statement after the closing brace
-				capture {
-					local _pstr = c`=`_m'*3'[`_dr']
-					local _pstr = strtrim("`_pstr'")
-					if substr("`_pstr'", 1, 1) == "<" {
-						local _bp_m`_m'_r`_dr' = 0
-					}
-					else {
-						local _bp_m`_m'_r`_dr' = real("`_pstr'")
-					}
-				}
-				if _rc local _bp_m`_m'_r`_dr' = .
+				local _bp_m`_m'_r`_dr' "."
+				if "`_bpv_m`_m'_r`_dr''" != "" local _bp_m`_m'_r`_dr' "`_bpv_m`_m'_r`_dr''"
 			}
 		}
 	}
@@ -2025,7 +2141,7 @@ quietly {
 				forvalues _m = 1/`_n_models' {
 					local _pcol = 2 + `_m' * 3
 					forvalues _dr = 4/`num_rows' {
-						local _pnum = `_bp_m`_m'_r`_dr''
+						local _pnum "`_bp_m`_m'_r`_dr''"
 						if `_pnum' < . {
 							if `has_boldp' & `_pnum' < `boldp' {
 								local _style_rule_rows `"`_style_rule_rows' | 2, `_dr', `_dr', `_pcol', `_pcol', 0, 1, 0, 0"'
@@ -2156,3 +2272,25 @@ quietly {
 	if `_rc' exit `_rc'
 end
 *
+
+* _effecttab_ucut <local> <maxbytes> <text>: stores in the caller's <local>
+* the longest leading part of <text> that is at most <maxbytes> bytes and ends
+* on a character boundary (substr() counts bytes and can split a multibyte
+* UTF-8 character). <text> carries no blanks or macro characters here.
+program define _effecttab_ucut, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		args _lname _maxb _txt
+		local _k = min(ustrlen("`_txt'"), `_maxb')
+		while `_k' > 0 & strlen(usubstr("`_txt'", 1, `_k')) > `_maxb' {
+			local --_k
+		}
+		local _out = usubstr("`_txt'", 1, `_k')
+		c_local `_lname' "`_out'"
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end

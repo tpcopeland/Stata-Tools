@@ -1,4 +1,4 @@
-*! regtab Version 1.1.0  2026/10/31
+*! regtab Version 1.2.0  2026/11/19
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -89,20 +89,62 @@ capture noisily {
 
 syntax, [xlsx(string) excel(string) sheet(string)] [sep(string) models(string) coef(string) ///
 	title(string) NOINTercept KEEPIntercept NOREeffects stats(string asis) RELABel ///
-	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
-	BOLDp(real -1) cdisc BORDERstyle(string) FONT(string) FONTSIZE(integer -1) stars ///
+	digits(string) FOOTnote(string) open zebra HEADERShade HIGHlight(string) ///
+	BOLDp(string) cdisc BORDERstyle(string) FONT(string) FONTSIZE(string) stars ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
 	LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) LABELMatch DIMNONsig FACTORLabel ///
 	REFcat(string) OMITLabel(string) EMPTYLabel(string) NOTESTLabel(string) ///
 	CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
-	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1) ///
-	CFormat(string) REFTop CELLNote(string asis) MINCount(integer -1) ///
+	pdp(string) highpdp(string) LABELWidth(integer 0) Level(string) ///
+	CFormat(string) REFTop CELLNote(string asis) MINCount(string) ///
 	TRANSpose EXPOSURELabel(string) CILabel(string) PLabel(string) ///
 	ADDCol(string asis) STATLabels(string asis) COLLabels(string asis) ///
 	ABSENTLabel(string) CNSLabel(string)]
 
-* Accept excel() as synonym for xlsx()
+* digits(), boldp(), highlight(), pdp(), highpdp(), level() and
+* mincount() are read as text so that an option not given (-1 below)
+* cannot collide with a typed value: with -1 defaults, a typed -1 was
+* taken as no option at rc 0. Every typed value is range-checked below.
+foreach _nopt in digits boldp highlight pdp highpdp level mincount {
+	local _nval = strtrim(`"``_nopt''"')
+	if `"`_nval'"' == "" {
+		local `_nopt' -1
+		continue
+	}
+	capture confirm number `_nval'
+	if _rc {
+		noisily display as error "option `_nopt'() incorrectly specified"
+		exit 198
+	}
+	if `_nval' == -1 {
+		local _nmsg "between 0 and 6"
+		if inlist("`_nopt'", "boldp", "highlight") local _nmsg "between 0 and 1"
+		if inlist("`_nopt'", "pdp", "highpdp") local _nmsg "between 1 and 10"
+		if "`_nopt'" == "level" local _nmsg "between 0 and 100"
+		if "`_nopt'" == "mincount" local _nmsg "a positive integer"
+		noisily display as error "`_nopt'() must be `_nmsg'"
+		exit 198
+	}
+	* an integer typed with a decimal point (2.0, 1e0) is accepted, as
+	* the integer syntax type did
+	if inlist("`_nopt'", "digits", "pdp", "highpdp", "mincount") & `_nval' != int(`_nval') {
+		noisily display as error "`_nopt'() must be an integer"
+		exit 198
+	}
+	local `_nopt' = `_nval'
+}
+
+* Accept excel() as synonym for xlsx(); two different workbooks are two
+* destinations, so the pair is refused rather than one silently dropped.
+if `"`xlsx'"' != "" & `"`excel'"' != "" & `"`xlsx'"' != `"`excel'"' {
+	noisily display as error "xlsx() and excel() are synonyms; specify one"
+	exit 198
+}
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
+if "`nointercept'" != "" & "`keepintercept'" != "" {
+	noisily display as error "nointercept and keepintercept cannot be combined"
+	exit 198
+}
 * Session destinations (tabtools set workbook/markdown/latex) apply only when
 * sheet() asks for a sheet; an explicit option wins. The same rule as
 * crosstab, desctab, and puttab. The first write to the session workbook
@@ -292,6 +334,7 @@ if `"`markdown'"' != "" {
 * _regtab_scale below overrides it whenever metadata exists. Without metadata
 * regtab cannot exponentiate the collected values, so the label must name the
 * scale Stata displayed: a ratio family shown as coefficients is "Coef.".
+local _amb_ratio 0
 if "`coef'" == "" {
 	local _ecmd `"`e(cmd)'"'
 	* stata-dev-ignore: identity-fold — lowered copy is parsed only for the command word and display options; no identity is stored or compared
@@ -306,6 +349,21 @@ if "`coef'" == "" {
 	if `_rs_known' {
 		if `_rs_eform' local coef "Coef."
 		else local coef `"`_rs_coef'"'
+	}
+	* A collection without command metadata (collect: on a replay) may hold
+	* another display scale than e(cmdline) names: the collected values decide
+	* when the active e(b) proves them coefficients or their exponents.
+	capture quietly collect levelsof result
+	if _rc == 0 & !strpos(" `s(levels)' ", " cmd ") & ///
+		!strpos(" `s(levels)' ", " cmdline ") {
+		_regtab_ambscale
+		local _rs_ratio = `_rs_known' & `_rs_null' == 1
+		if "`_ax_state'" == "exp" {
+			if `_rs_ratio' local coef `"`_rs_coef'"'
+			else local coef "exp(b)"
+			local _amb_ratio 1
+		}
+		else if "`_ax_state'" == "b" & `_rs_ratio' local coef "Coef."
 	}
 }
 
@@ -337,6 +395,16 @@ if "`starslevels'" != "" {
 	local _sl1 : word 1 of `starslevels'
 	local _sl2 : word 2 of `starslevels'
 	local _sl3 : word 3 of `starslevels'
+	* The star rules assume one, two, and three stars for ever smaller p:
+	* any other order, or a level outside (0,1), stars the wrong rows.
+	if !(0 < `_sl3' & `_sl3' < `_sl2' & `_sl2' < `_sl1' & `_sl1' < 1) {
+		noisily display as error "starslevels() must be three decreasing values between 0 and 1 (e.g., starslevels(0.05 0.01 0.001))"
+		exit 198
+	}
+	if "`stars'" == "" {
+		noisily display as error "starslevels() requires stars"
+		exit 198
+	}
 }
 
 * Build format strings from digits (F3). Both widths must be large enough to
@@ -369,7 +437,7 @@ local _ci_lo_r "cond(round(_ci_lo, `coef_round') == 0, _ci_lo, round(_ci_lo, `co
 local _ci_hi_r "cond(round(_ci_hi, `coef_round') == 0, _ci_hi, round(_ci_hi, `coef_round'))"
 
 * Resolve formatting
-_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') fsexplicit borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
 
 _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
@@ -648,6 +716,7 @@ quietly{
             local model_coef_`m' `"`_rs_coef'"'
             local model_null_`m' = `_rs_null'
             local model_eform_`m' = `_rs_eform'
+            local model_known_`m' = `_rs_known'
             local model_auto_noint_`m' = `_rs_noint'
             local model_level_`m' = `_rs_level'
             if `_rp_level' != -1 local model_level_`m' = `_rp_level'
@@ -807,6 +876,11 @@ quietly{
         if !`_user_noint_spec' {
             local nointercept ""
         }
+        * proven ratios (see _regtab_ambscale): the intercept is hidden by
+        * default, as for every ratio family with metadata
+        if !`_user_noint_spec' & "`keepintercept'" == "" & `_amb_ratio' {
+            local nointercept "nointercept"
+        }
     }
     local noint `nointercept'
 
@@ -912,10 +986,15 @@ quietly{
                 local _sm_sig_`_m' `"`_sm_sig_`_m''|`_eq':`_key'=`_cb'/`_cs'"'
                 if ustrregexm(`"`_key'"', "^[0-9]+\.[A-Za-z_][A-Za-z0-9_]*$") ///
                     local _sm_fvk_`_m' `"`_sm_fvk_`_m'' `_key'"'
-                local _sm_depvars `"`model_depvar_`_m''"'
-                local _sm_outcome : list _eq in _sm_depvars
-                if ("`_role'" == "reg" | ("`_role'" == "cons" & `_sm_outcome')) ///
-                    & `"`_eq'"' != "" ///
+                * Every equation that holds a regression, scale (lnsigma) or
+                * intercept term counts, not only those named for an outcome:
+                * an equation of _cons alone (gnbreg's lnalpha:, betareg's
+                * scale:, cmclogit's alternative intercepts) or of lnsigma
+                * terms (hetprobit, intreg het()) shares colnames with the
+                * main equation, and the colname layout would merge the rows.
+                * The "/" and _diparm equations are ancillary, never counted.
+                if inlist("`_role'", "reg", "scale", "cons") & `"`_eq'"' != "" ///
+                    & `"`_eq'"' != "/" & !regexm(`"`_eq'"', "^_diparm") ///
                     local _sm_reg_eqs_`_m' `"`_sm_reg_eqs_`_m'' `_eq'"'
                 if inlist("`_role'", "anc", "cut") {
                     local _sm_`_role'_`_m' `"`_sm_`_role'_`_m'' `_key'"'
@@ -1242,6 +1321,7 @@ if _N < 3 {
 * display labels must never participate in coefficient identity recovery.
 confirm variable _raw_colname
 
+
 * Structural row roles, one variable per model column: cons, cut, anc (an
 * ancillary parameter shown under nointercept), ancd (one nointercept drops),
 * scale, re, or "" (an ordinary coefficient, or no cell). In the coleq layouts
@@ -1378,25 +1458,27 @@ if "`noint'" != "" {
     drop _ni_keep _ni_drop _ni_has
 }
 
+* A random-effects row is known by its raw coefficient name (var(), cov(),
+* sd(), corr()), the structural role _regtab_role assigns, never by its
+* display label: a covariate labelled "BMI per sd(5)" is a fixed effect, kept
+* by nore, exponentiated under a ratio header, and left in place.
+gen byte _is_re = _n > 2 & ustrregexm(strtrim(_raw_colname), "^(var|cov|sd|corr)\(")
+
 if "`nore'" != "" {
-	drop if strpos(A,"var(") > 0 | strpos(A,"cov(") > 0 | strpos(A,"sd(") > 0
+	drop if _is_re
 }
 
 * Reorder: fixed effects first, then random effects (collect may interleave them)
 gen _orig_order = _n
-gen byte _is_re_sort = (strpos(A, "var(") > 0) | (strpos(A, "cov(") > 0) | (strpos(A, "sd(") > 0)
-* Row 1 is header — keep at top
-replace _is_re_sort = 0 if _n <= 2
-sort _is_re_sort _orig_order
-drop _orig_order _is_re_sort
+sort _is_re _orig_order
+drop _orig_order
 
-* Persist RE markers so keep()/drop() cannot desynchronize them from the
+* The RE markers persist so keep()/drop() cannot desynchronize them from the
 * filtered table body later in the pipeline.
-gen byte _is_re = _n > 2 & (strpos(A, "var(") > 0 | strpos(A, "cov(") > 0 | strpos(A, "sd(") > 0)
 gen byte _is_re_intercept = 0
 gen str244 _re_group_label = ""
 if "`re_transform'" != "none" & "`nore'" == "" {
-    replace _is_re_intercept = strpos(A, "var(_cons") > 0 if _n > 2
+    replace _is_re_intercept = _is_re & strpos(A, "var(_cons") > 0 if _n > 2
     if "`re_groupvars'" != "" & "`re_groupvars'" != "." {
         forvalues _lev = 1/`_n_re_levels' {
             local _gvar `"`re_groupvar_`_lev''"'
@@ -1465,6 +1547,23 @@ local n_models = `n' / 3
 local _n_blocks = `n_models'
 * Preserve the raw key through all later display edits and row selections.
 rename _raw_colname _raw_A
+
+* A collection without per-model metadata (collect: on a replay, which
+* collects r(table) alone) keeps a constrained cell's missing interval and
+* p-value as "(., .)" and "."; a fit's own collection leaves them empty. Both
+* missing is the same cell as both empty.
+if `_meta_models' == 0 {
+    forvalues _m = 1/`n_models' {
+        local _cb = 3 * `_m' - 2
+        capture confirm variable c`=`_cb' + 2'
+        if _rc continue
+        quietly replace c`=`_cb' + 1' = "" if _n >= 3 & strtrim(c`_cb') != "" ///
+            & ustrregexm(c`=`_cb' + 1', "^\s*\(\s*\.\s*~\|\s*\.\s*\)\s*$") ///
+            & inlist(strtrim(c`=`_cb' + 2'), "", ".")
+        quietly replace c`=`_cb' + 2' = "" if _n >= 3 & strtrim(c`_cb') != "" ///
+            & strtrim(c`=`_cb' + 1') == "" & strtrim(c`=`_cb' + 2') == "."
+    }
+}
 
 * A coefficient the model dropped for collinearity keeps its o. marker in the
 * colname level whenever the term is not a factor level, so the row rendered as
@@ -1537,23 +1636,51 @@ mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_
 noisily _regtab_classes
 mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
 
-if "`models'" != "" {
-    * Split models string by backslashes
-	local models : subinstr local models " \ " "\", all
-	local models : subinstr local models "\  " "\", all
-	local models : subinstr local models "  \" "\", all
-    tokenize `"`macval(models)'"', parse("\")
-    local model_idx = 1
+if `"`macval(models)'"' != "" {
+    * Split on backslashes in Mata, so a label keeps its double quotes and
+    * backticks as typed (tokenize stripped every pair of double quotes, so
+    * models(`"Adj "full" \ B"') printed Adj full). Each label is trimmed of
+    * blanks; a label wholly enclosed in "..." or `"..."' loses that wrapper
+    * only, as before. Empty labels (\ \) are skipped, as before.
+    mata: _regtab_mtok = tokeninit("", char(92), "")
+    mata: tokenset(_regtab_mtok, st_local("models"))
+    mata: _regtab_mdl = strtrim(tokengetall(_regtab_mtok))
+    mata: _regtab_mdl = select(_regtab_mdl, (_regtab_mdl :!= char(92)) :& (_regtab_mdl :!= ""))
+    mata: for (_regtab_mi = 1; _regtab_mi <= cols(_regtab_mdl); _regtab_mi++) { ///
+        _regtab_ms = _regtab_mdl[_regtab_mi]; ///
+        if (strlen(_regtab_ms) >= 4 & substr(_regtab_ms, 1, 2) == char(96) + char(34) & substr(_regtab_ms, -2, 2) == char(34) + char(39)) _regtab_mdl[_regtab_mi] = substr(_regtab_ms, 3, strlen(_regtab_ms) - 4); ///
+        else if (strlen(_regtab_ms) >= 2 & substr(_regtab_ms, 1, 1) == char(34) & substr(_regtab_ms, -1, 1) == char(34) & !strpos(substr(_regtab_ms, 2, strlen(_regtab_ms) - 2), char(34))) _regtab_mdl[_regtab_mi] = substr(_regtab_ms, 2, strlen(_regtab_ms) - 2); ///
+    }
+    mata: st_local("_ml_n", strofreal(cols(_regtab_mdl)))
+    * Count the labels first: more labels than models has no column to go
+    * to (it ran off the table as "variable c# not found"), and is refused.
+    if `_ml_n' > `n_models' {
+        capture mata: mata drop _regtab_mdl _regtab_mtok _regtab_mi _regtab_ms
+        noisily display as error "models() has `_ml_n' labels for `n_models' model" ///
+            cond(`n_models' == 1, "", "s") "; give at most one label per model"
+        restore
+        exit 198
+    }
     local col_idx = 1
-
-    * Loop through tokenized results
-    while `"`macval(`model_idx')'"' != "" {
-        if `"`macval(`model_idx')'"' != "\" {
-            * Apply label to appropriate column
-            replace c`col_idx' = `"`macval(`model_idx')'"' if _n == 1
-            local col_idx = `col_idx' + 3
+    forvalues _mi = 1/`_ml_n' {
+        * st_sstore() cuts to the variable's width; widen it first
+        mata: st_local("_mlen", strofreal(strlen(_regtab_mdl[`_mi'])))
+        local _mtyp : type c`col_idx'
+        if "`_mtyp'" != "strL" {
+            if `_mlen' > real(substr("`_mtyp'", 4, .)) {
+                if `_mlen' <= 2045 recast str`_mlen' c`col_idx'
+                else recast strL c`col_idx'
+            }
         }
-        local model_idx = `model_idx' + 1
+        mata: st_sstore(1, "c`col_idx'", _regtab_mdl[`_mi'])
+        local col_idx = `col_idx' + 3
+    }
+    capture mata: mata drop _regtab_mdl _regtab_mtok _regtab_mi _regtab_ms
+    * Fewer labels than models: the models after the last label take the
+    * automatic "Model #" header rather than an empty one.
+    forvalues _mi = `=`_ml_n' + 1'/`n_models' {
+        replace c`col_idx' = "Model `_mi'" if _n == 1
+        local col_idx = `col_idx' + 3
     }
 }
 else {
@@ -1755,9 +1882,13 @@ if `_omit_ok' {
 * reference and is shown as not estimable, by notestlabel().
 * Without per-model metadata the scale collect holds is unknown: 0 or 1.
 local _base_cond "inlist(c`i'z, 0, 1)"
+* A command without a scale rule (no dedicated rule, no eform display option)
+* may still display ratios by default; its scale is not known either.
 if `_model_ix' <= `_meta_models' {
-	local _base_val = cond(`_needs_eform', 0, `model_null_`_model_ix'')
-	local _base_cond "c`i'z == `_base_val'"
+	if `model_known_`_model_ix'' {
+		local _base_val = cond(`_needs_eform', 0, `model_null_`_model_ix'')
+		local _base_cond "c`i'z == `_base_val'"
+	}
 }
 gen byte _unclassed = _constraint`_model_ix' == "" ///
     & _is_base_level & strtrim(c`i') != "" & c`=`i'+1' == "" ///
@@ -1954,6 +2085,12 @@ gen str20 c`i'_orig = c`i'
 	capture confirm variable _eplot_p`_model_ix'
 	if _rc gen double _eplot_p`_model_ix' = .
 	replace _eplot_p`_model_ix' = c`i'z if _n >= 3 & c`i'z < .
+	* boldp() and highlight() decide on this same numeric p as the stars,
+	* not on the rounded display string (p = 0.0497 prints 0.050 under
+	* pdp(3) but is below 0.05 for all three). It moves with its row.
+	if `has_boldp' | `has_highlight' {
+		quietly generate double _bpn`_model_ix' = c`i'z if _n >= 3
+	}
 	capture confirm variable _eplot_est`_model_ix'
 	if !_rc replace _eplot_est`_model_ix' = . if _n >= 3 ///
 		& !inlist(_constraint`_model_ix', "", "cns")
@@ -2420,9 +2557,18 @@ if `has_boldp' | `has_highlight' {
         local _pvar = (`_m' - 1) * 3 + 3
         forvalues _dr = 4/`=_N' {
             local _bp_m`_m'_r`_dr' = strtrim(c`_pvar'[`_dr'])
+            * the numeric p of a shown p-value cell (a masked, noted, added,
+            * or statistics row shows none and is never flagged)
+            local _bp_m`_m'_r`_dr'_num = .
+            if `"`_bp_m`_m'_r`_dr''"' != "" {
+                capture confirm variable _bpn`_m'
+                * stata-dev-ignore: double-macro-transport — the macro keeps 17 significant digits, which only a p equal to the threshold to that precision could tie
+                if !_rc local _bp_m`_m'_r`_dr'_num = _bpn`_m'[`_dr']
+            }
         }
     }
 }
+capture drop _bpn*
 
 * =====================================================================
 * COMPACT MODE — MERGE ESTIMATE + CI INTO SINGLE COLUMN
@@ -2546,7 +2692,7 @@ return scalar N_cols = `num_cols'
 
 * Per-model computed model-fit statistics, returned at full precision. These
 * mirror the stats() rows written to the table but expose the unrounded values
-* (the table strings are formatted to %12.2f / %5.3f) for downstream use and
+* (the table strings are formatted to %20.2f / %5.3f) for downstream use and
 * programmatic checks. Naming follows survtab's <name>_<index> convention; the
 * column index matches the model order in r(table).
 if `add_stats' == 1 {
@@ -2906,19 +3052,7 @@ if "`stars'" != "" {
 
 * Prepare p-value/nonsig data vectors for Mata
 local _n_bp_entries 0
-if `has_boldp' | `has_highlight' {
-	forvalues _m = 1/`_n_blocks' {
-		forvalues _dr = 4/`num_rows' {
-			local _pstr `"`_bp_m`_m'_r`_dr''"'
-			if substr("`_pstr'", 1, 1) == "<" {
-				local _bp_m`_m'_r`_dr'_num = 0
-			}
-			else {
-				local _bp_m`_m'_r`_dr'_num = real("`_pstr'")
-			}
-		}
-	}
-}
+* (the numeric p of each shown p-value cell was saved with its string above)
 
 local _n_nonsig_entries 0
 if "`dimnonsig'" != "" {
@@ -3190,9 +3324,62 @@ if `"`_displayframe_build'"' != "" {
 	    }
 	    * the keys matrix first: a successful run leaves _rc as 2.4.0 did
 	    capture mata: mata drop _regtab_K
+    capture mata: mata drop _regtab_mdl _regtab_mtok _regtab_mi _regtab_ms
 	    foreach _nsx in N V O I {
 	        capture mata: mata drop _regtab_ns`_nsx'
 	    }
 	    set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_ambscale: scale of a metadata-less collection, from the active e(b)
+* =============================================================================
+* A collection with no cmd or cmdline result (collect: on a replay, which
+* collects r(table) alone) does not say how the command displayed it: the
+* active e(cmdline) is the original fit's, whose display options a replay can
+* change (logit, or). The collected _r_b are compared with the active e(b):
+* every collected coefficient that e(b) also holds equal to its exponent
+* (reldif < 1e-12) means the collection holds ratios ("exp"), every one equal
+* to its coefficient means coefficients ("b"); anything else ("") leaves the
+* scale unproven. Returns _ax_state in the caller.
+capture program drop _regtab_ambscale
+program define _regtab_ambscale, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	local _st ""
+	capture noisily {
+		capture confirm matrix e(b)
+		if !_rc {
+			tempfile _cjf
+			local _cjs `"`_cjf'.stjson"'
+			quietly collect save `"`_cjs'"', replace
+			mata: _rt_ax_L = cat(st_local("_cjs"))
+			mata: _rt_ax_h = selectindex(ustrregexm(_rt_ax_L, `"[#"]result\[_r_b\][#"]"'))
+			mata: _rt_ax_kk = _rt_ax_L[_rt_ax_h]
+			mata: _rt_ax_d = rows(_rt_ax_h) ? strtoreal(ustrregexra(_rt_ax_L[_rt_ax_h :+ 1], `"^\s*"d":\s*([^,]*),?\s*$"', "$1")) : J(0, 1, .)
+			mata: _rt_ax_ce = ustrregexra(_rt_ax_kk, `"^.*[#"]coleq\[([^\]]*)\][#"].*$"', "$1") :* ustrregexm(_rt_ax_kk, `"[#"]coleq\["')
+			mata: _rt_ax_cn = ustrregexra(_rt_ax_kk, `"^.*?[#"]colname\[(.+?)\][#"].*$"', "$1")
+			mata: _rt_ax_s = st_matrixcolstripe("e(b)")
+			mata: _rt_ax_b = st_matrix("e(b)")'
+			mata: _rt_ax_bn = ustrregexra(ustrregexra(_rt_ax_s[., 2], "(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)co?\.", "$1")
+			mata: _rt_ax_q = all((_rt_ax_s[., 1] :== "") :| (_rt_ax_s[., 1] :== "_"))
+			mata: _rt_ax_bk = _rt_ax_q ? _rt_ax_bn : (_rt_ax_s[., 1] :+ ":" :+ _rt_ax_bn)
+			mata: _rt_ax_ck = _rt_ax_q ? _rt_ax_cn : (_rt_ax_ce :+ ":" :+ _rt_ax_cn)
+			mata: _rt_ax_m = 0; _rt_ax_nb = 0; _rt_ax_ne = 0
+			mata: for (_rt_ax_j = 1; _rt_ax_j <= rows(_rt_ax_bk); _rt_ax_j++) { _rt_ax_i = selectindex(_rt_ax_ck :== _rt_ax_bk[_rt_ax_j]); if (rows(_rt_ax_i) != 1) continue; if (missing(_rt_ax_d[_rt_ax_i]) | missing(_rt_ax_b[_rt_ax_j])) continue; _rt_ax_m++; if (reldif(_rt_ax_d[_rt_ax_i], _rt_ax_b[_rt_ax_j]) < 1e-12) _rt_ax_nb++; else if (reldif(_rt_ax_d[_rt_ax_i], exp(_rt_ax_b[_rt_ax_j])) < 1e-12) _rt_ax_ne++; }
+			mata: st_local("_st", _rt_ax_m == 0 ? "" : (_rt_ax_ne == _rt_ax_m ? "exp" : (_rt_ax_nb == _rt_ax_m ? "b" : "")))
+			capture mata: mata drop _rt_ax_*
+			capture erase `"`_cjs'"'
+		}
+		c_local _ax_state "`_st'"
+	}
+	local _rc = _rc
+	* also on the error path: no Mata globals or collection file left behind
+	capture mata: mata drop _rt_ax_*
+	if `"`_cjs'"' != "" capture erase `"`_cjs'"'
+	capture mata: mata drop _rt_ax_*
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
 end

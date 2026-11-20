@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_deferred_styles Version 1.1.0  2026/10/31
+*! _tabtools_xlsx_deferred_styles Version 1.2.0  2026/11/19
 *! Apply queued cell style rules directly to a closed xlsx workbook's XML
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -97,6 +97,7 @@ capture mata: mata drop _tt_xlsx_pend_hex()
 capture mata: mata drop _tt_xlsx_pend_named()
 capture mata: mata drop _tt_xlsx_pend_esc()
 capture mata: mata drop _tt_xlsx_pend_unesc()
+capture mata: mata drop _tt_xlsx_pend_tagend()
 capture mata: mata drop _tt_xlsx_pend_id()
 capture mata: mata drop _tt_xlsx_pend_pool()
 capture mata: mata drop _tt_xlsx_pend_setpool()
@@ -465,13 +466,46 @@ string scalar _tt_xlsx_pend_part(string scalar root, string scalar sheet)
     return("")
 }
 
+// Position of the ">" that closes the first tag of x (0 when absent). A ">"
+// inside a quoted attribute value is skipped: xl() escapes "<" in a sheet
+// name as &lt; but writes ">" raw, so <sheet name="Age >65" r:id="rId3"/>
+// ended at the first ">" and lost r:id, and the fast style pass failed.
+real scalar _tt_xlsx_pend_tagend(string scalar x)
+{
+    real scalar pos, gt, q1, q2, qt, qend
+    string scalar seg, qc
+
+    pos = 1
+    while (pos <= strlen(x)) {
+        gt = strpos(substr(x, pos, .), ">")
+        if (gt == 0) return(0)
+        seg = substr(x, pos, gt - 1)
+        q1 = strpos(seg, char(34))
+        q2 = strpos(seg, char(39))
+        if (q1 == 0 & q2 == 0) return(pos + gt - 1)
+        // skip the attribute value opened by the earlier quote
+        if (q1 == 0 | (q2 > 0 & q2 < q1)) {
+            qt = q2
+            qc = char(39)
+        }
+        else {
+            qt = q1
+            qc = char(34)
+        }
+        qend = strpos(substr(x, pos + qt, .), qc)
+        if (qend == 0) return(0)
+        pos = pos + qt + qend
+    }
+    return(0)
+}
+
 // value of attribute a in the first element of x ("" when absent)
 string scalar _tt_xlsx_pend_attr(string scalar x, string scalar a)
 {
     real scalar p, q, e
     string scalar key
 
-    e = strpos(x, ">")
+    e = _tt_xlsx_pend_tagend(x)
     if (e == 0) e = strlen(x)
     key = " " + a + "=" + char(34)
     p = strpos(substr(x, 1, e), key)
@@ -488,7 +522,7 @@ string scalar _tt_xlsx_pend_setattr(string scalar x, string scalar a, string sca
     real scalar e, p, q
     string scalar key, tagpart
 
-    e = strpos(x, ">")
+    e = _tt_xlsx_pend_tagend(x)
     tagpart = substr(x, 1, e)
     key = " " + a + "=" + char(34)
     p = strpos(tagpart, key)

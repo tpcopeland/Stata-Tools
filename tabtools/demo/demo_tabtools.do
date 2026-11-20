@@ -1025,7 +1025,7 @@ collect: logistic cv_event treated index_age female i.education ///
 regtab, xlsx("`xlsx_regtab'") sheet("Regtab Advanced") ///
     title("Table 5d. Logistic Regression with Advanced Formatting") ///
     coef("OR") noint dimnonsig factorlabel ///
-    starslevels(0.05 0.01 0.001) ///
+    stars starslevels(0.05 0.01 0.001) ///
     font(Arial) fontsize(10) borderstyle(academic) models("Advanced")
 
 **# Sheet 20: Regtab Select -- Covariate filtering with keep/drop

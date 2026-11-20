@@ -31,8 +31,8 @@ and restricted mean survival time.{p_end}
 
 {pstd}Data must be {helpb stset} before running {cmd:survtab}. Frequency weights
 declared in {cmd:stset} are honored with replication semantics for the
-Kaplan-Meier estimates, event and risk-set counts, and Greenwood RMST
-variance. Probability and importance weights in {cmd:stset} are not supported
+Kaplan-Meier estimates, medians and their confidence limits, event and
+risk-set counts, and Greenwood RMST variance. Probability and importance weights in {cmd:stset} are not supported
 and are rejected before output is produced.{p_end}
 
 {marker description}{title:Description}
@@ -69,7 +69,7 @@ zebra striping, bold p-values, and custom colors — are supported.{p_end}
 
 {syntab:Analysis}
 {synopt:{opt by(varname)}}between-group comparison variable{p_end}
-{synopt:{opt rmst(#)}}compute RMST through time #{p_end}
+{synopt:{opt rmst(#)}}compute RMST through time # (# > 0){p_end}
 {synopt:{opt med:ian}}include median survival with CI{p_end}
 {synopt:{opt risk:set}}add number-at-risk rows at each timepoint{p_end}
 {synopt:{opt timeu:nit(string)}}time-unit label; default {cmd:years}{p_end}
@@ -152,7 +152,8 @@ frame.{p_end}
 {opt addr:ow(string asis)} append custom rows below table body{p_end}
 
 {phang}
-{opt bold:p(#)} bold log-rank p-value and summary row when p < threshold{p_end}
+{opt bold:p(#)} bold log-rank p-value and summary row when p < threshold;
+# must lie strictly between 0 and 1{p_end}
 
 {phang}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
@@ -174,7 +175,10 @@ decimal at a time, up to two or the format's own decimals if more ({cmd:0.3},
 {cmd:>99.99} at that precision. A true 0 or 100 prints as before.{p_end}
 
 {phang}
-{opt ev:ents} add aggregate Events / N row per group{p_end}
+{opt ev:ents} add aggregate Events / N row per group. Events are failures
+({cmd:_d == 1}), the events the Kaplan-Meier estimate counts; with {cmd:stset}
+{cmd:id()} and multiple failures per subject every failure counts, while N is
+the number of subjects, so Events can exceed N.{p_end}
 
 {phang}
 {opt foot:note(string)} footnote below the table{p_end}
@@ -190,10 +194,12 @@ replace{p_end}
 {opt headers:hade} shade header row background{p_end}
 
 {phang}
-{opt high:light(#)} highlight log-rank summary row when p < threshold{p_end}
+{opt high:light(#)} highlight log-rank summary row when p < threshold;
+# must lie strictly between 0 and 1{p_end}
 
 {phang}
-{opt highpdp(#)} max decimal places for large p-values (p >= 0.10); default 2{p_end}
+{opt highpdp(#)} max decimal places for large p-values (p >= 0.10); an integer
+from 1 to 10, default 2{p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
@@ -227,13 +233,20 @@ document is an error.{p_end}
 {opt med:ian} include median survival with a confidence interval at the
 requested level. A median, or a confidence limit, that the survivor function
 never reaches prints as {cmd:NR} (not reached), so a finite lower limit is
-kept: {cmd:(22.0, NR)}.{p_end}
+kept: {cmd:(22.0, NR)}. The median and its limits follow {helpb stci}
+({bf:[ST] stci}, Methods and formulas): the median is the first time
+at which the Kaplan-Meier estimate is at or below 0.5, and the lower (upper)
+limit is the first time at which the lower (upper) {cmd:ln(-ln S(t))}
+confidence limit of S(t) is at or below 0.5. They are computed from
+{helpb sts generate}, so, unlike {cmd:stci}, they honor {cmd:stset}
+frequency weights.{p_end}
 
 {phang}
 {opt open} open the Excel file after export{p_end}
 
 {phang}
-{opt pdp(#)} max decimal places for small p-values (p < 0.10); default 3{p_end}
+{opt pdp(#)} max decimal places for small p-values (p < 0.10); an integer
+from 1 to 10, default 3{p_end}
 
 {phang}
 {opt rev:erse} report cumulative incidence as 1 minus survival; valid only without competing risks
@@ -251,7 +264,8 @@ session default was set with {cmd:tabtools set font}.{p_end}
 
 {phang}
 {opt fontsize(#)} sets the Excel font size in points. The default is 10 unless
-a session default was set with {cmd:tabtools set fontsize}.{p_end}
+a session default was set with {cmd:tabtools set fontsize}. An explicit value
+must be an integer from 1 to 72.{p_end}
 
 {phang}
 {opt times(numlist)} analysis timepoints for Kaplan-Meier estimates. A
@@ -280,7 +294,8 @@ was not inferred from the data.{p_end}
 {opt title(string)} table title in row 1{p_end}
 
 {phang}
-{opt xlsx(filename)} Excel workbook; filename must end in {cmd:.xlsx}; {opt excel()} is a synonym{p_end}
+{opt xlsx(filename)} Excel workbook; filename must end in {cmd:.xlsx}; {opt excel()} is a synonym, and
+giving {opt xlsx()} and {opt excel()} different file names is an error (r(198)){p_end}
 
 {phang}
 {opt zebra} alternating row shading{p_end}
@@ -334,7 +349,7 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {synopt:{cmd:r(logrank_chi2)}}log-rank test chi-squared statistic{p_end}
 {synopt:{cmd:r(n_groups)}}number of {opt by()} groups (when {opt by()}){p_end}
 {synopt:{cmd:r(median_{it:#})}}median survival for group {it:#} (when {cmd:median}){p_end}
-{synopt:{cmd:r(events_{it:#})}}event count for group {it:#} (when {cmd:events}){p_end}
+{synopt:{cmd:r(events_{it:#})}}number of failures in group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(atrisk_{it:#})}}group denominator for group {it:#} (when {cmd:events}){p_end}
 {synopt:{cmd:r(rmst_diff)}}two-group RMST difference, group 1 minus group 2{p_end}
 {synopt:{cmd:r(rmst_diff_se)}}standard error of the RMST difference{p_end}

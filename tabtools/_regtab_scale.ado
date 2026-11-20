@@ -1,4 +1,4 @@
-*! _regtab_scale Version 1.1.0  2026/10/31
+*! _regtab_scale Version 1.2.0  2026/11/19
 *! display scale of one collected model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -13,7 +13,8 @@
 *              exponentiate to reach _rs_coef
 *   _rs_null   null value on the displayed scale (1 for ratios, 0 otherwise)
 *   _rs_noint  1 when the intercept row is suppressed by default
-*   _rs_known  1 when the command has a dedicated rule
+*   _rs_known  1 when the command has a dedicated rule, or an eform display
+*              option (or, irr, hr, rrr, rr, shr, tr, eform) names the scale
 *   _rs_level  confidence level requested with level(), or -1 when absent
 * Ratio families are always shown on the ratio scale: a fit displayed on the
 * coefficient scale (logit without or, stcox with nohr, logistic with coef,
@@ -79,6 +80,17 @@ program define _regtab_scale, nclass
 			local _i 1
 		}
 		else if inlist("`_rs_word'", "zip", "zinb", "churdle") {
+			* zip and zinb, irr exponentiate the count equation only; the
+			* inflation equation stays on the logit or probit scale, so
+			* regtab never exponentiates these itself (under mi estimate the
+			* command's irr does not apply, and the values stay coefficients).
+			if "`_rs_word'" != "churdle" & "`_rs_pmode'" != "mi" {
+				_regtab_cmdopts "IRr" `"`_rs_opt'"'
+				if "`_ro_irr'" != "" {
+					local _c "IRR"
+					local _n 1
+				}
+			}
 			local _i 1
 		}
 		else if inlist("`_rs_word'", "finegray", "stcrreg") {
@@ -197,7 +209,33 @@ program define _regtab_scale, nclass
 			}
 		}
 		else if !inlist("`_rs_word'", "regress", "mixed", "xtreg") {
-			local _k 0
+			* No dedicated rule. The collection holds _r_b as the command
+			* displayed it ([R] table: "coefficients or transformed
+			* coefficients reported by command"), so an eform display option
+			* (xtlogit, or; xtpoisson, irr; cloglog, eform; meologit, or;
+			* gnbreg, irr; meglm, eform; ...) means the values are already
+			* ratios: named by the option, null 1, never exponentiated again.
+			* Under mi estimate the command's own display options do not
+			* apply ([MI] mi estimate); the prefix's do.
+			_regtab_cmdopts "OR IRr HR RRR RR SHR TR EForm" `"`_rs_opt'"'
+			local _gc ""
+			if "`_ro_or'" != "" local _gc "OR"
+			else if "`_ro_irr'" != "" local _gc "IRR"
+			else if "`_ro_rrr'" != "" local _gc "RRR"
+			else if "`_ro_shr'" != "" local _gc "SHR"
+			else if "`_ro_hr'" != "" local _gc "HR"
+			else if "`_ro_rr'" != "" local _gc "RR"
+			else if "`_ro_tr'" != "" local _gc "TR"
+			else if "`_ro_eform'" != "" | ///
+				regexm(lower(`" `_rs_opt'"'), "[ ,]eform[(]") local _gc "exp(b)"
+			if "`_rs_pmode'" == "mi" local _gc = cond(`_rs_peform', cond("`_gc'" == "", "exp(b)", "`_gc'"), "")
+			else if "`_rs_pmode'" == "or" & `_rs_peform' & "`_gc'" == "" local _gc "exp(b)"
+			if "`_gc'" != "" {
+				local _c "`_gc'"
+				local _n 1
+				local _i 1
+			}
+			else local _k 0
 		}
 
 		* level(): glm and the multilevel families also take link(), so their
@@ -213,7 +251,7 @@ program define _regtab_scale, nclass
 
 		* A prefix decides what the collection holds for a ratio family. glm
 		* and xtgee already folded the prefix into _eopt above.
-		if !inlist("`_rs_word'", "glm", "xtgee") & `_n' == 1 {
+		if !inlist("`_rs_word'", "glm", "xtgee", "zip", "zinb") & `_n' == 1 {
 			if "`_rs_pmode'" == "mi" local _e = !`_rs_peform'
 			else if "`_rs_pmode'" == "or" & `_rs_peform' local _e 0
 		}

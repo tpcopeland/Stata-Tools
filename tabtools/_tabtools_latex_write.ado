@@ -1,4 +1,4 @@
-*! _tabtools_latex_write Version 1.1.0  2026/10/31
+*! _tabtools_latex_write Version 1.2.0  2026/11/19
 *! Write the current dataset as a LaTeX table float (booktabs rules)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

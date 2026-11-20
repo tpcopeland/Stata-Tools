@@ -1,4 +1,4 @@
-*! _regtab_mstats Version 1.1.0  2026/10/31
+*! _regtab_mstats Version 1.2.0  2026/11/19
 *! regtab block: per-model statistics for stats() from the collection
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -107,7 +107,9 @@ quietly {
             local result_levels "`result_levels' ll"
         }
         if `want_aic' local result_levels "`result_levels' aic"
-        if `want_bic' local result_levels "`result_levels' bic"
+        * N_ic: the N of BIC when the command sets it ([R] IC note: the cm
+        * choice models set it to the number of cases)
+        if `want_bic' local result_levels "`result_levels' bic N_ic"
         if `want_aic' | `want_bic' | `want_qic' {
             * e(rank) and the counts that can cap it under a robust-type vce
             local result_levels "`result_levels' rank N_clust N_reps"
@@ -143,7 +145,7 @@ quietly {
                 forvalues m = 1/`n_stat_models' {
                     foreach lname in N N_sub ll aic bic qic rank deviance phi groups r2 ///
                         r2_p r2_a events rmse F mi_m fmi N_clust N_reps people exposure ///
-                        tt_events N_mi obs {
+                        tt_events N_mi N_ic obs {
                         local stat_`lname'_`m' = .
                     }
                 }
@@ -175,7 +177,7 @@ quietly {
                     local stat_col_r2_p ""
                     local stat_col_r2_a ""
                     foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps ///
-                        tt_events tt_people tt_exposure N_mi {
+                        tt_events tt_people tt_exposure N_mi N_ic {
                         local stat_col_`_sx' ""
                     }
 
@@ -196,7 +198,7 @@ quietly {
                         if "`hdr'" == "r2_p" local stat_col_r2_p "`v'"
                         if "`hdr'" == "r2_a" local stat_col_r2_a "`v'"
                         foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps ///
-                            tt_events tt_people tt_exposure N_mi {
+                            tt_events tt_people tt_exposure N_mi N_ic {
                             if "`hdr'" == "`_sx'" local stat_col_`_sx' "`v'"
                         }
                     }
@@ -209,7 +211,7 @@ quietly {
                         * Extract each result level
                         foreach sname in N N_sub ll aic bic rank deviance phi N_g r2 r2_p r2_a ///
                             N_fail rmse F M_mi fmi_max_mi N_clust N_reps ///
-                            tt_events tt_people tt_exposure N_mi {
+                            tt_events tt_people tt_exposure N_mi N_ic {
                             if "`sname'" == "N_g" local lname "groups"
                             else if "`sname'" == "N_fail" local lname "events"
                             else if "`sname'" == "M_mi" local lname "mi_m"
@@ -312,9 +314,13 @@ quietly {
                         * BIC = -2*ll + k*ln(N), likewise recomputed from ll + k + N.
                         * glm's e(bic) uses a deviance-based convention that is not
                         * comparable to the likelihood BIC mixed models report.
+                        * N is e(N), unless the command set e(N_ic); then it is
+                        * e(N_ic), as estat ic uses ([R] IC note).
+                        local _n_bic = `stat_N_`m''
+                        if !missing(`stat_N_ic_`m'') local _n_bic = `stat_N_ic_`m''
                         if !`_this_is_gee' & !missing(`stat_ll_`m'') & ///
-                            !missing(`_k_param') & !missing(`stat_N_`m'') {
-                            local stat_bic_`m' = -2 * `stat_ll_`m'' + `_k_param' * ln(`stat_N_`m'')
+                            !missing(`_k_param') & !missing(`_n_bic') {
+                            local stat_bic_`m' = -2 * `stat_ll_`m'' + `_k_param' * ln(`_n_bic')
                         }
 
                         * Prefer N_sub (subjects) over N (rows) for survival models

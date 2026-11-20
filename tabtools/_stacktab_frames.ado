@@ -1,4 +1,4 @@
-*! _stacktab_frames Version 1.1.0  2026/10/31
+*! _stacktab_frames Version 1.2.0  2026/11/19
 *! stacktab, frames(): stack in-memory frames as labelled panels via puttab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -31,13 +31,29 @@ program define _stacktab_frames, rclass
             [TItle(string) NOte(string) FOOTnote(string) ///
              CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) ///
              HEADERShade BORDERstyle(string) FONT(string) ///
-             FONTSIZE(integer -1) ZEBra DIGits(integer -1) open]
+             FONTSIZE(string) ZEBra DIGits(string) open]
 
         if `"`macval(note)'"' != "" & `"`macval(footnote)'"' != "" {
             display as error "note() and footnote() may not be combined"
             exit 198
         }
         if `"`macval(note)'"' == "" local note `"`macval(footnote)'"'
+        * fontsize(): checked here, before any work; puttab range-checks it
+        * again when it is forwarded. An integer -1 default read a typed
+        * fontsize(-1) as "not given" at rc 0.
+        if `"`fontsize'"' != "" {
+            local fontsize = strtrim(`"`fontsize'"')
+            capture confirm integer number `fontsize'
+            if _rc {
+                display as error "option fontsize() incorrectly specified"
+                exit 198
+            }
+            if `fontsize' < 1 | `fontsize' > 72 {
+                display as error "fontsize() must be between 1 and 72"
+                exit 198
+            }
+            local fontsize = `fontsize'
+        }
 
         * ----- parse frames(name ["label"] [\ ...]) -----
         local _spec : copy local frames
@@ -202,8 +218,12 @@ program define _stacktab_frames, rclass
         foreach _o in csv markdown latex borderstyle font {
             if `"``_o''"' != "" local _opts `"`macval(_opts)' `_o'(`"``_o''"')"'
         }
-        if `fontsize' != -1 local _opts `"`macval(_opts)' fontsize(`fontsize')"'
-        if `digits' != -1 local _opts `"`macval(_opts)' digits(`digits')"'
+        * fontsize() is forwarded as typed (puttab range-checks it): with an
+        * integer -1 sentinel, fontsize(-1) was dropped as not given at rc 0
+        if `"`fontsize'"' != "" local _opts `"`macval(_opts)' fontsize(`fontsize')"'
+        * digits() is forwarded as typed, like fontsize(): with an integer -1
+        * sentinel, digits(-1) was dropped as not given at rc 0
+        if `"`digits'"' != "" local _opts `"`macval(_opts)' digits(`digits')"'
         foreach _o in mdappend texappend texdocument headershade zebra open {
             if "``_o''" != "" local _opts `"`macval(_opts)' `_o'"'
         }

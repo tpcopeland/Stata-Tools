@@ -21,7 +21,7 @@
 * R10 review of the 2.6.2 change set: the overall margin of two margins calls
 *     with different at() reads "Margin", not one call's scenario; an
 *     atmeans scenario names its statistic and value labels; an asbalanced
-*     factor is named; a missing crosstab p keeps "p = ."; a user footnote
+*     factor is named; a one-level crosstab prints "No test of association"; a user footnote
 *     without a full stop is closed before survtab's caveat
 *
 * Oracles: stci, summarize, margins' own r(at) and r(b), e(b), count, tab,
@@ -505,14 +505,14 @@ capture noisily {
     local flab : variable label female
     frame _fx: quietly count if strpos(v1, "`flab' (asbalanced)") > 0
     assert r(N) == 1
-    * crosstab with a constant row variable: no test p, and the sentence
-    * still reads "p = ." with no dangling separator
+    * crosstab with a constant row variable: no test p, the test row says
+    * so, and no dangling separator
     sysuse auto, clear
     generate byte one = 1
     crosstab one foreign, csv("`f'e.csv")
     assert missing(r(p))
     _fx_csv "`f'e.csv"
-    frame _fx: quietly count if regexm(v1, "test: .*p = \.$")
+    frame _fx: quietly count if v1 == "No test of association: one has one level"
     assert r(N) == 1
     frame _fx: quietly count if regexm(v1, ", *$")
     assert r(N) == 0
@@ -524,7 +524,7 @@ capture noisily {
     assert strpos(`"`lastcell'"', "User note. Times beyond") == 1
 }
 if _rc == 0 {
-    display as result "  PASS: R10 multi-call Margin, atmeans/asbalanced labels, p = ., footnote"
+    display as result "  PASS: R10 multi-call Margin, atmeans/asbalanced labels, one-level test row, footnote"
     local ++pass_count
 }
 else {

@@ -37,6 +37,8 @@ capture noisily {
     tempfile csv
     * csv() requires a .csv extension
     local csv "`csv'.csv"
+    * <tempfile>.csv is outside Stata's tempfile registry: erased at the end
+    global R0915_CSVS `"$R0915_CSVS "`csv'""'
     quietly effecttab, clean digits(6) frame(f1, replace) csv("`csv'")
     matrix `t' = r(table)
     assert rowsof(`t') == 2
@@ -70,6 +72,8 @@ capture noisily {
     tempfile csv
     * csv() requires a .csv extension
     local csv "`csv'.csv"
+    * <tempfile>.csv is outside Stata's tempfile registry: erased at the end
+    global R0915_CSVS `"$R0915_CSVS "`csv'""'
     quietly effecttab, digits(6) frame(f2, replace) csv("`csv'")
     matrix `t' = r(table)
     assert colsof(`t') == 4
@@ -119,6 +123,8 @@ capture noisily {
         tempfile csv
         * csv() requires a .csv extension
         local csv "`csv'.csv"
+        * <tempfile>.csv is outside Stata's tempfile registry: erased at the end
+        global R0915_CSVS `"$R0915_CSVS "`csv'""'
         quietly regtab, keep(`selected') nointercept digits(6) frame(f3, replace) csv("`csv'")
         matrix `t' = r(table)
         assert rowsof(`t') == 1
@@ -181,6 +187,8 @@ capture noisily {
     tempfile csv
     * csv() requires a .csv extension
     local csv "`csv'.csv"
+    * <tempfile>.csv is outside Stata's tempfile registry: erased at the end
+    global R0915_CSVS `"$R0915_CSVS "`csv'""'
     quietly effecttab, clean digits(6) frame(f5, replace) csv("`csv'")
     matrix `t' = r(table)
     assert rowsof(`t') == 2
@@ -463,6 +471,11 @@ else {
 }
 
 local total = `pass_count' + `fail_count'
+foreach _f of global R0915_CSVS {
+    capture erase `"`_f'"'
+}
+global R0915_CSVS
+
 display "RESULT: test_review_2026_09_15 tests=`total' pass=`pass_count' fail=`fail_count' skip=0"
 log close review0915
 if `fail_count' exit 1

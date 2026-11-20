@@ -215,7 +215,7 @@ workbook, {cmd:stacktab} exits with r(100).
 {it:rows(lo/hi)} — row range to import, e.g. {it:rows(1/3)}{break}
 {it:cols(A-D)} — column range, e.g. {it:cols(B-D)}{break}
 {it:label(text)} — overwrite the first-row first-column cell with this text{break}
-{it:skip(N)} — drop the Nth row within the imported block{break}
+{it:skip(N)} — drop the Nth row within the imported block; an {it:N} larger than the block's row count is an error (r(198)){break}
 {it:postfix(text)} — append text to all cells in the first column
 
 {p 4 4 2}
@@ -242,6 +242,17 @@ only the selected Excel columns; with {opt rows()} alone, it keeps only the
 selected Excel rows.
 
 {p 4 4 2}
+Text cells, including the formatted text that tabtools commands write, are
+copied exactly as stored. A cell that Excel stores as a number is copied as Excel
+shows it in the formula bar, with at most 15 significant digits and a leading
+zero, so 0.1 and 0.3 are copied as {cmd:0.1} and {cmd:0.3}, not as
+{cmd:.10000000000000001}. A whole number of more than 15 digits keeps its magnitude
+with zeros after the 15th digit, as Excel stores it ({cmd:12345678901234567} is copied as
+{cmd:12345678901234600}), and very large or very small values are copied in e-notation
+({cmd:1e+20}); the cell's Excel number format is not applied. Date
+cells are copied as {cmd:import excel} renders them.
+
+{p 4 4 2}
 In vertically stacked Excel output, the first row of each imported block is
 treated as a section/header row: it is bolded and receives thin top and bottom
 borders. This keeps multi-block tables visually separated after {opt label()},
@@ -259,8 +270,13 @@ Example:
 
 {p 4 4 2}
 {opt columnmerge()} concatenates pairs of columns separated by {it:+} with a header
-label. Columns can be Excel letters, such as {cmd:B+C}, or internal names, such as
-{cmd:_xcol2+_xcol3}. Merge rules are separated by {it:\}; a {it:\} inside the quoted
+label. Columns can be letters, such as {cmd:B+C}, or internal names, such as
+{cmd:_xcol2+_xcol3}. As in {opt colwidth()}, letters count columns of the composed
+table, not of the source sheet: {cmd:A} is its first column. With
+{cmd:blocks(sheet(S) cols(B-D))}, {cmd:columnmerge(B+C)} therefore merges sheet
+columns C and D, and a letter beyond the composed table's width, or a column an
+earlier rule already merged away, is an error (r(198)). Where the first column of a
+pair is blank, the merged cell holds the second column's text alone. Merge rules are separated by {it:\}; a {it:\} inside the quoted
 header is part of the header. The header is written exactly as typed, including
 backticks, dollar signs, and quotes. Malformed merge rules exit with an error instead of
 silently passing through.

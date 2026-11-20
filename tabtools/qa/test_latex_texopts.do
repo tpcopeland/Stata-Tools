@@ -1372,9 +1372,15 @@ capture noisily {
     local s2 "`r(sum)'"
     display as text "  pdftotext nofit `s1', fit `s2'"
     assert "`s1'" != "absent" & "`s1'" == "`s2'"
-    _tx_sum "`d'/nofit.bbox"
+    * pdftotext -bbox echoes the PDF CreationDate/ModDate (whole seconds), so two
+    * compiles that straddle a second boundary differ in those two meta lines
+    * alone; compare the word boxes without them.
+    foreach stem in nofit fit {
+        shell grep -v -e 'name="CreationDate"' -e 'name="ModDate"' "`d'/`stem'.bbox" > "`d'/`stem'.wbox"
+    }
+    _tx_sum "`d'/nofit.wbox"
     local b1 "`r(sum)'"
-    _tx_sum "`d'/fit.bbox"
+    _tx_sum "`d'/fit.wbox"
     local b2 "`r(sum)'"
     display as text "  pdftotext -bbox nofit `b1', fit `b2'"
     assert "`b1'" != "absent" & "`b1'" == "`b2'"

@@ -1,4 +1,4 @@
-*! outtab Version 1.1.0  2026/10/31
+*! outtab Version 1.2.0  2026/11/19
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,16 +35,54 @@ program define outtab, rclass
     capture noisily {
         syntax varlist(numeric min=1) [if] [in] , EXPosure(varname numeric) ///
             [MODels(string asis) MODELLabels(string asis) ESTimator(string asis) EFORM ///
-            MINEvents(integer 0) MINText(string asis) SMALLcells(integer -1) NOSMALLcells ///
+            MINEvents(integer 0) MINText(string asis) SMALLcells(string) NOSMALLcells ///
             PANels(varlist numeric) OBSprefix(name) GROUPLabels(string asis) ///
             RATIOLabel(string) Format(string) SEP(string) ///
             NONCONVtext(string asis) FAILtext(string asis) DROPtext(string asis) FRAme(string) ///
             XLSX(string) EXCEL(string) SHeet(string) TItle(string) FOOTnote(string) ///
             CSV(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) BORDERstyle(string) HEADERShade ///
-            FONT(string) FONTSIZE(integer -1)]
+            FONT(string) FONTSIZE(string)]
 
         **# Options
+        * excel() is a synonym for xlsx(); two different workbooks are two
+        * destinations, so the pair is refused rather than one silently dropped.
+        if `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != "" & `"`macval(xlsx)'"' != `"`macval(excel)'"' {
+            noisily display as error "xlsx() and excel() are synonyms; specify one"
+            exit 198
+        }
         if `"`excel'"' != "" & `"`xlsx'"' == "" local xlsx `"`excel'"'
+        * fontsize(): checked here, before any work; puttab range-checks it
+        * again when it is forwarded. An integer -1 default read a typed
+        * fontsize(-1) as "not given" at rc 0.
+        if `"`fontsize'"' != "" {
+            local fontsize = strtrim(`"`fontsize'"')
+            capture confirm integer number `fontsize'
+            if _rc {
+                display as error "option fontsize() incorrectly specified"
+                exit 198
+            }
+            if `fontsize' < 1 | `fontsize' > 72 {
+                display as error "fontsize() must be between 1 and 72"
+                exit 198
+            }
+            local fontsize = `fontsize'
+        }
+        * smallcells(): a typed value is never the "not given" sentinel. With
+        * an integer -1 default, smallcells(-1) took the session default at
+        * rc 0; an empty smallcells() reads as absent and is refused.
+        if `"`smallcells'"' == "" {
+            _tabtools_smallcells_opt __empty `macval(0)'
+            local smallcells -1
+        }
+        else {
+            local smallcells = strtrim(`"`smallcells'"')
+            capture confirm integer number `smallcells'
+            if _rc | real(`"`smallcells'"') < 0 {
+                display as error "smallcells() must be a nonnegative integer"
+                exit 198
+            }
+            local smallcells = `smallcells'
+        }
         if `minevents' < 0 {
             display as error "minevents() must be a nonnegative integer"
             exit 198
@@ -66,6 +104,40 @@ program define outtab, rclass
         if `smallcells' < 0 {
             display as error "smallcells() must be a nonnegative integer"
             exit 198
+        }
+        * A threshold of 2 prints <2, which names the count 1, and 1 masks
+        * nothing: as in the other commands, it is 3 or more (0 = none).
+        if inlist(`smallcells', 1, 2) {
+            display as error "smallcells() must be 3 or more (0 = none): smallcells(2) prints <2, which identifies a count of 1"
+            exit 198
+        }
+        * frame(): checked here, before any fit or file; only the rename is
+        * left for the end. Checked after the files were written, a bad
+        * name or an occupied frame refused only once the exports were on
+        * disk, and frame(<current>, replace) failed on frame drop (r(119)).
+        local _fname ""
+        if `"`frame'"' != "" {
+            gettoken _fname _fopt : frame, parse(",")
+            local _fname = strtrim("`_fname'")
+            local _fopt = strtrim(subinstr("`_fopt'", ",", "", 1))
+            capture confirm name `_fname'
+            if _rc | !inlist("`_fopt'", "", "replace") {
+                display as error "frame() must be name[, replace]"
+                exit 198
+            }
+            capture confirm frame `_fname'
+            if !_rc & "`_fopt'" != "replace" {
+                display as error "frame `_fname' already exists; specify frame(`_fname', replace)"
+                exit 110
+            }
+            if !_rc & "`_fname'" == "`c(frame)'" {
+                display as error "frame(): cannot replace the current frame (`_fname')"
+                exit 198
+            }
+            if !_rc & "`_fname'" == "default" {
+                display as error "frame(): output frames cannot replace the default frame"
+                exit 198
+            }
         }
         if `"`format'"' == "" local format "%4.2f"
         * sep() is data (help tabtools##sep): read and written in Mata only,
@@ -274,7 +346,10 @@ program define outtab, rclass
                 matrix `_res'[`_ri', 1] = (`n1', `e1', `n0', `e0')
                 local _ylab : variable label `_y'
                 if `"`_ylab'"' == "" local _ylab "`_y'"
-                if "`panels'" != "" local _ylab `"   `_ylab'"'
+                * macval(): a plain `_ylab' re-expands "$name" in the label
+                if "`panels'" != "" {
+                    local _ylab `"   `macval(_ylab)'"'
+                }
                 local ++_row
                 frame `_stage': quietly set obs `_row'
                 frame `_stage': mata: st_sstore(`_row', "rowlabel", st_local("_ylab"))
@@ -450,7 +525,9 @@ program define outtab, rclass
         if `"`borderstyle'"' != "" local _put_opts `"`macval(_put_opts)' borderstyle(`borderstyle')"'
         if "`headershade'" != "" local _put_opts `"`macval(_put_opts)' headershade"'
         if `"`font'"' != "" local _put_opts `"`macval(_put_opts)' font(`"`font'"')"'
-        if `fontsize' != -1 local _put_opts `"`macval(_put_opts)' fontsize(`fontsize')"'
+        * fontsize() is forwarded as typed (puttab range-checks it): with an
+        * integer -1 sentinel, fontsize(-1) was dropped as not given at rc 0
+        if `"`fontsize'"' != "" local _put_opts `"`macval(_put_opts)' fontsize(`fontsize')"'
         local _head_rows : list clean _head_rows
         if "`_head_rows'" != "" {
             * puttab's boldrows() numbers the exported data rows from 1, so a
@@ -479,21 +556,9 @@ program define outtab, rclass
             }
         }
 
-        **# frame(): committed last
-        if `"`frame'"' != "" {
-            gettoken _fname _fopt : frame, parse(",")
-            local _fname = strtrim("`_fname'")
-            local _fopt = strtrim(subinstr("`_fopt'", ",", "", 1))
-            capture confirm name `_fname'
-            if _rc | !inlist("`_fopt'", "", "replace") {
-                display as error "frame() must be name[, replace]"
-                exit 198
-            }
+        **# frame(): validated in Options, committed last
+        if "`_fname'" != "" {
             capture confirm frame `_fname'
-            if !_rc & "`_fopt'" != "replace" {
-                display as error "frame `_fname' already exists; specify frame(`_fname', replace)"
-                exit 110
-            }
             if !_rc frame drop `_fname'
             frame rename `_stage' `_fname'
             local _stage_made 0

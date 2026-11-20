@@ -1,4 +1,4 @@
-*! _regtab_relabel Version 1.1.0  2026/10/31
+*! _regtab_relabel Version 1.2.0  2026/11/19
 *! regtab block: relabel random-effects rows (relabel)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -24,8 +24,12 @@ if "`relabel'" != "" {
     * Equation-qualified residual terms (tobit, intreg, meglm, ...):
     * var(e.y) / sd(e.y) are one token; relabel the whole token so the
     * depvar stays in its own parentheses.
-    replace A = ustrregexra(A, "var\(e\.([^()]+)\)", "Residual Variance (\$1)")
-    replace A = ustrregexra(A, "sd\(e\.([^()]+)\)", "Residual SD (\$1)")
+    * Substring rewrites touch only random-effects rows (_is_re, keyed on the
+    * raw coefficient name) or a whole parameter token, never part of a
+    * covariate's name or label: has_consent became hasInterceptent and a
+    * label "Log sd(income)" became "Log SD (income)".
+    replace A = ustrregexra(A, "var\(e\.([^()]+)\)", "Residual Variance (\$1)") if _is_re
+    replace A = ustrregexra(A, "sd\(e\.([^()]+)\)", "Residual SD (\$1)") if _is_re
     if "`re_groupvars'" != "" & "`re_groupvars'" != "." {
 
         * --- Per-level relabeling (bracket notation) ---
@@ -35,21 +39,21 @@ if "`relabel'" != "" {
             local _glbl : copy local re_grouplbl_`_lev'
 
             * Random intercept: var(_cons[groupvar]) -> "Variance: GroupLabel (Intercept)"
-            replace A = `"Variance: `macval(_glbl)' (Intercept)"' if A == "var(_cons[`_gvar'])"
+            replace A = `"Variance: `macval(_glbl)' (Intercept)"' if _is_re & A == "var(_cons[`_gvar'])"
 
             * Random slopes: var(varname[groupvar]) -> "Variance: GroupLabel (VarLabel)"
             foreach revar of local re_vars {
                 if "`revar'" != "_cons" {
                     local slope_lbl : copy local lbl_`revar'
-                    replace A = `"Variance: `macval(_glbl)' (`macval(slope_lbl)')"' if A == "var(`revar'[`_gvar'])"
+                    replace A = `"Variance: `macval(_glbl)' (`macval(slope_lbl)')"' if _is_re & A == "var(`revar'[`_gvar'])"
                 }
             }
 
             * Covariances: cov(var1,var2[groupvar]) -> "Covariance: GroupLabel (Label1, Label2)"
-            count if strpos(A, "cov(") > 0 & strpos(A, "[`_gvar']") > 0
+            count if _is_re & strpos(A, "cov(") > 0 & strpos(A, "[`_gvar']") > 0
             if r(N) > 0 {
                 gen _temp_row = _n
-                levelsof _temp_row if strpos(A, "cov(") > 0 & strpos(A, "[`_gvar']") > 0, local(cov_rows)
+                levelsof _temp_row if _is_re & strpos(A, "cov(") > 0 & strpos(A, "[`_gvar']") > 0, local(cov_rows)
                 foreach row of local cov_rows {
                     local cov_str = A[`row']
                     * Extract the two components of cov(v1,v2[g]) (mixed),
@@ -87,11 +91,11 @@ if "`relabel'" != "" {
             }
 
             * Standard deviations with brackets
-            replace A = `"`macval(_glbl)' SD (Intercept)"' if A == "sd(_cons[`_gvar'])"
+            replace A = `"`macval(_glbl)' SD (Intercept)"' if _is_re & A == "sd(_cons[`_gvar'])"
             foreach revar of local re_vars {
                 if "`revar'" != "_cons" {
                     local slope_lbl : copy local lbl_`revar'
-                    replace A = `"`macval(_glbl)' SD (`macval(slope_lbl)')"' if A == "sd(`revar'[`_gvar'])"
+                    replace A = `"`macval(_glbl)' SD (`macval(slope_lbl)')"' if _is_re & A == "sd(`revar'[`_gvar'])"
                 }
             }
 
@@ -101,7 +105,7 @@ if "`relabel'" != "" {
             * slope name from the key itself.
             capture drop _temp_row
             gen long _temp_row = _n
-            quietly levelsof _temp_row if _n > 2 & ///
+            quietly levelsof _temp_row if _n > 2 & _is_re & ///
                 ustrregexm(A, "^(var|sd)\([^\[\]\(\),]+\[`_gvar'\]\)$"), local(_sl_rows)
             foreach row of local _sl_rows {
                 local _sl_key = A[`row']
@@ -124,20 +128,22 @@ if "`relabel'" != "" {
         }
 
         * --- Single-level patterns (no brackets) for single-level mixed ---
-        replace A = `"Variance: `macval(re_grouplbl)' (Intercept)"' if A == "var(_cons)"
+        * Every rewrite in this block is gated on _is_re (the raw coefficient
+        * name), so a covariate label such as "Dose cov(x)" is never touched.
+        replace A = `"Variance: `macval(re_grouplbl)' (Intercept)"' if _is_re & A == "var(_cons)"
 
         foreach revar of local re_vars {
             if "`revar'" != "_cons" {
                 local slope_lbl : copy local lbl_`revar'
-                replace A = `"Variance: `macval(re_grouplbl)' (`macval(slope_lbl)')"' if A == "var(`revar')"
+                replace A = `"Variance: `macval(re_grouplbl)' (`macval(slope_lbl)')"' if _is_re & A == "var(`revar')"
             }
         }
 
         * Covariances without brackets (single-level mixed)
-        count if strpos(A, "cov(") > 0
+        count if _is_re & strpos(A, "cov(") > 0
         if r(N) > 0 {
             gen _temp_row = _n
-            levelsof _temp_row if strpos(A, "cov(") > 0, local(cov_rows)
+            levelsof _temp_row if _is_re & strpos(A, "cov(") > 0, local(cov_rows)
             foreach row of local cov_rows {
                 local cov_str = A[`row']
                 local cov_inner = subinstr("`cov_str'", "cov(", "", 1)
@@ -156,47 +162,47 @@ if "`relabel'" != "" {
         }
 
         * Residual variance: var(e) -> "Residual Variance"
-        replace A = "Residual Variance" if A == "var(e)"
+        replace A = "Residual Variance" if _is_re & A == "var(e)"
 
         * Standard deviations without brackets (single-level)
-        replace A = `"`macval(re_grouplbl)' SD (Intercept)"' if A == "sd(_cons)"
+        replace A = `"`macval(re_grouplbl)' SD (Intercept)"' if _is_re & A == "sd(_cons)"
         foreach revar of local re_vars {
             if "`revar'" != "_cons" {
                 local slope_lbl : copy local lbl_`revar'
-                replace A = `"`macval(re_grouplbl)' SD (`macval(slope_lbl)')"' if A == "sd(`revar')"
+                replace A = `"`macval(re_grouplbl)' SD (`macval(slope_lbl)')"' if _is_re & A == "sd(`revar')"
             }
         }
-        replace A = "Residual SD" if A == "sd(e)"
+        replace A = "Residual SD" if _is_re & A == "sd(e)"
 
         * Log-scale parameters (raw coefficient names: lns1_1_1, lns2_1_1, ...)
         forvalues _lev = 1/`_n_re_levels' {
             local _glbl : copy local re_grouplbl_`_lev'
-            replace A = subinstr(A, "lns`_lev'_1_1", `"`macval(_glbl)' Log SD (Intercept)"', .)
+            replace A = ustrregexra(A, "(?<![A-Za-z0-9_])lns`_lev'_1_1(?![A-Za-z0-9_])", `"`macval(_glbl)' Log SD (Intercept)"')
         }
-        replace A = subinstr(A, "lnsig_e", "Residual Log SD", .)
+        replace A = ustrregexra(A, "(?<![A-Za-z0-9_])lnsig_e(?![A-Za-z0-9_])", "Residual Log SD")
     }
     else {
         * Fallback: no random effects info, use generic labels
-        replace A = subinstr(A, "var(_cons)", "Variance (Intercept)", .)
-        replace A = subinstr(A, "var(e)", "Residual Variance", .)
-        replace A = subinstr(A, "var(", "Variance (", .)
-        replace A = subinstr(A, "cov(", "Covariance (", .)
-        replace A = subinstr(A, "sd(_cons)", "SD (Intercept)", .)
-        replace A = subinstr(A, "sd(", "SD (", .)
+        replace A = subinstr(A, "var(_cons)", "Variance (Intercept)", .) if _is_re
+        replace A = subinstr(A, "var(e)", "Residual Variance", .) if _is_re
+        replace A = subinstr(A, "var(", "Variance (", .) if _is_re
+        replace A = subinstr(A, "cov(", "Covariance (", .) if _is_re
+        replace A = subinstr(A, "sd(_cons)", "SD (Intercept)", .) if _is_re
+        replace A = subinstr(A, "sd(", "SD (", .) if _is_re
         * Log-scale parameters: handle all levels (lns1_1_1, lns2_1_1, ...)
         if `_n_re_levels' > 0 {
             forvalues _lev = 1/`_n_re_levels' {
-                replace A = subinstr(A, "lns`_lev'_1_1", "Log SD (Level `_lev' Intercept)", .)
+                replace A = ustrregexra(A, "(?<![A-Za-z0-9_])lns`_lev'_1_1(?![A-Za-z0-9_])", "Log SD (Level `_lev' Intercept)")
             }
         }
         else {
-            replace A = subinstr(A, "lns1_1_1", "Log SD (Intercept)", .)
+            replace A = ustrregexra(A, "(?<![A-Za-z0-9_])lns1_1_1(?![A-Za-z0-9_])", "Log SD (Intercept)")
         }
-        replace A = subinstr(A, "lnsig_e", "Log SD (Residual)", .)
+        replace A = ustrregexra(A, "(?<![A-Za-z0-9_])lnsig_e(?![A-Za-z0-9_])", "Log SD (Residual)")
     }
 
-    * Clean up _cons in fixed effects (Intercept row)
-    replace A = subinstr(A, "_cons", "Intercept", .)
+    * Clean up _cons in fixed effects (Intercept row): the whole token only
+    replace A = ustrregexra(A, "(?<![A-Za-z0-9_])_cons(?![A-Za-z0-9_])", "Intercept")
 }
 }
 	mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])

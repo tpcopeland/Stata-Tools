@@ -1,4 +1,4 @@
-*! _regtab_classes Version 1.1.0  2026/10/31
+*! _regtab_classes Version 1.2.0  2026/11/19
 *! regtab block: constraint classes collect could not record, per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -63,9 +63,12 @@ forvalues _m = 1/`n_models' {
 	* the constrained value on the scale collect holds
 	local _cv `"real(subinstr(strtrim(c`_cm'), ",", "", .))"'
 	local _ccv `"`_cc' & inlist(`_cv', 0, 1)"'
+	* a command with no scale rule may display ratios by default: 0 or 1
 	if `_m' <= `_meta_models' {
-		local _bv = cond(`model_eform_`_m'', 0, `model_null_`_m'')
-		local _ccv `"`_cc' & `_cv' == `_bv'"'
+		if `model_known_`_m'' {
+			local _bv = cond(`model_eform_`_m'', 0, `model_null_`_m'')
+			local _ccv `"`_cc' & `_cv' == `_bv'"'
+		}
 	}
 	* The fit's own notes: fitcount's record, else the active fit. A classed
 	* model asks the active fit only for a cell collect left without class

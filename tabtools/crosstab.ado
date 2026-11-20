@@ -1,4 +1,4 @@
-*! crosstab Version 1.1.0  2026/10/31
+*! crosstab Version 1.2.0  2026/11/19
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -57,15 +57,47 @@ capture noisily {
         COLpct ROWpct TOTALpct EXact FIsher ///
         OR RR RD TRend COCHran LABel MISsing ///
         Level(cilevel) ///
-        DIGits(integer -1) ///
+        DIGits(string) ///
         title(string) ///
-        FOOTnote(string) FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
+        FOOTnote(string) FONT(string) FONTSIZE(string) BORDERstyle(string) ///
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
-        BOLDp(real -1) zebra ///
+        BOLDp(string) zebra ///
         csv(string) MARKdown(string) MDAPPend LATEX(string) TEXAPPend texdocument texopts(string asis) FRAme(string) ///
         SMALLCells(string) NOSMALLCells open]
 
+    * digits() and boldp() are read as text so that an option not given (-1
+    * below) cannot collide with a typed value: with -1 defaults, a typed
+    * digits(-1) or boldp(-1) was taken as no option at rc 0. Every typed
+    * value is range-checked below.
+    foreach _nopt in digits boldp {
+        local _nval = strtrim(`"``_nopt''"')
+        if `"`_nval'"' == "" {
+            local `_nopt' -1
+            continue
+        }
+        capture confirm number `_nval'
+        if _rc {
+            noisily display as error "option `_nopt'() incorrectly specified"
+            exit 198
+        }
+        if `_nval' == -1 {
+            if "`_nopt'" == "digits" noisily display as error "digits() must be between 0 and 6"
+            else noisily display as error "boldp() must be between 0 and 1"
+            exit 198
+        }
+        * an integer typed with a decimal point (2.0, 1e0) is accepted, as
+        * the integer syntax type did
+        if "`_nopt'" == "digits" & `_nval' != int(`_nval') {
+            noisily display as error "`_nopt'() must be an integer"
+            exit 198
+        }
+        local `_nopt' = `_nval'
+    }
+
     gettoken rowvar colvar : varlist
+    * gettoken leaves the separating blank on colvar; without the trim an
+    * unlabeled colvar printed as "for a by  b" in r(methods).
+    local colvar = strtrim("`colvar'")
     * The level as shown: at most 15 significant digits, so 99.9 never prints
     * as the double's 17-digit 99.90000000000001; r(ci_level) stays numeric.
     local _level_txt = strtrim(ustrregexra(string(`level', "%21.15g"), "-(?=[0.,]+\z)", ""))
@@ -82,6 +114,10 @@ capture noisily {
     }
 
     * Accept excel() as synonym
+    if `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != "" {
+        noisily display as error "xlsx() and excel() are synonyms; specify one"
+        exit 198
+    }
     if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" mata: st_local("xlsx", st_local("excel"))
     * Session destinations (tabtools set workbook/markdown) apply only when
     * sheet() asks for a sheet; an explicit option wins.
@@ -120,6 +156,11 @@ capture noisily {
     if `boldp' != -1 & (`boldp' <= 0 | `boldp' >= 1) {
         noisily display as error "boldp() must be between 0 and 1"
         exit 198
+    }
+    * An empty smallcells() reads as absent to syntax; refuse it (r(198))
+    * rather than fall through to no masking or the session default.
+    if `"`smallcells'"' == "" {
+        _tabtools_smallcells_opt __empty `macval(0)'
     }
     * smallcells(# [, primary]) / nosmallcells / session default.
     _tabtools_smallcells_opt, smallcells(`smallcells') `nosmallcells'
@@ -231,7 +272,7 @@ capture noisily {
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') fsexplicit borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
     if "`headershade'" != "" local _headershade 1
 
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
@@ -372,12 +413,39 @@ capture noisily {
         }
     }
 
-    if "`fisher'" != "" | "`exact'" != "" | `_min_expected' < 5 {
-        qui tab `rowvar' `colvar' [`weight'`exp'], exact `_missing_opt'
-        local _p = r(p_exact)
-        local _test_name "Fisher's exact test"
+    * A table with one row or one column level has no test of association:
+    * tabulate returns no statistic, so the row, r(chi2)/r(p) and the methods
+    * claim are omitted instead of printing "chi2 = ., p = .".
+    local _has_test = (`n_rows' >= 2 & `n_cols' >= 2)
+    local _single_var ""
+    if !`_has_test' local _single_var = cond(`n_rows' < 2, "`rowvar'", "`colvar'")
+    local _exact_requested = ("`fisher'" != "" | "`exact'" != "")
+    * Set when Fisher's test was auto-selected but tabulate could not compute
+    * it (memory, rc 910; margin overflow, rc 1400): chi-squared is reported.
+    local _fisher_fallback 0
+    local _fisher_rc 0
+    if `_has_test' & (`_exact_requested' | `_min_expected' < 5) {
+        capture tab `rowvar' `colvar' [`weight'`exp'], exact `_missing_opt'
+        local _fisher_rc = _rc
+        if `_fisher_rc' == 1 {
+            restore
+            exit 1
+        }
+        if `_fisher_rc' {
+            if `_exact_requested' {
+                noisily display as error "Fisher's exact test could not be computed for this `n_rows' x `n_cols' table (tabulate rc `_fisher_rc')"
+                noisily display as error "Hint: omit {bf:exact}/{bf:fisher} to report Pearson's chi-squared test"
+                restore
+                exit `_fisher_rc'
+            }
+            local _fisher_fallback 1
+        }
+        else {
+            local _p = r(p_exact)
+            local _test_name "Fisher's exact test"
+        }
     }
-    else {
+    if `_has_test' & (`_fisher_fallback' | !(`_exact_requested' | `_min_expected' < 5)) {
         qui tab `rowvar' `colvar' [`weight'`exp'], chi2 `_missing_opt'
         local _chi2 = r(chi2)
         local _p = r(p)
@@ -412,6 +480,11 @@ capture noisily {
             }
             local _or_lo = r(lb_or)
             local _or_hi = r(ub_or)
+            if missing(`_or_lo') | missing(`_or_hi') {
+                noisily display as error "the confidence interval of the odds ratio is undefined for this 2x2 table"
+                restore
+                exit 498
+            }
         }
         if "`rr'" != "" | "`rd'" != "" {
             qui cs `_assoc_row01' `_assoc_col01' [`weight'`exp'], level(`level')
@@ -424,6 +497,14 @@ capture noisily {
                 }
                 local _rr_lo = r(lb_rr)
                 local _rr_hi = r(ub_rr)
+                * cs returns rr = 0 with missing limits when the exposed
+                * column has no events: the log-scale interval does not
+                * exist, and a "." limit is never printed.
+                if missing(`_rr_lo') | missing(`_rr_hi') {
+                    noisily display as error "the confidence interval of the risk ratio is undefined for this 2x2 table (a column has no events)"
+                    restore
+                    exit 498
+                }
             }
             if "`rd'" != "" {
                 local _rd = r(rd)
@@ -434,6 +515,11 @@ capture noisily {
                 }
                 local _rd_lo = r(lb_rd)
                 local _rd_hi = r(ub_rd)
+                if missing(`_rd_lo') | missing(`_rd_hi') {
+                    noisily display as error "the confidence interval of the risk difference is undefined for this 2x2 table"
+                    restore
+                    exit 498
+                }
             }
         }
     }
@@ -647,11 +733,16 @@ capture noisily {
     * The package p-value rule (regtab's): a truncated value carries its own
     * operator, so the sentence uses r(phrase) ("p < 0.001"), never
     * "p = <0.001".
+    local _fallback_txt ""
+    if `_fisher_fallback' local _fallback_txt " (Fisher's exact test not computable)"
     _tabtools_format_p, pvalue(`_p')
     local _p_phrase `"`r(phrase)'"'
     if `"`_p_phrase'"' == "" local _p_phrase "p = ."
-    if `_sc_suppress_derived' {
-        qui replace c1 = `"`_test_name': Suppressed"' in `row'
+    if !`_has_test' {
+        qui replace c1 = "No test of association: `_single_var' has one level" in `row'
+    }
+    else if `_sc_suppress_derived' {
+        qui replace c1 = `"`_test_name'`_fallback_txt': Suppressed"' in `row'
         local ++_sc_nderived
     }
     else if "`_test_name'" == "Fisher's exact test" {
@@ -659,7 +750,7 @@ capture noisily {
     }
     else {
         local _chi2_str = ustrregexra(string(`_chi2', "%6.2f"), "-(?=[0.,]+\z)", "")
-        qui replace c1 = `"`_test_name': chi2 = `_chi2_str', `_p_phrase'"' in `row'
+        qui replace c1 = `"`_test_name'`_fallback_txt': chi2 = `_chi2_str', `_p_phrase'"' in `row'
     }
 
     * Association measure row
@@ -738,8 +829,16 @@ capture noisily {
     * test statistics and r(methods), as a failed workbook export does.
     * Methods paragraph
     local _methods `"Cross-tabulation was performed for `macval(_rowlabel)' by `macval(_collabel)'."'
-    local _methods `"`macval(_methods)' Statistical significance was assessed using `_test_name'."'
-    if `_sc_suppress_derived' {
+    if !`_has_test' {
+        local _methods `"`macval(_methods)' No test of association was performed because `_single_var' has only one level."'
+    }
+    else if `_fisher_fallback' {
+        local _methods `"`macval(_methods)' Statistical significance was assessed using Pearson's chi-squared test because Fisher's exact test, selected for expected cell counts below 5, could not be computed for this table."'
+    }
+    else {
+        local _methods `"`macval(_methods)' Statistical significance was assessed using `_test_name'."'
+    }
+    if `_sc_suppress_derived' & `_has_test' {
         local _methods `"`macval(_methods)' Count-dependent tests and association measures were suppressed under smallcells(`smallcells')."'
     }
     else {
@@ -766,7 +865,10 @@ capture noisily {
     * matrices because the successful return gate below still needs them.
     local _own_r_posted = 1
     return clear
-    if `_sc_suppress_derived' {
+    if !`_has_test' {
+        * no test: r(chi2) and r(p) are not stored
+    }
+    else if `_sc_suppress_derived' {
         return scalar chi2 = .d
         return scalar p = .d
     }
@@ -1045,7 +1147,10 @@ capture noisily {
 
 **# Return Results
     return clear
-    if `_sc_suppress_derived' {
+    if !`_has_test' {
+        * no test: r(chi2) and r(p) are not stored
+    }
+    else if `_sc_suppress_derived' {
         return scalar chi2 = .d
         return scalar p = .d
     }

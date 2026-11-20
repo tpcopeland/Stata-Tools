@@ -1,4 +1,4 @@
-*! stacktab Version 1.1.0  2026/10/31
+*! stacktab Version 1.2.0  2026/11/19
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -274,15 +274,12 @@ program define stacktab, rclass
             local _first_row = 1
             * stata-dev-ignore: capture-rc — _rc is consumed by the "if _rc" on the first statement after the closing brace
             capture {
-                if `"`brow'"' != "" & `"`bcol'"' == "" {
+                if `"`cellrange'"' == "" {
+                    * The used range's first row, read in Mata so that a
+                    * sheet name holding a backtick, a quote or $ is never
+                    * macro-expanded (cycle 2026-11-19).
                     quietly import excel `"`using'"', describe
-                    forvalues _ws = 1/`r(N_worksheet)' {
-                        if lower(`"`r(worksheet_`_ws')'"') == lower(`"`macval(bsh)'"') {
-                            if regexm(`"`r(range_`_ws')'"', "^[A-Za-z]+([0-9]+)") {
-                                local _first_row = real(regexs(1))
-                            }
-                        }
-                    }
+                    mata: _stacktab_first_row(st_local("bsh"))
                 }
                 if `"`cellrange'"' != "" {
                     import excel `"`using'"', ///
@@ -295,6 +292,31 @@ program define stacktab, rclass
             if _rc {
                 display as error `"stacktab: could not import block `b' from sheet "`macval(bsh)'""'
                 exit _rc
+            }
+
+            * Numeric source cells (cycle 2026-11-19, F3). allstring("%24.17g")
+            * prints a true numeric cell at 17 significant digits
+            * (.30000000000000004) and Stata's %g misprints some magnitudes
+            * (1e20 as 1000000000000000000). Each cell Excel itself types
+            * "numeric" is re-read as a double and written as Excel shows it:
+            * at most 15 significant digits, with a leading zero. Text, date
+            * and blank cells are not touched. Observation i is sheet row
+            * r0+i-1 and each variable is named by its sheet column; the
+            * helper checks that mapping cell by cell and leaves the block as
+            * imported if any cell disagrees. xl() is pointed at a private
+            * copy: its set_sheet() re-saves the workbook it reads, and the
+            * source must stay byte-identical (a refused call writes nothing).
+            local _num_r0 = `_first_row'
+            if `"`cellrange'"' != "" local _num_r0 = `row_lo'
+            local _num_need 0
+            capture mata: st_local("_num_need", strofreal(_stacktab_num_need()))
+            if "`_num_need'" == "1" {
+                tempfile _num_book
+                capture copy `"`using'"' `"`_num_book'.xlsx"', replace
+                if !_rc {
+                    capture mata: _stacktab_num_cells(st_local("_num_book") + ".xlsx", st_local("bsh"), `_num_r0')
+                }
+                capture erase `"`_num_book'.xlsx"'
             }
 
             * Apply row range filter if rows given but no cellrange
@@ -316,6 +338,13 @@ program define stacktab, rclass
                 capture confirm integer number `bskip_`b''
                 if _rc | real(`"`macval(bskip_`b')'"') < 1 {
                     display as error "stacktab: block `b': skip() must be a positive integer"
+                    exit 198
+                }
+                * cycle 2026-11-19 (F1): a skip() past the end of the block
+                * used to drop nothing at rc 0.
+                if `bskip_`b'' > _N {
+                    display as error "stacktab: block `b': skip(`bskip_`b'') is outside the imported block of " _N " rows"
+                    display as error "  skip() counts rows within the block, not sheet rows"
                     exit 198
                 }
                 quietly drop if _n == `bskip_`b''
@@ -484,6 +513,8 @@ program define stacktab, rclass
                     display as error `"stacktab: columnmerge() requires exactly two columns in "`macval(pair_str)'""'
                     exit 198
                 }
+                local _cm_in_a : copy local col_a
+                local _cm_in_b : copy local col_b
                 _stacktab_resolve_col `"`col_a'"'
                 local col_a `"`r(name)'"'
                 _stacktab_resolve_col `"`col_b'"'
@@ -492,10 +523,29 @@ program define stacktab, rclass
                     display as error "stacktab: columnmerge() cannot merge a column with itself"
                     exit 198
                 }
-                confirm variable `col_a'
-                confirm variable `col_b'
-                * Concatenate the two columns
-                quietly replace `col_a' = `col_a' + " " + `col_b' ///
+                * cycle 2026-11-19 (F4): letters count columns of the composed
+                * table (A = its first column), not sheet columns, so a pair
+                * past its width used to stop at a bare r(111).
+                foreach _cm_side in a b {
+                    capture confirm variable `col_`_cm_side''
+                    if _rc {
+                        local _cm_shown : copy local _cm_in_`_cm_side'
+                        if regexm("`col_`_cm_side''", "^_xcol([0-9]+)$") {
+                            if real(regexs(1)) <= `composite_ncols' & real(regexs(1)) >= 1 {
+                                display as error `"stacktab: columnmerge() column `_cm_shown' was already merged away by an earlier rule"'
+                                exit 198
+                            }
+                        }
+                        display as error `"stacktab: columnmerge() column `_cm_shown' is not a column of the composed table of `composite_ncols' columns"'
+                        display as error "  columnmerge() letters count columns of the composed table (A = its first column), not sheet columns"
+                        exit 198
+                    }
+                }
+                * Concatenate the two columns. A blank first column takes the
+                * second column's text alone (cycle 2026-11-19, F2), instead of
+                * " text" with a leading space.
+                quietly replace `col_a' = cond(`col_a' == "" | `col_a' == ".", ///
+                    `col_b', `col_a' + " " + `col_b') ///
                     if `col_b' != "" & `col_b' != "."
                 * Apply the requested header to EVERY block header row, not
                 * just the first. Under vstack each block contributes its own
@@ -2121,3 +2171,182 @@ void _stacktab_cm_parse(string scalar spec)
     st_local("_cm_n", strofreal(m))
 }
 end
+
+
+* cycle 2026-11-19 (F3): numeric source cells. Called right after a block is
+* imported with allstring("%24.17g"). Reads the cell types of the imported
+* range with xl() and re-renders every "numeric" cell from its double at
+* Excel's 15-significant-digit precision. Before anything is stored, every
+* string cell must equal its imported text, every blank cell must be empty and
+* every numeric cell must have imported as a number; any disagreement leaves
+* the block exactly as imported.
+version 17.0
+capture mata: mata drop _stacktab_num_text()
+capture mata: mata drop _stacktab_num_cells()
+capture mata: mata drop _stacktab_num_need()
+capture mata: mata drop _stacktab_first_row()
+local _tt_ms0 = c(matastrict)
+mata:
+mata set matastrict on
+
+// Excel's display of a double: at most 15 significant digits (Excel
+// "Number precision: 15 digits"), trailing zeros dropped, a leading zero
+// before the decimal point. Returns "" when no faithful text exists.
+string scalar _stacktab_num_text(real scalar x)
+{
+    string scalar s, m, e, t
+    real scalar p, n, neg
+
+    if (missing(x)) return("")
+    s = strtrim(strofreal(x, "%24.15g"))
+    // %24.15g prints an integer-valued double of 16 or more digits in full,
+    // binary noise included (12345678901234567 as 12345678901234568);
+    // Excel shows 15 significant digits and zeros (12345678901234600). A
+    // magnitude %g misprints (1e20 as 1e18) is left to the e-notation path.
+    if (regexm(s, "^-?[0-9]+$") & reldif(strtoreal(s), x) <= 1e-14) {
+        if (strlen(subinstr(s, "-", "", 1)) > 15) {
+            t = strtrim(strofreal(x, "%24.14e"))
+            p = strpos(t, "e")
+            m = subinstr(substr(t, 1, p - 1), ".", "", 1)
+            n = strtoreal(substr(t, p + 1, .))
+            neg = (substr(m, 1, 1) == "-")
+            if (neg) m = substr(m, 2, .)
+            if (n + 1 >= 15) s = (neg ? "-" : "") + m + (n + 1 - 15) * "0"
+        }
+    }
+    if (missing(strtoreal(s)) | reldif(strtoreal(s), x) > 1e-14) {
+        s = strtrim(strofreal(x, "%24.14e"))
+    }
+    if (missing(strtoreal(s)) | reldif(strtoreal(s), x) > 1e-14) return("")
+    p = strpos(s, "e")
+    if (p) {
+        m = substr(s, 1, p - 1)
+        e = substr(s, p, .)
+        if (strpos(m, ".")) {
+            while (substr(m, -1, 1) == "0") m = substr(m, 1, strlen(m) - 1)
+            if (substr(m, -1, 1) == ".") m = substr(m, 1, strlen(m) - 1)
+        }
+        s = m + e
+    }
+    if (substr(s, 1, 1) == ".") s = "0" + s
+    else if (substr(s, 1, 2) == "-.") s = "-0" + substr(s, 2, .)
+    return(s)
+}
+
+// After -import excel, describe-: post local _first_row, the first row of
+// the used range of the sheet named sheet (case-insensitive); unchanged when
+// the sheet or its range is not found.
+void _stacktab_first_row(string scalar sheet)
+{
+    real scalar n, w
+    string scalar nm, rg
+
+    n = st_numscalar("r(N_worksheet)")
+    if (missing(n)) return
+    for (w = 1; w <= n; w++) {
+        nm = st_global("r(worksheet_" + strofreal(w) + ")")
+        if (strlower(nm) == strlower(sheet)) {
+            rg = st_global("r(range_" + strofreal(w) + ")")
+            if (regexm(rg, "^[A-Za-z]+([0-9]+)")) {
+                st_local("_first_row", regexs(1))
+            }
+        }
+    }
+}
+
+// 1 when the imported block (all string variables named by sheet column)
+// holds a cell that reads as a number, so a numeric cell may need re-rendering.
+real scalar _stacktab_num_need()
+{
+    string rowvector vars
+    real scalar k, j
+
+    k = st_nvar()
+    if (st_nobs() < 1 | k < 1) return(0)
+    vars = st_varname(1..k)
+    for (j = 1; j <= k; j++) {
+        if (!regexm(vars[j], "^[A-Z]+$") | !st_isstrvar(j)) return(0)
+    }
+    return(sum(strtoreal(st_sdata(., vars)) :< .) > 0)
+}
+
+void _stacktab_num_cells(string scalar file, string scalar sheet, real scalar r0)
+{
+    class xl scalar B
+    string rowvector vars
+    string vector sheets
+    string matrix S, N, T, G
+    real matrix X
+    real vector c
+    real scalar n, k, i, j, w, L, ok
+    string scalar s, vt, sh
+
+    n = st_nobs()
+    k = st_nvar()
+    if (n < 1 | k < 1 | missing(r0) | r0 < 1) return
+    vars = st_varname(1..k)
+    for (j = 1; j <= k; j++) {
+        if (!regexm(vars[j], "^[A-Z]+$") | !st_isstrvar(j)) return
+    }
+    S = st_sdata(., vars)
+    // Nothing that reads as a number: no numeric cell to re-render.
+    if (sum(strtoreal(S) :< .) == 0) return
+
+    B.load_book(file)
+    sheets = B.get_sheets()
+    sh = ""
+    for (i = 1; i <= length(sheets); i++) {
+        if (strlower(sheets[i]) == strlower(sheet)) {
+            sh = sheets[i]
+            break
+        }
+    }
+    if (sh == "") {
+        B.close_book()
+        return
+    }
+    B.set_sheet(sh)
+    c = B.get_colnum(vars)
+    N = S
+    ok = 1
+    for (j = 1; j <= k & ok; j++) {
+        T = B.get_cell_type((r0, r0 + n - 1), (c[j], c[j]))
+        G = B.get_string((r0, r0 + n - 1), (c[j], c[j]))
+        X = B.get_number((r0, r0 + n - 1), (c[j], c[j]))
+        if (rows(T) != n | rows(G) != n | rows(X) != n |
+            cols(T) != 1 | cols(G) != 1 | cols(X) != 1) {
+            ok = 0
+            break
+        }
+        for (i = 1; i <= n; i++) {
+            if (T[i, 1] == "string") {
+                if (G[i, 1] != S[i, j]) ok = 0
+            }
+            else if (T[i, 1] == "blank") {
+                if (S[i, j] != "") ok = 0
+            }
+            else if (T[i, 1] == "numeric") {
+                if (missing(strtoreal(S[i, j]))) ok = 0
+                else {
+                    s = _stacktab_num_text(X[i, 1])
+                    if (s != "") N[i, j] = s
+                }
+            }
+            if (!ok) break
+        }
+    }
+    B.close_book()
+    if (!ok) return
+    for (j = 1; j <= k; j++) {
+        L = max(strlen(N[., j]))
+        vt = st_vartype(j)
+        if (vt != "strL") {
+            w = strtoreal(substr(vt, 4, .))
+            if (L > w) stata("quietly recast str" + strofreal(L) + " " + vars[j])
+        }
+        st_sstore(., vars[j], N[., j])
+    }
+}
+
+end
+mata: mata set matastrict `_tt_ms0'

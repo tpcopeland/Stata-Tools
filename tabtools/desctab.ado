@@ -1,4 +1,4 @@
-*! desctab Version 1.1.0  2026/10/31 - Consolidated descriptive Table 1 engine
+*! desctab Version 1.2.0  2026/11/19 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -38,7 +38,7 @@ program define desctab, rclass
     _tabtools_require_helpers
 
 **# Syntax Definition
-    syntax [varlist] [if] [in] [fweight], ///
+    syntax [varlist(default=none)] [if] [in] [fweight], ///
         [by(varname)]           /// Optional grouping variable
         [vars(string)]          /// Variables to display: varname vartype [varformat], vars delimited by \
         [Format(string)]        /// Default format for continuous normal/skewed variables
@@ -76,13 +76,13 @@ program define desctab, rclass
         [smdpair(string asis)]  /// Two by() values the pair SMD compares
         [FOOTnote(string)]      /// Footnote text below table
         [open]                  /// Open Excel file after export
-        [BOLDp(real -1)]        /// Bold p-values below threshold (-1 = disabled)
+        [BOLDp(string)]         /// Bold p-values below threshold
         [zebra]                 /// Alternating row shading
-        [HIGHlight(real -1)]    /// Highlight rows where p < threshold
+        [HIGHlight(string)]     /// Highlight rows where p < threshold
         [HEADERShade]           /// Header row shading in Excel
         [FRAme(string)]         /// Store output in a named frame
         [FONT(string)]          /// Font family for Excel output
-        [FONTSIZE(integer -1)]  /// Font size in points for Excel output
+        [FONTSIZE(string)]  /// Font size in points for Excel output
         [SMDThreshold(string)]  /// SMD threshold for conditional formatting (0.1 default; -1 = disabled)
         [NOSMDHighlight]        /// No SMD highlighting (same as smdthreshold(-1))
         [HEADERColor(string)]   /// Custom header background color (R G B)
@@ -105,13 +105,56 @@ program define desctab, rclass
 
 **# Input Validation and Option Setup
 
+    * boldp() and highlight() are read as text so that an option not given
+    * (-1 below) cannot collide with a typed value: with -1 defaults, a
+    * typed -1 was taken as no option at rc 0. Every typed value is
+    * range-checked below.
+    foreach _nopt in boldp highlight {
+        local _nval = strtrim(`"``_nopt''"')
+        if `"`_nval'"' == "" {
+            local `_nopt' -1
+            continue
+        }
+        capture confirm number `_nval'
+        if _rc {
+            display as error "option `_nopt'() incorrectly specified"
+            exit 198
+        }
+        if `_nval' == -1 {
+            local _nmsg "between 0 and 1"
+            display as error "`_nopt'() must be `_nmsg'"
+            exit 198
+        }
+        local `_nopt' = `_nval'
+    }
+
     local _markdown_title `"`macval(title)'"'
 
-    /* Accept xlsx() as synonym for excel() */
+    * Accept xlsx() as synonym for excel(); two different workbooks are two
+    * destinations, so the pair is refused rather than one silently dropped.
+    if `"`macval(excel)'"' != "" & `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != `"`macval(xlsx)'"' {
+        display as error "xlsx() and excel() are synonyms; specify one"
+        exit 198
+    }
     if `"`macval(excel)'"' == "" & `"`macval(xlsx)'"' != "" mata: st_local("excel", st_local("xlsx"))
 
     * Resolve persistent defaults
     if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
+
+    * With neither a varlist nor vars(), describe every variable in memory
+    * except the by() variable, which would only be tabulated against itself.
+    * varlist(default=none) tells this case apart from an explicit varlist.
+    if "`vars'" == "" & "`varlist'" == "" {
+        capture unab varlist : _all
+        if "`by'" != "" local varlist : list varlist - by
+        * the weight variables are not data rows either
+        if "`wt'" != "" local varlist : list varlist - wt
+        if "`weight'" != "" {
+            local _dflt_wv = strtrim(subinstr(`"`exp'"', "=", "", 1))
+            capture confirm variable `_dflt_wv', exact
+            if !_rc local varlist : list varlist - _dflt_wv
+        }
+    }
 
     /* Build vars() from varlist if not specified (U1) */
     if "`vars'" == "" & "`varlist'" != "" {
@@ -130,6 +173,11 @@ program define desctab, rclass
         exit 100
     }
 
+    * An empty smallcells() reads as absent to syntax; refuse it (r(198))
+    * rather than fall through to no masking or the session default.
+    if `"`smallcells'"' == "" {
+        _tabtools_smallcells_opt __empty `macval(0)'
+    }
     * smallcells(# [, primary]) / nosmallcells / session default
     * (tabtools set smallcells #). After this, smallcells holds the bare
     * threshold (or nothing) and _sc_mode is full or primary.
@@ -434,7 +482,7 @@ program define desctab, rclass
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade')
+    _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') fsexplicit borderstyle(`borderstyle') headershade(`headershade')
 
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
@@ -503,6 +551,11 @@ program define desctab, rclass
 
     /* Mark observations to include in analysis before sample-dependent validation */
     marksample touse, novarlist  // Creates indicator variable for observations that satisfy if/in conditions
+    * wtcompare: the crude columns describe the unweighted cohort, so they
+    * keep the records whose wt() is zero or missing (unmatched records
+    * under matching weights), which the weighted columns leave out.
+    tempvar _cr_touse
+    if `has_wtcompare' quietly generate byte `_cr_touse' = `touse'
     if `has_wt' markout `touse' `wt'  // Exclude observations with missing weights
 
     /* Validate wt() only within the analysis sample */
@@ -593,6 +646,22 @@ program define desctab, rclass
     qui levelsof `groupnum' if `touse', local(levels)
     local _group_levels "`levels'"  // Save group levels for wtcompare merge
 
+    * The crude columns are the groups of the weighted table: a by() group
+    * with no positive weight has no weighted column to sit beside.
+    if `has_wtcompare' {
+        tempvar _cr_ingrp
+        quietly generate byte `_cr_ingrp' = 0
+        foreach _crl of local levels {
+            quietly replace `_cr_ingrp' = 1 if `groupnum' == `_crl'
+        }
+        quietly count if `_cr_touse' & !`_cr_ingrp' & !missing(`groupnum')
+        if r(N) > 0 {
+            display as text "note: wtcompare: `r(N)' record(s) in by() groups with no positive weight are left out of the crude columns"
+        }
+        quietly replace `_cr_touse' = 0 if !`_cr_ingrp'
+        drop `_cr_ingrp'
+    }
+
     /* Check that all group values are integers (re-check after recast) */
     foreach l of local levels {
         capture confirm integer number `l'
@@ -608,6 +677,24 @@ program define desctab, rclass
     if `groupcount'<2 & "`by'"!="" {
         display as error "by() variable must have at least 2 levels"
         exit 498
+    }
+
+    * Group columns are named <by>_<level> (and <by>_T with total()), the
+    * names frame() and clear hand back. Refuse up front a by() name too long
+    * to carry them, rather than failing r(198) on an internal rename.
+    if "`by'" != "" {
+        local _by_maxlen = strlen("`by'") + 2 * ("`total'" != "")
+        foreach _bl of local levels {
+            local _by_maxlen = max(`_by_maxlen', strlen("`by'") + 1 + strlen("`_bl'"))
+        }
+        if `_by_maxlen' > 32 {
+            display as error "by() variable name `by' is too long for the output column names"
+            display as error "desctab names the group columns `by'_<level>" ///
+                cond("`total'" != "", " and `by'_T", "") ///
+                ", which must fit in 32 characters (longest here: `_by_maxlen')"
+            display as error "Rename the variable to a shorter name (e.g. {bf:rename `by' grp})"
+            exit 198
+        }
     }
 
     /* Store group level values for SMD comparisons */
@@ -811,7 +898,7 @@ program define desctab, rclass
         local _used_fisher = r(used_fisher)
     }
     else {
-        _desctab_collect if `touse', ///
+        _desctab_collect if `_cr_touse', ///
             by(`groupnum') vars(`vars') frame(`_wtc_crude_table') ///
             `_fast_common_opts' nopvalue
 
@@ -913,6 +1000,11 @@ program define desctab, rclass
         mata: st_vlmodify("`vallab'", `_vl_vals', `_vl_text')
     }
 
+    * Whether the group variable carries its own value label. The tempname
+    * label made below for the Total sentinel must not switch an unlabeled
+    * by() from "by = level" headers to bare level codes.
+    local _has_userlab = ("`vallab'" != "")
+
     /* Set up total column label */
     if "`total'" != "" {
         // If no value label exists, generate a unique tempname to avoid
@@ -927,7 +1019,7 @@ program define desctab, rclass
 
     /* Apply labels to each group column */
     foreach level of local levels {
-        if "`vallab'"=="" {
+        if !`_has_userlab' & "`level'" != "`_total_code'" {
             // If no value label, use by-variable name and value
             lab var `groupnum'`level' "`by' = `level'"
             if `has_wtcompare' {
@@ -1143,7 +1235,9 @@ program define desctab, rclass
     capture drop p  // Drop raw p-value variable
     * Preserve raw SMD values for conditional formatting (O2)
     capture confirm variable smd_val
-    if !_rc qui gen double `smd_raw' = abs(smd_val)
+    * cond() keeps the extended missing: abs(.d) is ., and r(table) must
+    * carry .d for an SMD withheld by smallcells(), as the help documents.
+    if !_rc qui gen double `smd_raw' = cond(missing(smd_val), smd_val, abs(smd_val))
     capture drop smd_val  // Drop raw SMD values
 
     /* Left-justify strings except p-value */
@@ -1166,9 +1260,22 @@ program define desctab, rclass
 
     /* Rename placeholder group variable or add group prefix */
     if `groupcount'==1 rename `groupnum'1 Total  // Simplify single group name
-    else rename `groupnum'* `by'*  // Add by-variable name prefix to group columns
-
-    if "`by'" !="" rename `by'* `by'_*  // Add underscore for clarity
+    else {
+        * Rename each group column to <by>_<level> (<by>_T for the total)
+        * directly. The former two wildcard steps (`groupnum'* -> `by'*, then
+        * `by'* -> `by'_*) also renamed every internal column sharing the
+        * by() prefix (by(f) hit factor_sep, by(p) turned pvalue into
+        * p_value), and their intermediate <by><level> name could pass 32
+        * characters.
+        local _gn_len = strlen("`groupnum'")
+        local _grp_cols ""
+        foreach _gcol of varlist `groupnum'* {
+            local _gsfx = substr("`_gcol'", `_gn_len' + 1, .)
+            if "`_gsfx'" == "`_total_code'" local _gsfx "T"
+            rename `_gcol' `by'_`_gsfx'
+            local _grp_cols "`_grp_cols' `by'_`_gsfx'"
+        }
+    }
     capture rename *_`_total_code' *_T  // Rename total columns to _T  stata-dev-ignore: capture-rc — wildcard matches nothing without total(); with total() every match renames to a reserved _T suffix
     capture rename _*_`_total_code' _*_T  // Rename total column components  stata-dev-ignore: capture-rc — wildcard matches nothing without total(); with total() every match renames to a reserved _T suffix
 
@@ -1193,7 +1300,7 @@ program define desctab, rclass
             if "`sfx'" == "T" {
                 local _wtc_lab "Total"
             }
-            else if "`vallab'" != "" {
+            else if `_has_userlab' {
                 local _wtc_lab : label `vallab' `sfx'
             }
             else {
@@ -1261,7 +1368,12 @@ program define desctab, rclass
     if "`total'" == "after" {
         tokenize `levels'
         local first `1'
-        cap order `by'_T, before(pvalue)  // Move total before p-value  stata-dev-ignore: capture-rc — layout only; the pvalue anchor is absent under nopvalue or wt()
+        * The total sits right after the last group column, ahead of the
+        * Test / Statistic / p-value columns. Anchoring it before(pvalue) put
+        * it between Test or Statistic and the p-value.
+        local _nlev : word count `levels'
+        local _lastgrp : word `=`_nlev' - 1' of `levels'
+        cap order `by'_T, after(`by'_`_lastgrp')  // stata-dev-ignore: capture-rc — layout only; under wtcompare the total is Wt_T and by_T is absent
         cap order N_T, before(m_`first')  // Reorder N columns  stata-dev-ignore: capture-rc — layout only; the anchor column may be absent
         cap order m_T, before(_columna_`first')  // Reorder missing columns  stata-dev-ignore: capture-rc — layout only; the anchor column may be absent
         cap order _columna_T _columnb_T, last  // Move column components to end  stata-dev-ignore: capture-rc — layout only; the component columns may be absent
@@ -1406,7 +1518,10 @@ program define desctab, rclass
                 replace `_hcol' = subinstr(`_hcol', "N=", "", .)
                 gen double `_hp_var' = real(subinstr(`_hcol', ",", "", .)) if inlist(_n, 2)
                 local hperc_scratch `"`hperc_scratch' `_hp_var'"'
-                local hperc_scratch_for_`_hcol' `"`_hp_var'"'
+                * Keyed by position in hperc_cols: a column name (e.g. a
+                * long <by>_T) pushed hperc_scratch_for_<col> past the
+                * 31-character macro-name limit, r(198).
+                local hperc_scratch_for_`_hpn' `"`_hp_var'"'
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" {
                     local hperc_cr_scratch `"`hperc_cr_scratch' `_hp_var'"'
                 }
@@ -1427,8 +1542,9 @@ program define desctab, rclass
                 local _cr_tot_scratch ""
                 local _wt_tot_scratch ""
                 foreach _hcol of local hperc_cols {
-                    if "`_hcol'" == "Cr_T" local _cr_tot_scratch "`hperc_scratch_for_`_hcol''"
-                    if "`_hcol'" == "Wt_T" local _wt_tot_scratch "`hperc_scratch_for_`_hcol''"
+                    local _hpk : list posof "`_hcol'" in hperc_cols
+                    if "`_hcol'" == "Cr_T" local _cr_tot_scratch "`hperc_scratch_for_`_hpk''"
+                    if "`_hcol'" == "Wt_T" local _wt_tot_scratch "`hperc_scratch_for_`_hpk''"
                 }
                 if "`_cr_tot_scratch'" != "" gen double `hperc_crden' = `_cr_tot_scratch' if inlist(_n, 2)
                 else {
@@ -1445,7 +1561,8 @@ program define desctab, rclass
                 }
             }
             else if "`by'" == "" {
-                local _tot_scratch `"`hperc_scratch_for_Total'"'
+                local _hpk : list posof "Total" in hperc_cols
+                local _tot_scratch `"`hperc_scratch_for_`_hpk''"'
                 if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
                 else {
                     egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
@@ -1455,7 +1572,8 @@ program define desctab, rclass
             }
             else {
                 local _by_t "`by'_T"
-                local _tot_scratch `"`hperc_scratch_for_`_by_t''"'
+                local _hpk : list posof "`_by_t'" in hperc_cols
+                local _tot_scratch `"`hperc_scratch_for_`_hpk''"'
                 if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
                 else {
                     egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
@@ -1469,16 +1587,16 @@ program define desctab, rclass
                 local _hden `"`hperc_den'"'
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" local _hden "`hperc_crden'"
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
-                local _hp_var `"`hperc_scratch_for_`_hcol''"'
-                * The percentage keeps its historical round(, 0.001) step,
-                * except where that step alone would print 0.0 or 100.0 for
-                * a group that is neither none nor all of the total: there
-                * the unrounded share goes to _tabtools_fmt_pct.
+                local _hpk : list posof "`_hcol'" in hperc_cols
+                local _hp_var `"`hperc_scratch_for_`_hpk''"'
+                * The unrounded share goes to _tabtools_fmt_pct, the rule
+                * every body percentage uses, so one share never prints two
+                * ways in one table. A pre-rounding round(, 0.001) step
+                * rounded binary ties up (1/80 printed 1.3 here, 1.2 in the
+                * body).
                 tempvar _hp_pct _hp_txt
-                gen double `_hp_pct' = round(`_hp_var' / `_hden', 0.001) * 100 ///
+                gen double `_hp_pct' = 100 * `_hp_var' / `_hden' ///
                     if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
-                replace `_hp_pct' = 100 * `_hp_var' / `_hden' ///
-                    if !missing(`_hp_pct') & inlist(ustrregexra(string(`_hp_pct', "%9.1f"), "-(?=[0.,]+\z)", ""), "0.0", "100.0")
                 _tabtools_fmt_pct `_hp_pct', format(%9.1f) generate(`_hp_txt')
                 * stata-dev-ignore: unchecked-commit — appends a percentage to an existing header cell; a zero denominator or missing numerator correctly matches no row and leaves the header unchanged
                 replace `_hcol' = `_hcol' + " " + "(" + `_hp_txt' + ///
@@ -1768,7 +1886,7 @@ program define desctab, rclass
             }
             if `_used_wilcoxon' {
                 if "`_test_list'" != "" local _test_list "`_test_list', "
-                local _test_list "`_test_list'Wilcoxon rank-sum test"
+                local _test_list "`_test_list'Wilcoxon rank-sum test (normal approximation)"
             }
             if `_used_kw' {
                 if "`_test_list'" != "" local _test_list "`_test_list', "
@@ -2042,8 +2160,11 @@ program define desctab, rclass
 					}
 				}
 				else {
-					foreach var of varlist `by'_* {
-						local _data_cols `"`_data_cols' `var'"'
+					* The group columns only, in display order: `by'_* also
+					* matched an internal column sharing the prefix (smd_str
+					* under by(smd)).
+					foreach var of varlist * {
+						if `: list var in _grp_cols' local _data_cols `"`_data_cols' `var'"'
 					}
 				}
 			}
@@ -2502,8 +2623,13 @@ program define desctab, rclass
         }
         capture replace pvalue = "p-value" if _n == 2 & strtrim(pvalue) == ""
         capture replace smd_str = "SMD" if _n == 2 & strtrim(smd_str) == ""
+        * The table may have no variable A here (as for LaTeX below), and the
+        * writer refuses a labelvar() that names no variable.
+        local _md_labelopt ""
+        capture confirm variable A, exact
+        if !_rc local _md_labelopt "labelvar(A)"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' labelvar(A) title(`"`macval(_markdown_title)'"') footnote(`"`macval(footnote)'"') strictheaders
+            `_mdappend_opt' `_md_labelopt' title(`"`macval(_markdown_title)'"') footnote(`"`macval(footnote)'"') strictheaders
         if _rc {
             local _md_rc = _rc
             display as error "Failed to export Markdown to `markdown'"

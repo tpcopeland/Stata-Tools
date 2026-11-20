@@ -1,4 +1,4 @@
-*! _tabtools_set_sinks Version 1.1.0  2026/10/31
+*! _tabtools_set_sinks Version 1.2.0  2026/11/19
 *! Resolve and track the session workbook/Markdown/LaTeX targets (tabtools set)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -199,15 +199,21 @@ mata set matastrict on
 // spelling and every same-file comparison uses it.
 string scalar _tt_ss_abs(string scalar p)
 {
-    string scalar s, root, seg, out
+    string scalar s, root, seg, out, home
     string colvector keep
     real scalar win, pos, i
 
     win = (c("os") == "Windows")
     s = strtrim(p)
     if (win) s = subinstr(s, char(92), "/")
-    if (s == "~") s = c("homedir")
-    else if (substr(s, 1, 2) == "~/") s = c("homedir") + substr(s, 2, .)
+    // "~" is $HOME, as Stata's own file commands and _tabtools_check_sinks
+    // read it (there is no c(homedir)). The macro is built from char() so
+    // the ado-file loader does not expand it when this code is compiled.
+    if (s == "~" | substr(s, 1, 2) == "~/") {
+        home = st_macroexpand(char(96) + ":environment HOME" + char(39))
+        if (win) home = subinstr(home, char(92), "/")
+        if (home != "") s = home + substr(s, 2, .)
+    }
     if (!(substr(s, 1, 1) == "/" | (win & substr(s, 2, 1) == ":"))) {
         root = c("pwd")
         if (win) root = subinstr(root, char(92), "/")

@@ -1,4 +1,4 @@
-*! _tabtools_texopts Version 1.1.0  2026/10/31
+*! _tabtools_texopts Version 1.2.0  2026/11/19
 *! Parse and validate texopts(), the LaTeX layout sub-options
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

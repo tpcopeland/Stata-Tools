@@ -93,6 +93,8 @@
 {synopt:{opt sep:arator(numlist)}}add borders above selected data rows{p_end}
 {synopt:{opt eff:ect(string)}}rate-mode effect header; default {cmd:aHR}{p_end}
 {synopt:{opt refl:abel(string)}}reference-row label; default {cmd:Reference}{p_end}
+{synopt:{opt smallc:ells(#[, primary])}}mask event and count cells from 1 to #-1{p_end}
+{synopt:{opt nosmallc:ells}}ignore session and rate-frame thresholds{p_end}
 
 {syntab:Formatting}
 {synopt:{opt font(string)}}set the Excel font family{p_end}
@@ -245,6 +247,72 @@ any other form is an error. (The name is {opt cisep()} because
 {opt separator()} already draws row borders.)
 
 {phang}
+{opt smallc:ells(#[, primary])} protects counts from 1 to #-1; # must be 3 or
+more, and an empty {cmd:smallcells()} is an error. Masking governs printed output only (console, Excel, CSV, Markdown,
+LaTeX, the forest plot, and the display {opt frame()}); {cmd:r()} and
+{opt eplotframe()} keep the numbers. In rate mode it has the meaning of
+{helpb stratetab}'s {opt smallcells()}: an event count from 1 to #-1 prints
+as {cmd:<}#, with its person-time and rate withheld ({cmd:–}), and the
+effect, interval and p-value of a row are withheld when the row's own event
+count or its section's reference count is masked. Each outcome is masked
+on its own. When a section of the rate frame holds a single category whose
+event count equals the sum of another section's counts (an "Overall" row),
+that row is the block's total, and a second cell of the masked section is
+suppressed as {cmd:≥}# with its person-time, rate and effect withheld, so no
+masked count can be recovered by subtraction; {cmd:primary} turns this off.
+When no unmasked cell of the section can serve (for example counts 0, 4
+and 4 under {cmd:smallcells(5)}), the total row itself prints as {cmd:≥}#
+with its person-time and rate withheld. If a second section's counts also
+add up to that total, which would reveal it, {cmd:comptab} cannot certify
+masks that span sections and exits with error 459; tabulate those sections
+in separate calls. A total row that is itself from 1 to #-1 prints as
+{cmd:<}# and remains the section's total: the masks must hold given that it
+lies between 1 and #-1 too. When no mask can (for example two categories
+with one event each and a total of 2 under {cmd:smallcells(3)}, where the
+bounds force both counts to 1), {cmd:comptab} exits with error 498.
+Without such a row, {cmd:comptab} adds no complementary cells, as
+{cmd:stratetab} does not. Sections are masked independently, so when two
+sections count the same events (for example two exposures), a masked count
+can be recovered by subtracting one section's printed counts from the
+other's.
+Counts are read from the rate frame's printed cells.
+
+{pmore}
+A rate frame that {cmd:stratetab} masked keeps its masked cells whatever
+{cmd:comptab} is told, and records its threshold. Without
+{opt smallcells()} (and without a session default), {cmd:comptab} applies
+that threshold to the whole table, so the effects of masked rows are
+withheld too; a smaller {opt smallcells()} is raised to it, and the log
+says so. A frame masked at a threshold below 3, whose {cmd:<2} would
+identify a count of 1, is an error (459). Because the values behind such cells are unknown, a masked section
+beside a total row is an error (459); create the rate frame without
+{opt smallcells()} and give {opt smallcells()} to {cmd:comptab}.
+
+{pmore}
+In vertical mode, a selected statistic row prints a count from 1 to #-1
+as {cmd:<}#: regtab's built-in count rows ({cmd:Observations},
+{cmd:Subjects}, {cmd:Events}, {cmd:People}) and any other row whose model
+cell holds a whole number, or a pair {it:a} ({it:b}) of whole numbers as
+{cmd:stats(e(}{it:a}{cmd:|}{it:b}{cmd:))} prints, with no interval or
+p-value beside it. {cmd:comptab} cannot tell a count from another whole
+number (such as {cmd:e(rank)}), so it masks every such cell and names the
+rows outside the built-in four in a note. Model frames carry no per-level event
+counts, so mask the estimates of sparse levels in {helpb regtab} with
+{opt mincount()}. A composite frame saved by {cmd:comptab} records its
+threshold, which a later {cmd:comptab} call applies in the same way.
+
+{pmore}
+Without {opt smallcells()}, the session default set by
+{cmd:tabtools set smallcells #} applies and is echoed in the log.
+{cmd:r(smallcells)} holds the threshold applied (0 = none).
+
+{phang}
+{opt nosmallc:ells} ignores the session default and a rate frame's recorded
+threshold for this call: {cmd:comptab} masks and withholds nothing. Cells a
+source already prints masked stay masked. It may not be combined with
+{opt smallcells()}.
+
+{phang}
 {opt allmodels}, {opt keyed}, and {opt modelonly} extend rate mode to several
 models per outcome, keyed placement, and model rows without a rate row; see
 {helpb hrcomptab}.
@@ -284,7 +352,7 @@ not needed.
 session default was set with {cmd:tabtools set font}.{p_end}
 
 {phang}
-{opt fontsize(#)} sets the Excel font size in points. The default is 10 unless
+{opt fontsize(#)} sets the Excel font size in points, an integer from 1 through 72. The default is 10 unless
 a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {phang}
@@ -318,14 +386,17 @@ frames must have been created with matching {opt frame()} and {opt eplotframe()}
 specified, for example {cmd:eplotoptions(name(myplot, replace) scheme(plotplainblind))}{p_end}
 
 {phang}
-{opt excel(filename)} synonym for {opt xlsx()}{p_end}
+{opt excel(filename)} synonym for {opt xlsx()}; giving the two different file names is an error (r(198)){p_end}
 
 {phang}
 {opt foot:note(string)} footnote text below the table{p_end}
 
 {phang}
 {opt forest} draw an {helpb eplot} forest plot from the composite companion frame; requires the
-separate {cmd:eplot} package{p_end}
+separate {cmd:eplot} package. In rate mode, a composite with no effect row to
+plot is an error (r(2000)), including one where {opt smallcells()} withholds
+every effect; the check runs before the table is printed or any file or frame
+is written{p_end}
 
 {phang}
 {opt headerc:olor(string)} supported Stata color name or RGB triplet for header rows{p_end}
@@ -501,6 +572,10 @@ Table 2 layout directly. Here {cmd:m1} holds a binary exposure indicator
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
 {synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
+{synopt:{cmd:r(smallcells)}}small-cell threshold applied (0 = none){p_end}
+{synopt:{cmd:r(N_primary_suppressed)}}cells printed as {cmd:<}# (with a threshold){p_end}
+{synopt:{cmd:r(N_secondary_suppressed)}}cells printed as {cmd:≥}# (with a threshold){p_end}
+{synopt:{cmd:r(N_withheld)}}rate mode: effect and p cells withheld{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel file path (if exported){p_end}
@@ -510,14 +585,15 @@ Table 2 layout directly. Here {cmd:m1} holds a binary exposure indicator
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(latex)}}LaTeX filename (if exported){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph{p_end}
+{synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary} (with a threshold){p_end}
 
 {pstd}
 In rate-scaffold mode, {cmd:comptab} instead stores the {cmd:hrcomptab}
 contract: {cmd:r(N_rows)}, {cmd:r(N_outcomes)}, {cmd:r(N_sections)},
 {cmd:r(N_modelrows)}, {cmd:r(N_modelframes)}, {cmd:r(N_models_per_outcome)},
 {cmd:r(N_modelonly)}, {cmd:r(ci_level)},
-{cmd:r(rateframe)}, {cmd:r(modelframes)}, {cmd:r(effect)}, and any requested
-output-path or frame results.
+{cmd:r(rateframe)}, {cmd:r(modelframes)}, {cmd:r(effect)}, the small-cell
+results above, and any requested output-path or frame results.
 
 
 {marker author}{...}

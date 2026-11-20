@@ -68,10 +68,10 @@ capture noisily {
                     assert !missing(r(ub), -ln((1 - `lv' / 100) / 2) / `pt' * 1000)
                     assert reldif(r(ub), -ln((1 - `lv' / 100) / 2) / `pt' * 1000) < 1e-12
                 }
-                * the cell, built from cii's numbers in the default %9.1f
-                local want = strtrim(string(1000 * `cm', "%9.1f")) + " (" + ///
-                    strtrim(string(1000 * `clb', "%9.1f")) + ", " + ///
-                    strtrim(string(1000 * `cub', "%9.1f")) + ")"
+                * the cell, built from cii's numbers in the default %9.1f, widened to %26.1f
+                local want = strtrim(string(1000 * `cm', "%26.1f")) + " (" + ///
+                    strtrim(string(1000 * `clb', "%26.1f")) + ", " + ///
+                    strtrim(string(1000 * `cub', "%26.1f")) + ")"
                 assert `"`r(cell)'"' == `"`want'"'
                 local ++ncell
             }

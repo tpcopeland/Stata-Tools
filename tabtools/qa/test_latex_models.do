@@ -437,17 +437,17 @@ else {
     local ++fail_count
 }
 
-**## M2d models() names only the first of two models: one spanner
+**## M2d models() names only the first of two models: the second takes
+* "Model 2" (regtab's rule, 1.2.0 audit follow-up), so both span
 capture noisily {
     local nf "`output_dir'/_ltm_e_part.needles"
-    _ltm_needles "`nf'" contains " & \multicolumn{3}{c}{RA} &  &  &  \\" ///
-        contains "\cmidrule(lr){2-4}" absent "\cmidrule(lr){5-7}"
-    _ltm_case _ltm_e_part "3:" "1:2-4" "`nf'" : ///
+    _ltm_needles "`nf'" contains "\multicolumn{3}{c}{RA} & \multicolumn{3}{c}{Model 2}" ///
+        contains "\cmidrule(lr){2-4} \cmidrule(lr){5-7}"
+    _ltm_case _ltm_e_part "3:" "1:2-4,1:5-7" "`nf'" : ///
         effecttab, effect("ATE") models("RA") clean
-    assert `wb_blankmerge' >= 1
 }
 if _rc == 0 {
-    display as result "  PASS: M2d effecttab partly named models: one spanner"
+    display as result "  PASS: M2d effecttab partly named models: Model 2 spans 5-7"
     local ++pass_count
 }
 else {

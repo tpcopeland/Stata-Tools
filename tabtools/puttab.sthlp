@@ -42,6 +42,8 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt hl:ines(numlist)} {opt vl:ines(numlist)} {opt bold:rows(numlist)}
 {opt pan:el(varname)} {opt panelh:eader(spec)} {opt paneli:nline} {opt noind:ent} {opt span:header(spec)}
 {opt block:header}
+{opt count:s(varlist)} {opt smallc:ells(# [, primary])} {opt nosmallc:ells}
+{opt with:hold(spec)} {opt frac:tion(spec)} {opt rowt:otal(spec)} {opt total:row(exp)}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end}
 {opt latex(filename)} {opt texapp:end} {opt open}]{p_end}
 
@@ -160,6 +162,18 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt noind:ent}}do not indent the row labels of a panel{p_end}
 {synopt:{opt span:header(spec)}}spanning column labels above the header{p_end}
 {synopt:{opt block:header}}model names of a flat frame above its header{p_end}
+{synoptline}
+
+{dlgtab:Disclosure control}
+
+{synoptset 26 tabbed}{...}
+{synopt:{opt count:s(varlist)}}columns holding counts of persons{p_end}
+{synopt:{opt smallc:ells(# [, primary])}}mask counts from 1 to #-1{p_end}
+{synopt:{opt nosmallc:ells}}ignore the session smallcells default{p_end}
+{synopt:{opt with:hold(spec)}}blank listed cells where a count is masked{p_end}
+{synopt:{opt frac:tion(spec)}}print {it:num}/{it:denom} from two counts{p_end}
+{synopt:{opt rowt:otal(spec)}}printed columns that the counts add up to{p_end}
+{synopt:{opt total:row(exp)}}the rows that total their panel{p_end}
 {synoptline}
 
 
@@ -422,6 +436,127 @@ labels/headers. {it:matname} is a matrix name, {cmd:r(}{it:name}{cmd:)}, or
 or RGB triplet{p_end}
 
 {pstd}
+{it:Disclosure control}{p_end}
+
+{pstd}{cmd:puttab} styles a table it did not compute, so it cannot tell which
+columns are counts of persons or what adds up to what. {opt counts()} names
+the count columns and {opt rowtotal()} and {opt totalrow()} name the sums
+the table prints; only these are protected. Masking uses the same engine
+as {helpb desctab}, {helpb table1_tc} and {helpb crosstab}: a count from 1
+to #-1 prints as {cmd:<}#, and a count masked so that the printed cells and
+totals cannot give a masked count back prints as {cmd:≥}#. Zero is printed.
+Masking governs the printed table only: every sink ({cmd:using}, {opt csv()},
+{opt markdown()}, {opt latex()}) is masked identically, and the data in memory
+are not changed. The footnote that explains the masking is the do-file's
+own ({opt footnote()}).{p_end}
+
+{phang}
+{opt count:s(varlist)} the exported numeric columns that hold counts of
+distinct persons. Only these are tested against the threshold. Each value
+must be a nonnegative integer or missing; a missing count prints as any
+missing value does (blank). Every column named in {opt withhold()},
+{opt fraction()} and {opt rowtotal()} that is a count must be named here.
+Requires a threshold: {opt smallcells()}, the session default, or
+{opt nosmallcells} to print the counts unmasked on purpose; {opt counts()}
+with none of the three is an error. Not allowed with {opt matrix()}.{p_end}
+
+{phang}
+{opt smallc:ells(# [, primary])} masks every {opt counts()} value from 1 to
+#-1 as {cmd:<}#; # is 3 or more, and an empty {cmd:smallcells()} is an
+error. By default the masking is complete:
+complementary counts are masked as {cmd:≥}# wherever a declared total
+({opt rowtotal()}, {opt totalrow()}, a {opt fraction()} denominator) would
+otherwise give a masked count back, so that every masked count keeps at
+least two feasible values. {cmd:primary} masks only the small counts and
+adds no complementary cells. After {cmd:tabtools set smallcells} {it:#}
+[{cmd:primary}], a call with {opt counts()} and without {opt smallcells()}
+uses that threshold and mode and says so in the log; a call without
+{opt counts()} masks nothing and says that the session default was not
+applied. {opt smallcells()} requires {opt counts()}.{p_end}
+
+{phang}
+{opt nosmallc:ells} masks nothing in this call, whatever the session
+default; {opt fraction()} still prints its fractions.{p_end}
+
+{phang}
+{cmdab:with:hold}{cmd:(}{it:countvar}{cmd::} {it:varlist} [{cmd:\} {it:countvar}{cmd::} {it:varlist} ...]{cmd:)}
+blanks the {it:varlist} cells of every row in which {it:countvar} is masked
+({cmd:<}# or {cmd:≥}#), for example a percentage, a rate, or a ratio and its
+interval that would give the count back. A key that is a {opt fraction()}
+numerator or denominator covers the whole fraction: "masked" means that
+{it:num}, {it:denom}-{it:num} or {it:denom} is masked. Exactly the listed cells
+are blanked; on a {opt totalrow()} row, the key is the total row's own count.
+{it:countvar} must be in {opt counts()}, and each listed column must be
+exported; to blank a fraction, list its numerator column.{p_end}
+
+{phang}
+{cmdab:frac:tion}{cmd:(}{it:num}{cmd:/}{it:denom} [{it:num}{cmd:/}{it:denom} ...]{cmd:)} prints
+{it:num}{cmd:/}{it:denom} in the {it:num} column, under its header; the
+{it:denom} column is printed inside the fraction and not on its own. Both
+columns must be in {opt counts()}, and
+{it:num} may not exceed {it:denom}. {it:num} and {it:denom}-{it:num} are
+masked by the same rule as any count, with {it:denom} as their printed
+total: a small {it:denom}-{it:num} prints the numerator as {cmd:≥}# (as in
+{cmd:≥5/40}). A row in which both are missing prints blank; one missing is an
+error.{p_end}
+
+{phang}
+{cmdab:rowt:otal}{cmd:(}{it:totvar} [{cmd::} {it:varlist}] [{cmd:\} {it:totvar}{cmd::} {it:varlist} ...]{cmd:)}
+declares that, in every row, the {it:varlist} counts add up to the printed
+count {it:totvar}; without {it:varlist}, every other {opt counts()} column
+does. A masked count can then be protected by masking another count of its
+row. Declare several sums separated by {cmd:\}, each with its addends, as in
+{cmd:rowtotal(etot: e1 e0 \ ntot: n1 n0)}; the sums may not share a column.
+{it:totvar} and the addends must be in {opt counts()} and may not be in a
+{opt fraction()}. A row in which the addends do not add up, or in which some
+but not all of them and {it:totvar} are missing, is an error.{p_end}
+
+{phang}
+{opt total:row(exp)} marks the rows for which {it:exp} is true as total rows:
+within each {opt panel()} (or the whole table without {opt panel()}) the
+other rows add up to the total row in every {opt counts()} column, so a
+masked count can be protected by masking another count of its column. A
+panel may have one total row or none; {it:exp} may use variables the table
+does not export. A total row alone in its panel (an overall row after the
+panels) is a count of its own: when it equals the sum of the other panels'
+totals (or rows) and one of them is masked, it would give that count back,
+and {cmd:puttab} refuses it (r(459)), since it protects each panel on its
+own. With {opt rowtotal()}, the two together protect the table
+in both directions. A panel whose rows do not add up to its total row is an
+error.{p_end}
+
+{pstd}Only declared totals are protected. A {opt counts()} column (a single
+count, a {opt fraction()} numerator or denominator, or a {opt rowtotal()}
+total) that equals the sum of two or more other {opt counts()} columns, or of
+counts and a {opt fraction()}'s {it:denom}-{it:num}, in every row, and is
+printed beside a masked addend, is an undeclared total: {cmd:puttab} refuses
+it (r(459)) and names the {opt rowtotal()} specification to add (or, when the
+total or an addend is already in a {opt fraction()} or another sum, says to
+leave a column out of the table). So is a copy: a {opt counts()} column outside {opt fraction()}
+that equals another {opt counts()} column, or a {opt fraction()}'s
+{it:denom}-{it:num}, in every row and is printed where that count (for
+{it:denom}-{it:num}, any part of its fraction) is masked; a copy is masked as
+a count of its own, not with the original, so leave it out of the table. A total or copied column outside
+{opt counts()} and a total row not marked by {opt totalrow()} cannot be
+detected and give a masked count back;
+without {opt rowtotal()} and {opt totalrow()}, the log says so. A count
+block that cannot be protected even by masking its totals is an error
+(r(498)), as in the other commands. With {cmd:primary}, none of this
+applies: only the small printed counts are masked.{p_end}
+
+{pstd}The exact check behind complementary masking grows steeply with the size
+of a panel that has a total row. Measured with about half the counts small:
+{opt rowtotal()} with three addends and {opt totalrow()} takes about 0.03
+seconds for 10 rows, 9 seconds for 20 and 70 seconds for 30; a single count
+or a {opt fraction()} with {opt totalrow()} takes under 3 seconds for 60 rows
+and 2 to 3 minutes for 200. A panel with a total row is therefore limited
+to 60 data rows times addends for each {opt rowtotal()} sum (20 rows of
+three addends) and to 60 data rows otherwise; a larger one is an error
+(r(459)) that asks for {opt panel()}, each panel with its own total row.
+Tables without a total row have no such limit (300 rows with
+{opt rowtotal()} take well under a second).{p_end}
+
+{pstd}
 {it:Session destinations}{p_end}
 
 {pstd}After {cmd:tabtools set workbook "}{it:file}{cmd:.xlsx"}, {cmd:puttab} writes to that
@@ -539,6 +674,16 @@ decimals.{p_end}
 {phang2}{cmd:. frame models: puttab rowlabel c* using table.xlsx, sheet("Models") ///}{p_end}
 {phang3}{cmd:blockheader markdown(models.md)}{p_end}
 
+{pstd}{bf:Example 10: Masked outcome counts}{p_end}
+{phang2}{cmd:. puttab outcome e1 n1 e0 n0 rr lb ub using table.xlsx, ///}{p_end}
+{phang3}{cmd:sheet("Table 2") varlabels smallcells(5) counts(e1 n1 e0 n0) ///}{p_end}
+{phang3}{cmd:fraction(e1/n1 e0/n0) withhold(e1: rr lb ub \ e0: rr lb ub)}{p_end}
+
+{pstd}{bf:Example 11: Category counts with a total column and a total row}{p_end}
+{phang2}{cmd:. puttab label n1 n0 ntot using table.xlsx, sheet("Counts") ///}{p_end}
+{phang3}{cmd:panel(block) smallcells(5) counts(n1 n0 ntot) rowtotal(ntot) ///}{p_end}
+{phang3}{cmd:totalrow(label == "Total")}{p_end}
+
 {marker stored}{...}
 {title:Stored results}
 
@@ -555,6 +700,9 @@ decimals.{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(latex_rows)}}body rows written to LaTeX{p_end}
 {synopt:{cmd:r(latex_cols)}}columns written to LaTeX{p_end}
+{synopt:{cmd:r(smallcells)}}threshold applied (0 = none); with {opt counts()}{p_end}
+{synopt:{cmd:r(n_primary)}}counts masked as small; with {opt counts()}{p_end}
+{synopt:{cmd:r(n_complementary)}}counts masked to protect them; with {opt counts()}{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}source type: {cmd:data}, {cmd:frame}, or {cmd:matrix}{p_end}

@@ -316,7 +316,7 @@ capture noisily {
     assert `"`r(latex)'"' == "`f'"
     assert r(latex_rows) == r(markdown_rows)
     assert r(latex_cols) == r(markdown_cols)
-    * stub + 2 groups + test + total + p-value + SMD
+    * stub + 2 groups + total + test + p-value + SMD
     assert r(latex_cols) == 7
     * Price, Mileage, Repair record, five levels
     assert r(latex_rows) == 8
@@ -324,18 +324,19 @@ capture noisily {
     * The workbook merges only single columns vertically (stub, Test, p, SMD)
     assert r(spans) == "none"
     * Header block, hand-built from the group counts: two real header rows
-    _ld_hasline "`f'" " & Domestic & Foreign & Test & Total & p-value & SMD \\"
+    _ld_hasline "`f'" " & Domestic & Foreign & Total & Test & p-value & SMD \\"
     assert r(has)
-    _ld_hasline "`f'" "No. (Column \%) or Median (Q1, Q3) & N=`n0' & N=`n1' &  & N=`n' &  &  \\"
+    _ld_hasline "`f'" "No. (Column \%) or Median (Q1, Q3) & N=`n0' & N=`n1' & N=`n' &  &  &  \\"
     assert r(has)
     * Markdown flattens "Domestic (N=52)"; LaTeX must never see that state
     _ld_hastext "`ld'/d1.md" "Domestic (N=`n0')"
     assert r(has)
     _ld_hastext "`f'" "Domestic (N="
     assert !r(has)
-    * Footnote paragraphs, hand-split on " \ "
+    * Footnote paragraphs, hand-split on " \ ". The 7-column table overflows the
+    * portrait test page, so the Test column is checked in the source, not the PDF
     _ld_needle_file "`ld'/d1.needles" contains "Medians shown.\par" contains "Second paragraph.\par" ///
-        pdftext "Medians shown." pdftext "Second paragraph." pdftext "Domestic" pdftext "Wilcoxon rank-sum" ///
+        pdftext "Medians shown." pdftext "Second paragraph." pdftext "Domestic" pdftext "Total" contains "Wilcoxon rank-sum" ///
         contains "p-value & SMD"
     _ld_check "`f'" --needles "`ld'/d1.needles"
 }

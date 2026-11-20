@@ -32,8 +32,16 @@ Markdown, and LaTeX export
 {pstd}{cmd:crosstab} generates a formatted cross-tabulation table with
 frequencies, percentages, and association measures (OR, RR, RD). {it:rowvar}
 and {it:colvar} must be numeric categorical variables. The command supports
-Pearson's chi-squared test, Fisher's exact test (auto-selected when expected
-cells are sparse), and a Spearman rank-correlation trend test. Test and trend
+Pearson's chi-squared test, Fisher's exact test (auto-selected when any
+expected cell count is below 5), and a Spearman rank-correlation trend test.
+If an auto-selected Fisher's exact test cannot be computed for the table
+({cmd:tabulate} stops with a memory or margin-size error, as on larger r x c
+tables), Pearson's chi-squared test is reported instead and the test row and
+{cmd:r(methods)} say so; an explicit {opt exact} or {opt fisher} request that
+cannot be computed is an error. A table whose row or column variable has a
+single level has no test of association: the test row reads "No test of
+association", {cmd:r(chi2)} and {cmd:r(p)} are not stored, and
+{cmd:r(methods)} states that no test was performed. Test and trend
 p-values print by the package rule shared with {helpb regtab}: {cmd:< 0.001}
 below 0.001, three decimals below 0.10, two decimals from 0.10, and
 {cmd:> 0.99} above 0.99.{p_end}
@@ -77,7 +85,7 @@ below 0.001, three decimals below 0.10, two decimals from 0.10, and
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synoptline}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
-{synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}; specify one, not both{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
@@ -98,9 +106,12 @@ calling Stata's {helpb cc} or {helpb cs}. The reported measures therefore
 compare the second observed column level versus the first for the second
 observed row level versus the first. Observed levels follow Stata's numeric
 level order, not value-label display order; use the variable coding that
-matches the direction you want to report. If a requested association measure is
-undefined, for example because a required 2x2 cell count is zero, {cmd:crosstab}
-exits with an error instead of silently omitting the measure.{p_end}
+matches the direction you want to report. If a requested association measure or
+its confidence interval is undefined, for example because a required 2x2 cell
+count is zero, {cmd:crosstab} exits with an error instead of silently omitting
+the measure or printing a missing limit. A column with no events gives a risk
+ratio of 0 whose log-scale interval does not exist, so {opt rr} is refused for
+it; {opt rd} alone is still reported.{p_end}
 
 {phang}
 {opt level(#)} sets the confidence level for requested {opt or}, {opt rr}, and
@@ -143,7 +154,7 @@ at that precision. A true 0 or 100 prints as before.{p_end}
 {opt ex:act} force Fisher's exact test{p_end}
 
 {phang}
-{opt excel(filename)} synonym for {opt xlsx(filename)}{p_end}
+{opt excel(filename)} synonym for {opt xlsx(filename)}; specifying both is an error{p_end}
 
 {phang}
 {opt fi:sher} force Fisher's exact test (synonym for {opt exact}){p_end}
@@ -204,7 +215,8 @@ labelled {cmd:Missing (.a)} through {cmd:Missing (.z)}.{p_end}
 
 {phang}
 {opt smallc:ells(#[, primary])} protect exact counts below {it:#}; {it:#} must be an
-integer of at least 3. With {cmd:primary}, only printed counts from 1 to {it:#}-1 (cells and
+integer of at least 3, and an empty {cmd:smallcells()} is an error, not a request for no
+masking (that is {opt nosmallcells}). With {cmd:primary}, only printed counts from 1 to {it:#}-1 (cells and
 margins) are masked, as {cmd:<#} without a percentage; no complementary cells are added and
 tests and association measures are shown as computed. See
 {help crosstab##smallcells:Small-cell disclosure control}. After {cmd:tabtools set smallcells},
@@ -247,7 +259,7 @@ space on each side, separates paragraphs, one row (Markdown: paragraph) each.{p_
 session default was set with {cmd:tabtools set font}.{p_end}
 
 {phang}
-{opt fontsize(#)} sets the Excel font size in points. The default is 10 unless
+{opt fontsize(#)} sets the Excel font size in points, an integer from 1 through 72. The default is 10 unless
 a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {marker smallcells}{title:Small-cell disclosure control}
@@ -347,7 +359,7 @@ order; the combination exits with an error.{p_end}
 {synopt:{cmd:r(N)}}total observations{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level used for association intervals{p_end}
 {synopt:{cmd:r(chi2)}}Pearson chi-squared statistic{p_end}
-{synopt:{cmd:r(p)}}p-value from the reported test{p_end}
+{synopt:{cmd:r(p)}}p-value of the test (absent if one row/column level){p_end}
 {synopt:{cmd:r(or)}}odds ratio (2x2){p_end}
 {synopt:{cmd:r(rr)}}risk ratio (2x2){p_end}
 {synopt:{cmd:r(rd)}}risk difference (2x2){p_end}

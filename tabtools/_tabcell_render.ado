@@ -1,4 +1,4 @@
-*! _tabcell_render Version 1.1.0  2026/10/31
+*! _tabcell_render Version 1.2.0  2026/11/19
 *! Vectorised cell renderer behind tabcell (scalar and generate() forms)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -12,6 +12,10 @@ generate() column can never disagree about formatting, masking or refusal.
         [fmt(%fmt) sep(str) missing(str) hasmissing(0|1) pdp(#) highpdp(#)
          nformat(%fmt) pformat(%fmt) mincell(#) ci(exact|poisson) level(#)
          per(#) nocount cilimits(lbvar ubvar estvar)]
+
+  fmt() and nformat() of fixed type (f, fc) narrower than 26 are widened
+  to 26 before use, so no number that string() can write in full prints
+  in e-notation or without its thousands separators.
 
   form est : var1 = estimate, var2 = lower, var3 = upper (already on the
              reported scale)
@@ -49,6 +53,17 @@ program define _tabcell_render, rclass
             PDP(integer 3) HIGHPDP(integer 2) PSTYLE(string) NFORMAT(string) PFORMAT(string) ///
             MINCELL(integer 0) CI(string) LEVEL(real 95) CILIMITS(string) ///
             PER(real 1) NOCOUNT]
+        * A fixed format (f, fc) narrower than 26 is widened to 26, the most
+        * string() writes: the cells are trimmed, so the width only decides
+        * whether a long number overflows into e-notation (%9.2f printed
+        * 1234567.25 as 1.23e+06) or loses its thousands separators (%12.0fc
+        * printed 1234567890 bare). Zero-padded formats (%09.2f) keep their
+        * width; g and e formats are left alone, their width sets the digits.
+        foreach _f in fmt nformat {
+            if ustrregexm(`"``_f''"', "^%(-?)([1-9][0-9]*)([.,][0-9]+fc?)$") {
+                if real(ustrregexs(2)) < 26 local `_f' = "%" + ustrregexs(1) + "26" + ustrregexs(3)
+            }
+        }
         * _ci: the exact binomial interval of form np
         local _ci = ("`ci'" == "exact" & "`form'" == "np")
         if "`form'" == "rate" & !inlist("`ci'", "exact", "poisson") {

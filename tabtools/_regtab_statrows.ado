@@ -1,4 +1,4 @@
-*! _regtab_statrows Version 1.1.0  2026/10/31
+*! _regtab_statrows Version 1.2.0  2026/11/19
 *! regtab block: model statistics rows below the table body (stats())
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -47,22 +47,25 @@ if `add_stats' == 1 {
             }
         }
     }
+    * Widths are wide enough that string() never falls back to e-notation
+    * (Root MSE 962345.123 printed as 9.62e+05 under %9.3f) or drops the
+    * thousands separator (1,234,567,890 under %12.0fc).
     local _nr_lab_obs "Observations"
-    local _nr_fmt_obs "%12.0fc"
+    local _nr_fmt_obs "%20.0fc"
     local _nr_lab_events "Events"
-    local _nr_fmt_events "%12.0fc"
+    local _nr_fmt_events "%20.0fc"
     local _nr_lab_people "People"
-    local _nr_fmt_people "%12.0fc"
+    local _nr_fmt_people "%20.0fc"
     local _nr_lab_exposure : copy local exposurelabel
-    local _nr_fmt_exposure "%12.0fc"
+    local _nr_fmt_exposure "%20.0fc"
     local _nr_lab_mi_m "Imputations"
-    local _nr_fmt_mi_m "%12.0fc"
+    local _nr_fmt_mi_m "%20.0fc"
     local _nr_lab_r2_a "Adjusted R²"
     local _nr_fmt_r2_a "%5.3f"
     local _nr_lab_rmse "Root MSE"
-    local _nr_fmt_rmse "%9.3f"
+    local _nr_fmt_rmse "%20.3f"
     local _nr_lab_F "F statistic"
-    local _nr_fmt_F "%9.2f"
+    local _nr_fmt_F "%20.2f"
     local _nr_lab_fmi "Largest FMI"
     local _nr_fmt_fmi "%6.4f"
     * statlabels(): a row label the user gave replaces the default
@@ -92,7 +95,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_N_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = ustrregexra(string(`stat_N_`m'', "%12.0fc"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_N_`m'', "%20.0fc"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -138,7 +141,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_groups_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = ustrregexra(string(`stat_groups_`m'', "%12.0fc"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_groups_`m'', "%20.0fc"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -196,13 +199,13 @@ if `add_stats' == 1 {
                 if "`_aic_label'" == "AIC" {
                     if !missing(`stat_aic_`m'') {
                         local col = (`m' - 1) * 3 + 1
-                        replace c`col' = ustrregexra(string(`stat_aic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
+                        replace c`col' = ustrregexra(string(`stat_aic_`m'', "%20.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                     }
                 }
                 else {
                     if !missing(`stat_qic_`m'') {
                         local col = (`m' - 1) * 3 + 1
-                        replace c`col' = ustrregexra(string(`stat_qic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
+                        replace c`col' = ustrregexra(string(`stat_qic_`m'', "%20.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                     }
                 }
             }
@@ -229,7 +232,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_qic_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = ustrregexra(string(`stat_qic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_qic_`m'', "%20.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -254,7 +257,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_bic_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = ustrregexra(string(`stat_bic_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_bic_`m'', "%20.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -279,7 +282,7 @@ if `add_stats' == 1 {
             forvalues m = 1/`use_models' {
                 if !missing(`stat_ll_`m'') {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = ustrregexra(string(`stat_ll_`m'', "%12.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
+                    replace c`col' = ustrregexra(string(`stat_ll_`m'', "%20.2f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
@@ -317,22 +320,31 @@ if `add_stats' == 1 {
     if `want_r2' == 1 {
         local has_r2 = 0
         forvalues m = 1/`use_models' {
-            * Prefer r2, fallback to r2_p (pseudo), then r2_a (adjusted)
-            if !missing(`stat_r2_`m'') | !missing(`stat_r2_p_`m'') | !missing(`stat_r2_a_`m'') {
+            * Prefer r2, fallback to r2_p (pseudo), then r2_a (adjusted).
+            * e(r2_a) is a different statistic ([XT] xtreg, Stored results:
+            * e(r2) R², e(r2_a) adjusted R²), so it is used only while the
+            * Adjusted R² row is not requested, and the label then says so.
+            local _r2a_ok_`m' = !`want_r2_a' & missing(`stat_r2_`m'') & ///
+                missing(`stat_r2_p_`m'') & !missing(`stat_r2_a_`m'')
+            if !missing(`stat_r2_`m'') | !missing(`stat_r2_p_`m'') | `_r2a_ok_`m'' {
                 local has_r2 = 1
             }
         }
         if `has_r2' {
-            * Use a generic label when regular and pseudo-R² metrics are mixed.
-            local r2_label "R²"
+            * The label names every kind of R² the row holds: R², Pseudo R²,
+            * Adjusted R², joined by " / " when the models mix them.
             local _any_r2 = 0
             local _any_pseudo_r2 = 0
+            local _any_adj_r2 = 0
             forvalues m = 1/`use_models' {
                 if !missing(`stat_r2_`m'') local _any_r2 = 1
                 if !missing(`stat_r2_p_`m'') local _any_pseudo_r2 = 1
+                if `_r2a_ok_`m'' local _any_adj_r2 = 1
             }
-            if !`_any_r2' & `_any_pseudo_r2' local r2_label "Pseudo R²"
-            else if `_any_r2' & `_any_pseudo_r2' local r2_label "R² / Pseudo R²"
+            local r2_label ""
+            if `_any_r2' local r2_label "R²"
+            if `_any_pseudo_r2' local r2_label = cond("`r2_label'" == "", "Pseudo R²", "`r2_label' / Pseudo R²")
+            if `_any_adj_r2' local r2_label = cond("`r2_label'" == "", "Adjusted R²", "`r2_label' / Adjusted R²")
             if `"`macval(_stl_r2)'"' != "" {
             	local r2_label `"`macval(_stl_r2)'"'
             }
@@ -344,7 +356,7 @@ if `add_stats' == 1 {
                 local _r2val = .
                 if !missing(`stat_r2_`m'') local _r2val = `stat_r2_`m''
                 else if !missing(`stat_r2_p_`m'') local _r2val = `stat_r2_p_`m''
-                else if !missing(`stat_r2_a_`m'') local _r2val = `stat_r2_a_`m''
+                else if `_r2a_ok_`m'' local _r2val = `stat_r2_a_`m''
                 if !missing(`_r2val') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = ustrregexra(string(`_r2val', "%5.3f"), "-(?=[0.,]+\z)", "") in `=`curr_n'+1'
@@ -452,7 +464,7 @@ if `add_stats' == 1 {
                 local _cst_txt ""
                 if !missing(`_x') {
                     local _cst_fmt "`_cst_fmt_`_k''"
-                    if "`_cst_fmt'" == "" local _cst_fmt = cond(`_cst_int`_s'_`_k'', "%12.0fc", "%12.3f")
+                    if "`_cst_fmt'" == "" local _cst_fmt = cond(`_cst_int`_s'_`_k'', "%20.0fc", "%20.3f")
                     local _cst_txt = strtrim(ustrregexra(string(`_x', "`_cst_fmt'"), "-(?=[0.,]+\z)", ""))
                     local _cst_gs = `_cst_g`_s'_`_k''
                     if `_cst_pm`_s'_`_k'_`m'' {

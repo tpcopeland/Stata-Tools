@@ -100,6 +100,10 @@ def main() -> int:
     args = parser.parse_args()
 
     program_count, class_missing, wrapper_missing = audit(args.pkg_dir)
+    # 131 since 1.2.0 (2026-11-19 audit): _effecttab_ucut, _regtab_ambscale,
+    # _tabcell_barevar.
+    # 128 since smallcells() in comptab and puttab (1.2.0): _comptab_sc_rates,
+    # _comptab_sc_vertical, _puttab_sc_parse and _puttab_sc_apply.
     # 124 since texopts() (2026-10-31): _tabtools_texopts.
     # 123 since LaTeX export (2026-10-31): _tabtools_latex_write.
     # 122 since the 1.0.0 SSC pass: _tabtools_export_done (the shared
@@ -133,7 +137,7 @@ def main() -> int:
     # 75 since 2.1.18: _tabtools_xlsx_deferred_styles (direct-XML cell styles).
     # 74 since the codex audit of 2026-09-26 (C8): stacktab's substring
     # suboption scanner _stacktab_get_subopt was replaced by a Mata tokenizer.
-    passed = program_count == 124 and not class_missing and not wrapper_missing
+    passed = program_count == 131 and not class_missing and not wrapper_missing
     verdict = "PASS" if passed else "FAIL"
     summary = (
         f"{verdict} programs={program_count} class_missing={len(class_missing)} "

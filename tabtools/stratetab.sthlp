@@ -82,7 +82,7 @@ of files must be divisible by this number.
 
 {phang}
 {opt xlsx(string)} specifies the Excel workbook name. Must include the .xlsx
-extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab}
+extension. {opt excel()} is accepted as a synonym; giving the two different file names is an error (r(198)). If omitted, {cmd:stratetab}
 can still display the table, write {opt csv()} or {opt markdown()}, or populate {opt frame()}.
 
 {phang}
@@ -147,7 +147,9 @@ printed. Masking governs printed output only: {cmd:r(rates)} and
 exposures over one sample, a masked count can be recovered from another
 exposure's totals. Without this option, a session default set
 with {cmd:tabtools set smallcells #} applies and is echoed in the
-log; {opt nosmallcells} ignores that default.
+log; {opt nosmallcells} ignores that default. # is 3 or more, or 0 for
+none: {cmd:smallcells(2)} would print {cmd:<2}, which identifies a count
+of 1, and is an error (198).
 
 {phang}
 {opt masktext(string)} is printed in place of a masked event count, for

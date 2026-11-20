@@ -219,7 +219,8 @@ that matches no coefficient row, or a missing label, is an error
 (r(198)). {opt stats()} columns take their labels from {opt stats()} and {opt statlabels()}.{p_end}
 
 {phang}
-{opt bold:p(#)} bold p-value cells below #{p_end}
+{opt bold:p(#)} bold p-value cells below #, compared on the unrounded p-value
+as {opt stars} does{p_end}
 
 {phang}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}
@@ -301,7 +302,8 @@ name; not with {opt keep()}. See {opt keep()} for matching rules.{p_end}
 
 {phang}
 {opt eplotf:rame(name[, replace])} store a graph-ready companion frame for {helpb eplot} (see
-Remarks){p_end}
+Remarks). Neither {opt frame()} nor {opt eplotframe()} may name the current frame or the
+frame {cmd:default}, and the two must name different frames (r(198)).{p_end}
 
 {phang}
 {opt factorl:abel} replace factor-variable prefixes (e.g., {it:3.rep78}) with value labels{p_end}
@@ -315,7 +317,7 @@ Markdown writers receive the text unchanged and split it the same way.{p_end}
 
 {phang}
 {opt fra:me(name[, replace flat])} stores the output in a named frame; {cmd:replace}
-replaces an existing frame. Without {cmd:flat} the frame is the display
+replaces an existing frame other than the current frame or {cmd:default} (r(198)). Without {cmd:flat} the frame is the display
 dataset: variables {cmd:title}, {cmd:A}, {cmd:c1}, {cmd:ref1}, ... with the title, model-name, and
 statistic-header rows on top. With {cmd:flat}, the frame holds one row per body line
 (coefficient, {opt stats()}, and {opt addrow()} rows) and nothing else: {cmd:rowlabel}, the row
@@ -376,7 +378,8 @@ these keys do not describe. See {it:Editing a flat frame} under Examples.{p_end}
 {opt headers:hade} apply background fill to the header row{p_end}
 
 {phang}
-{opt high:light(#)} yellow fill for rows where p-value < #{p_end}
+{opt high:light(#)} yellow fill for rows where p-value < #, compared on the
+unrounded p-value as {opt stars} does{p_end}
 
 {phang}
 {opt highpdp(#)} max decimal places for large p-values (p >= 0.10); default 2{p_end}
@@ -396,7 +399,8 @@ displayed row labels instead of raw names. For example, {cmd:keep(Fuel) labelmat
 selects a row labelled {it:Fuel efficiency}. Requires {opt keep()} or {opt drop()}.{p_end}
 
 {phang}
-{opt keepi:ntercept} force display of the intercept row even for exponentiated models{p_end}
+{opt keepi:ntercept} force display of the intercept row even for exponentiated models;
+it cannot be combined with {opt nointercept} (r(198)){p_end}
 
 {phang}
 {opt labelw:idth(#)} maximum width of the label column in characters (default
@@ -452,7 +456,9 @@ document is an error.{p_end}
 
 {phang}
 {opt models(string)} labels merged above each model's columns,
-backslash-separated; auto-generated if omitted{p_end}
+backslash-separated, in model order; auto-generated if omitted. A model after
+the last label gets the automatic {cmd:Model} {it:#} header; more labels than models is
+an error (r(198)).{p_end}
 
 {phang}
 {opt noint:ercept} drop intercept, cutpoint, and ancillary rows; auto-enabled for
@@ -478,7 +484,12 @@ ancillary rows. The collection itself is not changed.{p_end}
 internally{p_end}
 
 {phang}
-{opt nore:effects} drop all random-effects rows (variances, covariances, SDs){p_end}
+{opt nore:effects} drop all random-effects rows (variances, covariances, SDs,
+correlations). Like {opt nointercept}, it knows a random-effects row by its
+coefficient name in the collection ({cmd:var(}...{cmd:)}, {cmd:cov(}...{cmd:)},
+{cmd:sd(}...{cmd:)}, {cmd:corr(}...{cmd:)}), never by its display label: a covariate labelled,
+say, "BMI per sd(5)" is an ordinary coefficient, kept, exponentiated with the
+others, and listed with the other covariates.{p_end}
 
 {phang}
 {opt open} open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
@@ -617,11 +628,15 @@ workbook resolves, {cmd:regtab} prints
 {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}.{p_end}
 
 {phang}
-{opt stars} add significance stars to coefficients (*, **, ***){p_end}
+{opt stars} add significance stars to coefficients (*, **, ***). Stars,
+{opt boldp()}, and {opt highlight()} all compare the unrounded p-value with
+their thresholds, not the printed one: a p of 0.0497 prints as 0.050 under the default
+{opt pdp(3)} yet earns a star and is bolded by {opt boldp(0.05)}.{p_end}
 
 {phang}
-{opt starsl:evels(numlist)} custom p-value thresholds for stars; exactly 3 values
-(default 0.05 0.01 0.001){p_end}
+{opt starsl:evels(numlist)} custom p-value thresholds for stars, one, two, and
+three stars in that order: exactly 3 decreasing values between 0 and 1
+(default 0.05 0.01 0.001). Requires {opt stars}; any other list is an error (r(198)).{p_end}
 
 {phang}
 {opt stats(string asis)} model-fit statistics rows: {cmd:n}, {cmd:obs}, {cmd:events},
@@ -638,23 +653,23 @@ collected model reports is omitted, with a console note naming it, and a model
 that does not report it has a blank cell:{p_end}
 {p2colset 9 24 26 2}{...}
 {p2col:{cmd:n}}"Observations" ({cmd:e(N)}), or "Subjects" ({cmd:e(N_sub)})
-for survival models (%12.0fc). After {cmd:mi estimate, esampvaryok}, where
+for survival models (%20.0fc). After {cmd:mi estimate, esampvaryok}, where
 {cmd:e(N)} is missing, it is {cmd:e(N_mi)}, the number of observations
 {cmd:mi estimate} prints{p_end}
-{p2col:{cmd:obs}}"Observations" (%12.0fc): {cmd:e(N)} (or {cmd:e(N_mi)} as for
+{p2col:{cmd:obs}}"Observations" (%20.0fc): {cmd:e(N)} (or {cmd:e(N_mi)} as for
 {cmd:n}) for every model, including survival models, where it counts records
 or intervals while {cmd:n} prints subjects; {cmd:r(obs_}{it:#}{cmd:)}{p_end}
-{p2col:{cmd:events}}"Events" (%12.0fc): the events {cmd:tabtools fitcount}
+{p2col:{cmd:events}}"Events" (%20.0fc): the events {cmd:tabtools fitcount}
 counted for the model, for any estimator; otherwise {cmd:e(N_fail)}, so
 survival models ({cmd:stcox}, {cmd:streg}, {cmd:stcrreg}) need no
 {cmd:fitcount}{p_end}
-{p2col:{cmd:people}}"People" (%12.0fc): distinct {opt people()} values in the
+{p2col:{cmd:people}}"People" (%20.0fc): distinct {opt people()} values in the
 estimation sample, from {cmd:tabtools fitcount}; blank for a model without
 them{p_end}
 {p2col:{cmd:exposure}}{opt exposurelabel()}, default "Person-time"
-(%12.0fc): the summed {opt exposure()} of the estimation sample, from
+(%20.0fc): the summed {opt exposure()} of the estimation sample, from
 {cmd:tabtools fitcount}{p_end}
-{p2col:{cmd:groups}}"Groups" (%12.0fc): {cmd:e(N_g)}, as {cmd:xtreg}, {cmd:xtlogit},
+{p2col:{cmd:groups}}"Groups" (%20.0fc): {cmd:e(N_g)}, as {cmd:xtreg}, {cmd:xtlogit},
 {cmd:mixed}, and {cmd:melogit} store it; blank for a model without it. {cmd:clogit}
 stores its group variable but no count, and the collection holds
 no estimation sample to count it from: when no collected model reports a count
@@ -665,14 +680,17 @@ right after the fit and request
 {cmd:stats(people) statlabels(people "Groups")}. When another model reports a
 count, the {cmd:clogit} model has a blank cell and a console note says so{p_end}
 {p2col:{cmd:r2_a}}"Adjusted R²", {cmd:e(r2_a)} (%5.3f); the {cmd:r2} token
-still falls back to it when a model has neither {cmd:e(r2)} nor {cmd:e(r2_p)}{p_end}
-{p2col:{cmd:rmse}}"Root MSE", {cmd:e(rmse)} (%9.3f), the N-k divisor Stata
+still falls back to it when a model has neither {cmd:e(r2)} nor {cmd:e(r2_p)}
+and {cmd:r2_a} is not also requested; the row label then names it
+({it:Adjusted R²}; when models mix, the kinds joined by " / ", such as
+{it:R² / Adjusted R²} or {it:Pseudo R² / Adjusted R²}){p_end}
+{p2col:{cmd:rmse}}"Root MSE", {cmd:e(rmse)} (%20.3f), the N-k divisor Stata
 reports; blank for models without it{p_end}
-{p2col:{cmd:F}}"F statistic", {cmd:e(F)} (%9.2f) for linear-model F tests
+{p2col:{cmd:F}}"F statistic", {cmd:e(F)} (%20.2f) for linear-model F tests
 ({cmd:regress}, {cmd:anova}, {cmd:areg}, {cmd:xtreg}, {cmd:ivregress},
 {cmd:cnsreg}); blank for every other model, including a {cmd:svy: logit} that
 stores a design-based {cmd:e(F)}{p_end}
-{p2col:{cmd:mi_m}}"Imputations", {cmd:e(M_mi)} (%12.0fc) after {cmd:mi estimate}{p_end}
+{p2col:{cmd:mi_m}}"Imputations", {cmd:e(M_mi)} (%20.0fc) after {cmd:mi estimate}{p_end}
 {p2col:{cmd:fmi}}"Largest FMI", {cmd:e(fmi_max_mi)} (%6.4f), the largest
 fraction of missing information across coefficients, as {cmd:mi estimate}
 reports it{p_end}
@@ -682,7 +700,7 @@ reports it{p_end}
 {cmd:stats(n e(N_lc)="Left-censored" e(N_rc)="Right-censored")}. Each is a
 row of its own after the built-in rows, in the order given, labelled
 {it:label} (default {it:name}): integers with thousands separators
-(%12.0fc), other values to three decimals (%12.3f). The value comes from the
+(%20.0fc), other values to three decimals (%20.3f). The value comes from the
 collection, never from the active {cmd:e()}. A model that does not hold the
 scalar has a blank cell; a scalar no collected model holds is an error
 (r(111)), as is an item requested twice (r(198)). Returned, unmasked, as
@@ -778,7 +796,8 @@ not have and are refused (r(198)); {opt addcol()} adds columns instead. {cmd:r(t
 {cmd:r(N_models)}, and {opt eplotframe()} keep their usual, untransposed meaning.{p_end}
 
 {phang}
-{opt xlsx(string)} output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym{p_end}
+{opt xlsx(string)} output Excel filename (must end with {cmd:.xlsx}); {opt excel()} is a synonym,
+and giving {opt xlsx()} and {opt excel()} different file names is an error (r(198)){p_end}
 
 {phang}
 {opt zebra} apply alternating light gray row shading{p_end}
@@ -886,7 +905,18 @@ read like {it:Partial response: Age z-score} or
 names across equations. For labeled multinomial outcomes, value labels are used
 when available. {cmd:mlogit} is displayed as relative risk ratios (RRR) by
 default; zero-inflated and hurdle models remain on their native coefficient
-scale unless {opt coef()} and collection styling are supplied by the user. A
+scale unless {opt coef()} and collection styling are supplied by the user.
+{cmd:zip} and {cmd:zinb} fitted with {cmd:irr} are labelled IRR: Stata
+exponentiates the count equation only, so the {it:Inflation equation} rows under
+that header remain logit (or probit) coefficients. The same equation-aware rows
+are used whenever a model has more than one equation holding regression,
+intercept, or {cmd:lnsigma} terms, including an equation of {cmd:_cons} alone:
+{cmd:gnbreg}'s {it:lnalpha: Intercept}, {cmd:betareg}'s {it:scale: Intercept},
+{cmd:xtologit}'s {it:cut1: Intercept}, {cmd:nl}'s parameters, and the
+{it:Scale} rows of {cmd:hetprobit} and {cmd:intreg} (with or without
+{cmd:het()}). Such terms share a name with the main equation's terms, so one
+row per name would print one equation's coefficient under the other's label and
+drop the rest. A
 factor covariate keeps its header row inside each equation block, as in the
 single-equation layout: {it:4: Sex} above the indented level rows
 {it:4:   Male} (Reference) and {it:4:   Female}.{p_end}
@@ -921,7 +951,18 @@ as coefficients ({cmd:logit} or {cmd:clogit} without {cmd:or}, {cmd:logistic} wi
 {cmd:coef}, {cmd:stcox}, {cmd:streg}, or {cmd:stintreg} with {cmd:nohr}, {cmd:stcrreg} with
 {cmd:noshr}, or a log-time {cmd:streg} or {cmd:stintreg} without {cmd:tratio}) is exponentiated, and a fit Stata already
 exponentiated is left as it is, so the header always names the numbers under
-it. Display options are read only from the option list after the command's
+it. Any other estimator fitted with an eform display option ({cmd:or},
+{cmd:irr}, {cmd:rrr}, {cmd:hr}, {cmd:rr}, {cmd:shr}, {cmd:tr}, or {cmd:eform}),
+such as {cmd:xtlogit, or}, {cmd:xtpoisson, irr}, {cmd:cloglog, eform},
+{cmd:meologit, or}, or {cmd:gnbreg, irr}, is labelled with that ratio (exp(b)
+for {cmd:eform}): the collected values are the ratios Stata displayed, never
+exponentiated again, the base level is the Reference, the intercept row is
+dropped, and {opt dimnonsig} tests the interval against 1. Without such an
+option it keeps the {cmd:Coef.} header. A collection with no command metadata,
+as {cmd:collect:} on a replay ({cmd:collect: logit, or}) leaves it, is labelled
+from the collected values when the active {cmd:e(b)} proves them coefficients
+or their exponents, not from {cmd:e(cmdline)}, which a replay's display options
+do not change. Display options are read only from the option list after the command's
 comma, with the estimator's own abbreviations ({cmd:ir}, {cmd:rr}, {cmd:ti},
 {cmd:tr}), so a covariate named {cmd:or} is never mistaken for the option. Estimation
 prefixes are set aside, alone or nested: {cmd:svy:},
@@ -1371,7 +1412,10 @@ family) are posted.{p_end}
 {pstd}
 {cmd:AIC} and {cmd:BIC} are recomputed from the log-likelihood, parameter count, and N as
 {cmd:AIC = -2*ll + 2*k} and {cmd:BIC = -2*ll + k*ln(N)}, rather than read from
-{cmd:e(aic)}/{cmd:e(bic)}, which {cmd:glm}/GEE backends store on an incomparable per-observation
+{cmd:e(aic)}/{cmd:e(bic)}. As {helpb estat ic} does, {cmd:N} in BIC is {cmd:e(N)}
+unless the command set {cmd:e(N_ic)}, in which case it is {cmd:e(N_ic)}: the
+{cmd:cm} choice-model commands set it to the number of cases ({bf:[R] IC note}).
+{cmd:e(aic)}/{cmd:e(bic)} are not read because {cmd:glm}/GEE backends store them on an incomparable per-observation
 or deviance scale. {cmd:k} is the number of estimated free parameters, whatever the
 variance estimator. That is {cmd:e(rank)}, under a robust-type {cmd:vce()} too: it leaves
 out base levels, omitted levels and the base outcome equation of {cmd:mlogit}, nets

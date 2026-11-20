@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 1.1.0  2026/10/31
+*! _tabtools_csv_write Version 1.2.0  2026/11/19
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -24,7 +24,26 @@ program define _tabtools_csv_write, nclass
             }
         }
 
+        * An empty dataset reached _tt_csv_hide_breaks(), whose strpos() on
+        * a 0-row column stopped with a Mata conformability error, r(3200).
+        * The other writers refuse it by name; so does this one.
+        if _N == 0 {
+            noisily display as error "No observations available for CSV export"
+            exit 2000
+        }
+
         _tabtools_validate_path `"`using'"' "csv()"
+
+        * A labelvar() that names no variable was dropped silently by
+        * _tabtools_visible_vars, so the CSV lost its stub column at rc 0.
+        * The LaTeX writer refuses it; so does this one.
+        if `"`labelvar'"' != "" {
+            capture confirm variable `labelvar', exact
+            if _rc {
+                noisily display as error "labelvar(): variable `labelvar' not found; nothing was written"
+                exit 111
+            }
+        }
 
         local _visible_opts ""
         if `"`labelvar'"' != "" local _visible_opts "labelvar(`labelvar')"

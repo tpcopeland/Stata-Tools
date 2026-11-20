@@ -175,6 +175,9 @@ capture noisily {
     file open `_program_contract_fh' using "`_program_contract_status'", read text
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
+    * 128 programs since smallcells() in comptab and puttab (1.2.0) added
+    * _comptab_sc_rates, _comptab_sc_vertical, _puttab_sc_parse and
+    * _puttab_sc_apply;
     * 124 programs since texopts() (2026-10-31) added _tabtools_texopts;
     * 123 programs since LaTeX export (2026-10-31) added _tabtools_latex_write;
     * 122 programs since the 1.0.0 SSC pass added _tabtools_export_done (the
@@ -192,13 +195,14 @@ capture noisily {
     * 108 programs since _regtab_cmdsets; 107 since _regtab_activeb; 106 since _regtab_collabels (transpose collabels()); 105
     * since the regtab.ado split moved seven blocks of regtab
     * into _regtab_* helpers and added _regtab_fvbase; 97 since 2.3.1 added
-    * six _regtab_* helpers;
+    * six _regtab_* helpers; 131 since the 1.2.0 audit added _effecttab_ucut,
+    * _regtab_ambscale and _tabcell_barevar;
     * 76 programs since 2.1.20 added _tabtools_companion_id; 75 since
     * 2.1.18 added _tabtools_xlsx_deferred_styles; 74 since
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=124 class_missing=0 wrapper_missing=0"
+        "PASS programs=131 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"

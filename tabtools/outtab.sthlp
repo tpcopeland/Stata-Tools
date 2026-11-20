@@ -151,7 +151,8 @@ output, see {help tabtools##sep:interval separators}.
 counts only; {cmd:r(table)} keeps the numbers, and complementary suppression
 across rows is not done. Without it, a session default set with
 {cmd:tabtools set smallcells #} applies and is echoed; {opt nosmallcells}
-ignores it.
+ignores it. # is 3 or more, or 0 for none: {cmd:smallcells(2)} would print
+{cmd:<2}, which identifies a count of 1, and is an error (198).
 
 
 {phang}
@@ -166,8 +167,8 @@ variable, or {it:exposure} = 1 and {it:exposure} = 0 when it has none.
 {opt xlsx(filename)} writes the table to an Excel workbook through
 {helpb puttab}; the filename must end in {cmd:.xlsx}. The sheet is created, or
 replaced if it exists, so repeated calls build a multi-sheet
-workbook. {opt excel(filename)} is a synonym for {opt xlsx()}; when both are given,
-{opt xlsx()} is used and {opt excel()} is ignored. {cmd:r(xlsx)} holds the
+workbook. {opt excel(filename)} is a synonym for {opt xlsx()}; giving the two different
+file names is an error (r(198)). {cmd:r(xlsx)} holds the
 file. {opt sheet(string)} names the sheet; the default is {cmd:Table}.
 
 {phang}
@@ -214,8 +215,9 @@ document is an error. {opt texopts(string)} sets the layout of the LaTeX table; 
 {opt fra:me(name[, replace])} also saves the table in the frame {it:name}: a
 {cmd:rowlabel} variable and the string columns {cmd:c1}, {cmd:c2}, ..., whose
 variable labels are the headers, ready for {helpb puttab}. An
-existing frame is an error unless {cmd:replace} is given. {cmd:r(frame)}
-holds the name.
+existing frame is an error unless {cmd:replace} is given, and the current
+frame cannot be replaced. The name is checked before any model is fitted or
+file written. {cmd:r(frame)} holds the name.
 
 {phang}
 {opt border:style(string)}, {opt headers:hade}, {opt font(string)}, and

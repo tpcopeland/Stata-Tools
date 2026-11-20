@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 1.1.0  2026/10/31
+*! _tabtools_fitcount Version 1.2.0  2026/11/19
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -171,7 +171,14 @@ program define _tabtools_fitcount, rclass
 		}
 		tempfile _cjf
 		local _cjs `"`_cjf'.stjson"'
-		quietly collect save `"`_cjs'"', replace
+		* The .stjson sibling of a tempfile is not removed by Stata at exit:
+		* erase it on every path.
+		capture noisily quietly collect save `"`_cjs'"', replace
+		if _rc {
+			local _b_rc = _rc
+			capture erase `"`_cjs'"'
+			exit `_b_rc'
+		}
 		capture noisily {
 			mata: _tt_fc_L = cat(st_local("_cjs"))
 			mata: _tt_fc_h = selectindex(ustrregexm(_tt_fc_L, `"[#"]cmdset\[`_k'\][#"]"') :& ustrregexm(_tt_fc_L, `"[#"]result\[_r_b\][#"]"'))
@@ -191,6 +198,7 @@ program define _tabtools_fitcount, rclass
 			mata: st_local("_b_matched", strofreal(_tt_fc_m)); st_local("_b_differ", strofreal(_tt_fc_x))
 		}
 		local _b_rc = _rc
+		capture erase `"`_cjs'"'
 		capture mata: mata drop _tt_fc_*
 		if `_b_rc' {
 			noisily display as error "tabtools fitcount: could not read the coefficients of collected model `_k'"

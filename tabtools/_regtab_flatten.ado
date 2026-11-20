@@ -1,4 +1,4 @@
-*! _regtab_flatten Version 1.1.0  2026/10/31
+*! _regtab_flatten Version 1.2.0  2026/11/19
 *! regtab block: flatten coleq#colname rows (multilevel and multi-equation)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -27,9 +27,11 @@ quietly {
 *   header="District" + data="  var(_cons)" -> "var(_cons[district])"
 *   header="y" + data="  x" -> "x"
 if `_is_multilevel' {
+    * Random-effects rows are known by their raw coefficient name, never by
+    * the display label: a covariate labelled "Age per sd(10)" is not one.
     quietly count if _n > 2 ///
         & strpos(A, "[") > 0 & strpos(A, "]") > 0 ///
-        & (strpos(A, "var(") > 0 | strpos(A, "cov(") > 0 | strpos(A, "sd(") > 0)
+        & ustrregexm(strtrim(_raw_colname), "^(var|cov|sd|corr)\(")
     local _qualified_re_layout = (r(N) > 0)
 
     if `_qualified_re_layout' {
@@ -49,7 +51,7 @@ if `_is_multilevel' {
             local _gpath `"`re_grouppath_`_lev''"'
             if "`_gpath'" != "`_gvar'" {
                 replace A = subinstr(A, "[`_gpath']", "[`_gvar']", .) ///
-                    if _n > 2 & (strpos(A, "var(") > 0 | strpos(A, "cov(") > 0 | strpos(A, "sd(") > 0)
+                    if _n > 2 & ustrregexm(strtrim(_raw_colname), "^(var|cov|sd|corr)\(")
             }
         }
     }
@@ -81,9 +83,10 @@ if `_is_multilevel' {
         * Residual group is after all RE levels — leave as-is (handled below)
         drop _hdr_grp
 
-        * Check if the DATA row (colname) contains an RE pattern
-        gen byte _data_is_re = (strpos(_A_trim, "var(") > 0 | ///
-            strpos(_A_trim, "cov(") > 0 | strpos(_A_trim, "sd(") > 0) & !_is_header
+        * A DATA row is a random-effects row when its raw coefficient name
+        * is one (var(), cov(), sd(), corr()); the display label is never
+        * consulted, so a covariate labelled "Age per sd(10)" keeps its label.
+        gen byte _data_is_re = ustrregexm(strtrim(_raw_colname), "^(var|cov|sd|corr)\(") & !_is_header
 
         * RE data rows (not Residual): splice header groupvar into bracket notation
         * "  var(_cons)" + header "district" -> "var(_cons[district])"
@@ -163,9 +166,11 @@ else if `_is_multieq' {
     replace _A_trim = "Intercept" if inlist(strlower(_A_trim), "_cons", "constant", "intercept")
 
     * Omitted rows from base outcomes add noise and can masquerade as
-    * reference-category coefficients for every covariate.
+    * reference-category coefficients for every covariate. The o. marker is
+    * read from the raw coefficient key, never from the rendered label: a
+    * covariate labelled "o.d. of the sample" was dropped from every equation.
     gen byte _drop_omitted_eq = !_is_header & _n > 2 & ///
-        (substr(_A_trim, 1, 2) == "o." | strpos(_A_trim, "o.") == 1)
+        strpos(strtrim(_raw_colname), "o.") == 1
     drop if _drop_omitted_eq
     drop _drop_omitted_eq
 
