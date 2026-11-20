@@ -301,11 +301,24 @@ capture noisily {
     * the failure path (a collect that cannot take the record) cannot be forced
     * from a test; the fix is asserted on the source and the happy path
     * stores the record
-    local src "`pkg_dir'/_tabtools_fitcount.ado"
+    * 1.2.1: _tabtools_fitcount and _tabtools_fitcount_rec are folded into
+    * tabtools.ado; read only their span, from the _tabtools_fitcount program
+    * line through the end line that closes _tabtools_fitcount_rec.
+    local src "`pkg_dir'/tabtools.ado"
     mata: _bfa_L = ustrtrim(cat(st_local("src")))
+    mata: _bfa_a = selectindex(ustrregexm(_bfa_L, "^program (define )?_tabtools_fitcount(,|$)"))
+    mata: _bfa_r = selectindex(ustrregexm(_bfa_L, "^program (define )?_tabtools_fitcount_rec(,|$)"))
+    mata: st_local("n_a", strofreal(rows(_bfa_a))); st_local("n_r", strofreal(rows(_bfa_r)))
+    assert `n_a' == 1 & `n_r' == 1
+    mata: _bfa_e = selectindex(_bfa_L :== "end")
+    mata: _bfa_e = select(_bfa_e, _bfa_e :> _bfa_r)
+    mata: st_local("n_e", strofreal(rows(_bfa_e)))
+    assert `n_e' >= 1
+    mata: assert(_bfa_a < _bfa_r)
+    mata: _bfa_L = _bfa_L[|_bfa_a \ _bfa_e[1]|]
     mata: st_local("has_old", strofreal(sum(_bfa_L :== "capture {")))
     mata: st_local("has_rc", strofreal(sum(substr(_bfa_L, 1, 30) :== "capture _tabtools_fitcount_rec")))
-    capture mata: mata drop _bfa_L
+    capture mata: mata drop _bfa_L _bfa_a _bfa_r _bfa_e
     assert `has_old' == 0 & `has_rc' == 1
     sysuse auto, clear
     collect clear

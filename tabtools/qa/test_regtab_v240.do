@@ -1,6 +1,6 @@
 * test_regtab_v240.do - regtab 2.4.0 development: user feedback, wave 1
 * Covers, each on its happy path, its refusal paths, and a known answer:
-*   S0  regtab.ado split into _regtab_* helpers: size, install, transport
+*   S0  regtab.ado helpers (folded into regtab.ado in 1.2.1): size, transport
 *   B1  base levels detected from the model's own specification, not from
 *       collect's "empty" class; notestlabel() for levels not estimable
 *   M1  mincount(): a level missing from a model's e(b) inside a factor the
@@ -121,39 +121,87 @@ program define _v240_drugtr
 end
 
 **# S0 regtab.ado split
-* S0a: regtab.ado is far below Stata's ado-file size limit, every _regtab_*
-* helper file is shipped by the .pkg and resolves for an installed user, and
-* every program is defined in the file named after it.
+* S0a: since 1.2.1 the _regtab_* helpers are folded into regtab.ado as
+* private subprograms (S1), and _regtab_bnotes, the one with a caller outside
+* regtab, moved into _tabtools_common.ado (S3). No _regtab_*.ado file is left
+* in the package dir or on the .pkg, _regtab_bnotes is defined in common, and
+* after run of regtab.ado every program it defines is in memory with a stored
+* size under Stata's per-program limit of 135,600 bytes.
 local ++test_count
 capture noisily {
-    tempname fh
-    file open `fh' using "`pkg_dir'/regtab.ado", read binary
-    file seek `fh' eof
-    file seek `fh' query
-    local bytes = r(loc)
-    file close `fh'
-    display as text "regtab.ado: `bytes' bytes"
-    assert `bytes' < 200000
     local helpers : dir "`pkg_dir'" files "_regtab_*.ado"
     local nh : word count `helpers'
-    assert `nh' >= 23
-    mata: st_local("pkgtxt", invtokens(cat(st_local("pkg_dir") + "/tabtools.pkg")', "|"))
-    foreach h of local helpers {
-        assert strpos(`"|`pkgtxt'|"', "|f `h'|") > 0
-        local prog = subinstr("`h'", ".ado", "", 1)
-        * installed by net install (PLUS/_/), whatever adopath run_all sets
-        confirm file `"`c(sysdir_plus)'_/`h'"'
-        mata: st_local("hit", strofreal(any(ustrregexm(cat(st_local("pkg_dir") + "/`h'"), ///
-            "^program define `prog', nclass$"))))
-        assert `hit'
+    local h1 : word 1 of `helpers'
+    * history: 1 file (_regtab_bnotes.ado) after S1; 0 since S3
+    assert `nh' == 0
+    assert "`h1'" == ""
+    mata: _rv240_L = cat(st_local("pkg_dir") + "/tabtools.pkg")
+    mata: _rv240_L = select(_rv240_L, ustrregexm(_rv240_L, "^[fF] +_regtab_"))
+    * (substr() of an empty selection is r(3200): read the row count first)
+    mata: st_local("n_pkgrt", strofreal(rows(_rv240_L)))
+    mata: st_local("pkg_rt", rows(_rv240_L) ? invtokens(strtrim(substr(_rv240_L, 3, .))') : "")
+    capture mata: mata drop _rv240_L
+    assert `n_pkgrt' == 0
+    assert `"`pkg_rt'"' == ""
+    * _regtab_bnotes is defined in _tabtools_common.ado, exactly once
+    mata: _rv240_L = cat(st_local("pkg_dir") + "/_tabtools_common.ado")
+    mata: st_local("n_bn", strofreal(sum(ustrregexm(_rv240_L, ///
+        "^[ \t]*program[ \t]+(define[ \t]+)?_regtab_bnotes[ \t]*(,.*)?$"))))
+    capture mata: mata drop _rv240_L
+    assert `n_bn' == 1
+    * the programs regtab.ado defines, from its source
+    mata: _rv240_L = cat(st_local("pkg_dir") + "/regtab.ado")
+    mata: _rv240_L = select(_rv240_L, ustrregexm(_rv240_L, ///
+        "^[ \t]*program[ \t]+(define[ \t]+)?[A-Za-z_][A-Za-z0-9_]*[ \t]*(,.*)?$"))
+    mata: _rv240_L = strtrim(ustrregexra(ustrregexra(_rv240_L, ///
+        "^[ \t]*program[ \t]+(define[ \t]+)?", ""), "[ \t]*,.*$", ""))
+    mata: st_local("progs", invtokens(_rv240_L'))
+    capture mata: mata drop _rv240_L
+    local np : word count `progs'
+    display as text "regtab.ado defines `np' programs"
+    assert `np' >= 32
+    foreach p in regtab _regtab_addrow _regtab_statrows _tabtools_match_rows {
+        local isin : list p in progs
+        assert `isin'
     }
+    foreach p of local progs {
+        capture program drop `p'
+    }
+    quietly findfile regtab.ado
+    run "`r(fn)'"
+    * program dir, captured with the suite log paused
+    tempfile pd
+    quietly log off _rv240
+    quietly log using "`pd'", text replace name(_rv240pd) nomsg
+    program dir
+    quietly log close _rv240pd
+    quietly log on _rv240
+    mata: _rv240_L = cat(st_local("pd"))
+    mata: _rv240_L = select(_rv240_L, ustrregexm(_rv240_L, "^ *(ado)? +[0-9]+ +[A-Za-z_][A-Za-z0-9_.]*$"))
+    mata: _rv240_N = ustrregexra(_rv240_L, "^ *(ado)? +[0-9]+ +", "")
+    mata: _rv240_B = strtoreal(ustrregexra(ustrregexra(_rv240_L, "^ *(ado)? +", ""), ///
+        " +[A-Za-z_][A-Za-z0-9_.]*$", ""))
+    foreach p of local progs {
+        mata: _rv240_i = selectindex(_rv240_N :== st_local("p"))
+        mata: st_local("nb", strofreal(rows(_rv240_i)))
+        assert `nb' == 1
+        mata: st_local("b", strofreal(_rv240_B[_rv240_i[1]]))
+        assert `b' > 0 & `b' < 135600
+        if "`p'" == "regtab" display as text "regtab stored bytes: `b'"
+    }
+    capture mata: mata drop _rv240_L _rv240_N _rv240_B _rv240_i
+    * drop the run-defined copies so the rest of the suite autoloads regtab
+    foreach p of local progs {
+        capture program drop `p'
+    }
+    discard
 }
 if _rc == 0 {
-    display as result "  PASS: S0a regtab.ado < 200 KB; every _regtab_* helper shipped and installed"
+    display as result "  PASS: S0a no _regtab_*.ado ships; _regtab_bnotes in common; every regtab.ado program < 135,600 B"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: S0a regtab.ado split (rc=`=_rc')"
+    display as error "  FAIL: S0a regtab.ado fold (rc=`=_rc')"
     local ++fail_count
 }
 

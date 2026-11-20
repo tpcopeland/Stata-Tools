@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 1.2.0  2026/11/19
+*! _tabtools_csv_write Version 1.2.1  2026/11/20
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -13,10 +13,17 @@ program define _tabtools_csv_write, nclass
 
         capture program list _tabtools_validate_path
         if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
         if _rc {
             capture findfile _tabtools_common.ado
             if _rc == 0 {
                 run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+                if _rc {
+                    noisily display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
             }
             else {
                 noisily display as error "_tabtools_common.ado not found; reinstall tabtools"

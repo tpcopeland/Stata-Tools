@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.2.0  2026/11/19
+*! _tabtools_common Version 1.2.1  2026/11/20
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -943,7 +943,7 @@ program _tabtools_helpers_ready, nclass
         * from an older copy of this file must load it again
         mata: st_local("_sep_ready", strofreal(findexternal("_tt_sep_parse()") != NULL))
         if !`_sep_ready' exit 111
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_companion_id _tabtools_require_helpers _tabtools_export_done"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_companion_id _tabtools_require_helpers _tabtools_export_done _regtab_bnotes _tabtools_colwidth _tabtools_export_hint _tabtools_fmt_pct _tabtools_smallcells_opt _tabtools_smallcells_render _tabtools_st_timescale _tabtools_texopts _tabtools_visible_vars"
     }
 
     local _pair_helper "_tabtools_companion_id"
@@ -1240,11 +1240,859 @@ program _tabtools_companion_id, nclass
     if `_rc_outer' exit `_rc_outer'
 end
 
+* Moved from _regtab_bnotes.ado (tabtools 1.2.1; see changelog)
+* _regtab_bnotes Version 1.2.0  2026/11/19
+* the fit's own constraint notes for every coefficient of the active e(b)
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: nclass
+
+* =============================================================================
+* _regtab_bnotes: base, empty, omitted, and constrained coefficients of e(b)
+* =============================================================================
+* Usage: _regtab_bnotes
+* Reads the active estimation results. Stata keeps, in the column stripe of
+* e(b), what each coefficient is: _ms_element_info returns "(base)",
+* "(empty)", or "(omitted)", the notes the estimator's own table prints, for
+* main effects and interaction cells alike. A coefficient that the stripe does
+* not mark, whose variance is zero, and that a row of e(Cns) fixes on its own
+* (constraint define, then constraints()) is constrained: Stata prints its
+* value with "(constrained)". Returns, in the caller, _bn_notes: one
+* key=code token per such coefficient, separated by spaces, code b (base), e
+* (empty), o (omitted), or c (constrained); the key is the coefficient name as
+* the collection keys it (1b.x -> 1.x, 1b.g#co.z -> 1.g#z). A key that two
+* equations mark differently (or one marks and another does not) is left
+* out. "-" when nothing is marked, and ""
+* when there is no e(b).
+* tabtools fitcount stores the string with each model (tt_cns), so regtab can
+* read the fit's own notes for a model that is no longer the active fit;
+* regtab computes it directly (via _regtab_activeb) when the model is.
+capture program drop _regtab_bnotes
+program define _regtab_bnotes, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		local _out ""
+		capture confirm matrix e(b)
+		local _hasb = !_rc
+		if `_hasb' {
+			tempname _V _C
+			capture matrix `_V' = e(V)
+			local _hasV = !_rc
+			capture matrix `_C' = e(Cns)
+			local _hasC = !_rc
+			local _names : colnames e(b)
+			local _ncb : word count `_names'
+			quietly _ms_eq_info, matrix(e(b))
+			local _keq = r(k_eq)
+			forvalues _e = 1/`_keq' {
+				local _ke_`_e' = r(k`_e')
+			}
+			local _keys ""
+			local _bad ""
+			local _j = 0
+			forvalues _e = 1/`_keq' {
+				forvalues _i = 1/`_ke_`_e'' {
+					local ++_j
+					quietly _ms_element_info, element(`_i') equation(#`_e') matrix(e(b))
+					local _note `"`r(note)'"'
+					local _code ""
+					if `"`_note'"' == "(base)" local _code "b"
+					else if `"`_note'"' == "(empty)" local _code "e"
+					else if `"`_note'"' == "(omitted)" local _code "o"
+					else if `_hasV' & `_hasC' {
+						* fixed by a constraint of its own: zero variance and a
+						* row of e(Cns) with this coefficient alone
+						if `_V'[`_j', `_j'] == 0 {
+							forvalues _r = 1/`=rowsof(`_C')' {
+								if `_C'[`_r', `_j'] == 0 continue
+								local _alone = 1
+								forvalues _q = 1/`_ncb' {
+									if `_q' != `_j' & `_C'[`_r', `_q'] != 0 local _alone = 0
+								}
+								if `_alone' local _code "c"
+							}
+						}
+					}
+					* every coefficient is recorded, marked or not, so a key one
+					* equation marks and another estimates is ambiguous too
+					local _nm : word `_j' of `_names'
+					local _key = ustrregexra(ustrregexra(`"`_nm'"', ///
+						"(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)co?\.", "$1")
+					local _pos : list posof `"`_key'"' in _keys
+					if `_pos' > 0 {
+						if "`_code'" != "`_code_`_pos''" local _bad : list _bad | _key
+						continue
+					}
+					local _keys `"`_keys' `_key'"'
+					local _pos : word count `_keys'
+					local _code_`_pos' "`_code'"
+				}
+			}
+			local _n : word count `_keys'
+			forvalues _p = 1/`_n' {
+				local _key : word `_p' of `_keys'
+				local _isbad : list _key in _bad
+				if !`_isbad' & "`_code_`_p''" != "" local _out `"`_out' `_key'=`_code_`_p''"'
+			}
+			local _out = strtrim(`"`_out'"')
+			if `"`_out'"' == "" local _out "-"
+		}
+		c_local _bn_notes `"`_out'"'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* Moved from _tabtools_colwidth.ado (tabtools 1.2.1; see changelog)
+* _tabtools_colwidth Version 1.2.0  2026/11/19
+* Size one exported table column from its own rendered cells
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: rclass
+*
+* One place for the xlsx column-width heuristic every tabtools engine used to
+* carry inline. A column is measured on its OWN cells, never on a maximum
+* shared with sibling columns, so one wide column or one verbose header cannot
+* pad the rest of the table out to match it.
+*
+*   _tabtools_colwidth varname [, options]
+*     firstrow(#)     first data row measured (default 3: rows 1-2 are the
+*                     title and merged/group header rows)
+*     exclude(...)    quoted cell texts that never set the width, e.g. the
+*                     reference-category label that may overflow safely
+*     scale(#) pad(#) width = ceil(maxlen * scale) + pad   (0.85, 2)
+*     minwidth(#) maxwidth(#)  bounds; 0 = unbounded
+*     headerrow(#)    row holding this column's own wrapped label (0 = none)
+*     headerfloor(#)  with headerrow(): raise the width to
+*                     min(ceil(hlen / 2) + 1, headerfloor) so the label wraps
+*                     to about two lines rather than many
+*     headerscale(#)  label length damping before the wrap test (0.9)
+*     maxlines(#)     cap on r(hlines) (5)
+*
+*   _tabtools_colwidth , hlength(#) blockwidth(#)
+*     no variable: only r(hlines) for a header of display width hlength()
+*     merged across a block of columns blockwidth() wide
+*
+* Lengths are Unicode display widths (udstrlen), not byte counts, so a
+* "±" or "≥" in a cell counts as one character.
+*
+* Returns: r(width) r(maxlen) r(hlen) r(hlines)
+
+capture program drop _tabtools_colwidth
+program define _tabtools_colwidth, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [varname(default=none)] [, FIRSTrow(integer 3) ///
+            EXCLude(string asis) SCALE(real 0.85) PAD(real 2) ///
+            MINwidth(real 0) MAXwidth(real 0) ///
+            HEADERrow(integer 0) HEADERscale(real 0.9) HEADERfloor(real 0) ///
+            MAXLines(integer 5) HLENgth(real 0) BLOCKwidth(real 0)]
+
+        if `maxlines' < 1 {
+            noisily display as error "maxlines() must be at least 1"
+            exit 198
+        }
+
+        local _maxlen = 0
+        local _width = 0
+        local _hlen = `hlength'
+        if "`varlist'" != "" {
+            local _var `varlist'
+            capture confirm string variable `_var'
+            if !_rc {
+                local _cell `"`_var'"'
+                local _hcell `"`_var'[`headerrow']"'
+            }
+            else {
+                local _fmt : format `_var'
+                local _cell `"ustrregexra(string(`_var', "`_fmt'"), "-(?=[0.,]+\z)", "")"'
+                local _hcell `"ustrregexra(string(`_var'[`headerrow'], "`_fmt'"), "-(?=[0.,]+\z)", "")"'
+            }
+
+            local _cond "_n >= `firstrow'"
+            local _ex `"`exclude'"'
+            while `"`_ex'"' != "" {
+                gettoken _tok _ex : _ex
+                if `"`_tok'"' != "" local _cond `"`_cond' & `_cell' != `"`_tok'"'"'
+            }
+            tempvar _len
+            quietly generate long `_len' = udstrlen(`_cell') if `_cond'
+            quietly summarize `_len', meanonly
+            local _maxlen = cond(r(N) > 0, r(max), 0)
+            local _width = ceil(`_maxlen' * `scale') + `pad'
+
+            if `headerrow' > 0 & `headerrow' <= _N {
+                local _hlen = udstrlen(`_hcell')
+            }
+            if `headerfloor' > 0 & `_hlen' > 0 {
+                local _floor = min(ceil(`_hlen' / 2) + 1, `headerfloor')
+                if `_floor' > `_width' local _width = `_floor'
+            }
+            if `minwidth' > 0 & `_width' < `minwidth' local _width = `minwidth'
+            if `maxwidth' > 0 & `_width' > `maxwidth' local _width = `maxwidth'
+        }
+        else if `blockwidth' <= 0 {
+            noisily display as error "_tabtools_colwidth: a variable or blockwidth() is required"
+            exit 198
+        }
+
+        * Lines the header needs once wrapped inside its own column, or inside
+        * the merged block when blockwidth() is given.
+        local _wrap = cond(`blockwidth' > 0, `blockwidth', `_width')
+        local _hlines = 1
+        if `_wrap' > 0 & `_hlen' * `headerscale' > `_wrap' {
+            local _hlines = min(ceil(`_hlen' * `headerscale' / `_wrap'), `maxlines')
+        }
+
+        return scalar width = `_width'
+        return scalar maxlen = `_maxlen'
+        return scalar hlen = `_hlen'
+        return scalar hlines = `_hlines'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* Moved from _tabtools_export_hint.ado (tabtools 1.2.1; see changelog)
+* _tabtools_export_hint Version 1.2.0  2026/11/19
+* the hint printed after a failed file export: a missing directory, or a file held open
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: nclass
+
+/*
+A failed xlsx write (rc 603/608/610/16106, ...) has two common causes: the
+target directory does not exist, or the workbook is open in another
+application. This program tells them apart so the hint names the right one.
+
+Usage: _tabtools_export_hint `"filename"' [, kind(xlsx)]
+Prints one "Hint:" line as an error; returns nothing.
+*/
+
+capture program drop _tabtools_export_hint
+program define _tabtools_export_hint, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax anything(name=fname id="filename") [, KIND(string)]
+        if `"`kind'"' == "" local kind "xlsx"
+        gettoken fname : fname
+        * directory part: everything up to the last / or \ (none = cwd)
+        local _dir = ustrregexra(`"`fname'"', "[^/\\\\]*$", "")
+        local _dir_ok 1
+        if `"`_dir'"' != "" & substr(`"`_dir'"', 1, 1) != "~" {
+            mata: st_local("_dir_ok", strofreal(direxists(st_local("_dir"))))
+        }
+        if !`_dir_ok' {
+            noisily display as error `"Hint: the directory `_dir' does not exist"'
+        }
+        else {
+            noisily display as error "Hint: ensure the `kind' file is not open in another application and the directory is writable"
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* Moved from _tabtools_fmt_pct.ado (tabtools 1.2.1; see changelog)
+* _tabtools_fmt_pct Version 1.2.0  2026/11/19
+* The package's percentage display rule: a share that is neither none nor all never prints as 0 or 100
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: rclass
+
+/*
+Every command that prints a percentage formats it through this program, so
+the rule lives in one place.
+
+For a value v with 0 < v < 100 and a fixed format %w.df or %w.dfc (or the
+decimal-comma %w,df / %w,dfc, which keeps its comma in the escalated text):
+
+    1. format at d decimals, exactly as ustrregexra(string(v, fmt), "-(?=[0.,]+\z)", "") always did
+    2. if that text reads 0 or 100, add one decimal at a time, up to
+       max(d, 2) decimals ("0" -> "0.3", "0.0" -> "0.04", "100" -> "99.6")
+    3. if it still reads 0 or 100 at max(d, 2) decimals, print
+       "<0.01" or ">99.99" (that many decimals)
+
+Everything else -- v <= 0, v >= 100, missing, or a %g/%e/other format -- is
+ustrregexra(string(v, fmt), "-(?=[0.,]+\z)", "") unchanged, so a true zero count still prints 0 and a whole
+group still prints 100. Values within 1e-9 of 0 or 100 count as 0 or 100:
+a weighted share whose numerator and denominator are the same sum taken in
+a different order lands one ulp off 100, and that is not "not all".
+
+Escalated text is trimmed; the unescalated text is not, so callers keep the
+alignment they had.
+
+Scalar mode:  _tabtools_fmt_pct, value(exp) format(%fmt)
+              value() is an expression, evaluated into a double scalar here:
+              a number passed through a macro is stored as %18.0g text and
+              reparses to a different double (100*7/20000 is
+              0.034999999999999996 but `=...' gives .035), which moves a
+              near-tie to the other side. desctab still hands in its
+              percentage as a macro (it always formatted that macro), so a
+              share on such a near-tie can print one unit apart in desctab
+              and crosstab/tabcell; changing that would move ordinary desctab
+              ties, which this rule leaves alone.
+              r(text)      the display text
+              r(decimals)  decimals used when escalated or capped, else .
+
+Variable mode: _tabtools_fmt_pct pctvar [if] [in], format(%fmt) ///
+                   generate(newstrvar) [decimals(newvar)]
+              decimals() is filled where the text was escalated or capped,
+              missing elsewhere, so a caller can print interval limits at
+              the same precision as the estimate. Rows outside the sample
+              are "" (and missing).
+*/
+
+capture program drop _tabtools_fmt_pct
+program define _tabtools_fmt_pct, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [varlist(numeric max=1 default=none)] [if] [in], ///
+            Format(string) [VALue(string) GENerate(name) DECimals(name)]
+
+        local _scalar = "`varlist'" == ""
+        if `_scalar' {
+            if `"`value'"' == "" | "`generate'`decimals'" != "" {
+                display as error "_tabtools_fmt_pct: give value() alone, or a variable with generate()"
+                exit 198
+            }
+            if `"`if'`in'"' != "" {
+                display as error "_tabtools_fmt_pct: if and in need a variable"
+                exit 198
+            }
+            tempname _sv
+            scalar `_sv' = `value'
+        }
+        else {
+            if "`generate'" == "" | `"`value'"' != "" {
+                display as error "_tabtools_fmt_pct: give value() alone, or a variable with generate()"
+                exit 198
+            }
+            confirm new variable `generate' `decimals'
+        }
+
+        * Decimals of a fixed format; anything else passes through unchanged
+        local _fixed = regexm(`"`format'"', "^%-?0?[0-9]+([.,])([0-9]+)(fc|f)$")
+        if `_fixed' {
+            local _sep = regexs(1)
+            local _d = real(regexs(2))
+            local _fc = regexs(3)
+            local _cap = max(`_d', 2)
+            local _lo = "<" + strtrim(ustrregexra(string(10^(-`_cap'), "%21`_sep'`_cap'f"), "-(?=[0.,]+\z)", ""))
+            local _hi = ">" + strtrim(ustrregexra(string(100 - 10^(-`_cap'), "%21`_sep'`_cap'f"), "-(?=[0.,]+\z)", ""))
+        }
+        local _tol = 1e-9
+
+        if `_scalar' {
+            local _text = ustrregexra(string(`_sv', `"`format'"'), "-(?=[0.,]+\z)", "")
+            local _dec = .
+            if `_fixed' & `_sv' > `_tol' & `_sv' < 100 - `_tol' {
+                forvalues _k = `=`_d' + 1'/`_cap' {
+                    if inlist(real(subinstr("`_text'", ",", ".", .)), 0, 100) {
+                        local _text = strtrim(ustrregexra(string(`_sv', "%21`_sep'`_k'`_fc'"), "-(?=[0.,]+\z)", ""))
+                        local _dec = `_k'
+                    }
+                }
+                if inlist(real(subinstr("`_text'", ",", ".", .)), 0, 100) {
+                    local _text = cond(real(subinstr("`_text'", ",", ".", .)) == 0, "`_lo'", "`_hi'")
+                    local _dec = `_cap'
+                }
+            }
+            return local text `"`_text'"'
+            return scalar decimals = `_dec'
+        }
+        else {
+            marksample touse, novarlist
+            local v `varlist'
+            tempvar _esc
+            quietly {
+                gen str32 `generate' = ustrregexra(string(`v', `"`format'"'), "-(?=[0.,]+\z)", "") if `touse'
+                gen byte `_esc' = 0
+                if `_fixed' {
+                    replace `_esc' = 1 if `touse' & `v' > `_tol' & `v' < 100 - `_tol'
+                }
+                if "`decimals'" != "" gen byte `decimals' = .
+                if `_fixed' {
+                    forvalues _k = `=`_d' + 1'/`_cap' {
+                        local _need "`_esc' & inlist(real(subinstr(`generate', ",", ".", .)), 0, 100)"
+                        if "`decimals'" != "" replace `decimals' = `_k' if `_need'
+                        replace `generate' = strtrim(ustrregexra(string(`v', "%21`_sep'`_k'`_fc'"), "-(?=[0.,]+\z)", "")) if `_need'
+                    }
+                    local _need "`_esc' & inlist(real(subinstr(`generate', ",", ".", .)), 0, 100)"
+                    if "`decimals'" != "" replace `decimals' = `_cap' if `_need'
+                    replace `generate' = cond(real(subinstr(`generate', ",", ".", .)) == 0, "`_lo'", "`_hi'") if `_need'
+                }
+            }
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* Moved from _tabtools_smallcells_opt.ado (tabtools 1.2.1; see changelog)
+* _tabtools_smallcells_opt Version 1.2.0  2026/11/19
+* Resolve smallcells(# [, primary]), nosmallcells, and the session default
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: nclass
+
+/*
+    _tabtools_smallcells_opt , [smallcells(string) nosmallcells]
+
+    Resolves the disclosure threshold for one call of desctab, table1_tc or
+    crosstab. Precedence: an explicit smallcells() > nosmallcells (no
+    masking) > the session default set by -tabtools set smallcells #
+    [primary]- > none.
+
+    Sets in the caller (every exit path assigns both):
+        _sc_k      the threshold, or empty when no masking applies
+        _sc_mode   "full" (complementary cells, the default) or "primary"
+
+    When the session default is used, one line naming it is printed, so the
+    hidden state is visible in the log.
+
+    _tabtools_smallcells_opt __empty <the caller's own `0'>
+
+    A string option cannot tell smallcells() from an absent option, so an
+    empty smallcells() (for example smallcells(`k') with k undefined) would
+    fall through to the session default or to no masking at rc 0. A caller
+    whose smallcells is empty after -syntax- passes its own command line
+    here; an option token smallc[ells]() holding only blanks is refused with
+    r(198). Tokens are read with gettoken bind, so text inside another
+    option (title("... smallcells() ...")) is never matched. This mode sets
+    nothing in the caller.
+*/
+
+capture program drop _tabtools_smallcells_opt
+program define _tabtools_smallcells_opt, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _k ""
+    local _mode ""
+    local _chkmode 0
+    gettoken _first _chkrest : 0, parse(" ,")
+    mata: st_local("_chkmode", strofreal(st_local("_first") == "__empty"))
+    capture noisily {
+      if `_chkmode' {
+        * The caller's line may hold any text (a backquote before a double
+        * quote opens a compound quote), so it is never expanded inside
+        * quotes here: the loop tests its length and Mata reads the token.
+        while `: length local _chkrest' {
+            gettoken _tok _chkrest : _chkrest, parse(" ,") bind quotes
+            local _onm ""
+            mata: st_local("_onm", regexm(st_local("_tok"), "^([a-z]+)[(][ ]*[)]$") ? regexs(1) : "")
+            if "`_onm'" != "" {
+                if strlen("`_onm'") >= 6 & strpos("smallcells", "`_onm'") == 1 {
+                    display as error "smallcells() is empty; it must hold an integer of 3 or more (smallcells(#) or smallcells(#, primary)); use nosmallcells for no masking"
+                    exit 198
+                }
+            }
+        }
+      }
+      else {
+        syntax , [SMALLCells(string asis) NOSMALLCells]
+
+        local _raw = strtrim(`"`smallcells'"')
+        if `"`_raw'"' != "" & "`nosmallcells'" != "" {
+            display as error "smallcells() and nosmallcells may not be combined"
+            exit 198
+        }
+        if `"`_raw'"' != "" {
+            * "#" or "#, primary": peel the number, then parse the suboption.
+            gettoken _num _rest : _raw, parse(",")
+            local _num = strtrim(`"`_num'"')
+            local _rest = strtrim(`"`_rest'"')
+            local _sub ""
+            if `"`_rest'"' != "" {
+                if substr(`"`_rest'"', 1, 1) != "," {
+                    display as error "smallcells() must be # or #, primary"
+                    exit 198
+                }
+                local _sub = strtrim(substr(`"`_rest'"', 2, .))
+                if lower(`"`_sub'"') != "primary" {
+                    display as error `"smallcells(): unknown suboption `_sub'; the only suboption is primary"'
+                    exit 198
+                }
+            }
+            capture confirm integer number `_num'
+            if _rc {
+                display as error "smallcells() must be an integer greater than or equal to 3"
+                exit 198
+            }
+            if `_num' < 3 {
+                display as error "smallcells() must be an integer greater than or equal to 3"
+                exit 198
+            }
+            local _k = `_num'
+            local _mode = cond(`"`_sub'"' != "", "primary", "full")
+        }
+        else if "`nosmallcells'" == "" & `"$TABTOOLS_set_smallcells"' != "" {
+            local _k `"$TABTOOLS_set_smallcells"'
+            capture confirm integer number `_k'
+            if _rc | `"`_k'"' == "" {
+                display as error "session smallcells default is not an integer; reset it with tabtools set smallcells #"
+                exit 198
+            }
+            if `_k' < 3 {
+                display as error "session smallcells default must be 3 or more; reset it with tabtools set smallcells #"
+                exit 198
+            }
+            * the number, not its spelling: a global written directly as +5
+            * or 05 still prints <5
+            local _k = `_k'
+            local _mode = cond(`"$TABTOOLS_set_smallcells_mode"' == "primary", "primary", "full")
+            local _echo "smallcells(`_k')"
+            if "`_mode'" == "primary" local _echo "smallcells(`_k', primary)"
+            display as text "(tabtools: using session `_echo')"
+        }
+      }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_chkmode' {
+        if `rc' exit `rc'
+        exit
+    }
+    if `rc' {
+        c_local _sc_k ""
+        c_local _sc_mode ""
+        exit `rc'
+    }
+    c_local _sc_k `"`_k'"'
+    c_local _sc_mode `"`_mode'"'
+end
+
+* Moved from _tabtools_smallcells_render.ado (tabtools 1.2.1; see changelog)
+* _tabtools_smallcells_render Version 1.2.0  2026/11/19
+* Render safe disclosure-control strings and numeric extended missings
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: rclass
+
+capture program drop _tabtools_smallcells_render
+program define _tabtools_smallcells_render, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+
+    capture noisily {
+        syntax, VALUE(real) MASK(integer) SMALLCells(integer) [Format(string)]
+
+        if `smallcells' < 3 {
+            display as error "smallcells() must be an integer greater than or equal to 3"
+            exit 198
+        }
+        if !inlist(`mask', 0, 1, 2, 3) {
+            display as error "mask() must be 0, 1, 2, or 3"
+            exit 198
+        }
+        if "`format'" == "" local format "%12.0fc"
+
+        if `mask' == 0 {
+            local rendered = ustrregexra(string(`value', "`format'"), "-(?=[0.,]+\z)", "")
+            return local display "`rendered'"
+            return scalar value = `value'
+        }
+        else if `mask' == 1 {
+            return local display "<`smallcells'"
+            return scalar value = .p
+        }
+        else if `mask' == 2 {
+            return local display "≥`smallcells'"
+            return scalar value = .s
+        }
+        else {
+            return local display "Suppressed"
+            return scalar value = .d
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* Moved from _tabtools_st_timescale.ado (tabtools 1.2.1; see changelog)
+* _tabtools_st_timescale Version 1.2.0  2026/11/19
+* the calendar unit of stset analysis time, when the data say it
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: nclass
+
+/*
+stset keeps the time variable (_dta[st_bt]) and its scale (_dta[st_bs]).
+When that variable carries a date format and no scale() was given, analysis
+time is in days (%td, %d) or milliseconds (%tc, %tC). Commands that label
+person-time as years by default use this to say so, rather than print a
+person-years header over person-days.
+
+Usage: _tabtools_st_timescale
+Returns in the caller: _st_unit ("days", "milliseconds", or "" when the data
+do not say), and _st_timevar (the stset time variable).
+*/
+
+capture program drop _tabtools_st_timescale
+program define _tabtools_st_timescale, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    c_local _st_unit ""
+    c_local _st_timevar ""
+    capture noisily {
+        local _bt : char _dta[st_bt]
+        local _bs : char _dta[st_bs]
+        if "`_bs'" == "" local _bs 1
+        capture confirm numeric variable `_bt', exact
+        if !_rc & real("`_bs'") == 1 {
+            local _fmt : format `_bt'
+            local _fmt = subinstr("`_fmt'", "-", "", 1)
+            local _unit ""
+            if regexm("`_fmt'", "^%(td|d)") local _unit "days"
+            else if regexm("`_fmt'", "^%t[cC]") local _unit "milliseconds"
+            c_local _st_unit "`_unit'"
+            c_local _st_timevar "`_bt'"
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* Moved from _tabtools_texopts.ado (tabtools 1.2.1; see changelog)
+* _tabtools_texopts Version 1.2.0  2026/11/19
+* Parse and validate texopts(), the LaTeX layout sub-options
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: rclass
+
+/*
+    _tabtools_texopts `"<texopts() contents>"' [, session]
+
+    Sub-options (all optional):
+        none                 the default layout (alone); lets one command
+                             set aside a session value
+        captionleft          flush-left caption       (needs caption)
+        captionbelow         caption under the table
+        nocentering          no \centering
+        placement(spec)      float placement, letters h t b p and !, or H
+                             alone (H needs float); default htbp
+        size(name)           tiny scriptsize footnotesize small normalsize
+                             large: type size of the tabular
+        fit                  shrink a table wider than the line to the line
+                             width (needs graphicx); never enlarges
+        landscape            the float on its own rotated page (needs
+                             pdflscape)
+        label(key)           \label key instead of tab:<file stem>
+        preamble("line" ...) extra preamble lines, used when texdocument
+                             creates the document
+        docclass(class [opt ...])  \documentclass[opt,...]{class} for a
+                             document texdocument creates; default article
+
+    session refuses label(): one key on every table of a session is a
+    multiply-defined label.
+
+    Returns r(captionleft) r(captionbelow) r(nocentering) r(fit)
+    r(landscape) (each 1 or 0), r(placement), r(size), r(label),
+    r(npreamble) and r(preamble1)... (one line each), r(docclass),
+    r(classopts) (comma-separated), r(packages) (packages the layout
+    needs besides booktabs, space-separated).
+*/
+
+capture program drop _tabtools_texopts
+program define _tabtools_texopts, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        gettoken _spec 0 : 0
+        syntax [, SESSION]
+        local _valid "none captionleft captionbelow nocentering placement() size() fit landscape label() preamble() docclass()"
+        local 0 `", `macval(_spec)'"'
+        capture syntax [, none captionleft captionbelow nocentering ///
+            placement(string) size(string) fit landscape label(string) ///
+            preamble(string asis) docclass(string)]
+        local _src = _rc
+        * syntax files a no-prefixed option under its bare name (nocentering
+        * in local centering, none in local ne) and also accepts that bare
+        * name, recording nothing: read both words from the text instead.
+        local _bad = ustrregexm(`"`macval(_spec)'"', "(^|[ ,])(centering|ne)([ ,]|$)")
+        local none = cond(ustrregexm(`"`macval(_spec)'"', "(^|[ ,])none([ ,]|$)"), "none", "")
+        if `_src' | `_bad' {
+            noisily display as error `"texopts(): unknown or malformed sub-option in "`macval(_spec)'""'
+            noisily display as error "valid sub-options: `_valid'"
+            exit 198
+        }
+        * none: the default layout, for one command under a session value
+        if "`none'" != "" & strtrim(`"`macval(_spec)'"') != "none" {
+            noisily display as error "texopts(none) cannot be combined with other sub-options"
+            exit 198
+        }
+        if "`none'" != "" & "`session'" != "" {
+            noisily display as error "tabtools set texopts: use tabtools set texopts clear to remove the session layout"
+            exit 198
+        }
+
+        local _packages ""
+        if "`captionleft'" != "" local _packages "`_packages' caption"
+
+        local placement = strtrim(`"`placement'"')
+        if `"`placement'"' == "" local placement "htbp"
+        * LaTeX takes the ! anywhere in the specifier (h!t), at most once
+        if !ustrregexm(`"`placement'"', "^(H|[htbp!]*[htbp][htbp!]*)$") | ///
+            strlen(`"`placement'"') - strlen(subinstr(`"`placement'"', "!", "", .)) > 1 {
+            noisily display as error `"texopts(placement()): "`placement'" is not a float placement; use letters from h t b p with an optional !, or H alone"'
+            exit 198
+        }
+        if "`placement'" == "H" local _packages "`_packages' float"
+
+        local size = strtrim(`"`size'"')
+        if `"`size'"' != "" & !inlist(`"`size'"', "tiny", "scriptsize", ///
+            "footnotesize", "small", "normalsize", "large") {
+            noisily display as error `"texopts(size()): "`size'" is not one of tiny, scriptsize, footnotesize, small, normalsize, large"'
+            exit 198
+        }
+
+        if "`fit'" != "" local _packages "`_packages' graphicx"
+        if "`landscape'" != "" local _packages "`_packages' pdflscape"
+
+        local label = strtrim(`"`label'"')
+        if `"`label'"' != "" {
+            if "`session'" != "" {
+                noisily display as error "tabtools set texopts: label() names one table; give it in that command's texopts() instead"
+                exit 198
+            }
+            if !ustrregexm(`"`label'"', "^[A-Za-z0-9_:.-]+$") {
+                noisily display as error `"texopts(label()): "`label'" may contain only letters, digits, _ : . and -"'
+                exit 198
+            }
+        }
+
+        * preamble(): each quoted string is one line, written as given. A
+        * line may not start or end the document; that frame is tabtools'.
+        local _np = 0
+        local _rest `"`macval(preamble)'"'
+        while `"`macval(_rest)'"' != "" {
+            gettoken _line _rest : _rest
+            local _line = strtrim(`"`macval(_line)'"')
+            if `"`macval(_line)'"' == "" continue
+            if strpos(`"`macval(_line)'"', "documentclass") | ///
+                strpos(`"`macval(_line)'"', "{document}") {
+                noisily display as error "texopts(preamble()): a line may not contain \documentclass, \begin{document} or \end{document}; tabtools writes those"
+                exit 198
+            }
+            local ++_np
+            local _pre`_np' `"`macval(_line)'"'
+        }
+
+        local _class "article"
+        local _copts ""
+        local docclass = strtrim(`"`docclass'"')
+        if `"`docclass'"' != "" {
+            gettoken _class _co : docclass
+            if !ustrregexm(`"`_class'"', "^[A-Za-z][A-Za-z0-9-]*$") {
+                noisily display as error `"texopts(docclass()): "`_class'" is not a document class name"'
+                exit 198
+            }
+            foreach _o of local _co {
+                if !ustrregexm(`"`_o'"', "^[A-Za-z0-9.=-]+$") {
+                    noisily display as error `"texopts(docclass()): class option "`_o'" may contain only letters, digits, . = and -"'
+                    exit 198
+                }
+                local _copts = cond("`_copts'" == "", "`_o'", "`_copts',`_o'")
+            }
+        }
+
+        return local packages = strtrim("`_packages'")
+        return local classopts "`_copts'"
+        return local docclass "`_class'"
+        return scalar npreamble = `_np'
+        forvalues _i = 1/`_np' {
+            return local preamble`_i' `"`macval(_pre`_i')'"'
+        }
+        return local label `"`label'"'
+        return local size `"`size'"'
+        return local placement `"`placement'"'
+        * syntax files a no-prefixed option under the bare name: nocentering
+        * arrives in local centering, never in local nocentering.
+        return scalar nocentering = ("`centering'" == "nocentering")
+        foreach _f in captionleft captionbelow fit landscape {
+            return scalar `_f' = ("``_f''" != "")
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* Moved from _tabtools_visible_vars.ado (tabtools 1.2.1; see changelog)
+* _tabtools_visible_vars Version 1.2.0  2026/11/19
+* Resolve visible table variables for CSV and Markdown exports
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: nclass
+
+capture program drop _tabtools_visible_vars
+program define _tabtools_visible_vars, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [, LABELVar(name)]
+
+        quietly ds
+        local _allvars `r(varlist)'
+        if "`_allvars'" == "" {
+            noisily display as error "No variables available for export"
+            exit 111
+        }
+
+        local _vars ""
+        if `"`labelvar'"' != "" {
+            capture confirm variable `labelvar'
+            if !_rc local _vars "`labelvar'"
+        }
+
+        local _cvars ""
+        foreach _v of local _allvars {
+            if regexm("`_v'", "^c[0-9]+$") local _cvars "`_cvars' `_v'"
+        }
+
+        if `"`_cvars'"' != "" {
+            local _vars `"`_vars' `_cvars'"'
+        }
+        else {
+            foreach _v of local _allvars {
+                if regexm("`_v'", "(_length|_max)$") continue
+                if regexm("`_v'", "^ref[0-9]+$") continue
+                local _vars `"`_vars' `_v'"'
+            }
+        }
+
+        local _vars : list uniq _vars
+        local _vars : list _vars & _allvars
+        local _vars : list clean _vars
+        if "`_vars'" == "" {
+            noisily display as error "No visible output columns available for export"
+            exit 111
+        }
+
+        c_local _tabtools_visible_vars "`_vars'"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 capture mata: mata drop _tt_companion_id()
 capture mata: mata drop _tt_collect_ci_level_json()
 capture mata: mata drop _tt_sep_parse()
 capture mata: mata drop _tt_sep_optarg()
 capture mata: mata drop _tt_export_dims()
+capture mata: mata drop _tt_bundle_build()
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
 local _tt_ms0 = c(matastrict)
@@ -1376,6 +2224,14 @@ string scalar _tt_sep_optarg(string scalar name, string scalar s)
         return(name + "(" + char(96) + char(34) + s + char(34) + char(39) + ")")
     }
     return(name + "(" + char(34) + s + char(34) + ")")
+}
+
+// Release sentinel. Every loader block asserts it equals that file's own
+// release, so a session holding an older copy of this file (whose programs
+// and Mata pass the other checks) loads this one again.
+string scalar _tt_bundle_build()
+{
+    return("1.2.1")
 }
 
 end

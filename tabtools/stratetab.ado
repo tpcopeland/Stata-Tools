@@ -1,4 +1,4 @@
-*! stratetab Version 1.2.0  2026/11/19
+*! stratetab Version 1.2.1  2026/11/20
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -54,6 +54,7 @@ capture putexcel close
 * Auto-load shared helper programs if not already in memory
 capture _tabtools_helpers_ready
 if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
 * (a session can hold an older _tabtools_common.ado's programs: run,
 * so discard keeps them; this release's Mata must be there too)
 if _rc {
@@ -61,6 +62,7 @@ if _rc {
 	if _rc == 0 {
 		run "`r(fn)'"
 		capture _tabtools_helpers_ready
+		if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
 		if _rc {
 			noisily display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
 			exit 111

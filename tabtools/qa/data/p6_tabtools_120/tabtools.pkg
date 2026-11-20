@@ -1,0 +1,9 @@
+v 3
+d 'TABTOOLS': QA fixture, not a release
+d A minimal stand-in for the tabtools 1.2.0 install: three of the helper
+d files that 1.2.1 folds into their host commands, byte-identical to 1.2.0.
+d Used only by qa/test_refactor_helper_fold.do (the P6 upgrade probe).
+d Distribution-Date: 20261119
+f _regtab_addrow.ado
+f _desctab_collect.ado
+f _tabcell_render.ado

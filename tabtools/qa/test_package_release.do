@@ -201,8 +201,9 @@ capture noisily {
     * 2.1.18 added _tabtools_xlsx_deferred_styles; 74 since
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
+    * 130 since 1.2.1 (S2) moved the dead _tabtools_xlsx_read to qa/tools/.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=131 class_missing=0 wrapper_missing=0"
+        "PASS programs=130 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"
@@ -608,14 +609,16 @@ else {
 
 **## Bundled helper ado files are on adopath
 * stata-dev-ignore: rc-only-test — installation probe: whether each bundled helper .ado resolves on the adopath IS the whole content under test; `findfile' produces nothing else to assert
+* 1.2.1 (S3): _tabtools_visible_vars.ado and _tabtools_colwidth.ado moved
+* into _tabtools_common.ado and are tombstoned under "Helpers folded into
+* their host".
 capture noisily {
     foreach helper in _tabtools_common.ado _tabtools_xlsx_write.ado ///
-        _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
+        _tabtools_collect_render.ado ///
         _tabtools_markdown_write.ado _tabtools_latex_write.ado ///
         _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
         _tabtools_xlsx_compact_styles.ado ///
-        _desctab_collect.ado _tabtools_visible_vars.ado ///
-        _tabtools_csv_write.ado _tabtools_colwidth.ado ///
+        _tabtools_csv_write.ado ///
         _tabtools_check_sinks.ado {
         findfile `helper'
     }
@@ -647,6 +650,65 @@ else {
     display as error "  FAIL: retired refactor helpers still present in source tree (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' retired_helpers"
+}
+
+**## Helpers folded into their host (S1), moved to qa/tools (S2) or into common (S3) in 1.2.1
+* The 40 single-host helpers now live inside their host .ado as private
+* subprograms, _tabtools_xlsx_read.ado (no package caller) moved to
+* qa/tools/, and the 9 Mata-free multi-caller helpers moved into
+* _tabtools_common.ado. None may come back as a shipped file: each is absent
+* from the source tree, from every f line of the .pkg, and from the fresh
+* install.
+capture noisily {
+    local folded _desctab_collect.ado _desctab_misscell.ado ///
+        _regtab_activeb.ado _regtab_addcol.ado _regtab_addrow.ado ///
+        _regtab_cellnote.ado _regtab_classes.ado _regtab_cmdopts.ado ///
+        _regtab_cmdsets.ado _regtab_collabels.ado _regtab_eqkeys.ado ///
+        _regtab_estats.ado _regtab_fitrec.ado _regtab_flatten.ado ///
+        _regtab_frameopts.ado _regtab_fvbase.ado _regtab_fvparent.ado ///
+        _regtab_keys.ado _regtab_methods.ado _regtab_mincount.ado ///
+        _regtab_modelnoun.ado _regtab_mstats.ado _regtab_optstr.ado ///
+        _regtab_prefopts.ado _regtab_relabel.ado _regtab_remeta.ado ///
+        _regtab_rlabels.ado _regtab_role.ado _regtab_scale.ado ///
+        _regtab_statrows.ado _regtab_statspec.ado _regtab_unwrap.ado ///
+        _stacktab_frames.ado _tabcell_render.ado ///
+        _tabtools_collect_atmatrix.ado _tabtools_fitcount.ado ///
+        _tabtools_fmt_p.ado _tabtools_match_rows.ado _tabtools_set.ado ///
+        _tabtools_xlsx_deferred_styles.ado _tabtools_xlsx_read.ado
+    local n_folded : list sizeof folded
+    assert `n_folded' == 41
+    * S3: moved into _tabtools_common.ado (programs keep their global names)
+    local bundled _regtab_bnotes.ado _tabtools_colwidth.ado ///
+        _tabtools_export_hint.ado _tabtools_fmt_pct.ado ///
+        _tabtools_smallcells_opt.ado _tabtools_smallcells_render.ado ///
+        _tabtools_st_timescale.ado _tabtools_texopts.ado ///
+        _tabtools_visible_vars.ado
+    local n_bundled : list sizeof bundled
+    assert `n_bundled' == 9
+    local both : list folded & bundled
+    assert "`both'" == ""
+    local folded : list folded | bundled
+    local n_folded : list sizeof folded
+    assert `n_folded' == 50
+    mata: st_local("pkgtxt", invtokens(cat(st_local("pkg_dir") + "/tabtools.pkg")', "|"))
+    foreach helper of local folded {
+        capture confirm file "`pkg_dir'/`helper'"
+        assert _rc == 601
+        capture confirm file `"`c(sysdir_plus)'_/`helper'"'
+        assert _rc == 601
+        assert strpos(`"|`pkgtxt'|"', "|f `helper'|") == 0
+        assert strpos(`"|`pkgtxt'|"', "|F `helper'|") == 0
+    }
+    confirm file "`qa_dir'/tools/_tabtools_xlsx_read.ado"
+}
+if _rc == 0 {
+    display as result "  PASS: 50 helpers folded or moved in 1.2.1 are not shipped or installed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: a helper folded or moved in 1.2.1 is still shipped (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' folded_helpers"
 }
 
 **# Documentation reality
@@ -1151,11 +1213,13 @@ log close _doc_contracts
 local public_commands tabtools table1_tc desctab regtab effecttab stratetab ///
     hrcomptab comptab survtab crosstab puttab stacktab ///
     tabtools_tips
+* 1.2.1: _desctab_collect.ado is folded into desctab.ado (S1) and the dead
+* _tabtools_xlsx_read.ado moved to qa/tools/ (S2); both are tombstoned under "Helpers folded into their host".
 local helper_files _tabtools_common.ado _tabtools_xlsx_write.ado ///
-    _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
+    _tabtools_collect_render.ado ///
     _tabtools_markdown_write.ado _tabtools_latex_write.ado ///
     _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
-    _tabtools_xlsx_compact_styles.ado _desctab_collect.ado
+    _tabtools_xlsx_compact_styles.ado
 
 **# Release Manifest Contracts
 **## .pkg explicitly ships every public command ado/help file and backend helper

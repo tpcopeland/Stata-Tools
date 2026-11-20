@@ -54,6 +54,10 @@ end
 * block is measured against the block width.
 local ++total
 capture noisily {
+    * 1.2.1 (S3): _tabtools_colwidth is defined in _tabtools_common.ado and has no
+    * .ado file of its own, so it does not autoload; run common first.
+    capture findfile _tabtools_common.ado
+    run "`r(fn)'"
     clear
     set obs 6
     generate str40 c1 = ""

@@ -27,7 +27,7 @@ d
 d Requires: Stata version 17+ (all commands)
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d
-d Distribution-Date: 20261119
+d Distribution-Date: 20261120
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -38,32 +38,17 @@ f tabtools_tips.ado
 f tabtools_tips.sthlp
 f _tabtools_common.ado
 f _tabtools_xlsx_write.ado
-f _tabtools_export_hint.ado
 f _tabtools_markdown_write.ado
 f _tabtools_latex_write.ado
-f _tabtools_texopts.ado
-f _tabtools_visible_vars.ado
-f _tabtools_colwidth.ado
 f _tabtools_csv_write.ado
 f _tabtools_check_sinks.ado
-f _tabtools_xlsx_read.ado
 f _tabtools_collect_render.ado
-f _tabtools_collect_atmatrix.ado
 f _tabtools_fvterm_label.ado
-f _tabtools_st_timescale.ado
-f _tabtools_match_rows.ado
-f _tabtools_fitcount.ado
 f _tabtools_flatframe.ado
 f _tabtools_xlsx_apply_styles.ado
 f _tabtools_xlsx_build_styles.ado
 f _tabtools_xlsx_compact_styles.ado
-f _tabtools_xlsx_deferred_styles.ado
-f _desctab_collect.ado
-f _desctab_misscell.ado
 f _tabtools_smallcells.ado
-f _tabtools_smallcells_render.ado
-f _tabtools_smallcells_opt.ado
-f _tabtools_set.ado
 f _tabtools_set_sinks.ado
 f table1_tc.ado
 f table1_tc.sthlp
@@ -71,37 +56,6 @@ f desctab.ado
 f desctab.sthlp
 f regtab.ado
 f regtab.sthlp
-f _regtab_activeb.ado
-f _regtab_addcol.ado
-f _regtab_addrow.ado
-f _regtab_bnotes.ado
-f _regtab_cellnote.ado
-f _regtab_classes.ado
-f _regtab_cmdopts.ado
-f _regtab_cmdsets.ado
-f _regtab_collabels.ado
-f _regtab_eqkeys.ado
-f _regtab_estats.ado
-f _regtab_fitrec.ado
-f _regtab_flatten.ado
-f _regtab_frameopts.ado
-f _regtab_fvbase.ado
-f _regtab_fvparent.ado
-f _regtab_keys.ado
-f _regtab_methods.ado
-f _regtab_mincount.ado
-f _regtab_modelnoun.ado
-f _regtab_mstats.ado
-f _regtab_optstr.ado
-f _regtab_prefopts.ado
-f _regtab_relabel.ado
-f _regtab_remeta.ado
-f _regtab_rlabels.ado
-f _regtab_role.ado
-f _regtab_scale.ado
-f _regtab_statrows.ado
-f _regtab_statspec.ado
-f _regtab_unwrap.ado
 f effecttab.ado
 f effecttab.sthlp
 f stratetab.ado
@@ -118,12 +72,8 @@ f puttab.ado
 f puttab.sthlp
 f stacktab.ado
 f stacktab.sthlp
-f _stacktab_frames.ado
 f tabcell.ado
 f tabcell.sthlp
-f _tabcell_render.ado
-f _tabtools_fmt_p.ado
-f _tabtools_fmt_pct.ado
 f ratetab.ado
 f ratetab.sthlp
 f outtab.ado

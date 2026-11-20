@@ -9,6 +9,10 @@ capture log close _all
 log using test_final_review_helpers.log, text replace
 local pkg_dir = regexr("`c(pwd)'", "/qa$", "")
 adopath ++ "`pkg_dir'"
+* 1.2.1 (S2): _tabtools_xlsx_read moved from the package to qa/tools/; define
+* it from there, since the package directory on the adopath no longer has it.
+capture program drop _tabtools_xlsx_read
+run "`pkg_dir'/qa/tools/_tabtools_xlsx_read.ado"
 local tests = 0
 local pass = 0
 local fail = 0

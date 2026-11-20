@@ -1,4 +1,4 @@
-*! outtab Version 1.2.0  2026/11/19
+*! outtab Version 1.2.1  2026/11/20
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -33,6 +33,27 @@ program define outtab, rclass
     local _stage_made 0
     local _held 0
     capture noisily {
+        * Auto-load shared helper programs (_tabtools_smallcells_opt)
+        capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+                if _rc {
+                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
+            }
+            else {
+                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                exit 111
+            }
+        }
+
         syntax varlist(numeric min=1) [if] [in] , EXPosure(varname numeric) ///
             [MODels(string asis) MODELLabels(string asis) ESTimator(string asis) EFORM ///
             MINEvents(integer 0) MINText(string asis) SMALLcells(string) NOSMALLcells ///

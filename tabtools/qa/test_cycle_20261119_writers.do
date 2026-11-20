@@ -200,7 +200,12 @@ display cond(`_r' == 0, "  PASS", "  FAIL") ": F1e puttab oversize cell keeps pr
 **## F2a: attribute reader skips ">" inside a quoted value
 local ++test_count
 capture noisily {
-    quietly findfile _tabtools_xlsx_deferred_styles.ado
+    * 1.2.1: _tabtools_xlsx_deferred_styles is folded into
+    * _tabtools_xlsx_compact_styles.ado. The earlier puttab call autoloaded
+    * that file, so drop its programs before running it again (else r(110)).
+    quietly findfile _tabtools_xlsx_compact_styles.ado
+    capture program drop _tabtools_xlsx_compact_styles
+    capture program drop _tabtools_xlsx_compact_engine
     capture program drop _tabtools_xlsx_deferred_styles
     quietly run "`r(fn)'"
     mata: st_local("v1", _tt_xlsx_pend_attr(`"<sheet name="Age &lt;1>" sheetId="5" r:id="rId7"/>"', "r:id"))

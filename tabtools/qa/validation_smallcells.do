@@ -529,6 +529,10 @@ capture noisily {
         sensitive(Eneg) smallcells(5)
     assert _rc == 198
 
+    * 1.2.1 (S3): _tabtools_smallcells_render is defined in _tabtools_common.ado and has no
+    * .ado file of its own, so it does not autoload; run common first.
+    capture findfile _tabtools_common.ado
+    run "`r(fn)'"
     _tabtools_smallcells_render, value(2) mask(1) smallcells(5)
     assert `"`r(display)'"' == "<5"
     assert r(value) == .p

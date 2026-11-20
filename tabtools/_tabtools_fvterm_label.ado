@@ -1,4 +1,4 @@
-*! _tabtools_fvterm_label Version 1.2.0  2026/11/19
+*! _tabtools_fvterm_label Version 1.2.1  2026/11/20
 *! reader-facing label for an interaction or margins at() row key
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,4 +1,4 @@
-*! comptab Version 1.2.0  2026/11/19
+*! comptab Version 1.2.1  2026/11/20
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -91,6 +91,28 @@ program define comptab, rclass
     set varabbrev off
 
     capture noisily {
+        * Auto-load shared helper programs (_tabtools_smallcells_opt, called
+        * below before _comptab_rates or _comptab_vertical runs its own loader)
+        capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+                if _rc {
+                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
+            }
+            else {
+                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                exit 111
+            }
+        }
+
         syntax [anything(name=framelist)] , ///
             [ROWS(string asis) ROWNames(string asis) ///
             RATEFrame(string asis) MODELFrames(string asis) ///
@@ -349,6 +371,7 @@ program define _comptab_rates, rclass
         * Auto-load shared helper programs
         capture _tabtools_helpers_ready
         if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
         * (a session can hold an older _tabtools_common.ado's programs: run,
         * so discard keeps them; this release's Mata must be there too)
         if _rc {
@@ -356,6 +379,7 @@ program define _comptab_rates, rclass
             if _rc == 0 {
                 run "`r(fn)'"
                 capture _tabtools_helpers_ready
+                if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
                 if _rc {
                     display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
                     exit 111
@@ -2532,6 +2556,7 @@ program define _comptab_vertical, rclass
     * Auto-load shared helper programs if not already in memory
     capture _tabtools_helpers_ready
     if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+    if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
     * (a session can hold an older _tabtools_common.ado's programs: run,
     * so discard keeps them; this release's Mata must be there too)
     if _rc {
@@ -2539,6 +2564,7 @@ program define _comptab_vertical, rclass
         if _rc == 0 {
             run "`r(fn)'"
             capture _tabtools_helpers_ready
+            if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
             if _rc {
                 noisily display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
                 exit 111

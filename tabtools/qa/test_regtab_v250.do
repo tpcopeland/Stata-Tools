@@ -1044,6 +1044,10 @@ capture noisily {
     quietly generate byte d = y > 2
     collect clear
     quietly collect: poisson y x i.a#i.b
+    * 1.2.1 (S3): _regtab_bnotes is defined in _tabtools_common.ado and has no
+    * .ado file of its own, so it does not autoload; run common first.
+    capture findfile _tabtools_common.ado
+    run "`r(fn)'"
     _regtab_bnotes
     local ncns = strlen(`"`_bn_notes'"')
     assert `ncns' > 2045
@@ -1054,6 +1058,11 @@ capture noisily {
     tabtools fitcount, events(d) terms
     local nterms = strlen(r(terms))
     assert `nterms' > 2045
+    * 1.2.1: _regtab_fitrec is a private subprogram of regtab.ado; run the host so
+    * the helper is defined globally for this direct call.
+    capture program drop regtab
+    quietly findfile regtab.ado
+    run "`r(fn)'"
     _regtab_fitrec tt_cns tt_terms tt_levels tt_events
     mata: assert(strlen(st_local("_fr_tt_cns_1")) == `ncns')
     mata: assert(strlen(st_local("_fr_tt_terms_1")) == `nterms')

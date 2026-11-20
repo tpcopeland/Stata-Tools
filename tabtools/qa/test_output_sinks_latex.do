@@ -1545,6 +1545,11 @@ capture noisily {
     * unknown keys list latex and texopts among the valid ones
     _osl_refused "" "workbook, markdown, latex, texopts, headershade, smallcells" ///
         tabtools set bogus x
+    * 1.2.1: _tabtools_set is a private subprogram of tabtools.ado; run the host so
+    * the helper is defined globally for this direct call.
+    capture program drop tabtools
+    quietly findfile tabtools.ado
+    run "`r(fn)'"
     _osl_refused "" "Valid: workbook, markdown, latex, texopts, headershade, smallcells" ///
         _tabtools_set set bogus clear
 }

@@ -1,4 +1,4 @@
-*! ratetab Version 1.2.0  2026/11/19
+*! ratetab Version 1.2.1  2026/11/20
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -54,6 +54,28 @@ program define ratetab, rclass
     local _ehold 0
     local _files ""
     capture noisily {
+        * Auto-load shared helper programs (_tabtools_smallcells_opt,
+        * _tabtools_st_timescale)
+        capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+                if _rc {
+                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
+            }
+            else {
+                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                exit 111
+            }
+        }
+
         syntax varlist(min=1) [if] [in] , [EVents(varlist numeric) ///
             EXPosure(varlist numeric) PER(real 1000) CI(string) Level(string) ///
             SMALLcells(string) NOSMALLcells CFormat(string) DIGits(string) ///

@@ -64,7 +64,13 @@ capture noisily {
         which `cmd'
     }
     which _tabtools_smallcells
-    which _tabtools_smallcells_render
+    * 1.2.1 (S3): _tabtools_smallcells_render is defined in _tabtools_common.ado
+    * and has no .ado file of its own, so which cannot see it; run common and
+    * ask for the program in memory instead.
+    quietly findfile _tabtools_common.ado
+    run "`r(fn)'"
+    capture program list _tabtools_smallcells_render
+    assert _rc == 0
 
     clear
     input byte row byte col

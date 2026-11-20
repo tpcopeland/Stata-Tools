@@ -50,6 +50,11 @@ if _rc == 0 {
     run "`r(fn)'"
 }
 
+* 1.2.1 (S2): _tabtools_xlsx_read has no package caller and ships no more; it
+* lives in qa/tools/ as a QA-only workbook reader. Define it before its first use.
+capture program drop _tabtools_xlsx_read
+run "`pkg_dir'/qa/tools/_tabtools_xlsx_read.ado"
+
 * Test: _tabtools_col_letter basic conversions
 capture noisily {
     _tabtools_col_letter 1
@@ -1417,7 +1422,10 @@ capture noisily {
     which _tabtools_xlsx_apply_styles
     which _tabtools_xlsx_build_styles
     which _tabtools_xlsx_write
-    which _tabtools_xlsx_read
+    * _tabtools_xlsx_read is defined in memory from qa/tools/ (S2), and which
+    * never sees a program that is only in memory: confirm it is defined.
+    capture program list _tabtools_xlsx_read
+    assert _rc == 0
 }
 if _rc == 0 {
     display as result "  PASS: style engine helper autoloads after isolated net install"
@@ -2468,7 +2476,13 @@ capture noisily {
         which `cmd'
     }
     which _tabtools_smallcells
-    which _tabtools_smallcells_render
+    * 1.2.1 (S3): _tabtools_smallcells_render is defined in _tabtools_common.ado
+    * and has no .ado file of its own, so which cannot see it; run common and
+    * ask for the program in memory instead.
+    quietly findfile _tabtools_common.ado
+    run "`r(fn)'"
+    capture program list _tabtools_smallcells_render
+    assert _rc == 0
 
     clear
     input byte row byte col

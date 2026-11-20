@@ -1,4 +1,4 @@
-*! tabcell Version 1.2.0  2026/11/19
+*! tabcell Version 1.2.1  2026/11/20
 *! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR), rate (CI)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -77,6 +77,32 @@ program define tabcell, rclass
         local global ""
         local options ""
         local 0 : copy local _cl0
+        * Auto-load shared helper programs (_tabcell_render uses _tabtools_fmt_pct).
+        * The caller's r() (lincom, nlcom, matrix(r(...))) is the source read
+        * below, and the readiness check and findfile both replace r(), so it is
+        * held across the loader and restored before the source is captured.
+        tempname _ldr_r
+        _return hold `_ldr_r'
+        capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
+                if _rc {
+                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
+            }
+            else {
+                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                exit 111
+            }
+        }
+        _return restore `_ldr_r'
         gettoken form 0 : 0, parse(" ,")
         local form = lower(strtrim(`"`form'"'))
         if !inlist(`"`form'"', "est", "p", "n", "np", "enp", "iqr", "rate") {
@@ -821,6 +847,461 @@ program define _tabcell_barevar, nclass
                 c_local `_lm' "`_w'"
                 continue, break
             }
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* Folded from _tabcell_render.ado (formerly a separately autoloaded helper; see tabtools 1.2.1 changelog)
+* _tabcell_render Version 1.2.0  2026/11/19
+* Vectorised cell renderer behind tabcell (scalar and generate() forms)
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: rclass
+
+/*
+One code path renders every tabcell cell. tabcell's scalar forms post their
+numbers into a one-row frame and call this program there, so r(cell) and a
+generate() column can never disagree about formatting, masking or refusal.
+
+    _tabcell_render <form> <var1> [<var2> <var3>] , touse(var) generate(newvar)
+        [fmt(%fmt) sep(str) missing(str) hasmissing(0|1) pdp(#) highpdp(#)
+         nformat(%fmt) pformat(%fmt) mincell(#) ci(exact|poisson) level(#)
+         per(#) nocount cilimits(lbvar ubvar estvar)]
+
+  fmt() and nformat() of fixed type (f, fc) narrower than 26 are widened
+  to 26 before use, so no number that string() can write in full prints
+  in e-notation or without its thousands separators.
+
+  form est : var1 = estimate, var2 = lower, var3 = upper (already on the
+             reported scale)
+  form p   : var1 = p-value
+  form n   : var1 = count
+  form np  : var1 = count, var2 = denominator; with ci(exact) the cell is
+             n (pct; lo<sep>hi), the exact binomial (Clopper-Pearson)
+             interval for the percentage at level(#), and cilimits() names
+             three new double variables that receive the printed lower
+             limit, upper limit and percentage (missing where the cell
+             prints none). nocount drops the count: pct, or pct (lo<sep>hi)
+             with ci(exact); a zero denominator is then non-computable, and
+             a masked count prints the en dash, never its percentage
+  form enp : var1 = events, var2 = total
+  form iqr : var1 = median, var2 = Q1, var3 = Q3
+  form rate: var1 = events, var2 = person-time; rate (lo<sep>hi) per
+             per(#) with ci(exact) (exact Poisson) or ci(poisson) (log-rate
+             Wald, strate), the exact limits at zero events; cilimits()
+             receives lb, ub and the rate. No person-time with no events is
+             non-computable; events without person-time are an error. A
+             rate with 1 to mincell-1 events prints the en dash.
+
+Returns r(N) rendered rows, r(N_missing) rows given the missing() text.
+*/
+
+capture program drop _tabcell_render
+program define _tabcell_render, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        gettoken form 0 : 0
+        syntax varlist(numeric min=1 max=3), TOUSE(varname) GENerate(name) ///
+            [FMT(string) SEP(string) MISSING(string) HASMISSING(integer 0) ///
+            PDP(integer 3) HIGHPDP(integer 2) PSTYLE(string) NFORMAT(string) PFORMAT(string) ///
+            MINCELL(integer 0) CI(string) LEVEL(real 95) CILIMITS(string) ///
+            PER(real 1) NOCOUNT]
+        * A fixed format (f, fc) narrower than 26 is widened to 26, the most
+        * string() writes: the cells are trimmed, so the width only decides
+        * whether a long number overflows into e-notation (%9.2f printed
+        * 1234567.25 as 1.23e+06) or loses its thousands separators (%12.0fc
+        * printed 1234567890 bare). Zero-padded formats (%09.2f) keep their
+        * width; g and e formats are left alone, their width sets the digits.
+        foreach _f in fmt nformat {
+            if ustrregexm(`"``_f''"', "^%(-?)([1-9][0-9]*)([.,][0-9]+fc?)$") {
+                if real(ustrregexs(2)) < 26 local `_f' = "%" + ustrregexs(1) + "26" + ustrregexs(3)
+            }
+        }
+        * _ci: the exact binomial interval of form np
+        local _ci = ("`ci'" == "exact" & "`form'" == "np")
+        if "`form'" == "rate" & !inlist("`ci'", "exact", "poisson") {
+            display as error "_tabcell_render: form rate needs ci(exact) or ci(poisson)"
+            exit 198
+        }
+        if "`ci'" != "" & !inlist("`form'", "np", "rate") {
+            display as error "_tabcell_render: ci() belongs to forms np and rate"
+            exit 198
+        }
+        if "`form'" == "np" & !inlist("`ci'", "", "exact") {
+            display as error "_tabcell_render: ci(`ci') is not supported for form np"
+            exit 198
+        }
+        if "`nocount'" != "" & "`form'" != "np" {
+            display as error "_tabcell_render: nocount belongs to form np"
+            exit 198
+        }
+        if !(`per' > 0) | missing(`per') {
+            display as error "_tabcell_render: per() must be positive"
+            exit 198
+        }
+        * the text of a withheld value that is not a count (a rate, a share):
+        * the en dash ratetab and stratetab print for a withheld rate
+        local _dash = uchar(8211)
+        if `"`cilimits'"' != "" & (!(`_ci' | "`form'" == "rate") | `: word count `cilimits'' != 3) {
+            display as error "_tabcell_render: cilimits() takes three new names and needs ci()"
+            exit 198
+        }
+        local v1 : word 1 of `varlist'
+        local v2 : word 2 of `varlist'
+        local v3 : word 3 of `varlist'
+        tempvar bad
+        quietly {
+            if "`form'" == "est" | "`form'" == "iqr" {
+                gen byte `bad' = missing(`v1') | missing(`v2') | missing(`v3') if `touse'
+            }
+            else if "`form'" == "p" | "`form'" == "n" {
+                gen byte `bad' = missing(`v1') if `touse'
+            }
+            else {
+                gen byte `bad' = missing(`v1') | missing(`v2') if `touse'
+            }
+            * nothing to compute: a share of a zero denominator (nocount), a
+            * rate with neither events nor person-time. A count over a zero
+            * total stays an error below.
+            local n_zero 0
+            if "`nocount'" != "" | "`form'" == "rate" {
+                count if `touse' & `bad' == 0 & `v1' == 0 & `v2' == 0
+                local n_zero = r(N)
+                replace `bad' = 1 if `touse' & `v1' == 0 & `v2' == 0
+            }
+            count if `bad' == 1 & `touse'
+            local n_bad = r(N)
+        }
+        if `n_bad' & !`hasmissing' {
+            if `n_zero' {
+                local _what = cond("`form'" == "rate", "no events and no person-time", "a zero denominator")
+                noisily display as error "tabcell: `n_zero' cell(s) have `_what': nothing to compute"
+            }
+            if `n_bad' > `n_zero' noisily display as error "tabcell: `=`n_bad' - `n_zero'' cell(s) have a missing or non-finite value"
+            noisily display as error "a failed or non-estimable result is never printed as a number; specify missing(" ///
+                `"""' "text" `"""' ") to print text instead"
+            exit 459
+        }
+        * Content checks on the finite rows: a reversed interval, a p-value
+        * outside [0, 1], a negative count or more events than the total.
+        quietly {
+            if "`form'" == "est" | "`form'" == "iqr" {
+                count if `touse' & !`bad' & `v2' > `v3'
+                if r(N) {
+                    noisily display as error "tabcell: the lower limit exceeds the upper limit in `r(N)' cell(s)"
+                    exit 198
+                }
+            }
+            if "`form'" == "iqr" {
+                count if `touse' & !`bad' & (`v1' < `v2' | `v1' > `v3')
+                if r(N) {
+                    noisily display as error "tabcell iqr: the median lies outside (Q1, Q3) in `r(N)' cell(s)"
+                    exit 198
+                }
+            }
+            if "`form'" == "p" {
+                count if `touse' & !`bad' & (`v1' < 0 | `v1' > 1)
+                if r(N) {
+                    noisily display as error "tabcell p: `r(N)' p-value(s) lie outside [0, 1]"
+                    exit 198
+                }
+            }
+            if "`form'" == "n" {
+                count if `touse' & !`bad' & `v1' < 0
+                if r(N) {
+                    noisily display as error "tabcell n: counts must be nonnegative"
+                    exit 198
+                }
+            }
+            if "`form'" == "np" | "`form'" == "enp" {
+                count if `touse' & !`bad' & (`v1' < 0 | `v2' < 0)
+                if r(N) {
+                    noisily display as error "tabcell `form': counts must be nonnegative"
+                    exit 198
+                }
+                count if `touse' & !`bad' & `v1' > `v2'
+                if r(N) {
+                    noisily display as error "tabcell `form': the count exceeds its total in `r(N)' cell(s)"
+                    exit 198
+                }
+            }
+            if "`form'" == "rate" {
+                count if `touse' & !`bad' & (`v1' < 0 | `v2' < 0)
+                if r(N) {
+                    noisily display as error "tabcell rate: events and person-time must be nonnegative"
+                    exit 198
+                }
+                count if `touse' & !`bad' & `v1' > 0 & `v2' == 0
+                if r(N) {
+                    noisily display as error "tabcell rate: `r(N)' cell(s) have events without person-time"
+                    exit 198
+                }
+                if "`ci'" == "exact" {
+                    count if `touse' & !`bad' & `v1' != floor(`v1')
+                    if r(N) {
+                        noisily display as error "tabcell rate, ci(exact): the exact Poisson interval needs whole-number events; `r(N)' cell(s) are not integers"
+                        exit 459
+                    }
+                }
+            }
+            if `_ci' {
+                * the binomial interval is defined for whole counts only
+                count if `touse' & !`bad' & (`v1' != floor(`v1') | `v2' != floor(`v2'))
+                if r(N) {
+                    noisily display as error "tabcell np, ci(exact): the exact binomial interval needs whole-number counts; `r(N)' cell(s) are not integers"
+                    exit 459
+                }
+            }
+        }
+
+        quietly gen strL `generate' = ""
+        * sep() enters the cells only as the value of this variable, stored
+        * from Mata: never part of a command line or an expression, so it is
+        * printed byte for byte (help tabtools##sep)
+        tempvar _sepv
+        quietly gen strL `_sepv' = ""
+        mata: st_sstore(., st_local("_sepv"), J(st_nobs(), 1, st_local("sep") == "" ? ", " : st_local("sep")))
+        quietly {
+            if inlist("`form'", "np", "enp") {
+                * The percentage of forms np and enp follows the package rule
+                * in _tabtools_fmt_pct: a share that is neither none nor all
+                * never prints as 0 or 100. _pdc holds the decimals wherever
+                * the rule escalated, so interval limits print to match.
+                tempvar _pv _ptx _pdc
+                gen double `_pv' = 100 * `v1' / `v2' if `touse' & !`bad' & `v2' > 0
+                _tabtools_fmt_pct `_pv' if `touse' & !`bad' & `v2' > 0, ///
+                    format(`pformat') generate(`_ptx') decimals(`_pdc')
+                replace `_ptx' = strtrim(`_ptx')
+            }
+            if "`form'" == "est" | "`form'" == "iqr" {
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`fmt'"), "-(?=[0.,]+\z)", "")) + " (" + ///
+                    strtrim(ustrregexra(string(`v2', "`fmt'"), "-(?=[0.,]+\z)", "")) + `_sepv' + ///
+                    strtrim(ustrregexra(string(`v3', "`fmt'"), "-(?=[0.,]+\z)", "")) + ")" if `touse' & !`bad'
+            }
+            else if "`form'" == "p" {
+                tempvar ptxt
+                _tabtools_fmt_p `v1' if `touse' & !`bad', generate(`ptxt') ///
+                    pdp(`pdp') highpdp(`highpdp')
+                replace `generate' = `ptxt' if `touse' & !`bad'
+                if inlist("`pstyle'", "footnote", "pfootnote") {
+                    * prose form: "p = 0.012", "p < 0.001", "p > 0.99";
+                    * pfootnote writes the letter as a capital: "P = 0.012"
+                    local _pl = cond("`pstyle'" == "pfootnote", "P", "p")
+                    replace `generate' = cond(inlist(substr(`ptxt', 1, 1), "<", ">"), ///
+                        "`_pl' " + substr(`ptxt', 1, 1) + " " + substr(`ptxt', 2, .), ///
+                        "`_pl' = " + `ptxt') if `touse' & !`bad'
+                }
+            }
+            else if "`form'" == "n" {
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) if `touse' & !`bad'
+                if `mincell' > 0 {
+                    replace `generate' = "<`mincell'" if `touse' & !`bad' & ///
+                        `v1' >= 1 & `v1' < `mincell'
+                }
+            }
+            else if "`form'" == "np" & !`_ci' & "`nocount'" != "" {
+                * pct alone (the zero denominator is a bad row above)
+                * stata-dev-ignore: unchecked-commit — generate() is the caller's tempvar; the caller refuses an empty sample and this program refuses bad (zero-denominator or missing) rows above, unless missing() is given
+                replace `generate' = `_ptx' if `touse' & !`bad'
+                if `mincell' > 0 {
+                    replace `generate' = "`_dash'" if `touse' & !`bad' & ///
+                        `v1' >= 1 & `v1' < `mincell'
+                }
+            }
+            else if "`form'" == "np" & !`_ci' {
+                * n (%): the percentage is omitted when the denominator is 0
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) + ///
+                    cond(`v2' > 0, " (" + `_ptx' + ")", "") ///
+                    if `touse' & !`bad'
+                if `mincell' > 0 {
+                    replace `generate' = "<`mincell'" if `touse' & !`bad' & ///
+                        `v1' >= 1 & `v1' < `mincell'
+                }
+            }
+            else if "`form'" == "np" {
+                * n (pct; lo, hi): exact (Clopper-Pearson) limits as beta
+                * quantiles (Thulin 2014, eq. 4; [R] ci, Methods and
+                * formulas): lo = B(a/2; n, d-n+1), hi = B(1-a/2; n+1, d-n),
+                * with the tail skipped at n = 0 (lo = 0) and n = d (hi = 1)
+                tempvar _lo _hi _show
+                local _a = (1 - `level' / 100) / 2
+                gen byte `_show' = `touse' & !`bad' & `v2' > 0
+                if `mincell' > 0 replace `_show' = 0 if `v1' >= 1 & `v1' < `mincell'
+                gen double `_lo' = cond(`v1' == 0, 0, invibeta(`v1', `v2' - `v1' + 1, `_a')) if `_show'
+                gen double `_hi' = cond(`v1' == `v2', 1, invibetatail(`v1' + 1, `v2' - `v1', `_a')) if `_show'
+                count if `_show' & (missing(`_lo') | missing(`_hi'))
+                if r(N) {
+                    noisily display as error "tabcell np, ci(exact): the interval could not be computed in `r(N)' cell(s)"
+                    exit 459
+                }
+                * the limits print at the estimate's decimals where the
+                * percentage rule escalated, at pformat() elsewhere
+                tempvar _lotx _hitx
+                local _psep = cond(regexm(`"`pformat'"', "^%-?0?[0-9]+,"), ",", ".")
+                gen strL `_lotx' = strtrim(ustrregexra(string(100 * `_lo', "`pformat'"), "-(?=[0.,]+\z)", "")) if `_show'
+                gen strL `_hitx' = strtrim(ustrregexra(string(100 * `_hi', "`pformat'"), "-(?=[0.,]+\z)", "")) if `_show'
+                replace `_lotx' = strtrim(ustrregexra(string(100 * `_lo', "%21`_psep'" + string(`_pdc') + "f"), "-(?=[0.,]+\z)", "")) ///
+                    if `_show' & !missing(`_pdc')
+                replace `_hitx' = strtrim(ustrregexra(string(100 * `_hi', "%21`_psep'" + string(`_pdc') + "f"), "-(?=[0.,]+\z)", "")) ///
+                    if `_show' & !missing(`_pdc')
+                if "`nocount'" != "" {
+                    * pct (lo, hi): the percentage and its interval alone
+                    replace `generate' = `_ptx' + ///
+                        " (" + `_lotx' + `_sepv' + `_hitx' + ")" ///
+                        if `touse' & !`bad'
+                }
+                else {
+                    replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) + ///
+                        cond(`v2' > 0, " (" + `_ptx' + ///
+                        "; " + `_lotx' + `_sepv' + `_hitx' + ")", "") ///
+                        if `touse' & !`bad'
+                }
+                if `mincell' > 0 {
+                    * nocount: the percentage and its limits would give the
+                    * masked count back (pct x d), so the whole cell goes
+                    local _mtxt = cond("`nocount'" != "", "`_dash'", "<`mincell'")
+                    replace `generate' = "`_mtxt'" if `touse' & !`bad' & ///
+                        `v1' >= 1 & `v1' < `mincell'
+                }
+                if `"`cilimits'"' != "" {
+                    local _cl1 : word 1 of `cilimits'
+                    local _cl2 : word 2 of `cilimits'
+                    local _cl3 : word 3 of `cilimits'
+                    gen double `_cl1' = 100 * `_lo' if `_show'
+                    gen double `_cl2' = 100 * `_hi' if `_show'
+                    gen double `_cl3' = 100 * `v1' / `v2' if `_show'
+                }
+            }
+            else if "`form'" == "rate" {
+                * rate (lo, hi) per per(): ratetab's limits. Exact: the
+                * Poisson limits for the count ([R] ci, Poisson mean), the
+                * lower skipped (0) at zero events. poisson: strate's
+                * rate*exp(-/+ z/sqrt(e)); at zero events the exact limits.
+                tempvar _rt _lo _hi _show
+                local _a = (1 - `level' / 100) / 2
+                local _z = invnormal(1 - `_a')
+                gen byte `_show' = `touse' & !`bad'
+                if `mincell' > 0 replace `_show' = 0 if `v1' >= 1 & `v1' < `mincell'
+                gen double `_rt' = `v1' / `v2' * `per' if `_show'
+                if "`ci'" == "exact" {
+                    gen double `_lo' = cond(`v1' == 0, 0, invpoissontail(`v1', `_a') / `v2' * `per') if `_show'
+                    gen double `_hi' = invpoisson(`v1', `_a') / `v2' * `per' if `_show'
+                }
+                else {
+                    gen double `_lo' = cond(`v1' == 0, 0, `_rt' * exp(-`_z' / sqrt(`v1'))) if `_show'
+                    gen double `_hi' = cond(`v1' == 0, -ln(`_a') / `v2' * `per', ///
+                        `_rt' * exp(`_z' / sqrt(`v1'))) if `_show'
+                }
+                count if `_show' & (missing(`_rt') | missing(`_lo') | missing(`_hi'))
+                if r(N) {
+                    noisily display as error "tabcell rate: the rate or its interval could not be computed in `r(N)' cell(s)"
+                    exit 459
+                }
+                replace `generate' = strtrim(ustrregexra(string(`_rt', "`fmt'"), "-(?=[0.,]+\z)", "")) + " (" + ///
+                    strtrim(ustrregexra(string(`_lo', "`fmt'"), "-(?=[0.,]+\z)", "")) + `_sepv' + ///
+                    strtrim(ustrregexra(string(`_hi', "`fmt'"), "-(?=[0.,]+\z)", "")) + ")" if `_show'
+                if `mincell' > 0 {
+                    * events, person-time and the rate give each other back:
+                    * the withheld rate prints no number at all
+                    replace `generate' = "`_dash'" if `touse' & !`bad' & ///
+                        `v1' >= 1 & `v1' < `mincell'
+                }
+                if `"`cilimits'"' != "" {
+                    local _cl1 : word 1 of `cilimits'
+                    local _cl2 : word 2 of `cilimits'
+                    local _cl3 : word 3 of `cilimits'
+                    gen double `_cl1' = `_lo' if `_show'
+                    gen double `_cl2' = `_hi' if `_show'
+                    gen double `_cl3' = `_rt' if `_show'
+                }
+            }
+            else if "`form'" == "enp" {
+                replace `generate' = strtrim(ustrregexra(string(`v1', "`nformat'"), "-(?=[0.,]+\z)", "")) + "/" + ///
+                    strtrim(ustrregexra(string(`v2', "`nformat'"), "-(?=[0.,]+\z)", "")) + ///
+                    cond(`v2' > 0, " (" + `_ptx' + ")", "") ///
+                    if `touse' & !`bad'
+                if `mincell' > 0 {
+                    * a masked event count loses its percentage; a masked total
+                    * masks the whole cell, since e/n would reveal it
+                    replace `generate' = "<`mincell'/" + strtrim(ustrregexra(string(`v2', "`nformat'"), "-(?=[0.,]+\z)", "")) ///
+                        if `touse' & !`bad' & `v1' >= 1 & `v1' < `mincell'
+                    replace `generate' = "<`mincell'" if `touse' & !`bad' & ///
+                        `v2' >= 1 & `v2' < `mincell'
+                }
+            }
+            if `hasmissing' {
+                replace `generate' = `"`macval(missing)'"' if `touse' & `bad' == 1
+            }
+            count if `touse'
+            local n_all = r(N)
+        }
+        return scalar N = `n_all' - `n_bad'
+        return scalar N_missing = `n_bad'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* Folded from _tabtools_fmt_p.ado (formerly a separately autoloaded helper; see tabtools 1.2.1 changelog)
+* _tabtools_fmt_p Version 1.2.0  2026/11/19
+* regtab's p-value display rule, vectorised, for tabcell and its callers
+* Author: Timothy P Copeland, Karolinska Institutet
+* Program class: nclass
+
+/*
+The rule is copied line for line from regtab.ado (the block after
+"Format p-values using pdp/highpdp"), which is the package authority for
+p-value text:
+
+    p < 10^-pdp or p == 0      "<0.001"            (pdp = 3)
+    10^-pdp <= p < 0.10        %(pdp+2).(pdp)f     ("0.050")
+    p >= 0.10                  %(highpdp+2).(highpdp)f
+    1 - 10^-highpdp < p < 1    ">0.99"             (highpdp = 2)
+    a leading "." gains a "0"
+
+Do not edit one copy without the other; qa/test_tabcell_v230.do pins the
+two against each other over a grid of p-values.
+
+Usage: _tabtools_fmt_p pvar [if] [in], generate(newstrvar) [pdp(#) highpdp(#)]
+Rows outside the sample, and missing p, are left "".
+*/
+
+capture program drop _tabtools_fmt_p
+program define _tabtools_fmt_p, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname(numeric) [if] [in], GENerate(name) ///
+            [PDP(integer 3) HIGHPDP(integer 2)]
+        if `pdp' < 1 | `pdp' > 10 {
+            display as error "pdp() must be between 1 and 10"
+            exit 198
+        }
+        if `highpdp' < 1 | `highpdp' > 10 {
+            display as error "highpdp() must be between 1 and 10"
+            exit 198
+        }
+        marksample touse, novarlist
+        confirm new variable `generate'
+        local z `varlist'
+        local _pmin = 10^(-`pdp')
+        local _pmax = 1 - 10^(-`highpdp')
+        local _pfmt_lo = "%`=`pdp'+2'.`pdp'f"
+        local _pfmt_hi = "%`=`highpdp'+2'.`highpdp'f"
+        quietly {
+            gen str20 `generate' = ""
+            replace `generate' = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if `z' < `_pmin' & !missing(`z') & `touse'
+            replace `generate' = ustrregexra(string(`z', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if `z' >= `_pmin' & `z' < 0.10 & !missing(`z') & `touse'
+            replace `generate' = ustrregexra(string(`z', "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if `z' >= 0.10 & !missing(`z') & `touse'
+            replace `generate' = ">" + ustrregexra(string(`_pmax', "`_pfmt_hi'"), "-(?=[0.,]+\z)", "") if `z' > `_pmax' & `z' < 1 & !missing(`z') & `touse'
+            replace `generate' = "<" + ustrregexra(string(`_pmin', "`_pfmt_lo'"), "-(?=[0.,]+\z)", "") if `z' == 0 & !missing(`z') & `touse'
+            replace `generate' = "0" + `generate' if substr(`generate', 1, 1) == "." & `touse'
         }
     }
     local rc = _rc

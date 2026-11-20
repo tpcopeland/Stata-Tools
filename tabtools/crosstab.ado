@@ -1,4 +1,4 @@
-*! crosstab Version 1.2.0  2026/11/19
+*! crosstab Version 1.2.1  2026/11/20
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -34,11 +34,13 @@ capture noisily {
     * Auto-load shared helper programs
     capture _tabtools_helpers_ready
     if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+    if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
     if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
             capture _tabtools_helpers_ready
+            if !_rc capture mata: assert(_tt_bundle_build() == "1.2.1")
             if _rc {
                 display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
                 exit 111

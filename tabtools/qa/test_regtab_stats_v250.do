@@ -213,6 +213,11 @@ capture noisily {
     }
     quietly collect levelsof cmdset
     local textorder `"`s(levels)'"'
+    * 1.2.1: _regtab_cmdsets is a private subprogram of regtab.ado; run the host so
+    * the helper is defined globally for this direct call.
+    capture program drop regtab
+    quietly findfile regtab.ado
+    run "`r(fn)'"
     _regtab_cmdsets
     local colorder `"`_cs_levels'"'
     assert `"`colorder'"' == "1 2 3 4 5 6 7 8 9 10 11"

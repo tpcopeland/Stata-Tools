@@ -126,6 +126,11 @@ capture noisily {
         quietly replace p = real(word("`grid'", `i')) in `j'
         quietly replace want = word("`grid'", `i' + 1) in `j'
     }
+    * 1.2.1: _tabtools_fmt_p is a private subprogram of tabcell.ado; run the host so
+    * the helper is defined globally for this direct call.
+    capture program drop tabcell
+    quietly findfile tabcell.ado
+    run "`r(fn)'"
     _tabtools_fmt_p p, generate(got)
     assert got == want
     forvalues j = 1/`=_N' {

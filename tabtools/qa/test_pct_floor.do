@@ -95,6 +95,10 @@ end
 **# F1 helper scalar mode
 local ++test_count
 capture noisily {
+    * 1.2.1 (S3): _tabtools_fmt_pct is defined in _tabtools_common.ado and has no
+    * .ado file of its own, so it does not autoload; run common first.
+    capture findfile _tabtools_common.ado
+    run "`r(fn)'"
     * value | format | expected
     local cases ""
     local cases `"`cases' "0|%5.0f|0" "0|%5.1f|0.0" ".|%5.0f|." "0.004|%5.0f|<0.01""'
@@ -149,6 +153,10 @@ else {
 **# F2 helper variable mode == scalar mode; rule invariants over a grid
 local ++test_count
 capture noisily {
+    * 1.2.1 (S3): _tabtools_fmt_pct is defined in _tabtools_common.ado and has no
+    * .ado file of its own, so it does not autoload; run common first.
+    capture findfile _tabtools_common.ado
+    run "`r(fn)'"
     clear
     set seed 26100801
     quietly set obs 3000

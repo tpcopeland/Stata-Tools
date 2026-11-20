@@ -1,0 +1,3 @@
+v 3
+d QA fixture: the tabtools 1.2.0 helper files that 1.2.1 folds into their hosts
+p tabtools

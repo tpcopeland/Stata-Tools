@@ -24,6 +24,8 @@
 *           (Stata's string-option rule in every command), the decimal-comma
 *           refusal, a long separator
 *   L1      a session holding an older tabtools's helpers reloads them
+*   L1b     a session holding the helpers but not the 1.2.1 release
+*           sentinel _tt_bundle_build() reloads them (eight commands)
 *   W1      default-separator storage widths, as read from 2.4.0
 *   O1      outtab's console equals 2.4.0's string(40) list unless a data
 *           cell is longer
@@ -1320,6 +1322,111 @@ else {
     local ++fail_count
 }
 capture matrix drop _SPE
+foreach f in _sp_rates _sp_models _sp_c1 _sp_c1e {
+    capture frame drop `f'
+}
+
+**# L1b a session that holds this release's helpers but not its sentinel
+* 1.2.1 (S3): every loader also asserts the release sentinel
+* _tt_bundle_build() equals its own release. A session where an older
+* _tabtools_common.ado was run holds _tabtools_helpers_ready and
+* _tt_sep_parse() (so the L1 checks pass) but not the sentinel. The fake below
+* drops only _tt_bundle_build(); each command must load common again, and the
+* sentinel comes back with the value common's own source returns. outtab,
+* ratetab and tabcell load common since 1.2.1.
+local ++test_count
+capture noisily {
+    * the sentinel value, from common's source (not from the session)
+    quietly findfile _tabtools_common.ado
+    mata: _sp_cm = cat(st_global("r(fn)"))
+    mata: _sp_cm = select(_sp_cm, ustrregexm(_sp_cm, `"^[ \t]*return\("[0-9]+\.[0-9]+\.[0-9]+"\)[ \t]*$"'))
+    mata: assert(rows(_sp_cm) == 1)
+    mata: st_local("bb", ustrregexra(_sp_cm[1], `"^[ \t]*return\("|"\)[ \t]*$"', ""))
+    capture mata: mata drop _sp_cm
+    display as text "L1b: common's sentinel is `bb'"
+    assert ustrregexm("`bb'", "^[0-9]+\.[0-9]+\.[0-9]+$")
+    tempname fh
+    local stale2 "`output_dir'/sp250_stale_bundle.do"
+    file open `fh' using "`stale2'", write replace text
+    file write `fh' "capture mata: mata drop _tt_bundle_build()" _n
+    file close `fh'
+    * the sources, made with the helpers intact (as in L1)
+    sysuse cancer, clear
+    quietly stset studytime, failure(died)
+    generate byte agegrp = 1 + (age >= 55) + (age >= 60)
+    quietly ratetab agegrp, outlabels("Death") frame(_sp_rates, replace)
+    collect clear
+    quietly collect: stcox i.agegrp drug
+    quietly collect: stcox i.agegrp drug age
+    quietly regtab, frame(_sp_models, replace) noint compact models("M1 \ M2")
+    preserve
+    quietly strate drug, per(1000) output("`output_dir'/sp250_l1b", replace)
+    restore
+    sysuse auto, clear
+    collect clear
+    quietly collect: regress mpg weight i.foreign
+    quietly regtab, frame(_sp_c1, replace) eplotframe(_sp_c1e, replace)
+    matrix _SPE = (2, 1, 3, 0.01)
+    matrix rownames _SPE = Effect
+    local c1 `"regtab, sep(" to ") frame(_sp_fr, replace)"'
+    local c2 `"effecttab, from(_SPE) sep(" to ") frame(_sp_fr, replace)"'
+    local c3 `"comptab _sp_c1, rows(1) cisep(" to ") frame(_sp_fr, replace)"'
+    local c4 `"hrcomptab _sp_rates, modelframes(_sp_models) rows(all) allmodels modelonly effect("Rate ratio") cisep(" to ") frame(_sp_fr, replace)"'
+    local c5 `"stratetab, using("`output_dir'/sp250_l1b") outcomes(1) sep(" to ") frame(_sp_fr, replace)"'
+    local c6 `"outtab _sp_hi, exposure(_sp_heavy) sep(" to ") frame(_sp_fr, replace)"'
+    local c7 `"ratetab agegrp, outlabels("Death") sep(" to ") frame(_sp_fr, replace)"'
+    local c8 `"tabcell np, n(2) d(20) ci(exact) sep(" to ")"'
+    local names regtab effecttab comptab hrcomptab stratetab outtab ratetab tabcell
+    forvalues i = 1/8 {
+        local nm : word `i' of `names'
+        * outtab and ratetab read the data in memory
+        if "`nm'" == "outtab" {
+            sysuse auto, clear
+            generate byte _sp_hi = mpg > 21
+            generate byte _sp_heavy = weight > 3000
+        }
+        if "`nm'" == "ratetab" {
+            sysuse cancer, clear
+            quietly stset studytime, failure(died)
+            generate byte agegrp = 1 + (age >= 55) + (age >= 60)
+        }
+        quietly do "`stale2'"
+        * the stale state: the sentinel is gone, the L1 checks still pass
+        mata: assert(findexternal("_tt_bundle_build()") == NULL)
+        mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        capture _tabtools_helpers_ready
+        assert _rc == 0
+        capture noisily `c`i''
+        if _rc {
+            display as error `"L1b: `nm' failed with r(`=_rc') without the sentinel"'
+            exit 9
+        }
+        mata: assert(findexternal("_tt_bundle_build()") != NULL)
+        mata: assert(_tt_bundle_build() == st_local("bb"))
+        if "`nm'" == "tabcell" {
+            mata: assert(strpos(st_global("r(cell)"), " to ") > 0)
+        }
+        else {
+            frame _sp_fr: mata: assert(sum(strpos(_sp_strcells(), " to ") :> 0) >= 1)
+        }
+        display as text "L1b: `nm' reloaded common; _tt_bundle_build() = `bb'"
+    }
+    matrix drop _SPE
+}
+local l1b_rc = _rc
+* whatever happened, leave this release's helpers loaded
+capture findfile _tabtools_common.ado
+if !_rc capture run "`r(fn)'"
+if `l1b_rc' == 0 {
+    display as result "  PASS: L1b regtab, effecttab, comptab, hrcomptab, stratetab, outtab, ratetab, tabcell reload without the sentinel"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: L1b stale sentinel (rc=`l1b_rc')"
+    local ++fail_count
+}
+capture matrix drop _SPE
+capture mata: mata drop _sp_cm
 foreach f in _sp_rates _sp_models _sp_c1 _sp_c1e {
     capture frame drop `f'
 }
