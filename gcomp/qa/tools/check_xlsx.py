@@ -24,6 +24,19 @@ Exit codes:
 every other outcome that names a result file (including each exit-2 path)
 writes FAIL, so a PASS left by an earlier run is never read as this run's.
 
+Row-scoped style semantics:
+    --bold-row N ...           every listed row has a bold NON-EMPTY cell (a
+                               bold format on an empty cell never counts)
+    --row-bold-contains TEXT   EVERY row whose text contains TEXT has a bold
+                               non-empty cell; fails when no row contains TEXT
+    --row-fill-contains TEXT RGB
+                               EVERY row whose text contains TEXT has a
+                               non-empty cell filled RGB; fails when no row
+                               contains TEXT
+    --row-bold-contains-any TEXT, --row-fill-contains-any TEXT RGB
+                               explicit opt-in to the weaker reading: at
+                               least ONE row containing TEXT qualifies
+
 Requirements:
     openpyxl>=3.1.0
 
@@ -414,7 +427,10 @@ def check_sheet_names(wb, expected: list[str]) -> CheckResult:
 # =============================================================================
 
 def check_bold_rows(ws: Worksheet, row_nums: list[int]) -> CheckResult:
-    """Check that specified rows have at least one bold cell."""
+    """Check that specified rows each have at least one bold NON-EMPTY cell.
+
+    A bold format on an empty cell renders nothing, so it never counts.
+    """
     max_col = get_used_cols(ws)
     not_bold = []
     for r in row_nums:
@@ -422,6 +438,8 @@ def check_bold_rows(ws: Worksheet, row_nums: list[int]) -> CheckResult:
         for c in range(1, max_col + 1):
             cell = ws.cell(row=r, column=c)
             if isinstance(cell, MergedCell):
+                continue
+            if _stringify(cell.value) == "":
                 continue
             if cell.font and cell.font.bold:
                 has_bold = True
@@ -901,28 +919,51 @@ def check_fill_color(ws: Worksheet, row: int, rgb: str) -> CheckResult:
     )
 
 
-def check_row_bold_contains(ws: Worksheet, text: str) -> CheckResult:
+def check_row_bold_contains(ws: Worksheet, text: str,
+                            any_row: bool = False) -> CheckResult:
+    """EVERY row containing TEXT has a bold non-empty cell.
+
+    any_row=True is the explicit opt-in to "at least one such row". Either
+    way, no row containing TEXT is a failure.
+    """
+    scope = "Some" if any_row else "Every"
+    name = f"{scope} row containing \"{text}\" bold"
     rows = _find_rows_containing(ws, text)
     if not rows:
-        return CheckResult(f"Bold row containing \"{text}\"", False, "no row contains text")
-    passed = any(_row_any_bold(ws, r) for r in rows)
-    return CheckResult(
-        name=f"Bold row containing \"{text}\"",
-        passed=passed,
-        message="bold" if passed else "not bold",
-    )
+        return CheckResult(name, False, "no row contains text")
+    failing = [r for r in rows if not _row_any_bold(ws, r)]
+    passed = len(failing) < len(rows) if any_row else not failing
+    if passed:
+        message = "bold"
+    elif any_row:
+        message = f"no bold row among rows {rows}"
+    else:
+        message = f"not bold: rows {failing} (of matching rows {rows})"
+    return CheckResult(name=name, passed=passed, message=message)
 
 
-def check_row_fill_contains(ws: Worksheet, text: str, rgb: str) -> CheckResult:
+def check_row_fill_contains(ws: Worksheet, text: str, rgb: str,
+                            any_row: bool = False) -> CheckResult:
+    """EVERY row containing TEXT has a non-empty cell with fill RGB.
+
+    any_row=True is the explicit opt-in to "at least one such row". Either
+    way, no row containing TEXT is a failure.
+    """
+    scope = "Some" if any_row else "Every"
+    name = f"{scope} row containing \"{text}\" fill {rgb}"
     rows = _find_rows_containing(ws, text)
     if not rows:
-        return CheckResult(f"Filled row containing \"{text}\"", False, "no row contains text")
-    passed = any(_row_has_fill(ws, r, rgb) for r in rows)
-    return CheckResult(
-        name=f"Filled row containing \"{text}\"",
-        passed=passed,
-        message=f"fill {rgb}" if passed else f"no fill '{rgb}'",
-    )
+        return CheckResult(name, False, "no row contains text")
+    failing = [r for r in rows if not _row_has_fill(ws, r, rgb)]
+    passed = len(failing) < len(rows) if any_row else not failing
+    if passed:
+        message = f"fill {rgb}"
+    elif any_row:
+        message = f"no row with fill '{rgb}' among rows {rows}"
+    else:
+        message = (f"no fill '{rgb}': rows {failing} "
+                   f"(of matching rows {rows})")
+    return CheckResult(name=name, passed=passed, message=message)
 
 
 def check_border_row(ws: Worksheet, row: int, side: str, style: str) -> CheckResult:
@@ -1262,6 +1303,13 @@ class CheckRunner:
         if args.row_fill_contains:
             for spec in args.row_fill_contains:
                 results.append(check_row_fill_contains(ws, spec[0], spec[1]))
+        if args.row_bold_contains_any:
+            for text in args.row_bold_contains_any:
+                results.append(check_row_bold_contains(ws, text, any_row=True))
+        if args.row_fill_contains_any:
+            for spec in args.row_fill_contains_any:
+                results.append(check_row_fill_contains(ws, spec[0], spec[1],
+                                                       any_row=True))
         if args.col_width_at_least:
             for spec in args.col_width_at_least:
                 results.append(check_col_width_at_least(ws, spec[0], float(spec[1])))
@@ -1333,6 +1381,22 @@ class CellPairAction(argparse.Action):
         setattr(namespace, self.dest, items)
 
 
+class OnceAction(argparse.Action):
+    """Store a single-valued option and reject a repeat.
+
+    argparse's default store keeps only the last occurrence, so a repeated
+    `--min-rows 3 --min-rows 5` would silently drop the first assertion.
+    Every option a caller may usefully repeat accumulates instead (extend,
+    append or a custom collecting action); the single-valued ones use this.
+    """
+    def __call__(self, parser, namespace, values, option_string=None):
+        if getattr(namespace, self.dest, None) is not None:
+            raise argparse.ArgumentError(
+                self, "may be given only once (a repeat would silently "
+                      "drop the earlier value)")
+        setattr(namespace, self.dest, values)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Excel assertion validator for Stata-generated tables.",
@@ -1359,36 +1423,36 @@ Stata integration:
 Available patterns for --has-pattern:
   p-values      Values like 0.0234 or <0.001
   ci            Confidence intervals like (1.23, 4.56)
-  percentages   Values with %% or count (pct) format
+  percentages   Values with % or count (pct) format
   rates         Rate (CI) format like 12.3 (10.1-14.5)
   reference     "Reference" or "Ref." text
 """,
     )
 
     parser.add_argument("file", help="Excel file to check (.xlsx)")
-    parser.add_argument("--sheet", "-s",
+    parser.add_argument("--sheet", "-s", action=OnceAction,
                         help="Sheet name (default: active sheet)")
 
     # Sheet-level checks
     sheet_grp = parser.add_argument_group("Sheet-level checks")
-    sheet_grp.add_argument("--sheet-count", type=int, metavar="N",
+    sheet_grp.add_argument("--sheet-count", action=OnceAction, type=int, metavar="N",
                            help="Assert exact number of sheets")
-    sheet_grp.add_argument("--sheet-names", nargs="+", metavar="NAME",
+    sheet_grp.add_argument("--sheet-names", nargs="+", action="extend", metavar="NAME",
                            help="Assert expected sheet names exist")
 
     # Structure checks
     struct = parser.add_argument_group("Structure checks")
-    struct.add_argument("--min-rows", type=int, metavar="N",
+    struct.add_argument("--min-rows", action=OnceAction, type=int, metavar="N",
                         help="Minimum row count")
-    struct.add_argument("--max-rows", type=int, metavar="N",
+    struct.add_argument("--max-rows", action=OnceAction, type=int, metavar="N",
                         help="Maximum row count")
-    struct.add_argument("--exact-rows", type=int, metavar="N",
+    struct.add_argument("--exact-rows", action=OnceAction, type=int, metavar="N",
                         help="Exact row count")
-    struct.add_argument("--min-cols", type=int, metavar="N",
+    struct.add_argument("--min-cols", action=OnceAction, type=int, metavar="N",
                         help="Minimum column count")
-    struct.add_argument("--max-cols", type=int, metavar="N",
+    struct.add_argument("--max-cols", action=OnceAction, type=int, metavar="N",
                         help="Maximum column count")
-    struct.add_argument("--exact-cols", type=int, metavar="N",
+    struct.add_argument("--exact-cols", action=OnceAction, type=int, metavar="N",
                         help="Exact column count")
     struct.add_argument("--no-empty-rows", action="store_true",
                         help="No fully empty rows in used range")
@@ -1416,35 +1480,37 @@ Available patterns for --has-pattern:
     cells.add_argument("--cell-regex", nargs=2, action=CellPairAction,
                        metavar=("REF", "PATTERN"),
                        help="Cell matches regex (e.g., --cell-regex B2 \"^\\d+$\")")
-    cells.add_argument("--cell-not-empty", nargs="+", metavar="REF",
+    cells.add_argument("--cell-not-empty", nargs="+", action="extend", metavar="REF",
                        help="Cell(s) must not be empty")
-    cells.add_argument("--col-not-empty", nargs="+", metavar="COL",
+    cells.add_argument("--col-not-empty", nargs="+", action="extend", metavar="COL",
                        help="Column has no empty cells in data range")
 
     # Format checks
     fmt = parser.add_argument_group("Format checks")
-    fmt.add_argument("--bold-row", nargs="+", type=int, metavar="N",
-                     help="Row(s) must have bold cells")
-    fmt.add_argument("--merged-row", nargs="+", type=int, metavar="N",
+    fmt.add_argument("--bold-row", nargs="+", action="extend", type=int, metavar="N",
+                     help="Each row N has a bold non-empty cell "
+                          "(empty bold cells never count)")
+    fmt.add_argument("--merged-row", nargs="+", action="extend", type=int, metavar="N",
                      help="Row(s) must have merged cells")
-    fmt.add_argument("--font", metavar="NAME",
+    fmt.add_argument("--font", action=OnceAction, metavar="NAME",
                      help="Primary font must be NAME")
-    fmt.add_argument("--fontsize", type=float, metavar="N",
+    fmt.add_argument("--fontsize", action=OnceAction, type=float, metavar="N",
                      help="Primary font size must be N")
     fmt.add_argument("--has-borders", action="store_true",
                      help="Sheet must have borders")
-    fmt.add_argument("--border-style", metavar="STYLE",
+    fmt.add_argument("--border-style", action=OnceAction, metavar="STYLE",
                      help="Primary border style (thin/medium)")
 
     # Pattern checks
     pats = parser.add_argument_group("Pattern checks")
-    pats.add_argument("--has-pattern", nargs="+", metavar="NAME",
+    pats.add_argument("--has-pattern", nargs="+", action="extend", metavar="NAME",
                       help="Content must contain pattern(s): p-values, ci, percentages, "
                            "mean-sd, n-equals, sensitivity, rates, reference")
 
     # Styling checks (per-package lineage: fills, italics, borders, widths)
     style = parser.add_argument_group("Styling checks")
     style.add_argument("--sheet-order", "--exact-sheets", nargs="+", dest="sheet_order",
+                       action="extend",
                        metavar="NAME", help="Workbook sheets in exactly this order")
     style.add_argument("--contains", action="append", metavar="TEXT",
                        help="Workbook contains text anywhere")
@@ -1461,26 +1527,35 @@ Available patterns for --has-pattern:
     style.add_argument("--fill-color", nargs=2, action=CellPairAction,
                        metavar=("N", "RGB"), help="Row N has fill RGB (\"r g b\" decimals)")
     style.add_argument("--row-fill-contains", nargs=2, action=CellPairAction,
-                       metavar=("TEXT", "RGB"), help="Rows containing TEXT have fill RGB")
+                       metavar=("TEXT", "RGB"),
+                       help="EVERY row containing TEXT has fill RGB "
+                            "(fails when no row contains TEXT)")
+    style.add_argument("--row-fill-contains-any", nargs=2, action=CellPairAction,
+                       metavar=("TEXT", "RGB"),
+                       help="At least one row containing TEXT has fill RGB")
     style.add_argument("--row-bold-contains", action="append", metavar="TEXT",
-                       help="Rows containing TEXT are bold")
+                       help="EVERY row containing TEXT has a bold non-empty "
+                            "cell (fails when no row contains TEXT)")
+    style.add_argument("--row-bold-contains-any", action="append", metavar="TEXT",
+                       help="At least one row containing TEXT has a bold "
+                            "non-empty cell")
     style.add_argument("--border-row", nargs=3, action=CellPairAction,
                        metavar=("N", "SIDE", "STYLE"),
                        help="Row N has SIDE (top/bottom/left/right) border of STYLE")
     style.add_argument("--cell-border", nargs=3, action=CellPairAction,
                        metavar=("REF", "SIDE", "STYLE"),
                        help="Cell REF has SIDE (top/bottom/left/right) border of STYLE")
-    style.add_argument("--cell-no-fill", nargs="+", metavar="REF",
+    style.add_argument("--cell-no-fill", nargs="+", action="extend", metavar="REF",
                        help="Cell(s) REF have no solid fill")
-    style.add_argument("--cell-wrap", nargs="+", metavar="REF",
+    style.add_argument("--cell-wrap", nargs="+", action="extend", metavar="REF",
                        help="Cell(s) REF have wrap_text enabled")
-    style.add_argument("--min-merges", type=int, metavar="N",
+    style.add_argument("--min-merges", action=OnceAction, type=int, metavar="N",
                        help="At least N merged ranges")
     style.add_argument("--no-empty-cols", action="store_true",
                        help="No fully empty columns in used range")
     style.add_argument("--has-freeze-panes", action="store_true",
                        help="Sheet has freeze panes")
-    style.add_argument("--freeze-panes", metavar="REF",
+    style.add_argument("--freeze-panes", action=OnceAction, metavar="REF",
                        help="Sheet freeze panes exactly at REF, e.g. A3 or B2")
     style.add_argument("--number-format", nargs=2, action=CellPairAction,
                        metavar=("REF", "FORMAT"), help="Cell REF has number format FORMAT")
@@ -1500,7 +1575,7 @@ Available patterns for --has-pattern:
                             "a plain numeric format)")
     # Output options
     out = parser.add_argument_group("Output options")
-    out.add_argument("--result-file", metavar="PATH",
+    out.add_argument("--result-file", action=OnceAction, metavar="PATH",
                      help="Write PASS/FAIL to file for Stata integration "
                           "(FAIL on every error path and when no checks ran)")
     out.add_argument("--quiet", "-q", action="store_true",
@@ -1511,19 +1586,20 @@ Available patterns for --has-pattern:
     return parser
 
 
-def _requested_result_file(argv: list[str]) -> Optional[str]:
-    """The --result-file path in raw argv, read without the full parser.
+def _requested_result_files(argv: list[str]) -> list[str]:
+    """Every --result-file path in raw argv, read without the full parser.
 
     Used only when the full parser rejects the command line, so a rejected
-    flag can still overwrite a stale PASS.
+    flag (including a repeated --result-file) can still overwrite a stale
+    PASS at each requested path.
     """
     probe = argparse.ArgumentParser(add_help=False)
-    probe.add_argument("--result-file")
+    probe.add_argument("--result-file", action="append")
     try:
         known, _ = probe.parse_known_args(argv)
     except SystemExit:
-        return None
-    return known.result_file or None
+        return []
+    return [p for p in (known.result_file or []) if p]
 
 
 def _stamp_fail(path: Optional[str]) -> None:
@@ -1545,8 +1621,9 @@ def main():
         # line, which must not leave an earlier run's PASS behind.
         if exc.code not in (0, None):
             with contextlib.redirect_stderr(io.StringIO()):
-                requested = _requested_result_file(sys.argv[1:])
-            _stamp_fail(requested)
+                requested = _requested_result_files(sys.argv[1:])
+            for path in requested:
+                _stamp_fail(path)
         raise
 
     # Validate file extension
