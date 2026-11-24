@@ -1,4 +1,4 @@
-*! qa-lib _qa_fx_a6 1.0.0 sha256:30be01f7bed706803b095fe4388d513ef392ab9fbde748c64eec728cde81fc88
+*! qa-lib _qa_fx_a6 1.0.1 sha256:8e40c6aa6bd5b8704547d37c2aa5ec18012f02bc0198565e34220d6e3b18711d
 * _qa_fx_a6.do -- A6 deterministic aggregate / contrast fixtures
 * Timothy P Copeland, Karolinska Institutet
 *
@@ -65,7 +65,7 @@ program define _qa_fxa6_args
             exit 198
         }
     }
-    if "`op'"!="" & !`: list op in known' {
+    if "`op'"!="" & (`: word count `op''!=1 | !`: list op in known') {
         di as error "`who': exactly one supported operator required: `known'"
         exit 198
     }
@@ -76,7 +76,7 @@ program define _qa_fxa6_meta
     version 16.0
     args generator seed tier op schema
     char _dta[qa_fx_generator] "_qa_fx_a6 `generator'"
-    char _dta[qa_fx_version] "1.0.0"
+    char _dta[qa_fx_version] "1.0.1"
     char _dta[qa_fx_seed] "`seed'"
     char _dta[qa_fx_tier] "`tier'"
     char _dta[qa_fx_perturb] "`op'"
@@ -284,7 +284,8 @@ program define qa_fx_a6_estmat, rclass
         quietly replace ci_unbounded=1 in 1
         assert ll==.a & ul==.b & ci_unbounded==1 in 1
     }
-    if "`perturb'"=="missing_se" assert missing(se,ll,ul,p) in 2
+    * missing(a,b,...) is true when ANY argument is missing; require all four missing
+    if "`perturb'"=="missing_se" assert missing(se) & missing(ll) & missing(ul) & missing(p) in 2
     if "`perturb'"=="boundary_values" assert b==0 & p==1 in 3
     tempname T B V
     quietly mkmat b se ll ul p, matrix(`T')

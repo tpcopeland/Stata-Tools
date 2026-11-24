@@ -1,4 +1,4 @@
-*! qa-lib _qa_fx_a7 1.0.0 sha256:4e24f84d0822a92815e43215d5cca1dc7baa87f7c538a2311e5b1044fd9522f4
+*! qa-lib _qa_fx_a7 1.0.1 sha256:b0766440fa26b39d639942b0de3adf2232d5ca79af54b6eacc9c19d1178bce6d
 * _qa_fx_a7.do -- A7 deterministic labelled datasets / owned file trees
 * Timothy P Copeland, Karolinska Institutet
 *
@@ -146,7 +146,7 @@ program define _qa_fxa7_args
             exit 198
         }
     }
-    if "`op'"!="" & !`: list op in known' {
+    if "`op'"!="" & (`: word count `op''!=1 | !`: list op in known') {
         di as error "`who': exactly one supported operator required: `known'"
         exit 198
     }
@@ -157,7 +157,7 @@ program define _qa_fxa7_meta
     version 16.0
     args generator seed tier op schema
     char _dta[qa_fx_generator] "_qa_fx_a7 `generator'"
-    char _dta[qa_fx_version] "1.0.0"
+    char _dta[qa_fx_version] "1.0.1"
     char _dta[qa_fx_seed] "`seed'"
     char _dta[qa_fx_tier] "`tier'"
     char _dta[qa_fx_perturb] "`op'"

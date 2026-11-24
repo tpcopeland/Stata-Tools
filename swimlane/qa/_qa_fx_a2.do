@@ -1,4 +1,4 @@
-*! qa-lib _qa_fx_a2 1.0.0 sha256:bb0ca5dd51acfdcda070f0d9d6c66da2e69b122c261ab1518fd66d2e3aa125f8
+*! qa-lib _qa_fx_a2 1.0.1 sha256:1a5d5db01f39b55cea131ed7c0105b5003bd817cb9f8e2a118aed14ee6d411f2
 * _qa_fx_a2.do -- A2 single-record survival / competing-risk fixtures
 *
 * Load: do "`qa_dir'/_qa_fx_a2.do"
@@ -387,7 +387,7 @@ program define qa_fx_a2_lifetable, rclass
     _qa_fxa2_stamp `boundaries' truth_boundaries
     _qa_fxa2_rename "`names'"
     char _dta[qa_fx_generator] "_qa_fx_a2 qa_fx_a2_lifetable"
-    char _dta[qa_fx_version] "1.0.0"
+    char _dta[qa_fx_version] "1.0.1"
     char _dta[qa_fx_seed] "`seed'"
     char _dta[qa_fx_perturb] "`ops'"
     char _dta[qa_fx_tier] "`tier'"
@@ -410,8 +410,7 @@ program define qa_fx_a2_lifetable, rclass
     return local truth_scope "empirical_integer_design"
     local expect ""
     if `: word count `ops''==1 {
-        local expect = cond(inlist("`ops'","noevent","empty_stratum"),"REFUSED",cond(inlist("`ops'","unsorted","codes_multidigit"),"INVARIANT","EXACT"))
-        if "`ops'"=="empty_stratum" local expect EXACT
+        local expect = cond("`ops'"=="noevent","REFUSED",cond(inlist("`ops'","unsorted","codes_multidigit"),"INVARIANT","EXACT"))
     }
     return local expect_class "`expect'"
 end
@@ -542,7 +541,7 @@ program define qa_fx_a2_pwexp, rclass
     quietly count
     local nrows = r(N)
     char _dta[qa_fx_generator] "_qa_fx_a2 qa_fx_a2_pwexp"
-    char _dta[qa_fx_version] "1.0.0"
+    char _dta[qa_fx_version] "1.0.1"
     char _dta[qa_fx_seed] "`seed'"
     char _dta[qa_fx_perturb] "`ops'"
     char _dta[qa_fx_tier] "`tier'"
